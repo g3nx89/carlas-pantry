@@ -6,20 +6,20 @@ A curated marketplace of Claude Code plugins for product development workflows.
 
 | Plugin | Description | Install |
 |--------|-------------|---------|
-| [product-definition](plugins/product-definition) | Transform rough product drafts into finalized PRDs through iterative Q&A | `claude plugins add <url>/plugins/product-definition` |
+| [product-definition](plugins/product-definition) | Transform rough product drafts into finalized PRDs through iterative Q&A | `claude plugins add https://github.com/g3nx89/carlas-pantry/plugins/product-definition` |
 
 ## Installation
 
-### From GitHub (when published)
+### From GitHub
 
 ```bash
-claude plugins add https://github.com/USER/carlas-pantry/plugins/PLUGIN_NAME
+claude plugins add https://github.com/g3nx89/carlas-pantry/plugins/PLUGIN_NAME
 ```
 
 ### From Local Clone
 
 ```bash
-git clone https://github.com/USER/carlas-pantry.git
+git clone https://github.com/g3nx89/carlas-pantry.git
 claude plugins add ./carlas-pantry/plugins/PLUGIN_NAME
 claude plugins enable PLUGIN_NAME
 ```
