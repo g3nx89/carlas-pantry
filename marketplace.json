@@ -1,0 +1,15 @@
+{
+  "name": "carlas-pantry",
+  "displayName": "Carla's Pantry",
+  "description": "A curated marketplace of Claude Code plugins for product development workflows",
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "name": "product-definition",
+      "path": "plugins/product-definition",
+      "version": "1.0.0",
+      "description": "Transform rough product drafts into finalized PRDs through iterative Q&A",
+      "keywords": ["prd", "requirements", "product-management", "business-analysis"]
+    }
+  ]
+}

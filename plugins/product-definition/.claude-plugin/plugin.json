@@ -1,0 +1,18 @@
+{
+  "name": "product-definition",
+  "version": "1.0.0",
+  "description": "Transform rough product drafts into finalized, non-technical PRDs through iterative file-based Q&A with multi-perspective analysis",
+  "author": {
+    "name": "Alessandro Fato",
+    "email": "afato@example.com"
+  },
+  "keywords": [
+    "prd",
+    "requirements",
+    "product-management",
+    "business-analysis",
+    "mpa",
+    "multi-perspective"
+  ],
+  "license": "MIT"
+}

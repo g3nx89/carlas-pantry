@@ -1,0 +1,491 @@
+# Requirements Refinement Configuration
+# Version: 1.0.0
+#
+# Plugin: product-definition
+# Command: /product-definition:requirements
+
+version: "1.0.0"
+last_updated: "2026-01-28"
+
+# =============================================================================
+# DIRECTORY STRUCTURE (User's working directory - NOT plugin directory)
+# =============================================================================
+
+directories:
+  root: "requirements"
+  drafts: "requirements/draft"
+  working: "requirements/working"
+  research: "requirements/research"
+  research_questions: "requirements/research/questions"
+  research_reports: "requirements/research/reports"
+  analysis: "requirements/analysis"
+  # Output files in root: PRD.md, decision-log.md, completion-report.md
+
+# =============================================================================
+# STATE MANAGEMENT
+# =============================================================================
+
+state:
+  file_name: ".requirements-state.local.md"
+  lock_file_name: ".requirements-lock"
+  lock_staleness_hours: 2
+  schema_version: 1
+
+# =============================================================================
+# ANALYSIS MODES (User Choice)
+# =============================================================================
+
+analysis_modes:
+  complete:
+    description: "MPA + PAL ThinkDeep (3×3) + Sequential Thinking"
+    mpa_enabled: true
+    mpa_agents: 3
+    pal_thinkdeep_enabled: true
+    pal_thinkdeep_perspectives: 3  # competitive, risk, contrarian
+    pal_thinkdeep_models: 3        # gpt-5.2, gemini-3-pro-preview, grok-4
+    pal_thinkdeep_total_calls: 9   # 3 perspectives × 3 models
+    sequential_thinking_enabled: true
+    pal_consensus_enabled: true
+    estimated_cost_per_round: "$0.80-1.50"
+    requires_mcp: true  # Degrades gracefully if unavailable
+
+  advanced:
+    description: "MPA + PAL ThinkDeep (2×3)"
+    mpa_enabled: true
+    mpa_agents: 3
+    pal_thinkdeep_enabled: true
+    pal_thinkdeep_perspectives: 2  # competitive, risk (no contrarian)
+    pal_thinkdeep_models: 3        # gpt-5.2, gemini-3-pro-preview, grok-4
+    pal_thinkdeep_total_calls: 6   # 2 perspectives × 3 models
+    sequential_thinking_enabled: false
+    pal_consensus_enabled: false
+    estimated_cost_per_round: "$0.50-0.80"
+    requires_mcp: true  # Degrades gracefully if unavailable
+
+  standard:
+    description: "MPA only"
+    mpa_enabled: true
+    mpa_agents: 3
+    pal_thinkdeep_enabled: false
+    pal_thinkdeep_perspectives: 0
+    sequential_thinking_enabled: false
+    pal_consensus_enabled: false
+    estimated_cost_per_round: "$0.15-0.25"
+    requires_mcp: false  # Works without MCP tools
+
+  rapid:
+    description: "Single BA agent"
+    mpa_enabled: false
+    mpa_agents: 0
+    pal_thinkdeep_enabled: false
+    pal_thinkdeep_perspectives: 0
+    sequential_thinking_enabled: false
+    pal_consensus_enabled: false
+    estimated_cost_per_round: "$0.05-0.10"
+    requires_mcp: false  # Works without MCP tools
+
+# =============================================================================
+# QUESTION GENERATION
+# =============================================================================
+
+questions:
+  max_per_round: 25
+  min_options_per_question: 3
+  max_options_per_question: 4  # 3 predefined + 1 custom "Other (custom answer)"
+  deduplication_threshold: 0.80
+
+  priority_formula:
+    impact_weight: 0.40
+    urgency_weight: 0.30
+    perspectives_weight: 0.20
+    clarity_weight: 0.10
+
+  file_naming: "QUESTIONS-{NNN}.md"  # NNN = zero-padded round number
+
+# =============================================================================
+# MPA CONFIGURATION
+# =============================================================================
+
+mpa:
+  enabled: true
+  parallel_execution: true
+
+  agents:
+    product_strategy:
+      enabled: true
+      model: "sonnet"
+      # NO LIMIT: Generate ALL questions necessary for complete PRD coverage
+      questions_limit: null  # No artificial limit
+      file: "$CLAUDE_PLUGIN_ROOT/agents/requirements-product-strategy.md"
+      focus_areas:
+        - product_vision
+        - market_positioning
+        - competitive_differentiation
+        - business_model
+        - pricing_strategy
+
+    user_experience:
+      enabled: true
+      model: "sonnet"
+      # NO LIMIT: Generate ALL questions necessary for complete PRD coverage
+      questions_limit: null  # No artificial limit
+      file: "$CLAUDE_PLUGIN_ROOT/agents/requirements-user-experience.md"
+      focus_areas:
+        - personas
+        - user_journeys
+        - pain_points
+        - emotional_design
+        - accessibility
+
+    business_operations:
+      enabled: true
+      model: "sonnet"
+      # NO LIMIT: Generate ALL questions necessary for complete PRD coverage
+      questions_limit: null  # No artificial limit
+      file: "$CLAUDE_PLUGIN_ROOT/agents/requirements-business-ops.md"
+      focus_areas:
+        - operational_viability
+        - business_constraints
+        - regulatory_compliance
+        - scalability_business
+        - external_dependencies
+
+  synthesis:
+    agent: "$CLAUDE_PLUGIN_ROOT/agents/requirements-question-synthesis.md"
+    model: "opus"
+
+  fallback:
+    continue_on_failure: true
+    min_agents_required: 2
+
+# =============================================================================
+# PAL CONFIGURATION (Graceful Degradation)
+# =============================================================================
+
+pal:
+  enabled: true
+  graceful_degradation: true  # Continue without PAL if unavailable
+
+  thinkdeep:
+    enabled: true
+
+    # 3×3 MATRIX: Each perspective runs on ALL 3 models = 9 total calls
+    # This maximizes insight diversity by combining different analytical angles
+    # with different model strengths/biases
+
+    models:
+      - id: "gpt-5.2"
+        thinking_mode: "high"
+        strength: "Structured reasoning, systematic analysis"
+      - id: "gemini-3-pro-preview"
+        thinking_mode: "high"
+        strength: "Broad knowledge, nuanced understanding"
+      - id: "openrouter/x-ai/grok-4"
+        thinking_mode: "high"
+        optional: true  # Continue if unavailable
+        strength: "Unconventional perspectives, assumption challenging"
+
+    perspectives:
+      competitive:
+        focus: "competitive_analysis"
+        run_on_all_models: true  # Runs on all 3 models
+        prompt_template: |
+          Analyze from a COMPETITIVE perspective:
+          - How do competitors approach this?
+          - What market gaps exist?
+          - What positioning opportunities are there?
+
+      risk:
+        focus: "risk_assessment"
+        run_on_all_models: true  # Runs on all 3 models
+        prompt_template: |
+          Analyze from a RISK perspective:
+          - What business risks exist?
+          - What assumptions need validation?
+          - What could cause this to fail?
+
+      contrarian:
+        focus: "assumption_challenge"
+        run_on_all_models: true  # Runs on all 3 models
+        prompt_template: |
+          Be the DEVIL'S ADVOCATE:
+          - Challenge every assumption
+          - What are we missing?
+          - Why might this be the wrong approach?
+
+    # Total calls per analysis mode:
+    # - COMPLETE: 3 perspectives × 3 models = 9 calls
+    # - ADVANCED: 2 perspectives × 3 models = 6 calls (competitive + risk only)
+    # - STANDARD: 0 calls (PAL ThinkDeep disabled)
+    # - RAPID: 0 calls (PAL ThinkDeep disabled)
+
+  consensus:
+    enabled: true
+    min_models: 2
+
+    question_validation:
+      enabled: true
+      phase: "2"
+      models:
+        - model: "gemini-3-pro-preview"
+          stance: "neutral"
+        - model: "gpt-5.2"
+          stance: "for"
+
+    response_validation:
+      enabled: true
+      phase: "4"
+      models:
+        - model: "gemini-3-pro-preview"
+          stance: "neutral"
+        - model: "gpt-5.2"
+          stance: "for"
+        - model: "openrouter/x-ai/grok-4"
+          stance: "against"
+          optional: true
+
+    prd_readiness:
+      enabled: true
+      phase: "5"
+      models:
+        - model: "gemini-3-pro-preview"
+          stance: "neutral"
+        - model: "gpt-5.2"
+          stance: "for"
+        - model: "openrouter/x-ai/grok-4"
+          stance: "against"
+          stance_prompt: "Challenge PRD completeness. Find what's missing."
+          optional: true
+
+      thresholds:
+        ready: 16
+        conditional: 12
+
+      dimensions:
+        - name: "product_definition"
+          weight: 0.15
+          description: "Is/Is Not clarity"
+        - name: "target_users"
+          weight: 0.15
+          description: "Personas and anti-personas"
+        - name: "problem_validation"
+          weight: 0.20
+          description: "Problem evidence and validation"
+        - name: "value_proposition"
+          weight: 0.15
+          description: "Core value and differentiators"
+        - name: "workflow_coverage"
+          weight: 0.15
+          description: "User journeys completeness"
+        - name: "feature_inventory"
+          weight: 0.10
+          description: "MVP vs future prioritization"
+        - name: "no_technical_content"
+          weight: 0.10
+          description: "Absence of implementation details"
+
+# =============================================================================
+# RESEARCH DISCOVERY
+# =============================================================================
+
+research_discovery:
+  enabled: true
+
+  modes:
+    simple:
+      agent: "$CLAUDE_PLUGIN_ROOT/agents/question-synthesis.md"
+      model: "sonnet"
+      sequential_thinking: true
+
+    mpa:
+      parallel: true
+      agents:
+        - name: "market"
+          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-business.md"
+        - name: "users"
+          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-ux.md"
+        - name: "viability"
+          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-technical.md"
+          focus_override: "business_viability"  # No tech focus for PRD
+
+  moments:
+    pre_first_round:
+      enabled: true
+      mandatory: false
+      focus: "market_understanding"
+
+    pre_subsequent_rounds:
+      enabled: true
+      mandatory: false
+      focus: "gap_resolution"
+
+    post_completion:
+      enabled: true
+      mandatory: false
+      focus: "assumption_validation"
+
+  templates:
+    synthesis: "$CLAUDE_PLUGIN_ROOT/templates/research-synthesis-template.md"
+    report: "$CLAUDE_PLUGIN_ROOT/templates/research-report-template.md"
+
+# =============================================================================
+# PRD GENERATION
+# =============================================================================
+
+prd:
+  generator_agent: "$CLAUDE_PLUGIN_ROOT/agents/requirements-prd-generator.md"
+  model: "opus"
+  template: "$CLAUDE_PLUGIN_ROOT/templates/prd-template.md"
+  decision_log: true
+
+  extend_mode:
+    enabled: true
+    merge_strategy: "preserve_existing"
+    section_status_values:
+      - "COMPLETE"
+      - "PARTIAL"
+      - "PLACEHOLDER"
+      - "MISSING"
+
+  sections:
+    - id: "executive_summary"
+      name: "Executive Summary"
+      required: true
+    - id: "product_definition"
+      name: "Product Definition"
+      required: true
+    - id: "target_users"
+      name: "Target Users"
+      required: true
+    - id: "problem_analysis"
+      name: "Problem Analysis"
+      required: true
+    - id: "value_proposition"
+      name: "Value Proposition"
+      required: true
+    - id: "core_workflows"
+      name: "Core Workflows"
+      required: true
+    - id: "feature_inventory"
+      name: "Feature Inventory"
+      required: true
+    - id: "screen_inventory"
+      name: "Screen Inventory"
+      required: false
+    - id: "business_constraints"
+      name: "Business Constraints"
+      required: true
+    - id: "assumptions_risks"
+      name: "Assumptions & Risks"
+      required: true
+
+  validation:
+    check_no_technical_details: true
+    technical_keywords_forbidden:
+      # Implementation
+      - "API"
+      - "endpoint"
+      - "backend"
+      - "frontend"
+      - "database"
+      - "server"
+      - "architecture"
+      - "implementation"
+      - "deploy"
+      - "microservice"
+      # Development
+      - "sprint"
+      - "story point"
+      - "velocity"
+      - "refactor"
+      - "technical debt"
+      # Performance (context-dependent)
+      - "latency"
+      - "throughput"
+      - "cache"
+      - "optimization"
+      # Specific tech
+      - "Kotlin"
+      - "Swift"
+      - "React"
+      - "AWS"
+      - "Firebase"
+      - "PostgreSQL"
+      - "MongoDB"
+
+# =============================================================================
+# GIT INTEGRATION
+# =============================================================================
+
+git:
+  enabled: true
+  suggest_commits: true
+  suggest_tags: true
+
+  branch_convention: "requirements/prd-development"
+
+  commit_prefixes:
+    wip: "wip(req)"
+    draft: "draft(req)"
+    question: "question(req)"
+    answer: "answer(req)"
+    research: "research(req)"
+    prd: "prd(req)"
+    decision: "decision(req)"
+
+  tag_convention: "prd-v{major}.{minor}.{patch}"
+
+  checkpoint_suggestions:
+    init: "wip(req): initialize requirements structure"
+    research_agenda: "research(req): generate research agenda"
+    questions_generated: "question(req): round {N} questions generated ({COUNT} items)"
+    answers_completed: "answer(req): round {N} responses completed"
+    prd_generated: "prd(req): generate PRD v{VERSION}"
+    complete: "prd(req): PRD complete"
+
+# =============================================================================
+# LIMITS
+# =============================================================================
+
+limits:
+  max_rounds: 100  # Circuit breaker - ask user to proceed after 100
+  # NO LIMIT on questions - generate ALL necessary for complete PRD
+  max_questions_total: null      # No artificial limit
+  max_questions_per_round: null  # No artificial limit per round
+  min_completion_rate: 1.00      # 100% questions MUST be answered (no skipping)
+  lock_staleness_hours: 2
+
+# =============================================================================
+# SCORING THRESHOLDS (Single Source of Truth)
+# =============================================================================
+
+scoring:
+  # PRD Readiness (Phase 10)
+  prd_readiness:
+    ready: 16        # /20 - GREEN: Proceed to generation
+    conditional: 12  # /20 - YELLOW: Proceed with warnings
+    not_ready: 0     # /20 - RED: Gather more information (< conditional)
+
+  # Star Rating for Options (Appendix A.3)
+  star_rating:
+    5_stars: { min: 90, max: 100, label: "Recommended" }
+    4_stars: { min: 75, max: 89, label: "Strong alternative" }
+    3_stars: { min: 60, max: 74, label: "Viable with trade-offs" }
+    2_stars: { min: 40, max: 59, label: "Risky or niche" }
+    1_star:  { min: 0,  max: 39, label: "Not recommended" }
+
+  # Completion Rate Thresholds (Phase 9)
+  completion:
+    required: 1.00   # 100% - all questions must be answered
+    warning: 0.80    # 80% - warn but allow proceed
+
+# =============================================================================
+# TEMPLATES (Plugin-relative paths)
+# =============================================================================
+
+templates:
+  draft: "$CLAUDE_PLUGIN_ROOT/templates/draft-template.md"
+  state: "$CLAUDE_PLUGIN_ROOT/templates/.requirements-state-template.local.md"
+  prd: "$CLAUDE_PLUGIN_ROOT/templates/prd-template.md"
+  questions: "$CLAUDE_PLUGIN_ROOT/templates/questions-template.md"
+  decision_log: "$CLAUDE_PLUGIN_ROOT/templates/decision-log-template.md"

@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Local plugin state (created by plugins during execution)
+**/.requirements-state.local.md
+**/.requirements-lock
+**/requirements/working/
+**/requirements/analysis/
+**/requirements/research/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.log
