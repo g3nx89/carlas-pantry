@@ -1,0 +1,33 @@
+{
+  "name": "carlas-pantry",
+  "owner": {
+    "name": "Alessandro Fato",
+    "email": "afato@example.com"
+  },
+  "metadata": {
+    "description": "A curated marketplace of Claude Code plugins for product development workflows",
+    "version": "1.0.0",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "product-definition",
+      "source": "./plugins/product-definition",
+      "description": "Transform rough product drafts into finalized, non-technical PRDs through iterative file-based Q&A with multi-perspective analysis",
+      "version": "1.0.0",
+      "author": {
+        "name": "Alessandro Fato"
+      },
+      "keywords": [
+        "prd",
+        "requirements",
+        "product-management",
+        "business-analysis",
+        "mpa",
+        "multi-perspective"
+      ],
+      "category": "product-development",
+      "license": "MIT"
+    }
+  ]
+}

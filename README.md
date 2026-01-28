@@ -4,24 +4,37 @@ A curated marketplace of Claude Code plugins for product development workflows.
 
 ## Available Plugins
 
-| Plugin | Description | Install |
-|--------|-------------|---------|
-| [product-definition](plugins/product-definition) | Transform rough product drafts into finalized PRDs through iterative Q&A | `claude plugins add https://github.com/g3nx89/carlas-pantry/plugins/product-definition` |
+| Plugin | Description | Category |
+|--------|-------------|----------|
+| [product-definition](plugins/product-definition) | Transform rough product drafts into finalized PRDs through iterative Q&A | product-development |
 
 ## Installation
 
-### From GitHub
+### Add the Marketplace
 
+**From GitHub:**
 ```bash
-claude plugins add https://github.com/g3nx89/carlas-pantry/plugins/PLUGIN_NAME
+/plugin marketplace add g3nx89/carlas-pantry
 ```
 
-### From Local Clone
-
+**From local clone:**
 ```bash
 git clone https://github.com/g3nx89/carlas-pantry.git
-claude plugins add ./carlas-pantry/plugins/PLUGIN_NAME
-claude plugins enable PLUGIN_NAME
+/plugin marketplace add ./carlas-pantry
+```
+
+### Install a Plugin
+
+Once the marketplace is added, install plugins by name:
+```bash
+/plugin install product-definition@carlas-pantry
+```
+
+### Update the Marketplace
+
+To get the latest plugins and updates:
+```bash
+/plugin marketplace update carlas-pantry
 ```
 
 ## Plugin Structure
