@@ -1,0 +1,502 @@
+# Planning Configuration
+# Configuration for /product-planning:plan command with ST/PAL integration
+
+# =============================================================================
+# ANALYSIS MODES
+# =============================================================================
+# Hierarchical modes with graceful degradation when MCP tools unavailable
+
+analysis_modes:
+  complete:
+    description: "Full analysis with PAL ThinkDeep + Sequential Thinking + Consensus + Full Test Plan"
+    mpa_agents: 6  # code-explorer, software-architect, tech-lead + 3 QA agents (MPA)
+    pal_thinkdeep_total_calls: 9  # 3 perspectives × 3 models
+    sequential_thinking_enabled: true
+    pal_consensus_enabled: true  # Both plan validation AND test coverage validation
+    requires_mcp: true
+    estimated_cost: "$0.80-1.50"  # Includes 9-phase workflow with test planning
+
+  advanced:
+    description: "MPA + ThinkDeep (reduced perspectives) + Test Plan"
+    mpa_agents: 5  # code-explorer, software-architect, tech-lead + 2 QA agents
+    pal_thinkdeep_total_calls: 6  # 2 perspectives × 3 models
+    sequential_thinking_enabled: false
+    pal_consensus_enabled: true  # Test coverage validation only
+    requires_mcp: true
+    estimated_cost: "$0.45-0.75"
+
+  standard:
+    description: "MPA only (no PAL/ST) + Basic Test Plan"
+    mpa_agents: 4  # code-explorer, software-architect, tech-lead + qa-strategist
+    pal_thinkdeep_total_calls: 0
+    sequential_thinking_enabled: false
+    pal_consensus_enabled: false
+    requires_mcp: false
+    estimated_cost: "$0.15-0.30"
+
+  rapid:
+    description: "Single agent fast path + Minimal Test Plan"
+    mpa_agents: 2  # software-architect + qa-strategist
+    pal_thinkdeep_total_calls: 0
+    sequential_thinking_enabled: false
+    pal_consensus_enabled: false
+    requires_mcp: false
+    estimated_cost: "$0.05-0.12"
+
+# Note on model names: The model identifiers (gpt-5.2, gemini-3-pro-preview, grok-4) are
+# configurable placeholders. Update these to match your available PAL/MCP model configurations.
+
+# Graceful degradation rules
+degradation:
+  if_pal_unavailable:
+    complete: standard
+    advanced: standard
+  if_st_unavailable:
+    complete: advanced  # Keeps PAL but loses ST
+    use_internal_reasoning: true
+    mark_degraded: true
+
+# =============================================================================
+# SEQUENTIAL THINKING
+# =============================================================================
+
+sequential_thinking:
+  # Template groups loaded from templates/sequential-thinking-templates.md
+  template_groups:
+    problem_decomposition: [T1, T2, T3]
+    codebase_analysis: [T4, T5, T6]
+    architecture_design: [T7, T8, T9, T10]
+    risk_assessment: [T11, T12, T13]
+    plan_validation: [T14, T15, T16]
+
+  # When to use each group
+  phase_mapping:
+    setup: null  # No ST needed
+    research: [codebase_analysis]
+    clarification: [problem_decomposition]
+    architecture: [architecture_design, risk_assessment]
+    validation: [plan_validation]
+
+  # Checkpoint after each group
+  checkpoint_after_group: true
+
+# =============================================================================
+# PAL THINKDEEP
+# =============================================================================
+
+pal:
+  thinkdeep:
+    # Models to use (in order of preference)
+    # NOTE: These are configurable placeholders. Update to match your PAL MCP server's
+    # available models. Common alternatives: claude-3-opus, gpt-4-turbo, gemini-pro
+    models:
+      - gpt-5.2
+      - gemini-3-pro-preview
+      - openrouter/x-ai/grok-4  # For diversity
+
+    # Architecture-focused perspectives
+    perspectives:
+      performance:
+        focus: scalability, latency, resource_efficiency, bottlenecks
+        prompt_template: |
+          Analyze this architecture plan from a PERFORMANCE perspective.
+
+          MY CURRENT ANALYSIS:
+          {current_analysis}
+
+          EXTEND MY ANALYSIS - Focus on:
+          1. Scalability bottlenecks and horizontal/vertical scaling implications
+          2. Latency-sensitive paths and potential optimizations
+          3. Resource efficiency (memory, CPU, I/O patterns)
+          4. Caching strategies and data locality
+          5. Async patterns and parallelization opportunities
+        run_on_all_models: true
+
+      maintainability:
+        focus: code_quality, extensibility, technical_debt, modularity
+        prompt_template: |
+          Analyze this architecture plan from a MAINTAINABILITY perspective.
+
+          MY CURRENT ANALYSIS:
+          {current_analysis}
+
+          EXTEND MY ANALYSIS - Focus on:
+          1. Coupling and cohesion of proposed components
+          2. Extensibility for future requirements
+          3. Technical debt introduced vs. avoided
+          4. Testing strategy and testability
+          5. Code patterns that aid or hinder maintainability
+        run_on_all_models: true
+
+      security:
+        focus: threat_modeling, compliance, vulnerabilities, data_protection
+        prompt_template: |
+          Analyze this architecture plan from a SECURITY perspective.
+
+          MY CURRENT ANALYSIS:
+          {current_analysis}
+
+          EXTEND MY ANALYSIS - Focus on:
+          1. Threat modeling (STRIDE categories)
+          2. Authentication and authorization patterns
+          3. Data protection (at rest, in transit)
+          4. Input validation and injection prevention
+          5. Compliance considerations (GDPR, SOC2, etc.)
+        run_on_all_models: true
+
+    # Mode variations
+    mode_matrix:
+      complete:
+        perspectives: [performance, maintainability, security]
+        models_per_perspective: 3
+        total_calls: 9
+      advanced:
+        perspectives: [performance, security]  # Skip maintainability
+        models_per_perspective: 3
+        total_calls: 6
+
+    # Problem context template
+    problem_context_template: |
+      IMPORTANT: This is ARCHITECTURE PLANNING, not code review.
+      We are designing the implementation approach for a feature.
+      Please analyze from an architecture perspective.
+
+      FEATURE SUMMARY:
+      {feature_summary}
+
+      CODEBASE CONTEXT:
+      {codebase_patterns}
+
+    # Output aggregation
+    output:
+      file: "{FEATURE_DIR}/analysis/thinkdeep-insights.md"
+      include_convergent: true  # Where all models agree
+      include_divergent: true   # Where models disagree → FLAG for decisions
+      priority_from_convergence: true  # Agreement = higher priority
+
+  # =============================================================================
+  # PAL CONSENSUS
+  # =============================================================================
+
+  consensus:
+    min_models: 2  # Minimum for valid consensus
+
+    # Models with stances
+    models:
+      - model: gemini-3-pro-preview
+        stance: neutral
+        stance_prompt: "Evaluate objectively"
+      - model: gpt-5.2
+        stance: for
+        stance_prompt: "Advocate for this plan's strengths"
+      - model: openrouter/x-ai/grok-4
+        stance: against
+        stance_prompt: "Challenge this plan. Find weaknesses and risks."
+
+    # Scoring dimensions (20 points total, 4 per dimension)
+    dimensions:
+      problem_understanding:
+        weight: 0.20
+        criteria: "Clear problem statement, root cause identified, scope defined"
+      architecture_quality:
+        weight: 0.25
+        criteria: "Sound design principles, appropriate patterns, good abstractions"
+      risk_mitigation:
+        weight: 0.20
+        criteria: "Risks identified, mitigations planned, fallback strategies"
+      implementation_clarity:
+        weight: 0.20
+        criteria: "Clear steps, dependencies mapped, acceptance criteria defined"
+      feasibility:
+        weight: 0.15
+        criteria: "Realistic scope, resource considerations, timeline alignment"
+
+    # Thresholds (score boundaries are inclusive on lower end)
+    # GREEN: score >= ready (16+)
+    # YELLOW: score >= conditional AND score < ready (12-15)
+    # RED: score < conditional (<12)
+    thresholds:
+      ready: 16        # GREEN - proceed to implementation (score >= 16)
+      conditional: 12  # YELLOW - proceed with documented risks (score >= 12)
+      # RED is implicit: score < conditional (score < 12)
+
+    # Output
+    output:
+      file: "{FEATURE_DIR}/analysis/consensus-validation.md"
+      include_per_model_scores: true
+      include_debate_summary: true
+
+# =============================================================================
+# MPA (MULTI-PERSPECTIVE ANALYSIS)
+# =============================================================================
+
+mpa:
+  agents:
+    # Phase 2-4 Agents
+    code_explorer:
+      file: "agents/code-explorer.md"
+      focus: "Codebase patterns, similar features, integration points"
+      output: "{FEATURE_DIR}/analysis/codebase-analysis.md"
+
+    software_architect:
+      file: "agents/software-architect.md"
+      focus: "Architecture options, design trade-offs, component design"
+      output: "{FEATURE_DIR}/analysis/architecture-options.md"
+
+    tech_lead:
+      file: "agents/tech-lead.md"
+      focus: "Task breakdown, dependencies, complexity, risks"
+      output: "{FEATURE_DIR}/analysis/task-breakdown.md"
+
+    # Phase 7 QA Agents (MPA for test planning)
+    qa_strategist:
+      file: "agents/qa-strategist.md"
+      focus: "V-Model test strategy, UAT scripts, coverage matrix"
+      output: "{FEATURE_DIR}/analysis/test-strategy-general.md"
+      modes: [complete, advanced, standard, rapid]
+
+    qa_security:
+      file: "agents/qa-security.md"
+      focus: "Security testing, STRIDE analysis, authentication/authorization"
+      output: "{FEATURE_DIR}/analysis/test-strategy-security.md"
+      modes: [complete, advanced]  # Only in higher modes
+
+    qa_performance:
+      file: "agents/qa-performance.md"
+      focus: "Performance testing, load/stress tests, latency requirements"
+      output: "{FEATURE_DIR}/analysis/test-strategy-performance.md"
+      modes: [complete, advanced]  # Only in higher modes
+
+  synthesis:
+    merge_strategy: "convergent_prioritization"
+    deduplication_threshold: 0.80
+    priority_weights:
+      impact: 0.35
+      risk: 0.30
+      complexity: 0.20
+      dependencies: 0.15
+
+# =============================================================================
+# STATE MANAGEMENT
+# =============================================================================
+
+state:
+  file: "{FEATURE_DIR}/.planning-state.local.md"
+  format: yaml_frontmatter
+
+  checkpoints:
+    - SETUP
+    - RESEARCH
+    - CLARIFICATION
+    - ARCHITECTURE
+    - THINKDEEP
+    - VALIDATION
+    - TEST_STRATEGY          # Phase 7: V-Model test planning
+    - TEST_COVERAGE_VALIDATION  # Phase 8: Coverage validation
+    - COMPLETION
+
+  # User decisions are immutable once saved
+  immutable_fields:
+    - user_decisions
+    - approved_architecture
+    - approved_test_strategy  # Test strategy locked after Phase 8
+
+  # Version tracking for drift detection
+  version_fields:
+    - spec_version
+    - plan_version
+    - design_version
+    - test_plan_version  # Track test plan version for updates
+
+  # Lock to prevent concurrent execution
+  lock:
+    file: "{FEATURE_DIR}/.planning.lock"
+    timeout_minutes: 60
+
+# =============================================================================
+# LIMITS AND GUARDS
+# =============================================================================
+
+limits:
+  max_clarifying_questions: 15
+  max_architecture_options: 4
+  max_tasks_per_story: 8
+  max_rounds: 10  # Circuit breaker
+
+guards:
+  require_spec_exists: true
+  require_constitution_exists: true
+  block_on_gate_failure: true
+
+# =============================================================================
+# TEST PLANNING (V-MODEL)
+# =============================================================================
+
+test_planning:
+  # State management for test planning skill
+  state:
+    file: "{FEATURE_DIR}/.test-planning-state.local.md"
+    format: yaml_frontmatter
+    checkpoints:
+      - T1_PREREQUISITES
+      - T2_RISK_ANALYSIS
+      - T3_TEST_LEVEL_PLANNING
+      - T4_UAT_GENERATION
+      - T5_COVERAGE_VALIDATION
+      - T6_OUTPUT_GENERATION
+
+  # Sequential Thinking templates for test planning
+  sequential_thinking:
+    risk_analysis:
+      - T-RISK-1  # Failure mode identification
+      - T-RISK-2  # Risk prioritization
+      - T-RISK-3  # Risk to test mapping
+
+  # Test level definitions (V-Model alignment)
+  test_levels:
+    unit:
+      loop: inner
+      trigger: every_commit
+      executor: ci_pipeline
+      pattern: tdd
+      scope: single_function_or_class
+      mocks: all_external_dependencies
+
+    integration:
+      loop: inner
+      trigger: every_pr
+      executor: ci_pipeline
+      pattern: post_implementation
+      scope: component_interaction
+      mocks: external_services_only
+
+    e2e:
+      loop: outer
+      trigger: pre_merge
+      executor: qa_automation
+      pattern: scenario_based
+      scope: complete_user_flow
+      evidence_required: true
+
+    uat:
+      loop: outer
+      trigger: pre_release
+      executor: product_owner
+      pattern: given_when_then
+      scope: user_story_validation
+      sign_off_required: true
+
+    exploratory:
+      loop: outer
+      trigger: pre_release
+      executor: qa_engineer
+      pattern: charter_based
+      scope: edge_cases_and_chaos
+      time_boxed: true
+
+  # Coverage validation settings
+  coverage:
+    # PAL Consensus for test coverage validation
+    consensus:
+      dimensions:
+        ac_coverage:
+          weight: 0.25
+          criteria: "All acceptance criteria mapped to tests"
+        risk_coverage:
+          weight: 0.25
+          criteria: "All Critical/High risks have test coverage"
+        uat_completeness:
+          weight: 0.20
+          criteria: "UAT scripts are clear and executable by non-technical users"
+        test_independence:
+          weight: 0.15
+          criteria: "Tests can run in isolation without dependencies"
+        maintainability:
+          weight: 0.15
+          criteria: "Tests are not brittle or over-specified"
+
+      # Thresholds (percentage)
+      thresholds:
+        ready: 80       # GREEN - proceed with TDD
+        conditional: 65  # YELLOW - proceed with documented gaps
+        not_ready: 64    # RED - add more tests
+
+    # Required coverage targets
+    targets:
+      acceptance_criteria: 100  # Every AC must have a test
+      critical_risks: 100       # Every Critical risk must have coverage
+      high_risks: 100           # Every High risk must have coverage
+      user_stories: 100         # Every story must have UAT
+
+  # UAT configuration
+  uat:
+    format: given_when_then
+    evidence:
+      screenshots_required: true
+      sign_off_required: true
+    templates:
+      script: "templates/uat-script-template.md"
+
+  # MPA agent for test planning
+  agents:
+    qa_strategist:
+      file: "agents/qa-strategist.md"
+      focus: "Risk analysis, test level planning, UAT generation"
+      output: "{FEATURE_DIR}/test-plan.md"
+
+  # Output artifact structure
+  output:
+    directories:
+      - "{FEATURE_DIR}/test-cases/unit/"
+      - "{FEATURE_DIR}/test-cases/integration/"
+      - "{FEATURE_DIR}/test-cases/e2e/"
+      - "{FEATURE_DIR}/test-cases/uat/"
+
+    artifacts:
+      test_plan: "{FEATURE_DIR}/test-plan.md"
+      coverage_validation: "{FEATURE_DIR}/analysis/test-coverage-validation.md"
+
+  # Test execution order (V-Model phases)
+  execution_order:
+    - phase: pre_implementation
+      tests: [unit]
+      pattern: tdd_red
+      description: "Write failing unit tests before code"
+
+    - phase: during_implementation
+      tests: [unit]
+      pattern: tdd_green_refactor
+      description: "Implement to pass tests, then refactor"
+
+    - phase: post_implementation
+      tests: [integration]
+      pattern: verify_boundaries
+      description: "Test component interactions"
+
+    - phase: pre_merge
+      tests: [e2e]
+      pattern: critical_paths
+      description: "Validate complete user flows"
+
+    - phase: pre_release
+      tests: [uat, exploratory]
+      pattern: stakeholder_validation
+      description: "Business acceptance and edge case discovery"
+
+# =============================================================================
+# OUTPUT ARTIFACTS
+# =============================================================================
+
+artifacts:
+  required:
+    - "{FEATURE_DIR}/plan.md"
+    - "{FEATURE_DIR}/design.md"
+
+  optional:
+    - "{FEATURE_DIR}/research.md"
+    - "{FEATURE_DIR}/data-model.md"
+    - "{FEATURE_DIR}/contract.md"
+    - "{FEATURE_DIR}/analysis/thinkdeep-insights.md"
+    - "{FEATURE_DIR}/analysis/consensus-validation.md"
+    - "{FEATURE_DIR}/test-plan.md"
+    - "{FEATURE_DIR}/analysis/test-coverage-validation.md"
