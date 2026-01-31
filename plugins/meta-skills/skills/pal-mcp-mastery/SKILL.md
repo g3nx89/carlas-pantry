@@ -71,6 +71,19 @@ Heavy task needing context isolation?
 | `challenge` | Test assumptions, prevent sycophancy | `prompt` (statement to challenge) |
 | `apilookup` | Current docs, avoid stale training data | `prompt` (API/SDK query) |
 
+## Tool Selection Matrix (with Reasoning Depth)
+
+| Developer Objective | Primary Tool | Reasoning Depth |
+|---------------------|--------------|-----------------|
+| Solve a specific runtime error | `debug` | High: Requires hypothesis testing |
+| Analyze a large legacy directory | `analyze` | Medium: Pattern recognition focus |
+| Decide between two frameworks | `consensus` | High: Multi-model debate |
+| Check code for security flaws | `codereview` | High: Focused on anti-patterns |
+| Draft a multi-phase feature roadmap | `planner` | Medium: Decomposition focus |
+| Verify documentation for a current-year API | `apilookup` | Low: Information retrieval |
+| Challenge a reflexive "Yes" from AI | `challenge` | High: Critical reasoning |
+| Delegate task to a fresh context | `clink` | Variable: Role-based isolation |
+
 ## Selective Reference Loading
 
 **Load tool-specific reference only when using that tool:**
@@ -90,6 +103,7 @@ Read: $SKILL_PATH/references/anti-patterns.md
 ```
 
 **Available references:**
+- `shared-parameters.md` - **Core parameters shared across tools** (confidence, thinking_mode, step workflow)
 - `tool-chat.md` - Collaborative conversation
 - `tool-thinkdeep.md` - Extended reasoning
 - `tool-consensus.md` - Multi-model debate
@@ -100,9 +114,12 @@ Read: $SKILL_PATH/references/anti-patterns.md
 - `tool-clink.md` - CLI subagent bridge
 - `tool-challenge.md` - Anti-sycophancy
 - `tool-apilookup.md` - Live API lookup
+- `tool-listmodels.md` - Model discovery
 - `workflows.md` - Common workflow templates
+- `context-management.md` - Thread limits, continuation_id patterns
 - `anti-patterns.md` - Mistakes to avoid
 - `troubleshooting.md` - Error handling
+- `architecture.md` - Provider matrix, Large Prompt Bridge, BaseTool model
 
 ## Essential Rules
 
@@ -115,12 +132,26 @@ Read: $SKILL_PATH/references/anti-patterns.md
 
 ## Common Parameter Values
 
+### Thinking Mode Token Budgets
+
+| Mode | Token Budget | Cost Multiplier | Latency | Use Case |
+|------|-------------|-----------------|---------|----------|
+| `minimal` | 128 | 1x | Ultra-low | Formatting, style checks, simple syntax |
+| `low` | 2,048 | 16x | Low | Basic explanations, routine logic |
+| `medium` | 8,192 | 64x | Moderate | Standard development, initial reviews |
+| `high` | 16,384 | 128x | High | Complex debugging, security audits |
+| `max` | 32,768 | 256x | Very High | Strategic architecture, critical safety |
+
+**Cost warning**: `max` mode costs 256x more than `minimal`. Use `medium` as default, escalate only when complexity requires it.
+
+### Confidence & Thinking Mode Values
+
 ```yaml
 # Confidence levels (in order)
-confidence: exploring | low | medium | high | certain
+confidence: exploring | low | medium | high | very_high | almost_certain | certain
 
 # Thinking modes (cost ascending)
-thinking_mode: none | low | medium | high | max
+thinking_mode: minimal | low | medium | high | max
 
 # Model aliases
 model: auto | pro | flash | o3 | o4-mini | gpt5 | gpt5-mini
@@ -141,6 +172,19 @@ role: default | planner | codereviewer
 | Fast iteration | `flash` | Lower latency/cost |
 | Complex analysis | `pro` (Gemini) | Capability/cost balance |
 | Large codebase | Gemini Pro | 1M token context |
+
+## Troubleshooting Quick Index
+
+| Symptom | Quick Fix | See |
+|---------|-----------|-----|
+| `MCP error -32001: Request timed out` | Set `MCP_TOOL_TIMEOUT=300000` | `troubleshooting.md` |
+| `zen ✘ failed` | Install uvx or use explicit model | Connection Failures |
+| AI looping without progress | Request summary, start fresh | Being Stuck section |
+| Model not available | Check `listmodels`, verify API key | Error Lookup Table |
+| Response blocked | Try different model or simplify prompt | Model-Specific Issues |
+| Changes not taking effect | Set `FORCE_ENV_FILE=true`, restart Claude | Environment Variables |
+
+**Full reference**: `$SKILL_PATH/references/troubleshooting.md`
 
 ## When NOT to Use PAL
 

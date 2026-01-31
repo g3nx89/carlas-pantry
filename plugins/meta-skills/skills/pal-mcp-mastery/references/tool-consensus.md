@@ -11,6 +11,7 @@ Gather perspectives from multiple AI models on a decision, run structured debate
 - Risk assessment
 - Any decision benefiting from multiple expert perspectives
 - When you need to reduce single-model bias
+- **Breaking AI sycophancy** - prevents models from simply agreeing with bad ideas
 
 ## Parameters
 
@@ -38,6 +39,8 @@ models:
   - model: "o3"
     stance: "neutral"
 ```
+
+**Important:** Each `(model, stance)` combination must be unique. You CAN use the same model with different stances (e.g., gpt-5 for, gpt-5 against) but NOT duplicate pairs.
 
 ## Stance Steering
 
@@ -98,6 +101,19 @@ consensus(
 2. **Gemini + OpenAI models** often surface complementary considerations
 3. **Use stance steering** to ensure genuine debate, not echo chamber
 4. **Follow with `challenge`** if all models agree too easily
+5. **Sequential processing** - consensus gathers all perspectives before synthesis to avoid MCP reliability issues
+
+## Multi-Agent Debate Hall Pattern
+
+A powerful community pattern assigns three models with complementary roles:
+
+| Role | Model | Focus |
+|------|-------|-------|
+| **The Architect** | o3 | Logical purity, structural integrity |
+| **The Hacker** | Gemini Pro | Security exploits, edge cases |
+| **The User Advocate** | Sonnet | Maintainability, developer experience |
+
+This structured conflict consistently produces higher-quality decisions than any single model.
 
 ## Common Mistakes
 
@@ -107,3 +123,25 @@ consensus(
 | All models with same stance | Use diverse stances (for/against/neutral) |
 | Consensus on obvious questions | Use `chat` for clear-cut decisions |
 | Skipping synthesis step | Always include final synthesis |
+
+---
+
+## Context Budget Impact
+
+| Factor | Impact | Mitigation |
+|--------|--------|------------|
+| Number of models | Each model adds full context | Use 2-3 models, not 5+ |
+| `relevant_files` | Duplicated for each model | Keep file list minimal |
+| Synthesis step | Aggregates all model responses | Essential, don't skip |
+
+**Cost formula**: `base_context × num_models + synthesis_overhead`
+
+**Tip**: For simple questions, use `chat` instead. Reserve consensus for genuinely contested decisions.
+
+---
+
+## See Also
+
+- **challenge** - Use after consensus to check for groupthink
+- **chat** - For simple questions not needing multi-model debate
+- **thinkdeep** - For single-model deep analysis (different from consensus)

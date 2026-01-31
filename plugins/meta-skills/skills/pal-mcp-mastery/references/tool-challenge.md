@@ -12,6 +12,15 @@ Force critical evaluation of assumptions and approaches, preventing reflexive ag
 - After consensus reaches agreement (check for groupthink)
 - Validating assumptions you're uncertain about
 
+## ⚠️ Auto-Trigger Rule
+
+**Invoke `challenge` automatically** whenever you find yourself responding with variations of:
+- "You're absolutely right!"
+- "That's a great idea!"
+- "I completely agree!"
+
+This is the **primary guardrail against sycophancy**. If you're agreeing enthusiastically without testing the assumption, stop and challenge it first.
+
 ## Parameters
 
 | Parameter | Type | Required | Description |
@@ -85,3 +94,10 @@ challenge(
 | Challenging every decision | Reserve for critical choices |
 | Vague challenge statements | Be specific about what to challenge |
 | Ignoring challenge output | Incorporate findings into decision |
+
+---
+
+## See Also
+
+- **consensus** - Challenge is often used after consensus recommendations
+- **thinkdeep** - Use for initial analysis before challenging conclusions

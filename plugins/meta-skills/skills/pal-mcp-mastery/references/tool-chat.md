@@ -53,6 +53,16 @@ chat(
 - Conversational response with reasoning
 - `continuation_id` for threading follow-ups
 - Can reference provided files
+- **Code Generation**: When generating code, saves to `pal_generated.code` file in the working directory
+
+## Optimal Use Cases
+
+| Use Case | Why chat Excels |
+|----------|-----------------|
+| Algorithm explanations | File context + multi-turn discussion |
+| Technology comparisons | Quick brainstorming (PostgreSQL vs MongoDB) |
+| Architectural discussions | Multiple perspectives via continuation |
+| Quick questions | Faster than thinkdeep for simple queries |
 
 ## Best Practices
 
@@ -68,3 +78,11 @@ chat(
 | Using relative paths | Always use absolute paths |
 | Not using continuation_id for follow-ups | Pass the ID from previous response |
 | Using chat for complex analysis | Use `thinkdeep` instead |
+
+---
+
+## See Also
+
+- **thinkdeep** - For deep analysis requiring multiple reasoning steps
+- **challenge** - For validating assumptions before acting on chat advice
+- **apilookup** - For current API documentation (chat may have stale knowledge)

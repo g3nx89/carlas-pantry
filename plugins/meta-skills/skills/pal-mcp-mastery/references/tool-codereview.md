@@ -1,5 +1,7 @@
 # codereview - Systematic Code Analysis
 
+> **Shared parameters**: See `shared-parameters.md` for `step`, `step_number`, `total_steps`, `confidence`, and other common parameters.
+
 ## Purpose
 
 Professional code review with multi-pass analysis, severity classification, confidence tracking, and actionable recommendations.
@@ -27,7 +29,8 @@ Professional code review with multi-pass analysis, severity classification, conf
 | `files_checked` | array | No | All files examined |
 | `issues_found` | array | No | Issues with severity |
 | `review_type` | string | No | full, security, performance, quick |
-| `review_validation_type` | string | No | external (expert follow-up) or internal |
+| `review_validation_type` | string | No | external (default, 2 steps) or internal (1 step only) |
+| `use_assistant_model` | boolean | No | Default True. Enables external model validation |
 | `severity_filter` | string | No | Minimum severity to report |
 | `focus_on` | string | No | Areas to emphasize |
 | `standards` | string | No | Coding standards to enforce |
@@ -36,12 +39,12 @@ Professional code review with multi-pass analysis, severity classification, conf
 
 ## Severity Levels
 
-| Level | Description | Action Required |
-|-------|-------------|-----------------|
-| **CRITICAL** | Security vulnerabilities, data loss risks | Block merge |
-| **HIGH** | Bugs likely to cause production issues | Must fix before merge |
-| **MEDIUM** | Code quality, maintainability concerns | Should fix |
-| **LOW** | Style, minor improvements | Consider fixing |
+| Level | Icon | Description | Action Required |
+|-------|------|-------------|-----------------|
+| **CRITICAL** | 🔴 | Security flaws, data corruption, crashes | Block merge |
+| **HIGH** | 🟠 | Logic errors, major performance bottlenecks | Must fix before merge |
+| **MEDIUM** | 🟡 | Code smells, maintainability issues | Should fix |
+| **LOW** | 🟢 | Documentation, style, formatting | Consider fixing |
 
 ## Multi-Pass Workflow
 
@@ -113,6 +116,36 @@ codereview(
 4. **Use continuation_id** to maintain context between passes
 5. **Different models catch different issues** - use variety
 
+## Two-Phase Methodology
+
+Like the debug tool, codereview uses a two-phase approach:
+
+1. **Investigation Phase**: Primary agent examines code, traces dependencies, gathers findings across multiple steps
+2. **Expert Analysis Phase**: If confidence < "certain", automatically triggers assistant model for deep-dive analysis
+
+**Tip:** Set `use_assistant_model=false` for quick style checks where external validation isn't needed.
+
+## codereview vs analyze
+
+| Tool | Purpose | Output |
+|------|---------|--------|
+| `codereview` | Find bugs, security flaws, quality issues | **Prescriptive** - specific fixes |
+| `analyze` | Understand architecture, patterns | **Explanatory** - how it works |
+
+Don't run both on the same file in the same turn - they have overlapping logic.
+
+## Parameter Recipes
+
+| Parameter | Quick Review | Security Audit |
+|-----------|-------------|----------------|
+| `model` | flash | pro or o3 |
+| `review_type` | quick | security |
+| `total_steps` | 2 | 4-6 |
+| `severity_filter` | critical | all |
+| `use_assistant_model` | false | **true** |
+
+**Key insight**: For security-sensitive code, use multiple models across passes (auto → pro → o3) and always enable `use_assistant_model=true`.
+
 ## Common Mistakes
 
 | Mistake | Fix |
@@ -121,3 +154,25 @@ codereview(
 | Skipping precommit after | Always follow with precommit |
 | Same model for all passes | Use different models for perspectives |
 | Relative file paths | Use absolute paths only |
+| Running analyze + codereview together | Choose one based on goal |
+
+---
+
+## Context Budget Impact
+
+| Factor | Impact | Mitigation |
+|--------|--------|------------|
+| Multi-pass analysis | Each pass adds findings | Limit to 3-4 passes for most reviews |
+| `relevant_files` | ~200 tokens/file | Use specific paths, not entire directories |
+| Multi-model passes | Each model gets full context | Use 2-3 models max for security audits |
+| `use_assistant_model=true` | Adds expert validation | Worth it for security-sensitive code |
+
+**Tip**: For large codebases, use `clink` with `codereviewer` role to isolate the review.
+
+---
+
+## See Also
+
+- **precommit** - Always use after codereview for final validation
+- **debug** - For investigating runtime bugs (different from code quality)
+- **consensus** - For architectural decisions found during review

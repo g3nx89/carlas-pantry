@@ -1,8 +1,14 @@
 # precommit - Git Change Validation
 
+> **Shared parameters**: See `shared-parameters.md` for `step`, `step_number`, `total_steps`, `confidence`, and other common parameters.
+
 ## Purpose
 
 Validate changes before committing to prevent regressions, catch incomplete implementations, and ensure code quality gates pass.
+
+**Important:** Tool enforces minimum 3 steps before completion. For external validation, a changeset file may be required.
+
+**Key capability:** Uses models to check for regressions or **deviations from the original plan** - especially powerful when continuing from a codereview session.
 
 ## When to Use
 
@@ -115,3 +121,10 @@ precommit(
 | Single step for complex changes | Use 3+ steps for external validation |
 | Not specifying path in step 1 | Always provide repository root |
 | Using precommit without prior codereview | Review first, then validate |
+
+---
+
+## See Also
+
+- **codereview** - Always run before precommit
+- **debug** - If precommit finds bugs, use debug to investigate

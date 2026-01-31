@@ -1,5 +1,7 @@
 # debug - Root Cause Analysis
 
+> **Shared parameters**: See `shared-parameters.md` for `step`, `step_number`, `total_steps`, `confidence`, `thinking_mode`, and other common parameters.
+
 ## Purpose
 
 Systematic debugging with hypothesis tracking, confidence levels, and evidence-based investigation for finding root causes.
@@ -100,6 +102,38 @@ debug(
 )
 ```
 
+## Parameter Recipes
+
+| Parameter | Standard Value | Deep Investigation Value |
+|-----------|---------------|-------------------------|
+| `model` | auto | pro or o3 |
+| `thinking_mode` | medium | high or max |
+| `step_number` | 1 | (Auto-increments per turn) |
+| `total_steps` | 3 | 5-8 (for complex bugs) |
+| `confidence` | exploring | certain (at completion) |
+| `use_assistant_model` | false | **true** (for maximum reliability) |
+
+**Key insight**: Set `use_assistant_model=true` for deep investigations - this triggers the expert analysis phase that validates your findings with a secondary model.
+
+## Vision-Guided Debugging
+
+For UI/UX issues, pass screenshots directly to vision-capable models:
+
+```
+debug(
+  step="Identify CSS layout discrepancy between design and render",
+  step_number=1,
+  total_steps=3,
+  next_step_required=True,
+  findings="Screenshot shows header overlapping content",
+  model="pro",  # Vision-capable
+  images=["/screenshots/broken-layout.png", "/designs/intended-layout.png"],
+  thinking_mode="high"
+)
+```
+
+Models like Gemini can identify the delta between intended design and rendered output, suggesting specific CSS overrides.
+
 ## Best Practices
 
 1. **Use `thinking_mode=max`** for complex debugging - worth the cost
@@ -107,6 +141,7 @@ debug(
 3. **Progress confidence naturally** based on evidence
 4. **"No bug found" is valid** if evidence supports it
 5. **Use 5-8 steps** for deep debugging sessions
+6. **Set `use_assistant_model=true`** for expert validation on complex bugs
 
 ## Common Mistakes
 
@@ -117,3 +152,24 @@ debug(
 | Using `certain` prematurely | Only use when 100% confirmed with evidence |
 | Single-step complex bugs | Use multiple steps for systematic investigation |
 | Low thinking_mode for subtle bugs | Use `high` or `max` for complex issues |
+
+---
+
+## Context Budget Impact
+
+| Factor | Impact | Mitigation |
+|--------|--------|------------|
+| `thinking_mode` | High modes consume 128-256x more tokens | Use `medium` for initial investigation |
+| `total_steps` | 5-8 steps for complex bugs | Summarize findings if exceeding 8 steps |
+| `files_checked` accumulation | Grows with each step | Focus on relevant files only |
+| `use_assistant_model=true` | Adds expert validation pass | Worth the cost for critical bugs |
+
+**Tip**: For complex bugs, use `clink` with Gemini to investigate large codebases without context overflow.
+
+---
+
+## See Also
+
+- **thinkdeep** - For architectural analysis without bug focus
+- **codereview** - For code quality review (use after debug fixes)
+- **precommit** - For validating fixes before commit

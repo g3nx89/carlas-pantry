@@ -87,3 +87,10 @@ codereview(
 | Vague queries | Be specific: include version, feature, platform |
 | Not following up | Use chat/thinkdeep to discuss findings |
 | Using for stable, mature APIs | May not be needed for stable APIs |
+
+---
+
+## See Also
+
+- **chat** - Use after apilookup to discuss findings
+- **thinkdeep** - For deep analysis of API patterns found

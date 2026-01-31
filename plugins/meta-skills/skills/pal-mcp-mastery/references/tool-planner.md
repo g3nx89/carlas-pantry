@@ -135,3 +135,10 @@ planner(
 | Not using continuation_id | Pass ID to maintain planning context |
 | Over-planning simple tasks | Use chat for simple planning |
 | Ignoring revision capability | Update steps when plans change |
+
+---
+
+## See Also
+
+- **clink** - Use after planning to dispatch phases to subagents
+- **chat** - For simpler planning that doesn't need multi-step breakdown

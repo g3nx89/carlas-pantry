@@ -273,6 +273,248 @@ precommit(step="Final regression check", ...)
 
 ---
 
+## Workflow F: Refactoring with Validation
+
+**Trigger:** Code cleanup, design pattern adoption, or tech debt reduction requiring safe, verified transformations.
+
+```
+Step 1: planner (outline refactor steps)
+─────────────────────────────────────────────────
+planner(
+  step="Break down refactor into safe, atomic steps",
+  step_number=1,
+  total_steps=3,
+  next_step_required=True,
+  model="pro"
+)
+→ Output: numbered task list with logical sequence
+
+Step 2: refactor/chat (execute transformations)
+─────────────────────────────────────────────────
+# If refactor tool enabled:
+refactor(
+  step="Execute step 1: [specific transformation]",
+  ...
+)
+
+# If refactor disabled, use chat:
+chat(
+  prompt="Implement step 1: [specific transformation]",
+  model="pro",
+  continuation_id="<from_planner>"
+)
+→ Work step by step, run tests after each major change
+
+Step 3: testgen (ensure coverage)
+─────────────────────────────────────────────────
+testgen(
+  prompt="Create unit tests for refactored components"
+)
+→ Generates tests for critical paths and edge cases
+
+Step 4: codereview (validate changes)
+─────────────────────────────────────────────────
+codereview(
+  step="Verify refactor didn't introduce issues",
+  step_number=1,
+  total_steps=2,
+  next_step_required=True,
+  findings="Checking for incomplete changes, unused code",
+  model="pro",
+  relevant_files=["/src/refactored_module/"],
+  continuation_id="<from_step_3>"
+)
+
+Step 5: precommit (final regression check)
+─────────────────────────────────────────────────
+precommit(
+  step="Final validation before commit",
+  step_number=1,
+  total_steps=3,
+  next_step_required=False,
+  findings="All checks pass",
+  model="pro",
+  continuation_id="<from_step_4>"
+)
+```
+
+**Key insight:** Interleave tests between steps. Don't save all validation for the end—catch issues early.
+
+---
+
+## Workflow G: Debugging Production Issues
+
+**Trigger:** Production incident with logs/metrics but hard to reproduce locally.
+
+```
+Step 1: debug (analyze production logs)
+─────────────────────────────────────────────────
+debug(
+  step="Analyze production logs for patterns",
+  step_number=1,
+  total_steps=4,
+  next_step_required=True,
+  findings="Initial log analysis: [paste abbreviated logs]",
+  model="o3",
+  thinking_mode="high"
+)
+→ Tip: Preprocess logs - summarize via chat first if too large
+
+Step 2: thinkdeep (systemic causes)
+─────────────────────────────────────────────────
+thinkdeep(
+  step="Explore architecture and environment factors",
+  step_number=2,
+  total_steps=4,
+  next_step_required=True,
+  findings="Considering: config issues, race conditions, resource leaks",
+  hypothesis="[Theory based on evidence]",
+  thinking_mode="max",
+  continuation_id="<from_debug>"
+)
+→ Production issues often involve environment (Docker config, network, etc.)
+
+Step 3: consensus (cross-check with another model)
+─────────────────────────────────────────────────
+consensus(
+  step="Validate hypothesis with diverse perspectives",
+  step_number=1,
+  total_steps=3,
+  next_step_required=True,
+  findings="Cross-checking root cause hypothesis",
+  models=[
+    {model: "gpt-5", stance: "neutral", stance_prompt: "focus on code-level causes"},
+    {model: "gemini-pro", stance: "neutral", stance_prompt: "focus on infrastructure causes"}
+  ],
+  continuation_id="<from_thinkdeep>"
+)
+→ Different models may catch environment vs code issues
+
+Step 4: precommit (validate fix)
+─────────────────────────────────────────────────
+precommit(
+  step="Verify fix addresses root cause",
+  step_number=1,
+  total_steps=3,
+  next_step_required=False,
+  findings="Fix validation complete",
+  model="pro",
+  continuation_id="<from_consensus>"
+)
+```
+
+**Expected Outcome:** RCA document with systematic hypothesis trail, suitable for incident documentation.
+
+**Watch For:** If debug loops without progress, stop and restart with "Summarize findings so far."
+
+---
+
+## Workflow H: Architectural Transformation
+
+**Trigger:** Refactoring a legacy system requiring architectural understanding spanning hundreds of files.
+
+```
+Step 1: Discovery (analyze)
+─────────────────────────────────────────────────
+analyze(
+  step="Map architecture, data flows, and design patterns",
+  analysis_type="architecture",
+  output_format="detailed",
+  relevant_files=["/src/legacy/"],
+  model="pro"
+)
+→ Identifies key components across the directory structure
+
+Step 2: Debate (consensus with stance steering)
+─────────────────────────────────────────────────
+consensus(
+  step="Evaluate proposed microservices extraction",
+  step_number=1,
+  total_steps=3,
+  next_step_required=True,
+  findings="Technical proposal for service boundaries",
+  models=[
+    {model: "gpt-5", stance: "for", stance_prompt: "Advocate for the proposed architecture"},
+    {model: "gemini-pro", stance: "against", stance_prompt: "Critique integration risks and complexity"}
+  ]
+)
+→ Structured debate highlights potential integration risks
+
+Step 3: Planning (planner)
+─────────────────────────────────────────────────
+planner(
+  step="Convert agreed architecture into phased implementation plan",
+  step_number=1,
+  total_steps=4,
+  next_step_required=True,
+  model="pro",
+  continuation_id="<from_consensus>"
+)
+→ Defined checkpoints for validation
+
+Step 4: Execution (clink for heavy lifting)
+─────────────────────────────────────────────────
+clink(
+  prompt="Decompose UserService module into smaller testable units",
+  cli_name="codex",
+  role="codereviewer",
+  absolute_file_paths=["/src/legacy/user/"],
+  continuation_id="<from_planner>"
+)
+→ Heavy refactor in isolated context
+```
+
+---
+
+## Workflow I: Learning New Technologies
+
+**Trigger:** Developers adopting current-year technologies where standard model training data is insufficient.
+
+```
+Step 1: Research (apilookup)
+─────────────────────────────────────────────────
+apilookup(
+  prompt="React 19 Server Components streaming patterns documentation"
+)
+→ Targeted search for latest SDK docs and breaking change logs
+
+Step 2: Context Building (chat with high-context model)
+─────────────────────────────────────────────────
+chat(
+  prompt="Based on the current docs, explain the streaming data flow",
+  model="pro",  # Gemini Pro: 1M token context
+  continuation_id="<from_apilookup>"
+)
+→ Build mental model of the new framework
+
+Step 3: Prototyping (planner)
+─────────────────────────────────────────────────
+planner(
+  step="Plan minimal viable implementation with streaming SSR",
+  step_number=1,
+  total_steps=3,
+  next_step_required=True,
+  model="pro",
+  continuation_id="<from_chat>"
+)
+
+Step 4: Safety Check (precommit)
+─────────────────────────────────────────────────
+precommit(
+  step="Verify prototype aligns with project constraints",
+  step_number=1,
+  total_steps=3,
+  next_step_required=False,
+  findings="Technology choice validated against requirements",
+  model="pro",
+  continuation_id="<from_planner>"
+)
+```
+
+**Key insight**: `apilookup` prevents "hallucinated fixes" based on outdated knowledge of third-party libraries.
+
+---
+
 ## Tool Combination Patterns
 
 | Pattern | Sequence | Use Case |
@@ -282,3 +524,21 @@ precommit(step="Final regression check", ...)
 | Research-to-Implement | apilookup → chat → planner → clink | Building with unfamiliar APIs |
 | Debugging | debug → thinkdeep → chat | Complex bug investigation |
 | Validated Planning | planner → consensus → challenge → planner | High-stakes planning |
+| Safe Refactoring | planner → refactor → testgen → codereview → precommit | Tech debt cleanup |
+| Production RCA | debug → thinkdeep → consensus → precommit | Incident investigation |
+| Feature Implementation | planner → consensus → chat → codereview → precommit | New feature development |
+| Large-Scale Refactor | analyze → clink → thinkdeep → debug | Cross-file dependency work |
+
+---
+
+## Model Selection Best Practices
+
+For high-performance workflows, use this tiered model strategy:
+
+| Role | Model | Rationale |
+|------|-------|-----------|
+| **Primary Agent** | Claude 3.5 Sonnet | Orchestration and tool calling |
+| **Deep Reasoning** | Gemini 3.0 Pro or GPT-5.2 | Expert phases, complex analysis |
+| **Fast Validation** | Gemini 2.5 Flash or GPT-4o-mini | Quick checks, subagent tasks |
+
+This ensures expensive reasoning tokens are consumed only when complexity warrants it.
