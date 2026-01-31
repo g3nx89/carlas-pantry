@@ -1,0 +1,70 @@
+# chat - Collaborative Conversation
+
+## Purpose
+
+Multi-turn conversation with external AI models for second opinions, approach validation, and collaborative problem-solving.
+
+## When to Use
+
+- Brainstorming approaches
+- Validating assumptions
+- Getting fresh perspectives
+- Generating implementation ideas
+- Quick questions needing external model strengths
+
+## Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `prompt` | string | Yes | The message or question to discuss |
+| `model` | string | No | Target model (auto, pro, flash, o3, gpt5) |
+| `continuation_id` | string | No | UUID to continue existing conversation |
+| `relevant_files` | array | No | File paths for context (ABSOLUTE paths) |
+| `images` | array | No | Image paths for vision-capable models |
+| `temperature` | number | No | 0 = deterministic, 1 = creative |
+| `thinking_mode` | string | No | Reasoning depth: minimal, low, medium, high, max |
+| `working_directory_absolute_path` | string | No | Directory for generated artifacts |
+
+## Example Usage
+
+```
+# Simple question
+chat(
+  prompt="What's the best approach for Redis vs Memcached for session caching?",
+  model="pro"
+)
+
+# With file context
+chat(
+  prompt="Review this authentication approach",
+  relevant_files=["/absolute/path/to/auth.py"],
+  model="auto"
+)
+
+# Continue conversation
+chat(
+  prompt="What about the edge case where session expires?",
+  continuation_id="abc123-def456"
+)
+```
+
+## Output Structure
+
+- Conversational response with reasoning
+- `continuation_id` for threading follow-ups
+- Can reference provided files
+
+## Best Practices
+
+1. **Start with `model=auto`** - let Claude select optimal model
+2. **Specify explicit models** only when specific capabilities needed (e.g., `o3` for maximum reasoning)
+3. **Use continuation_id** for follow-up questions to maintain context
+4. **Provide absolute paths** for relevant_files
+
+## Common Mistakes
+
+| Mistake | Fix |
+|---------|-----|
+| Using relative paths | Always use absolute paths |
+| Not using continuation_id for follow-ups | Pass the ID from previous response |
+| Using chat for complex analysis | Use `thinkdeep` instead |
