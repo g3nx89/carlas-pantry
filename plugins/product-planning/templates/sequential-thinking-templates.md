@@ -12,9 +12,13 @@ Templates are organized by planning phase and loaded on-demand during structured
 | Problem Decomposition | T1-T3 | 3 | Understanding the feature request |
 | Codebase Analysis | T4-T6 | 3 | Exploring existing patterns |
 | Architecture Design | T7-T10 | 4 | Designing implementation approach |
+| Fork-Join Architecture | T7a-T8 | 5 | Phase 4 Complete mode (branching exploration) |
 | Risk Assessment | T11-T13 | 3 | Identifying and mitigating risks |
 | Plan Validation | T14-T16 | 3 | Validating plan quality |
 | Test Risk Analysis | T-RISK-1 to T-RISK-3 | 3 | V-Model test planning (Phase 7) |
+| Revision | T-RISK-REVISION | 1 | Phase 7 reconciliation (when ThinkDeep contradicts) |
+| Red Team | T-RISK-REDTEAM series | 2 | Phase 7 Complete/Advanced (adversarial analysis) |
+| TAO Analysis | T-AGENT series | 3 | After MPA in Phases 2, 4, 7 (structured pause) |
 
 ---
 
@@ -454,6 +458,310 @@ These templates are used in Phase 7 (Test Strategy) for V-Model test planning.
 
 ---
 
+## Group 7: Fork-Join Architecture Design (T7a-T8)
+
+These templates use **branching** to explore multiple architecture approaches in parallel, then synthesize the best elements. Use in Phase 4 Complete mode when multiple viable options exist.
+
+### T7a_FRAME (Decision Fork Point)
+
+```json
+{
+  "thought": "Step 1/8: FRAME the architecture decision. PROBLEM: {feature_summary}. CONSTRAINTS: {patterns_found}. SUCCESS CRITERIA: {quality_dimensions}. BRANCHING into 3 exploration paths: minimal, clean, pragmatic.",
+  "thoughtNumber": 1,
+  "totalThoughts": 8,
+  "nextThoughtNeeded": true,
+  "hypothesis": "Three distinct approaches exist; exploration will reveal trade-offs",
+  "confidence": "medium"
+}
+```
+
+**Purpose:** Establish the decision context and spawn three parallel exploration branches.
+
+**Key Outputs:**
+- Clear problem statement
+- Constraints from codebase patterns
+- Quality dimensions to optimize
+- Branch definitions
+
+---
+
+### T7b_BRANCH_MINIMAL
+
+```json
+{
+  "thought": "BRANCH: Minimal Change. APPROACH: Smallest footprint modification. COMPONENTS: [files to modify]. PROS: Low risk, fast. CONS: May accumulate tech debt. PROBABILITY: 0.85.",
+  "thoughtNumber": 2,
+  "totalThoughts": 8,
+  "nextThoughtNeeded": true,
+  "branchFromThought": 1,
+  "branchId": "minimal",
+  "hypothesis": "Minimal approach viable if {conditions}",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Explore the minimal-change path in isolation.
+
+**Branch Parameters:**
+- `branchFromThought: 1` - Branches from the FRAME step
+- `branchId: "minimal"` - Names this branch for later reference
+
+---
+
+### T7c_BRANCH_CLEAN
+
+```json
+{
+  "thought": "BRANCH: Clean Architecture. APPROACH: Separation of concerns, dependency injection. COMPONENTS: [new abstractions]. PROS: Maintainability, testability. CONS: Higher upfront cost. PROBABILITY: 0.70.",
+  "thoughtNumber": 3,
+  "totalThoughts": 8,
+  "nextThoughtNeeded": true,
+  "branchFromThought": 1,
+  "branchId": "clean",
+  "hypothesis": "Clean approach requires {scope} refactoring",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Explore the clean architecture path in isolation.
+
+---
+
+### T7d_BRANCH_PRAGMATIC
+
+```json
+{
+  "thought": "BRANCH: Pragmatic Balance. APPROACH: Trade-off between clean and speed. COMPONENTS: [selective improvements]. PROBABILITY: 0.80.",
+  "thoughtNumber": 4,
+  "totalThoughts": 8,
+  "nextThoughtNeeded": true,
+  "branchFromThought": 1,
+  "branchId": "pragmatic",
+  "hypothesis": "Pragmatic approach balances at {trade-off points}",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Explore a middle-ground approach.
+
+---
+
+### T8_SYNTHESIS (Join)
+
+```json
+{
+  "thought": "SYNTHESIS: Comparing branches. SCORES: Minimal={M}/5, Clean={C}/5, Pragmatic={P}/5. WINNER: {selected}. RATIONALE: {why}. MERGED ELEMENTS: {best from each}.",
+  "thoughtNumber": 5,
+  "totalThoughts": 8,
+  "nextThoughtNeeded": true,
+  "hypothesis": "{selected} is optimal because {rationale}",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Join the branches back together and select the winning approach.
+
+**Key Outputs:**
+- Comparative scores per dimension
+- Selected approach with rationale
+- Merged elements from other branches (optional)
+
+**Note:** After T8_SYNTHESIS, continue with standard T9_COMPONENT_DESIGN and T10_AC_MAPPING using the selected approach.
+
+---
+
+## Group 8: Revision Templates
+
+Revision templates allow updating earlier conclusions when new evidence emerges. Use when Phase 5 ThinkDeep insights contradict Phase 7 risk analysis.
+
+### T-RISK-REVISION
+
+```json
+{
+  "thought": "REVISION of Risk Prioritization: ThinkDeep identified NEW/DIFFERENT insights. THINKDEEP: {findings}. ORIGINAL: {T-RISK-2_output}. CONFLICTS: [list]. RESOLUTION: Using higher severity. NEW RISKS: {additions}.",
+  "thoughtNumber": 2,
+  "totalThoughts": 3,
+  "nextThoughtNeeded": true,
+  "isRevision": true,
+  "revisesThought": 2,
+  "hypothesis": "Phase 5 insights update risk; {N} conflicts resolved",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Reconcile Phase 5 ThinkDeep security/performance findings with Phase 7 T-RISK-2 output.
+
+**Revision Parameters:**
+- `isRevision: true` - Marks this as updating a previous thought
+- `revisesThought: 2` - References the original T-RISK-2 thought
+
+**When to Use:**
+- ThinkDeep identified risks not captured in standard T-RISK analysis
+- ThinkDeep assigned different severity than T-RISK-2
+- Phase 5 security analysis found new attack vectors
+
+**Resolution Strategy:**
+- For conflicting severities: Use the higher severity
+- For new risks: Add to risk list with ThinkDeep reference
+- For missing ThinkDeep coverage: Flag for human decision
+
+---
+
+## Group 9: Red Team Analysis
+
+Red Team templates add an adversarial perspective to risk analysis. Use in Phase 7 Complete/Advanced modes for security-sensitive features.
+
+### T-RISK-REDTEAM
+
+```json
+{
+  "thought": "BRANCH: Red Team. ATTACKER PERSPECTIVE: Entry points: {inputs}. Attack vectors: {injections, auth bypass, data exfiltration}. Impact: {breach, disruption, data loss}. OVERLOOKED: {what standard analysis missed}.",
+  "thoughtNumber": 2,
+  "totalThoughts": 4,
+  "nextThoughtNeeded": true,
+  "branchFromThought": 1,
+  "branchId": "redteam",
+  "hypothesis": "Adversarial analysis reveals {N} additional vectors",
+  "confidence": "medium"
+}
+```
+
+**Purpose:** Think like an attacker to identify risks standard analysis misses.
+
+**Key Questions:**
+- What entry points exist for malicious input?
+- How could authentication/authorization be bypassed?
+- What data could be exfiltrated or corrupted?
+- What service disruption is possible?
+
+---
+
+### T-RISK-REDTEAM-SYNTHESIS
+
+```json
+{
+  "thought": "SYNTHESIS: Merging red team findings. NEW ATTACKS: [list]. ADDITIONS TO TEST PLAN: {new security cases}. COVERAGE GAPS CLOSED: [what red team revealed].",
+  "thoughtNumber": 3,
+  "totalThoughts": 4,
+  "nextThoughtNeeded": true,
+  "hypothesis": "Red team adds {N} new test cases",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Merge red team findings back into the main test plan.
+
+**Outputs:**
+- New attack vectors identified
+- Additional security test cases
+- Coverage gaps that were previously invisible
+
+---
+
+## Group 10: Agent Output Analysis (TAO Loop)
+
+TAO (Think-Analyze-Output) Loop templates provide structured pause points between MPA agent outputs and decisions. Prevents rushed synthesis and ensures all perspectives are properly considered.
+
+### T-AGENT-ANALYSIS
+
+```json
+{
+  "thought": "ANALYSIS of MPA outputs. AGENTS: [{list}]. CONVERGENT (all agree): [{list}] - HIGH priority. DIVERGENT (disagree): [{list}] - FLAG for decision. GAPS: [{list}].",
+  "thoughtNumber": 1,
+  "totalThoughts": 3,
+  "nextThoughtNeeded": true,
+  "hypothesis": "MPA has {N} convergent, {M} divergent findings",
+  "confidence": "medium"
+}
+```
+
+**Purpose:** Categorize agent outputs before synthesis.
+
+**Categories:**
+- **Convergent:** All agents agree → High confidence, incorporate directly
+- **Divergent:** Agents disagree → Requires decision or further analysis
+- **Gaps:** Topics no agent covered → Accept risk or research further
+
+---
+
+### T-AGENT-SYNTHESIS
+
+```json
+{
+  "thought": "SYNTHESIS strategy. CONVERGENT: Incorporate directly. DIVERGENT: Present options OR apply adaptive strategy. GAPS: Accept or research. DECISION: Proceeding with {strategy}.",
+  "thoughtNumber": 2,
+  "totalThoughts": 3,
+  "nextThoughtNeeded": true,
+  "hypothesis": "Synthesis strategy is {strategy}",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Define how to handle each category of findings.
+
+**Strategies by Category:**
+- **Convergent:** Direct incorporation (no user decision needed)
+- **Divergent:** Present options to user OR apply adaptive strategy (SELECT_AND_POLISH, FULL_SYNTHESIS)
+- **Gaps:** Accept as known unknowns OR trigger research agent
+
+---
+
+### T-AGENT-VALIDATION
+
+```json
+{
+  "thought": "VALIDATION: [ ] All requirements addressed? [ ] Trade-offs documented? [ ] Risks identified? [ ] No unresolved conflicts? RESULT: {PASS/FAIL}.",
+  "thoughtNumber": 3,
+  "totalThoughts": 3,
+  "nextThoughtNeeded": false,
+  "hypothesis": "Synthesis ready for next phase",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Final quality check before proceeding to next phase.
+
+**Validation Checklist:**
+- All requirements from spec addressed
+- Trade-offs explicitly documented
+- Risks captured with mitigations
+- No unresolved agent conflicts
+
+---
+
+## Group 11: Dynamic Extension
+
+When complexity exceeds initial estimates, use `needsMoreThoughts` to extend the chain.
+
+### T-EXTENSION
+
+```json
+{
+  "thought": "EXTENSION: Complexity exceeds initial estimate. REASON: {unexpected_complexity}. ADDING {N} more thoughts for: {additional_analysis_needed}.",
+  "thoughtNumber": 8,
+  "totalThoughts": 10,
+  "nextThoughtNeeded": true,
+  "needsMoreThoughts": true,
+  "hypothesis": "Additional analysis needed for {reason}",
+  "confidence": "medium"
+}
+```
+
+**Purpose:** Dynamically extend the thought chain when more analysis is required.
+
+**When to Use:**
+- Feature complexity is higher than initially estimated
+- New integration points discovered during analysis
+- Security/compliance requirements more extensive than expected
+- Component count exceeds 10
+
+**Extension Guidelines:**
+- Add 2-4 thoughts maximum per extension
+- Document why extension is needed
+- Update `totalThoughts` to reflect new estimate
+
+---
+
 ## Usage Instructions
 
 ### Loading Templates
@@ -507,12 +815,28 @@ Key Outputs:
 | Agent | Uses Templates | Purpose |
 |-------|---------------|---------|
 | code-explorer | T4-T6 | Codebase analysis |
-| software-architect | T7-T10 | Architecture design |
+| software-architect | T7-T10, T7a-T8 (Fork-Join) | Architecture design |
 | tech-lead | T1-T3, T11-T13 | Decomposition and risk |
-| orchestrator | T14-T16 | Validation |
-| qa-strategist | T-RISK-1 to T-RISK-3 | Test risk analysis (Phase 7) |
-| qa-security | T-RISK-1, T-RISK-2 | Security-focused test planning |
+| orchestrator | T14-T16, T-AGENT series | Validation and synthesis |
+| qa-strategist | T-RISK-1 to T-RISK-3, T-RISK-REVISION, T-RISK-REDTEAM series | Test risk analysis (Phase 7) |
+| qa-security | T-RISK-1, T-RISK-2, T-RISK-REDTEAM | Security-focused test planning |
 | qa-performance | T-RISK-1, T-RISK-2 | Performance-focused test planning |
+
+### ST Feature Availability by Mode
+
+| Template Group | Rapid | Standard | Advanced | Complete |
+|----------------|-------|----------|----------|----------|
+| Problem Decomposition (T1-T3) | ❌ | ❌ | ❌ | ✅ |
+| Codebase Analysis (T4-T6) | ❌ | ❌ | ❌ | ✅ |
+| Architecture Design (T7-T10) | ❌ | ❌ | ❌ | ✅ |
+| Fork-Join (T7a-T8) | ❌ | ❌ | ❌ | ✅ |
+| Risk Assessment (T11-T13) | ❌ | ❌ | ❌ | ✅ |
+| Plan Validation (T14-T16) | ❌ | ❌ | ❌ | ✅ |
+| Test Risk Analysis (T-RISK-1 to T-RISK-3) | ❌ | ❌ | ✅ | ✅ |
+| Revision (T-RISK-REVISION) | ❌ | ❌ | ✅ | ✅ |
+| Red Team (T-RISK-REDTEAM) | ❌ | ❌ | ✅ | ✅ |
+| TAO Loop (T-AGENT series) | ❌ | ✅ | ✅ | ✅ |
+| Dynamic Extension (T-EXTENSION) | ❌ | ❌ | ❌ | ✅ |
 
 ---
 

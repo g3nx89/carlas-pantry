@@ -77,6 +77,59 @@ feature_flags:
     requires_mcp: true  # Requires PAL Consensus
     requires: [s3_judge_gates]  # Debates need judge infrastructure for scoring
 
+  # Sequential Thinking Enhancements
+  st_fork_join_architecture:
+    enabled: true
+    description: "Fork-Join branching for Phase 4 architecture exploration"
+    rollback: "Set false to use linear T7-T10"
+    modes: [complete]
+    requires_mcp: true  # Requires mcp__sequential-thinking__sequentialthinking
+    cost_impact: "+3 ST calls per Phase 4 (~40% increase)"
+
+  st_revision_reconciliation:
+    enabled: true
+    description: "Revision-based reconciliation when ThinkDeep contradicts risk analysis"
+    rollback: "Set false to skip ST revision (manual reconciliation)"
+    modes: [complete, advanced]
+    requires_mcp: true
+    cost_impact: "+1 ST call per Phase 7 (~10% increase)"
+
+  st_redteam_analysis:
+    enabled: true
+    description: "Red team adversarial branch in Phase 7 risk analysis"
+    rollback: "Set false to skip adversarial perspective"
+    modes: [complete, advanced]
+    requires_mcp: true
+    cost_impact: "+2 ST calls per Phase 7 (~20% increase)"
+
+  st_tao_loops:
+    enabled: true
+    description: "TAO (Think-Analyze-Output) structured pause after MPA agent outputs"
+    rollback: "Set false to skip structured synthesis pause"
+    modes: [complete, advanced, standard]
+    requires_mcp: true
+    cost_impact: "+3 ST calls per MPA phase (~30% per phase)"
+
+  st_dynamic_extension:
+    enabled: true
+    description: "Allow ST chains to extend when complexity exceeds initial estimates"
+    rollback: "Set false for fixed thought counts"
+    modes: [complete]
+    requires_mcp: true
+    triggers:
+      - "Component count > 10"
+      - "Unexpected integration points discovered"
+      - "Security/compliance requirements more extensive than expected"
+    cost_impact: "0-2 additional ST calls situational"
+
+  st_agent_invocation:
+    enabled: true
+    description: "Agents invoke ST MCP tool instead of inline reasoning"
+    rollback: "Set false for inline reasoning only (no ST in agents)"
+    modes: [complete, advanced]
+    requires_mcp: true
+    cost_impact: "Replaces inline reasoning (~5% total increase)"
+
   # Context Improvements
   a1_flow_analysis:
     enabled: true
@@ -315,19 +368,48 @@ degradation:
 sequential_thinking:
   # Template groups loaded from templates/sequential-thinking-templates.md
   template_groups:
+    # Standard groups (existing)
     problem_decomposition: [T1, T2, T3]
     codebase_analysis: [T4, T5, T6]
     architecture_design: [T7, T8, T9, T10]
     risk_assessment: [T11, T12, T13]
     plan_validation: [T14, T15, T16]
+    test_risk_analysis: [T-RISK-1, T-RISK-2, T-RISK-3]
+
+    # NEW: Fork-Join architecture exploration (st_fork_join_architecture)
+    architecture_fork_join: [T7a, T7b, T7c, T7d, T8]
+
+    # NEW: Revision for reconciliation (st_revision_reconciliation)
+    test_risk_revision: [T-RISK-REVISION]
+
+    # NEW: Red team adversarial analysis (st_redteam_analysis)
+    test_risk_redteam: [T-RISK-REDTEAM, T-RISK-REDTEAM-SYNTHESIS]
+
+    # NEW: TAO loop agent synthesis (st_tao_loops)
+    agent_analysis: [T-AGENT-ANALYSIS, T-AGENT-SYNTHESIS, T-AGENT-VALIDATION]
+
+    # NEW: Dynamic extension (st_dynamic_extension)
+    extension: [T-EXTENSION]
 
   # When to use each group
   phase_mapping:
     setup: null  # No ST needed
-    research: [codebase_analysis]
+    research: [codebase_analysis, agent_analysis]  # Added TAO
     clarification: [problem_decomposition]
-    architecture: [architecture_design, risk_assessment]
+    architecture: [architecture_design, architecture_fork_join, risk_assessment, agent_analysis]  # Added Fork-Join, TAO
+    thinkdeep: null  # PAL ThinkDeep handles this
     validation: [plan_validation]
+    test_strategy: [test_risk_analysis, test_risk_revision, test_risk_redteam, agent_analysis]  # Added Revision, Red Team, TAO
+    test_coverage_validation: null  # PAL Consensus handles this
+    completion: null
+
+  # Feature flag to template group mapping
+  flag_to_templates:
+    st_fork_join_architecture: architecture_fork_join
+    st_revision_reconciliation: test_risk_revision
+    st_redteam_analysis: test_risk_redteam
+    st_tao_loops: agent_analysis
+    st_dynamic_extension: extension
 
   # Checkpoint after each group
   checkpoint_after_group: true
@@ -812,20 +894,55 @@ blessed_profiles:
     description: "Critical features requiring full analysis"
     mode: complete
     flags:
-      # All flags: true
+      # All universal flags: true
       s1_self_critique: true
       s2_cot_prefix: true
       a3_adaptive_depth: true
       a5_post_planning_menu: true
       a1_flow_analysis: true
       a2_learnings_researcher: true
+      # All advanced flags: true
       s3_judge_gates: true
       s4_adaptive_strategy: true
       a4_expert_review: true
+      # All complete-only flags: true
       s5_tot_architecture: true
       s6_multi_judge_debate: true
-    expected_cost: "$0.80-1.50"
+      # NEW: Sequential Thinking enhancements (complete mode)
+      st_fork_join_architecture: true
+      st_revision_reconciliation: true
+      st_redteam_analysis: true
+      st_tao_loops: true
+      st_dynamic_extension: true
+      st_agent_invocation: true
+    expected_cost: "$0.90-1.70"  # Updated to reflect ST enhancements
     use_case: "Critical features, security-sensitive, high business impact"
+
+  advanced_with_st:
+    description: "Advanced mode with ST enhancements"
+    mode: advanced
+    flags:
+      # All universal flags: true
+      s1_self_critique: true
+      s2_cot_prefix: true
+      a3_adaptive_depth: true
+      a5_post_planning_menu: true
+      a1_flow_analysis: true
+      a2_learnings_researcher: true
+      # All advanced flags: true
+      s3_judge_gates: true
+      s4_adaptive_strategy: true
+      a4_expert_review: true
+      # ST enhancements available in advanced mode
+      st_revision_reconciliation: true
+      st_redteam_analysis: true
+      st_tao_loops: true
+      st_agent_invocation: true
+      # Complete-only flags: false
+      st_fork_join_architecture: false
+      st_dynamic_extension: false
+    expected_cost: "$0.55-0.90"
+    use_case: "Important features requiring ST-enhanced analysis"
 
   # Validation helper for CI
   validation:
