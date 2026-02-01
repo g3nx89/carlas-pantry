@@ -121,38 +121,63 @@ Minimum models required for valid consensus: 2
 
 ## Consensus Call Template
 
+The PAL Consensus tool uses a single call with a `models` array, not separate calls per model.
+The workflow continues using `continuation_id` until all models have responded.
+
 ```javascript
-// Neutral evaluator
-mcp__pal__consensus({
-  model: "gemini-3-pro-preview",
-  stance: "neutral",
-  plan_content: "{FULL_PLAN_CONTENT}",
-  scoring_dimensions: [
-    {name: "problem_understanding", weight: 0.20},
-    {name: "architecture_quality", weight: 0.25},
-    {name: "risk_mitigation", weight: 0.20},
-    {name: "implementation_clarity", weight: 0.20},
-    {name: "feasibility", weight: 0.15}
-  ]
+// Single consensus call with all models
+response = mcp__pal__consensus({
+  step: """
+    PLAN VALIDATION:
+
+    Evaluate implementation plan for feature: {FEATURE_NAME}
+
+    PLAN SUMMARY:
+    {FULL_PLAN_CONTENT}
+
+    Score dimensions (1-5 each, weighted):
+    1. Problem Understanding (20%) - Clear problem statement, root cause, scope
+    2. Architecture Quality (25%) - Sound design, appropriate patterns
+    3. Risk Mitigation (20%) - Risks identified, mitigations planned
+    4. Implementation Clarity (20%) - Clear steps, dependencies mapped
+    5. Feasibility (15%) - Realistic scope, resource considerations
+  """,
+  step_number: 1,
+  total_steps: 4,  // Initial analysis + 3 model responses
+  next_step_required: true,
+  findings: "Initial plan analysis complete.",
+  models: [
+    {
+      model: "gemini-3-pro-preview",
+      stance: "neutral",
+      stance_prompt: "Evaluate this plan objectively against the scoring dimensions."
+    },
+    {
+      model: "gpt-5.2",
+      stance: "for",
+      stance_prompt: "Advocate for this plan's strengths. Highlight what makes it well-designed."
+    },
+    {
+      model: "openrouter/x-ai/grok-4",
+      stance: "against",
+      stance_prompt: "Challenge this plan. Find weaknesses, risks, and areas of concern."
+    }
+  ],
+  relevant_files: ["{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]
 })
 
-// Advocate
-mcp__pal__consensus({
-  model: "gpt-5.2",
-  stance: "for",
-  stance_prompt: "Advocate for this plan's strengths. Highlight what makes it well-designed.",
-  plan_content: "{FULL_PLAN_CONTENT}",
-  scoring_dimensions: [...]
-})
+// Continue workflow until all models have responded
+WHILE response.next_step_required:
+  response = mcp__pal__consensus({
+    step: "Processing model response",
+    step_number: response.step_number + 1,
+    total_steps: 4,
+    next_step_required: true,
+    findings: "Model evaluation: {summary_of_latest_response}",
+    continuation_id: response.continuation_id
+  })
 
-// Challenger
-mcp__pal__consensus({
-  model: "openrouter/x-ai/grok-4",
-  stance: "against",
-  stance_prompt: "Challenge this plan. Find weaknesses, risks, and areas of concern.",
-  plan_content: "{FULL_PLAN_CONTENT}",
-  scoring_dimensions: [...]
-})
+// Final synthesis happens automatically when all models complete
 ```
 
 ---

@@ -253,6 +253,25 @@ mcp__sequential-thinking__sequentialthinking(T5: Integration Points)
 mcp__sequential-thinking__sequentialthinking(T6: Technical Constraints)
 ```
 
+### Step 2.4b: TAO Loop Analysis (After Research Agents)
+
+```
+IF feature_flags.st_tao_loops.enabled AND analysis_mode in {standard, advanced, complete}:
+
+  AFTER all research agents (code-explorer, researcher, learnings-researcher) complete:
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-ANALYSIS)
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-SYNTHESIS)
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-VALIDATION)
+
+  OUTPUT: Structured synthesis of research findings
+    - Convergent patterns → High confidence
+    - Divergent findings → Flag for clarification in Phase 3
+    - Gaps → Add to research questions
+
+ELSE:
+  # Direct consolidation without structured pause
+```
+
 ### Step 2.5: Consolidate Research
 
 Write `{FEATURE_DIR}/research.md` with:
@@ -264,6 +283,9 @@ Write `{FEATURE_DIR}/research.md` with:
   - Highly relevant learnings
   - Critical patterns to apply
   - Warnings and anti-patterns
+- **TAO Loop Synthesis** (if st_tao_loops enabled):
+  - Convergent findings summary
+  - Flagged divergent findings for Phase 3
 
 **Checkpoint: RESEARCH**
 
@@ -373,16 +395,71 @@ Output to:
 - `{FEATURE_DIR}/design.clean.md`
 - `{FEATURE_DIR}/design.pragmatic.md`
 
-### Step 4.2: Sequential Thinking (Complete Mode)
+### Step 4.1b: TAO Loop Analysis (After MPA Agents)
+
+```
+IF feature_flags.st_tao_loops.enabled AND analysis_mode in {standard, advanced, complete}:
+
+  # Structured pause between agent outputs and decisions
+  AFTER all MPA agents complete:
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-ANALYSIS)
+    # Categorize: Convergent (all agree), Divergent (disagree), Gaps
+
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-SYNTHESIS)
+    # Define handling strategy per category
+
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-VALIDATION)
+    # Verify synthesis is ready for next phase
+
+  IF T-AGENT-VALIDATION.result == FAIL:
+    LOG: "TAO validation failed - flagging for human review"
+    FLAG divergent_findings for user decision in Step 4.3
+
+ELSE:
+  # Skip TAO loop, proceed directly to Step 4.2
+```
+
+**TAO Loop Purpose:**
+- Prevents rushed synthesis of conflicting agent perspectives
+- Explicitly categorizes findings before merging
+- Provides structured pause for reflection
+
+### Step 4.2: Sequential Thinking with Fork-Join (Complete Mode)
 
 IF mode == Complete AND ST available:
 
 ```
-mcp__sequential-thinking__sequentialthinking(T7: Option Generation)
-mcp__sequential-thinking__sequentialthinking(T8: Trade-off Analysis)
-mcp__sequential-thinking__sequentialthinking(T9: Component Design)
-mcp__sequential-thinking__sequentialthinking(T10: Acceptance Criteria Mapping)
+# Check feature flag for Fork-Join
+IF feature_flags.st_fork_join_architecture.enabled:
+
+  # Phase 4.2a: Frame the decision point
+  mcp__sequential-thinking__sequentialthinking(T7a_FRAME)
+
+  # Phase 4.2b: Parallel branches (logically parallel, sequential execution)
+  mcp__sequential-thinking__sequentialthinking(T7b_BRANCH_MINIMAL)
+  mcp__sequential-thinking__sequentialthinking(T7c_BRANCH_CLEAN)
+  mcp__sequential-thinking__sequentialthinking(T7d_BRANCH_PRAGMATIC)
+
+  # Phase 4.2c: Join and synthesize
+  mcp__sequential-thinking__sequentialthinking(T8_SYNTHESIS)
+
+  # Phase 4.2d: Continue with selected approach
+  mcp__sequential-thinking__sequentialthinking(T9: Component Design)
+  mcp__sequential-thinking__sequentialthinking(T10: Acceptance Criteria Mapping)
+
+ELSE:
+  # Fallback to linear T7-T10
+  mcp__sequential-thinking__sequentialthinking(T7: Option Generation)
+  mcp__sequential-thinking__sequentialthinking(T8: Trade-off Analysis)
+  mcp__sequential-thinking__sequentialthinking(T9: Component Design)
+  mcp__sequential-thinking__sequentialthinking(T10: Acceptance Criteria Mapping)
 ```
+
+**Fork-Join Benefits:**
+- Explicit branch exploration prevents premature convergence
+- Each branch explored in isolation before synthesis
+- Synthesis step forces explicit comparison and rationale
+- Branch IDs provide traceability
 
 ### Step 4.3: Present Options
 
@@ -474,6 +551,46 @@ IF analysis_mode in {standard, rapid}: → Skip to Phase 6
 IF PAL unavailable: → Skip (graceful degradation)
 ```
 
+### Step 5.1b: Verify Model Availability
+
+```
+# Query available models from PAL MCP server
+available_models = mcp__pal__listmodels()
+
+# Define required models for ThinkDeep (configurable in planning-config.yaml)
+required_models = ["gpt-5.2", "gemini-3-pro-preview", "openrouter/x-ai/grok-4"]
+
+# Check availability and find alternatives if needed
+model_substitutions = {}
+unavailable_count = 0
+
+FOR model IN required_models:
+  IF model NOT IN available_models.models:
+    LOG: "Warning: {model} unavailable"
+    unavailable_count += 1
+
+    # Try to find alternative from same provider family
+    alternative = find_alternative(model, available_models.models)
+    IF alternative:
+      LOG: "Substituting {model} → {alternative}"
+      model_substitutions[model] = alternative
+    ELSE:
+      LOG: "No alternative found for {model}"
+
+# Determine if we can proceed
+IF unavailable_count >= len(required_models):
+  LOG: "No ThinkDeep models available - skipping to Phase 6"
+  → Skip to Phase 6 (graceful degradation)
+
+ELSE IF unavailable_count >= 2:
+  LOG: "Insufficient models for full analysis - degrading to reduced ThinkDeep"
+  # Continue with available models only
+
+# Apply substitutions to models list used in Step 5.3
+FOR original, substitute IN model_substitutions:
+  REPLACE original with substitute in thinkdeep_models
+```
+
 ### Step 5.2: Prepare Context
 
 ```
@@ -495,14 +612,40 @@ PREPARE problem_context with:
 For each perspective × model:
 
 ```
-mcp__pal__thinkdeep(
-  step: "{perspective_prompt}",
-  model: "{model}",
-  thinking_mode: "high",
-  focus_areas: "{perspective.focus}",
-  problem_context: "{architecture_context}",
-  relevant_files: ["{design_file}"]
-)
+# Initialize continuation tracking per perspective
+continuation_ids = {}
+
+FOR each perspective IN [performance, maintainability, security]:
+  FOR i, model IN enumerate(models):
+
+    response = mcp__pal__thinkdeep({
+      step: """
+        Analyze this architecture from a {PERSPECTIVE} perspective.
+
+        FEATURE: {FEATURE_NAME}
+        ARCHITECTURE: {selected_approach}
+
+        MY CURRENT ANALYSIS:
+        {architecture_summary}
+
+        EXTEND MY ANALYSIS - Focus on:
+        {perspective_focus_areas}
+      """,
+      step_number: 1,
+      total_steps: 1,
+      next_step_required: false,
+      model: "{model}",
+      thinking_mode: "high",
+      focus_areas: ["{perspective_focus}"],
+      findings: "{initial_findings_from_architecture}",
+      problem_context: "{problem_context_template}",
+      relevant_files: ["{ABSOLUTE_PATH}/design.md"],
+      continuation_id: continuation_ids.get(perspective) or null
+    })
+
+    # Store continuation_id for next model in same perspective
+    IF i == 0:
+      continuation_ids[perspective] = response.continuation_id
 ```
 
 ### Step 5.4: Synthesize Insights
@@ -531,9 +674,96 @@ C) Proceed without changes
 IF mode == Complete AND Consensus available:
 
 ```
-mcp__pal__consensus(model: "gemini-3-pro-preview", stance: "neutral")
-mcp__pal__consensus(model: "gpt-5.2", stance: "for")
-mcp__pal__consensus(model: "openrouter/x-ai/grok-4", stance: "against")
+# Step 1: Initialize consensus workflow with models array
+response = mcp__pal__consensus({
+  step: """
+    PLAN VALIDATION:
+
+    Evaluate implementation plan for feature: {FEATURE_NAME}
+
+    PLAN SUMMARY:
+    {plan_summary}
+
+    ARCHITECTURE:
+    {selected_architecture}
+
+    Score dimensions (1-5 each):
+    1. Problem Understanding (20%)
+    2. Architecture Quality (25%)
+    3. Risk Mitigation (20%)
+    4. Implementation Clarity (20%)
+    5. Feasibility (15%)
+  """,
+  step_number: 1,
+  total_steps: 4,
+  next_step_required: true,
+  findings: "Initial plan analysis complete.",
+  models: [
+    {model: "gemini-3-pro-preview", stance: "neutral", stance_prompt: "Evaluate objectively"},
+    {model: "gpt-5.2", stance: "for", stance_prompt: "Advocate for strengths"},
+    {model: "openrouter/x-ai/grok-4", stance: "against", stance_prompt: "Challenge weaknesses"}
+  ],
+  relevant_files: ["{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]
+})
+
+# Continue workflow with continuation_id until complete
+WHILE response.next_step_required:
+  response = mcp__pal__consensus({
+    step: "Processing model response",
+    step_number: response.step_number + 1,
+    total_steps: 4,
+    next_step_required: true,
+    findings: "Model evaluation: {summary}",
+    continuation_id: response.continuation_id
+  })
+```
+
+### Step 6.1b: Groupthink Detection with Challenge
+
+**Purpose:** Detect potential groupthink when all models agree too closely.
+
+```
+# Extract scores from each model's response
+scores = [gemini_score, gpt_score, grok_score]
+score_range = max(scores) - min(scores)
+
+IF score_range < 0.5:  # All models agree within 0.5 points
+  LOG: "GROUPTHINK WARNING: Score variance < 0.5 ({min_score}-{max_score})"
+
+  # Use PAL Challenge to force critical examination
+  challenge_response = mcp__pal__challenge({
+    prompt: """
+      All models scored this plan similarly ({min_score}-{max_score}/20).
+
+      Is this genuinely well-designed, or are we missing something?
+
+      EXAMINE CRITICALLY:
+      1. Are there hidden risks not surfaced by any model?
+      2. Are there alternative approaches none of the models considered?
+      3. Are the scoring criteria too lenient for this problem domain?
+
+      PLAN SUMMARY:
+      {plan_summary}
+
+      CONSENSUS RESPONSE:
+      {consensus_synthesis}
+    """
+  })
+
+  IF challenge_response.identifies_issues:
+    # Append challenge findings to validation report
+    APPEND to validation_report:
+      "### Groupthink Challenge Results
+       {challenge_response.analysis}"
+
+    # Ask user if they want to address concerns
+    ASK user: "Challenge analysis found potential concerns. Review before proceeding?"
+    IF user wants review:
+      DISPLAY challenge_response.concerns
+      → Allow user to address or acknowledge
+
+ELSE:
+  LOG: "Score variance acceptable ({score_range}) - no groupthink detected"
 ```
 
 ### Step 6.2: Score Calculation
@@ -752,9 +982,9 @@ Output to:
 - `{FEATURE_DIR}/analysis/test-strategy-security.md`
 - `{FEATURE_DIR}/analysis/test-strategy-performance.md`
 
-### Step 7.3.1: Risk Reconciliation with Phase 5
+### Step 7.3.1: Risk Reconciliation with ST Revision
 
-**Purpose:** Ensure Phase 5 ThinkDeep security/performance insights are aligned with Phase 7 test risk analysis.
+**Purpose:** Ensure Phase 5 ThinkDeep security/performance insights are aligned with Phase 7 test risk analysis using ST Revision.
 
 ```
 IF {FEATURE_DIR}/analysis/thinkdeep-insights.md exists:
@@ -769,21 +999,37 @@ IF {FEATURE_DIR}/analysis/thinkdeep-insights.md exists:
      - Latency concerns
      - Resource efficiency issues
 
-  3. RECONCILE with Phase 7 risk analysis:
+  3. CHECK for contradictions with T-RISK-2 output:
+     has_contradictions = compare(thinkdeep_findings, t_risk_2_output)
 
-     | ThinkDeep Finding | Phase 7 Risk ID | Test Coverage | Status |
-     |-------------------|-----------------|---------------|--------|
-     | {finding} | R-XX or NEW | {test_ids} | Covered/Gap |
+  4. IF has_contradictions AND feature_flags.st_revision_reconciliation.enabled:
 
-  4. FOR each gap (ThinkDeep finding without test coverage):
-     - Add new risk to Phase 7 risk list
-     - Generate corresponding test case
-     - Update coverage matrix
+     # Invoke ST Revision to reconcile
+     mcp__sequential-thinking__sequentialthinking({
+       thought: "REVISION of Risk Prioritization: ThinkDeep identified...",
+       thoughtNumber: 2,
+       totalThoughts: 3,
+       nextThoughtNeeded: true,
+       isRevision: true,
+       revisesThought: 2,  # References T-RISK-2
+       hypothesis: "Phase 5 insights update risk; {N} conflicts resolved",
+       confidence: "high"
+     })
 
-  5. FOR each conflict (different severity assessment):
-     - Document both assessments
-     - Use higher severity as default
-     - FLAG for human decision if significantly different
+     # Update test-plan.md with reconciliation section
+     WRITE reconciliation report to test-plan.md
+
+  5. ELSE (no contradictions or flag disabled):
+     # Manual reconciliation fallback
+     FOR each gap (ThinkDeep finding without test coverage):
+       - Add new risk to Phase 7 risk list
+       - Generate corresponding test case
+       - Update coverage matrix
+
+     FOR each conflict (different severity assessment):
+       - Document both assessments
+       - Use higher severity as default
+       - FLAG for human decision if significantly different
 
 ELSE:
   SKIP reconciliation (Phase 5 not executed in Standard/Rapid modes)
@@ -809,9 +1055,75 @@ ELSE:
 
 ### Conflicts Flagged
 - {conflict description} → Using {resolution}
+
+### ST Revision Applied
+- isRevision: {true/false}
+- revisesThought: {thought_number or N/A}
+- Conflicts resolved: {count}
 ```
 
-### Step 7.3.2: Synthesize QA Agent Outputs
+### Step 7.3.2: Red Team Branch (Complete/Advanced)
+
+**Purpose:** Add adversarial perspective to risk analysis by thinking like an attacker.
+
+```
+IF analysis_mode in {Complete, Advanced} AND feature_flags.st_redteam_analysis.enabled:
+
+  1. INVOKE Red Team branch:
+     mcp__sequential-thinking__sequentialthinking({
+       thought: "BRANCH: Red Team. ATTACKER PERSPECTIVE: Entry points...",
+       thoughtNumber: 2,
+       totalThoughts: 4,
+       nextThoughtNeeded: true,
+       branchFromThought: 1,  # Branches from T-RISK-1
+       branchId: "redteam",
+       hypothesis: "Adversarial analysis reveals {N} additional vectors",
+       confidence: "medium"
+     })
+
+  2. SYNTHESIZE red team findings:
+     mcp__sequential-thinking__sequentialthinking({
+       thought: "SYNTHESIS: Merging red team findings. NEW ATTACKS...",
+       thoughtNumber: 3,
+       totalThoughts: 4,
+       nextThoughtNeeded: true,
+       hypothesis: "Red team adds {N} new test cases",
+       confidence: "high"
+     })
+
+  3. ADD red team findings to test plan:
+     - New attack vectors → Security test cases
+     - Overlooked entry points → Additional E2E scenarios
+     - Update coverage matrix with SEC-RT-XX IDs
+
+ELSE:
+  SKIP red team (not enabled or Standard/Rapid mode)
+```
+
+**Red Team Focus Areas:**
+- Input validation bypasses
+- Authentication/authorization weaknesses
+- Data exfiltration paths
+- Service disruption vectors
+- Injection vulnerabilities (SQL, XSS, command)
+
+### Step 7.3.3: TAO Loop for QA Synthesis
+
+```
+IF feature_flags.st_tao_loops.enabled:
+
+  AFTER all QA agents (qa-strategist, qa-security, qa-performance) complete:
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-ANALYSIS)
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-SYNTHESIS)
+    mcp__sequential-thinking__sequentialthinking(T-AGENT-VALIDATION)
+
+  MERGE findings:
+    - Convergent → Incorporate directly into test-plan.md
+    - Divergent → Present to user for decision OR use higher severity
+    - Gaps → Document as known testing gaps
+```
+
+### Step 7.3.5: Synthesize QA Agent Outputs
 
 After all QA agents complete AND reconciliation is done:
 
@@ -912,21 +1224,48 @@ MAP each story to UAT script
 IF mode in {Complete, Advanced} AND Consensus available:
 
 ```
-mcp__pal__consensus(
-  model: "gemini-3-pro-preview",
-  stance: "neutral",
-  prompt: "Evaluate test coverage completeness..."
-)
-mcp__pal__consensus(
-  model: "gpt-5.2",
-  stance: "for",
-  prompt: "Highlight test coverage strengths..."
-)
-mcp__pal__consensus(
-  model: "grok-4",
-  stance: "against",
-  prompt: "Find coverage gaps and missing edge cases..."
-)
+# Step 1: Initialize test coverage consensus workflow
+response = mcp__pal__consensus({
+  step: """
+    TEST COVERAGE VALIDATION:
+
+    Evaluate test coverage completeness for feature: {FEATURE_NAME}
+
+    TEST PLAN SUMMARY:
+    {test_plan_summary}
+
+    COVERAGE MATRIX:
+    {coverage_matrix}
+
+    Score dimensions (weighted percentage):
+    1. AC Coverage (25%) - All acceptance criteria mapped to tests
+    2. Risk Coverage (25%) - All Critical/High risks have tests
+    3. UAT Completeness (20%) - Scripts clear for non-technical users
+    4. Test Independence (15%) - Tests can run in isolation
+    5. Maintainability (15%) - Tests verify behavior, not implementation
+  """,
+  step_number: 1,
+  total_steps: 4,
+  next_step_required: true,
+  findings: "Initial test coverage analysis complete.",
+  models: [
+    {model: "gemini-3-pro-preview", stance: "neutral", stance_prompt: "Evaluate test coverage objectively"},
+    {model: "gpt-5.2", stance: "for", stance_prompt: "Highlight test coverage strengths"},
+    {model: "openrouter/x-ai/grok-4", stance: "against", stance_prompt: "Find coverage gaps and missing edge cases"}
+  ],
+  relevant_files: ["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md"]
+})
+
+# Continue workflow with continuation_id until complete
+WHILE response.next_step_required:
+  response = mcp__pal__consensus({
+    step: "Processing model response",
+    step_number: response.step_number + 1,
+    total_steps: 4,
+    next_step_required: true,
+    findings: "Model evaluation: {summary}",
+    continuation_id: response.continuation_id
+  })
 ```
 
 ### Step 8.3: Score Calculation

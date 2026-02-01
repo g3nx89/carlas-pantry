@@ -119,39 +119,66 @@ Minimum models required for valid consensus: 2
 
 ## Consensus Call Template
 
+The PAL Consensus tool uses a single call with a `models` array, not separate calls per model.
+The workflow continues using `continuation_id` until all models have responded.
+
 ```javascript
-// Neutral evaluator
-mcp__pal__consensus({
-  model: "gemini-3-pro-preview",
-  stance: "neutral",
-  test_plan_content: "{FULL_TEST_PLAN_CONTENT}",
-  spec_content: "{SPEC_WITH_ACS}",
-  scoring_dimensions: [
-    {name: "ac_coverage", weight: 0.25},
-    {name: "risk_coverage", weight: 0.25},
-    {name: "uat_completeness", weight: 0.20},
-    {name: "test_independence", weight: 0.15},
-    {name: "maintainability", weight: 0.15}
-  ]
+// Single consensus call with all models
+response = mcp__pal__consensus({
+  step: """
+    TEST COVERAGE VALIDATION:
+
+    Evaluate test coverage completeness for feature: {FEATURE_NAME}
+
+    TEST PLAN SUMMARY:
+    {FULL_TEST_PLAN_CONTENT}
+
+    SPEC WITH ACCEPTANCE CRITERIA:
+    {SPEC_WITH_ACS}
+
+    Score dimensions (weighted percentage):
+    1. AC Coverage (25%) - All acceptance criteria mapped to tests
+    2. Risk Coverage (25%) - All Critical/High risks have tests
+    3. UAT Completeness (20%) - Scripts clear for non-technical users
+    4. Test Independence (15%) - Tests can run in isolation
+    5. Maintainability (15%) - Tests verify behavior, not implementation
+  """,
+  step_number: 1,
+  total_steps: 4,  // Initial analysis + 3 model responses
+  next_step_required: true,
+  findings: "Initial test coverage analysis complete.",
+  models: [
+    {
+      model: "gemini-3-pro-preview",
+      stance: "neutral",
+      stance_prompt: "Evaluate test coverage objectively against the scoring dimensions."
+    },
+    {
+      model: "gpt-5.2",
+      stance: "for",
+      stance_prompt: "Highlight the strengths of this test coverage."
+    },
+    {
+      model: "openrouter/x-ai/grok-4",
+      stance: "against",
+      stance_prompt: "Find coverage gaps, missing edge cases, and unclear UAT scripts."
+    }
+  ],
+  relevant_files: ["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md"]
 })
 
-// Advocate
-mcp__pal__consensus({
-  model: "gpt-5.2",
-  stance: "for",
-  stance_prompt: "Highlight the strengths of this test coverage.",
-  test_plan_content: "{FULL_TEST_PLAN_CONTENT}",
-  scoring_dimensions: [...]
-})
+// Continue workflow until all models have responded
+WHILE response.next_step_required:
+  response = mcp__pal__consensus({
+    step: "Processing model response",
+    step_number: response.step_number + 1,
+    total_steps: 4,
+    next_step_required: true,
+    findings: "Model evaluation: {summary_of_latest_response}",
+    continuation_id: response.continuation_id
+  })
 
-// Challenger
-mcp__pal__consensus({
-  model: "grok-4",
-  stance: "against",
-  stance_prompt: "Find coverage gaps, missing edge cases, and unclear UAT scripts.",
-  test_plan_content: "{FULL_TEST_PLAN_CONTENT}",
-  scoring_dimensions: [...]
-})
+// Final synthesis happens automatically when all models complete
 ```
 
 ---
