@@ -62,6 +62,65 @@ DISPLAY availability status
 
 Present modes based on MCP availability. Only show modes where required tools are available.
 
+#### Mode Auto-Suggestion (Optional)
+
+```
+IF config.mode_suggestion.enabled:
+
+  1. ANALYZE spec.md for mode indicators:
+
+     # Count high-risk keywords
+     high_risk_count = COUNT matches of config.research_depth.risk_keywords.high
+     keywords_sample = FIRST 3 matched keywords
+
+     # Estimate affected files
+     file_patterns = EXTRACT file paths and patterns from spec
+     estimated_files = COUNT unique file patterns
+
+     # Count spec words
+     word_count = COUNT words in spec.md
+
+  2. EVALUATE rules in order (first match wins):
+
+     IF word_count >= 2000 OR high_risk_count >= 3:
+       suggested_mode = "complete"
+       rationale = "Large spec or multiple high-risk areas"
+       cost_estimate = "$0.80-1.50"
+
+     ELSE IF high_risk_count >= 2 OR estimated_files >= 15:
+       suggested_mode = "advanced"
+       rationale = "Significant risk or large scope"
+       cost_estimate = "$0.45-0.75"
+
+     ELSE IF word_count >= 500 OR estimated_files >= 5:
+       suggested_mode = "standard"
+       rationale = "Moderate complexity"
+       cost_estimate = "$0.15-0.30"
+
+     ELSE:
+       suggested_mode = "rapid"
+       rationale = "Simple feature"
+       cost_estimate = "$0.05-0.12"
+
+  3. DISPLAY suggestion:
+
+     ┌─────────────────────────────────────────────────────────────┐
+     │ MODE SUGGESTION                                              │
+     ├─────────────────────────────────────────────────────────────┤
+     │ Detected: {high_risk_count} high-risk keywords              │
+     │           ({keywords_sample})                                │
+     │ Estimated: {estimated_files} files affected                  │
+     │ Spec size: {word_count} words                               │
+     │                                                              │
+     │ Recommended: {suggested_mode} mode (~{cost_estimate})       │
+     │ Rationale: {rationale}                                       │
+     └─────────────────────────────────────────────────────────────┘
+
+  4. ASK user to confirm or override:
+     - Accept suggestion
+     - Choose different mode
+```
+
 ### Step 1.7: Workspace Preparation
 
 ```
@@ -83,6 +142,42 @@ READ:
   - specs/constitution.md
 ```
 
+### Step 2.1b: Adaptive Research Depth (A3)
+
+**Purpose:** Adjust research intensity based on risk indicators in the feature spec.
+
+```
+IF feature_flags.a3_adaptive_depth.enabled:
+
+  1. SCAN spec.md for risk keywords from config:
+     - HIGH_RISK: payment, auth, security, encryption, PII, GDPR, etc.
+     - MEDIUM_RISK: API, integration, migration, database, performance, etc.
+
+  2. DETERMINE risk level:
+     IF any HIGH_RISK keyword found → risk_level = high
+     ELSE IF any MEDIUM_RISK keyword found → risk_level = medium
+     ELSE → risk_level = low
+
+  3. LOOKUP research depth from matrix:
+     depth = config.research_depth.depth_matrix[analysis_mode][risk_level]
+     # Returns: minimal, standard, or deep
+
+  4. UPDATE state:
+     state.research_depth = depth
+     state.risk_keywords_found = [list of matched keywords]
+
+  5. DISPLAY to user:
+     "Research depth: {depth} (detected {risk_level} risk from keywords: {keywords})"
+```
+
+**Depth Level Actions:**
+
+| Depth | Agents | Search Scope | ST Templates |
+|-------|--------|--------------|--------------|
+| minimal | 1 | Direct matches only | None |
+| standard | 2 | Related patterns | T4, T5 |
+| deep | 3 | Comprehensive exploration | T4, T5, T6 |
+
 ### Step 2.2: Launch Research Agents
 
 For each unknown in Technical Context:
@@ -93,6 +188,50 @@ Task(
   prompt: "Research {unknown} for {feature_context}"
 )
 ```
+
+### Step 2.2b: Launch Learnings Researcher (A2)
+
+**Purpose:** Search institutional knowledge base for relevant solutions and learnings.
+
+```
+IF feature_flags.a2_institutional_knowledge.enabled:
+
+  1. CHECK for knowledge base:
+     - Glob: docs/solutions/**/*.yaml
+     - Glob: docs/critical-patterns.md
+
+  2. IF knowledge base found:
+     Task(
+       subagent_type: "product-planning:learnings-researcher",
+       prompt: """
+         Search institutional knowledge for feature: {FEATURE_NAME}
+
+         Feature spec highlights:
+         - Domain: {extracted_domain_terms}
+         - Technologies: {mentioned_technologies}
+         - Risk areas: {risk_keywords_found}
+
+         Knowledge base locations:
+         - docs/solutions/
+         - docs/critical-patterns.md
+
+         Find relevant:
+         - Past solutions to similar problems
+         - Critical patterns that must apply
+         - Known pitfalls to avoid
+       """
+     )
+
+  3. ELSE (no knowledge base):
+     LOG: "No institutional knowledge base found at docs/solutions/"
+     SUGGEST: "Consider creating docs/solutions/ for future learnings"
+     → Continue without learnings input
+```
+
+**Integration with Research:**
+- Learnings researcher runs in parallel with code-explorer agents
+- Results merged into research.md "Institutional Knowledge" section
+- High-relevance learnings highlighted in Phase 3 question generation
 
 ### Step 2.3: Launch Code Explorer Agents (MPA)
 
@@ -121,8 +260,64 @@ Write `{FEATURE_DIR}/research.md` with:
 - Patterns identified
 - Key files to reference
 - Constitution compliance notes
+- **Institutional Knowledge** (if A2 enabled):
+  - Highly relevant learnings
+  - Critical patterns to apply
+  - Warnings and anti-patterns
 
 **Checkpoint: RESEARCH**
+
+### Step 2.6: Quality Gate - Research Completeness (S3)
+
+**Purpose:** Verify research quality before proceeding to architecture.
+
+```
+IF feature_flags.s3_judge_gates.enabled AND analysis_mode in {advanced, complete}:
+
+  1. LAUNCH judge agent:
+     Task(
+       subagent_type: "product-planning:phase-gate-judge",
+       prompt: """
+         Evaluate Research Completeness for feature: {FEATURE_NAME}
+
+         Artifacts to evaluate:
+         - {FEATURE_DIR}/research.md
+         - {FEATURE_DIR}/analysis/codebase-analysis.md
+
+         Use Gate 1 criteria from judge-gate-rubrics.md.
+         Mode: {analysis_mode}
+       """
+     )
+
+  2. PARSE verdict:
+     IF verdict == PASS:
+       LOG: "Gate 1 PASSED (score: {score}/5.0)"
+       → Continue to Phase 3
+
+     IF verdict == FAIL AND retries < 2:
+       LOG: "Gate 1 FAILED (score: {score}/5.0) - retry {retries+1}/2"
+       DISPLAY retry_feedback to user
+       Re-run Phase 2.3-2.5 with feedback
+       retries += 1
+       → Re-evaluate
+
+     IF verdict == FAIL AND retries >= 2:
+       LOG: "Gate 1 FAILED after 2 retries - escalating"
+       DISPLAY to user:
+         "Research quality gate failed after 2 attempts.
+          Issues: {issues}
+          Options: (1) Force proceed, (2) Manual fix, (3) Abort"
+       → Wait for user decision
+
+  3. UPDATE state:
+     gate_results.append({
+       phase: 2,
+       gate: "Research Completeness",
+       score: {score},
+       verdict: {verdict},
+       retries: {retries}
+     })
+```
 
 ---
 
@@ -202,6 +397,66 @@ Include **Recommendation** with reasoning.
 ### Step 4.4: Record Decision
 
 Save `architecture_choice` to state (IMMUTABLE).
+
+### Step 4.5: Adaptive Strategy Selection (S4)
+
+**Purpose:** Optimize synthesis based on evaluation results.
+
+```
+IF feature_flags.s4_adaptive_strategy.enabled AND analysis_mode in {advanced, complete}:
+
+  1. COLLECT architecture option scores from evaluation
+  2. APPLY strategy selection logic from adaptive-strategy-logic.md:
+
+     sorted_scores = sort(option_scores, descending)
+     score_gap = sorted_scores[0] - sorted_scores[1]
+     all_above_threshold = all(score >= 3.0 for score in option_scores)
+
+     IF score_gap >= 0.5 AND sorted_scores[0] >= 3.0:
+       strategy = SELECT_AND_POLISH
+       selected_option = option with highest score
+       actions = polish based on judge feedback
+
+     ELSE IF NOT all_above_threshold:
+       strategy = REDESIGN
+       constraints = extract from failure feedback
+       → Return to Step 4.1 with constraints (max 1 retry)
+
+     ELSE:
+       strategy = FULL_SYNTHESIS
+       synthesis_plan = best elements from each option
+
+  3. EXECUTE strategy and generate design.md
+  4. LOG: "Strategy: {strategy} - {rationale}"
+  5. UPDATE state.architecture.strategy_selected = strategy
+```
+
+### Step 4.6: Quality Gate - Architecture Quality (S3)
+
+**Purpose:** Verify architecture quality before proceeding to ThinkDeep.
+
+```
+IF feature_flags.s3_judge_gates.enabled AND analysis_mode in {advanced, complete}:
+
+  1. LAUNCH judge agent:
+     Task(
+       subagent_type: "product-planning:phase-gate-judge",
+       prompt: """
+         Evaluate Architecture Quality for feature: {FEATURE_NAME}
+
+         Artifacts to evaluate:
+         - {FEATURE_DIR}/design.md
+         - {FEATURE_DIR}/spec.md (for requirement coverage)
+
+         Use Gate 2 criteria from judge-gate-rubrics.md.
+         Mode: {analysis_mode}
+       """
+     )
+
+  2. PARSE verdict (same retry logic as Gate 1)
+
+  3. UPDATE state.gate_results
+```
 
 **Checkpoint: ARCHITECTURE**
 
@@ -310,6 +565,77 @@ mcp__sequential-thinking__sequentialthinking(T16: Feasibility Assessment)
 ```
 
 **Checkpoint: VALIDATION**
+
+---
+
+## Phase 6b: Expert Review (A4)
+
+**Purpose:** Qualitative expert review of architecture and plan.
+
+```
+IF feature_flags.a4_expert_review.enabled AND analysis_mode in {advanced, complete}:
+
+  1. LAUNCH expert review agents in parallel:
+
+     # Security Review (blocking on CRITICAL/HIGH)
+     Task(
+       subagent_type: "product-planning:security-analyst",
+       prompt: """
+         Review architecture for security vulnerabilities.
+
+         Artifacts:
+         - {FEATURE_DIR}/design.md
+         - {FEATURE_DIR}/plan.md
+
+         Apply STRIDE methodology.
+         Flag CRITICAL/HIGH findings as blocking.
+       """,
+       description: "Security review"
+     )
+
+     # Simplicity Review (advisory)
+     Task(
+       subagent_type: "product-planning:simplicity-reviewer",
+       prompt: """
+         Review plan for unnecessary complexity.
+
+         Artifacts:
+         - {FEATURE_DIR}/design.md
+         - {FEATURE_DIR}/tasks.md
+
+         Identify over-engineering opportunities.
+         All findings are advisory.
+       """,
+       description: "Simplicity review"
+     )
+
+  2. CONSOLIDATE findings:
+     security_findings = parse security-analyst output
+     simplicity_findings = parse simplicity-reviewer output
+
+  3. HANDLE blocking findings:
+     IF any security_findings.severity in {CRITICAL, HIGH}:
+       DISPLAY blocking findings to user
+       ASK: "Acknowledge these security risks to proceed?"
+       IF NOT acknowledged:
+         → Return to Phase 4 with security constraints
+
+  4. DISPLAY advisory findings:
+     PRESENT simplicity opportunities
+     ASK: "Would you like to apply any simplifications?"
+     IF yes → Apply selected simplifications to tasks.md
+
+  5. UPDATE state:
+     expert_review = {
+       security: {status, findings_count, blocking_count},
+       simplicity: {opportunities_count, applied}
+     }
+
+  6. OUTPUT:
+     Write {FEATURE_DIR}/analysis/expert-review.md with all findings
+```
+
+**Checkpoint: EXPERT_REVIEW** (only if A4 enabled)
 
 ---
 
@@ -535,6 +861,34 @@ WRITE uat scripts to test-cases/uat/
 
 Write `{FEATURE_DIR}/test-plan.md` using template from `$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md`
 
+### Step 7.7: Quality Gate - Test Coverage (S3)
+
+**Purpose:** Verify test coverage quality before coverage validation.
+
+```
+IF feature_flags.s3_judge_gates.enabled AND analysis_mode in {advanced, complete}:
+
+  1. LAUNCH judge agent:
+     Task(
+       subagent_type: "product-planning:phase-gate-judge",
+       prompt: """
+         Evaluate Test Coverage for feature: {FEATURE_NAME}
+
+         Artifacts to evaluate:
+         - {FEATURE_DIR}/test-plan.md
+         - {FEATURE_DIR}/spec.md (for AC coverage check)
+         - {FEATURE_DIR}/analysis/test-strategy-*.md
+
+         Use Gate 3 criteria from judge-gate-rubrics.md.
+         Mode: {analysis_mode}
+       """
+     )
+
+  2. PARSE verdict (same retry logic as Gates 1 and 2)
+
+  3. UPDATE state.gate_results
+```
+
 **Checkpoint: TEST_STRATEGY**
 
 ---
@@ -708,7 +1062,101 @@ Next Steps:
 DELETE lock file
 UPDATE state to COMPLETED
 DISPLAY summary report
-SUGGEST git commit
+```
+
+### Step 9.6: Post-Planning Menu (A5)
+
+**Purpose:** Provide structured options for next steps after planning completion.
+
+```
+IF feature_flags.a5_post_planning_menu.enabled:
+
+  DISPLAY:
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                      WHAT WOULD YOU LIKE TO DO NEXT?
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. [Review]   Open artifacts in editor for review
+  2. [Expert]   Get expert review (security + simplicity)
+  3. [Simplify] Reduce plan complexity
+  4. [GitHub]   Create GitHub issue from plan
+  5. [Commit]   Commit all planning artifacts
+  6. [Quit]     Exit planning session
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  USE AskUserQuestion to present options
+```
+
+**Option Handlers:**
+
+**1. Review:**
+```
+OPEN {FEATURE_DIR}/design.md in editor
+OPEN {FEATURE_DIR}/plan.md in editor
+OPEN {FEATURE_DIR}/tasks.md in editor
+SUGGEST: "Review artifacts and let me know if you'd like changes"
+```
+
+**2. Expert Review:**
+```
+IF analysis_mode in {complete, advanced}:
+  LAUNCH security-analyst agent → review design.md + plan.md
+  LAUNCH simplicity-reviewer agent → review tasks.md
+  CONSOLIDATE feedback
+  PRESENT findings to user
+ELSE:
+  DISPLAY: "Expert review available in Advanced/Complete modes"
+```
+
+**3. Simplify:**
+```
+ANALYZE tasks.md for:
+  - Tasks that can be combined
+  - Phases that can be merged
+  - Complexity that can be deferred
+PRESENT simplification options
+IF user approves → UPDATE tasks.md
+```
+
+**4. GitHub Issue:**
+```
+READ template from $CLAUDE_PLUGIN_ROOT/templates/github-issue-template.md
+EXTRACT values from:
+  - {FEATURE_DIR}/spec.md (ACs)
+  - {FEATURE_DIR}/design.md (architecture decisions)
+  - {FEATURE_DIR}/tasks.md (task summary)
+  - {FEATURE_DIR}/test-plan.md (test counts)
+GENERATE issue body
+RUN: gh issue create --title "{title}" --body "{body}"
+DISPLAY: Issue URL
+```
+
+**5. Commit:**
+```
+STAGE files:
+  - {FEATURE_DIR}/design.md
+  - {FEATURE_DIR}/plan.md
+  - {FEATURE_DIR}/tasks.md
+  - {FEATURE_DIR}/test-plan.md
+  - {FEATURE_DIR}/research.md (if exists)
+  - {FEATURE_DIR}/analysis/*.md
+  - {FEATURE_DIR}/test-cases/**/*.md
+
+COMMIT with message:
+  "feat(planning): complete plan for {FEATURE_NAME}
+
+  Architecture: {selected_approach}
+  Tasks: {task_count}
+  Test Coverage: {coverage_status}
+
+  Co-Authored-By: Claude Code <noreply@anthropic.com>"
+```
+
+**6. Quit:**
+```
+DISPLAY: "Planning session complete. Artifacts saved to {FEATURE_DIR}/"
+EXIT
 ```
 
 **Checkpoint: COMPLETION**

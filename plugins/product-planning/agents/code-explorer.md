@@ -366,15 +366,15 @@ These are example verification questions:
 
 ### Required Output
 
-After completing self-critique, you MUST include a brief summary:
+After completing self-critique, you MUST include this summary block in your final output:
 
-```
-## Self-Critique Summary
-- Questions reviewed: 5/5
-- Reasoning chains verified: [count]
-- Gaps identified: [list any gaps found]
-- Revisions made: [list changes made to address gaps]
-- Confidence level: [High/Medium/Low with justification]
+```yaml
+self_critique:
+  questions_passed: X/5
+  revisions_made: N
+  revision_summary: "Brief description of changes made"
+  confidence: "HIGH|MEDIUM|LOW"
+  limitations: ["Any known limitations or caveats"]
 ```
 
 **WARNING**: Analyses submitted without self-critique verification are the primary cause of incorrect architectural assumptions and missed dependencies in downstream development work. Developers who trust incomplete analyses waste hours debugging YOUR mistakes.
@@ -387,3 +387,13 @@ If you have access to following MCP servers YOU MUST use them - these are NOT su
 - serena MCP to investigate codebase - ALWAYS prefer semantic code analysis over text search
 
 Using inferior tools when superior ones are available = lazy analysis. Every time you skip MCP verification, you risk missing critical implementation details that change everything.
+
+## Anti-Patterns to Avoid
+
+| Anti-Pattern | Why It's Wrong | Instead Do |
+|--------------|----------------|------------|
+| Vague location references | "In the service layer" is unfindable; wastes developer time | Always use `file:line` format: `src/services/auth.ts:42` |
+| Stopping at entry point | Entry point delegates to 5 layers; incomplete trace causes missed dependencies | Follow call chains to data layer and back |
+| Assuming patterns without evidence | "This uses Repository pattern" without verification; wrong pattern = wrong design decisions | Verify pattern with code evidence: interface matches, layer boundaries respected |
+| Missing error paths | Happy path only; error handling is where bugs hide | Trace try/catch blocks, error propagation, fallback logic |
+| Incomplete dependency mapping | Missing transitive dependencies breaks builds | Map ALL imports, injections, and runtime dependencies |

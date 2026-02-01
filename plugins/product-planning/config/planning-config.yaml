@@ -2,6 +2,207 @@
 # Configuration for /product-planning:plan command with ST/PAL integration
 
 # =============================================================================
+# FEATURE FLAGS
+# =============================================================================
+# Toggle improvements on/off for gradual rollout and rollback capability
+# See PROPOSAL-planning-enhancements.md for detailed documentation
+
+feature_flags:
+  # Universal Improvements (all modes)
+  s1_self_critique:
+    enabled: true
+    description: "Agent self-verification before submission"
+    rollback: "Set false to remove self-critique from agents"
+    mode_thresholds:
+      rapid: { min_questions: 3, pass_threshold: 2 }
+      standard: { min_questions: 5, pass_threshold: 4 }
+      advanced: { min_questions: 5, pass_threshold: 4 }
+      complete: { min_questions: 5, pass_threshold: 5 }
+
+  s2_cot_prefix:
+    enabled: true
+    description: "Zero-Shot Chain-of-Thought reasoning prefix"
+    rollback: "Set false to remove CoT sections from agents"
+
+  a3_adaptive_depth:
+    enabled: true
+    description: "Risk-based research depth adjustment"
+    rollback: "Set false for mode-based depth only"
+
+  a5_post_planning_menu:
+    enabled: true
+    description: "Interactive menu after planning completion"
+    rollback: "Set false to skip menu"
+
+  # Advanced/Complete Mode Improvements
+  s3_judge_gates:
+    enabled: true
+    description: "Quality gates between phases"
+    rollback: "Set false to skip gates"
+    modes: [advanced, complete]
+    gates:
+      - after_phase: 2
+        name: "Research Completeness"
+      - after_phase: 4
+        name: "Architecture Quality"
+      - after_phase: 7
+        name: "Test Coverage"
+
+  s4_adaptive_strategy:
+    enabled: true
+    description: "Adaptive synthesis strategy based on evaluation"
+    rollback: "Set false to always synthesize"
+    modes: [advanced, complete]
+
+  a4_expert_review:
+    enabled: true
+    description: "Security and simplicity expert review"
+    rollback: "Set false to skip Phase 6b"
+    modes: [advanced, complete]
+
+  # Complete Mode Only Improvements
+  s5_tot_architecture:
+    enabled: true
+    description: "Hybrid Tree-of-Thoughts architecture exploration"
+    rollback: "Set false to use standard MPA"
+    modes: [complete]
+    requires_mcp: false  # Uses internal agents
+    requires: [s4_adaptive_strategy]  # ToT needs adaptive strategy for branch selection
+
+  s6_multi_judge_debate:
+    enabled: true
+    description: "Multi-round debate for validation"
+    rollback: "Set false to use single-round"
+    modes: [complete]
+    requires_mcp: true  # Requires PAL Consensus
+    requires: [s3_judge_gates]  # Debates need judge infrastructure for scoring
+
+  # Context Improvements
+  a1_flow_analysis:
+    enabled: true
+    description: "User flow analysis in Phase 2b"
+    rollback: "Set false to skip flow analysis"
+    modes: [complete, advanced, standard]
+
+  a2_learnings_researcher:
+    enabled: true
+    description: "Institutional knowledge integration"
+    rollback: "Set false to skip learnings search"
+    modes: [complete, advanced, standard]
+
+# =============================================================================
+# ADAPTIVE RESEARCH DEPTH (A3)
+# =============================================================================
+# Adjusts research intensity based on risk indicators in the feature spec
+
+research_depth:
+  # Keywords that indicate higher risk (case-insensitive)
+  risk_keywords:
+    high:
+      - payment
+      - payments
+      - billing
+      - credit card
+      - authentication
+      - auth
+      - authorization
+      - security
+      - encryption
+      - password
+      - credentials
+      - PII
+      - GDPR
+      - HIPAA
+      - SOC2
+      - compliance
+      - financial
+      - transaction
+    medium:
+      - API
+      - integration
+      - migration
+      - database
+      - schema
+      - performance
+      - scaling
+      - concurrent
+      - async
+      - cache
+      - session
+      - state
+
+  # Depth levels and what they mean
+  levels:
+    minimal:
+      agents: 1
+      search_scope: "direct matches only"
+      analysis_depth: "surface level"
+      st_templates: []
+    standard:
+      agents: 2
+      search_scope: "related patterns"
+      analysis_depth: "moderate"
+      st_templates: [T4, T5]
+    deep:
+      agents: 3
+      search_scope: "comprehensive exploration"
+      analysis_depth: "thorough"
+      st_templates: [T4, T5, T6]
+
+  # Mode × Risk interaction matrix
+  # Rows: analysis mode, Columns: risk level
+  depth_matrix:
+    rapid:
+      low: minimal
+      medium: minimal
+      high: standard
+    standard:
+      low: minimal
+      medium: standard
+      high: standard
+    advanced:
+      low: standard
+      medium: standard
+      high: deep
+    complete:
+      low: standard
+      medium: deep
+      high: deep
+
+# =============================================================================
+# INSTITUTIONAL KNOWLEDGE (A2)
+# =============================================================================
+# Configuration for learnings-researcher agent and knowledge base integration
+
+institutional_knowledge:
+  # Expected locations for knowledge base
+  paths:
+    solutions: "docs/solutions/"
+    critical_patterns: "docs/critical-patterns.md"
+    anti_patterns: "docs/anti-patterns.md"  # Optional
+
+  # Schema for solution records
+  schema_template: "$CLAUDE_PLUGIN_ROOT/templates/learnings-schema.yaml"
+
+  # Relevance scoring criteria
+  relevance:
+    high:
+      criteria: "Same domain + same technology + similar constraints"
+      action: "Apply directly to current feature"
+    medium:
+      criteria: "Same domain OR same technology"
+      action: "Consider for adaptation"
+    low:
+      criteria: "Related but different context"
+      action: "Reference only"
+
+  # Behavior when knowledge base doesn't exist
+  graceful_degradation:
+    log_message: "No institutional knowledge base found"
+    suggest_creation: true
+    continue_without: true
+
+# =============================================================================
 # ANALYSIS MODES
 # =============================================================================
 # Hierarchical modes with graceful degradation when MCP tools unavailable
@@ -45,6 +246,57 @@ analysis_modes:
 
 # Note on model names: The model identifiers (gpt-5.2, gemini-3-pro-preview, grok-4) are
 # configurable placeholders. Update these to match your available PAL/MCP model configurations.
+
+# =============================================================================
+# MODE AUTO-SUGGESTION
+# =============================================================================
+# Heuristics for suggesting analysis mode based on feature characteristics
+
+mode_suggestion:
+  enabled: true
+  description: "Automatic mode suggestion based on feature characteristics"
+
+  # Evaluation order: first matching rule wins
+  rules:
+    - name: "complex_feature"
+      conditions:
+        spec_word_count: ">= 2000"
+        OR:
+          high_risk_keywords: ">= 3"
+      suggest: complete
+      rationale: "Large spec or multiple high-risk areas require full analysis"
+
+    - name: "risky_feature"
+      conditions:
+        high_risk_keywords: ">= 2"
+        OR:
+          estimated_files: ">= 15"
+      suggest: advanced
+      rationale: "Significant risk or large scope benefits from PAL insights"
+
+    - name: "moderate_feature"
+      conditions:
+        spec_word_count: ">= 500"
+        OR:
+          estimated_files: ">= 5"
+      suggest: standard
+      rationale: "Moderate complexity benefits from MPA without external models"
+
+    - name: "simple_feature"
+      conditions:
+        default: true
+      suggest: rapid
+      rationale: "Small features can use fast path"
+
+  # Keyword patterns for risk detection (reuses research_depth.risk_keywords)
+  risk_detection:
+    use_config: "research_depth.risk_keywords"
+
+  # Output format for suggestion
+  output_template: |
+    Detected: {high_risk_count} high-risk keywords ({keywords_sample})
+    Estimated: {file_count} files affected
+    Recommended: {mode} mode (~{cost_estimate})
 
 # Graceful degradation rules
 degradation:
@@ -211,14 +463,14 @@ pal:
         weight: 0.15
         criteria: "Realistic scope, resource considerations, timeline alignment"
 
-    # Thresholds (score boundaries are inclusive on lower end)
-    # GREEN: score >= ready (16+)
-    # YELLOW: score >= conditional AND score < ready (12-15)
-    # RED: score < conditional (<12)
+    # Thresholds with explicit comparison semantics (per CLAUDE.md guidelines)
+    # GREEN: score >= 16 → proceed to implementation
+    # YELLOW: score >= 12 AND score < 16 → proceed with documented risks
+    # RED: score < 12 → requires revision (boundary value: 12)
     thresholds:
-      ready: 16        # GREEN - proceed to implementation (score >= 16)
-      conditional: 12  # YELLOW - proceed with documented risks (score >= 12)
-      # RED is implicit: score < conditional (score < 12)
+      green: 16       # score >= 16: proceed to implementation
+      yellow: 12      # score >= 12 AND < 16: proceed with documented risks
+      red: 12         # score < 12: requires revision (boundary is 12)
 
     # Output
     output:
@@ -415,11 +667,14 @@ test_planning:
           weight: 0.15
           criteria: "Tests are not brittle or over-specified"
 
-      # Thresholds (percentage)
+      # Thresholds with explicit comparison semantics (per CLAUDE.md guidelines)
+      # GREEN: score >= 80% → proceed with TDD
+      # YELLOW: score >= 65% AND score < 80% → proceed with documented gaps
+      # RED: score < 65% → add more tests (boundary value: 65)
       thresholds:
-        ready: 80       # GREEN - proceed with TDD
-        conditional: 65  # YELLOW - proceed with documented gaps
-        not_ready: 64    # RED - add more tests
+        green: 80       # score >= 80: proceed with TDD
+        yellow: 65      # score >= 65 AND < 80: proceed with documented gaps
+        red: 65         # score < 65: add more tests (boundary is 65)
 
     # Required coverage targets
     targets:
@@ -500,3 +755,80 @@ artifacts:
     - "{FEATURE_DIR}/analysis/consensus-validation.md"
     - "{FEATURE_DIR}/test-plan.md"
     - "{FEATURE_DIR}/analysis/test-coverage-validation.md"
+
+# =============================================================================
+# BLESSED CONFIGURATION PROFILES
+# =============================================================================
+# Tested flag combinations for each mode. Use these for CI validation.
+# Each profile represents a validated configuration that has been tested end-to-end.
+
+blessed_profiles:
+  rapid_default:
+    description: "Minimal analysis for prototypes and quick iterations"
+    mode: rapid
+    flags:
+      s1_self_critique: true
+      s2_cot_prefix: true
+      a3_adaptive_depth: false
+      a5_post_planning_menu: true
+      # All other flags: false (not applicable to rapid mode)
+    expected_cost: "$0.05-0.12"
+    use_case: "Small features, quick prototypes, low-risk changes"
+
+  standard_default:
+    description: "Typical feature development with MPA"
+    mode: standard
+    flags:
+      s1_self_critique: true
+      s2_cot_prefix: true
+      a3_adaptive_depth: true
+      a5_post_planning_menu: true
+      a1_flow_analysis: true
+      a2_learnings_researcher: true
+      # Advanced/Complete flags: false
+    expected_cost: "$0.15-0.30"
+    use_case: "Normal features, moderate complexity, established patterns"
+
+  advanced_default:
+    description: "Important features requiring PAL insights"
+    mode: advanced
+    flags:
+      # All universal flags: true
+      s1_self_critique: true
+      s2_cot_prefix: true
+      a3_adaptive_depth: true
+      a5_post_planning_menu: true
+      a1_flow_analysis: true
+      a2_learnings_researcher: true
+      # All advanced flags: true
+      s3_judge_gates: true
+      s4_adaptive_strategy: true
+      a4_expert_review: true
+      # Complete-only flags: false
+    expected_cost: "$0.45-0.75"
+    use_case: "Important features, risky changes, cross-cutting concerns"
+
+  complete_default:
+    description: "Critical features requiring full analysis"
+    mode: complete
+    flags:
+      # All flags: true
+      s1_self_critique: true
+      s2_cot_prefix: true
+      a3_adaptive_depth: true
+      a5_post_planning_menu: true
+      a1_flow_analysis: true
+      a2_learnings_researcher: true
+      s3_judge_gates: true
+      s4_adaptive_strategy: true
+      a4_expert_review: true
+      s5_tot_architecture: true
+      s6_multi_judge_debate: true
+    expected_cost: "$0.80-1.50"
+    use_case: "Critical features, security-sensitive, high business impact"
+
+  # Validation helper for CI
+  validation:
+    check_requires_dependencies: true
+    check_mode_availability: true
+    check_mcp_requirements: true

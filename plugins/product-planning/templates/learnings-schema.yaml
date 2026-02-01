@@ -1,0 +1,345 @@
+# Learnings Schema Template (A2)
+#
+# This YAML schema defines the structure for institutional knowledge records.
+# Store solution records in docs/solutions/{domain}/*.yaml
+#
+# Example: docs/solutions/payment/retry-strategy.yaml
+
+# =============================================================================
+# SOLUTION RECORD SCHEMA
+# =============================================================================
+
+# Unique identifier for this learning
+id: "{domain}-{topic}-{sequence}"  # e.g., "payment-retry-001"
+
+# Metadata
+metadata:
+  title: "{Descriptive title}"
+  created: "{YYYY-MM-DD}"
+  updated: "{YYYY-MM-DD}"
+  author: "{who documented this}"
+  version: "1.0"
+
+  # Tags for searchability
+  tags:
+    - "{domain}"       # e.g., payment, auth, notification
+    - "{technology}"   # e.g., redis, kafka, postgresql
+    - "{pattern}"      # e.g., retry, circuit-breaker, saga
+    - "{risk}"         # e.g., security, performance, data-loss
+
+# =============================================================================
+# PROBLEM CONTEXT
+# =============================================================================
+
+problem:
+  # What problem was being solved?
+  description: |
+    {Describe the problem in 2-3 sentences}
+
+  # What triggered this solution?
+  trigger: "{feature/incident/optimization that led to this}"
+
+  # What constraints existed?
+  constraints:
+    - "{constraint 1}"
+    - "{constraint 2}"
+
+  # What was the impact of the problem?
+  impact:
+    severity: "CRITICAL|HIGH|MEDIUM|LOW"
+    description: "{What happened or could happen}"
+
+# =============================================================================
+# SOLUTION
+# =============================================================================
+
+solution:
+  # Brief summary
+  summary: |
+    {One paragraph describing the solution}
+
+  # Key decisions made
+  decisions:
+    - decision: "{What was decided}"
+      rationale: "{Why this was chosen}"
+      alternatives_considered:
+        - "{Alternative 1 - why rejected}"
+        - "{Alternative 2 - why rejected}"
+
+  # Implementation approach
+  implementation:
+    pattern: "{Design pattern used, if any}"
+    components:
+      - name: "{Component name}"
+        purpose: "{What it does}"
+        location: "{File path or module}"
+
+    # Code reference (optional)
+    code_reference:
+      file: "{relative path}"
+      lines: "{start-end}"
+      description: "{What to look at}"
+
+  # Configuration
+  configuration:
+    - key: "{config key}"
+      value: "{recommended value}"
+      rationale: "{Why this value}"
+
+# =============================================================================
+# OUTCOMES
+# =============================================================================
+
+outcomes:
+  # What worked well
+  successes:
+    - "{Positive outcome 1}"
+    - "{Positive outcome 2}"
+
+  # What didn't work as expected
+  challenges:
+    - issue: "{What happened}"
+      resolution: "{How it was fixed}"
+
+  # Metrics (if available)
+  metrics:
+    before:
+      - metric: "{e.g., latency_p99}"
+        value: "{e.g., 500ms}"
+    after:
+      - metric: "{e.g., latency_p99}"
+        value: "{e.g., 50ms}"
+
+# =============================================================================
+# REUSABILITY
+# =============================================================================
+
+reusability:
+  # When to apply this solution
+  applicable_when:
+    - "{Condition 1}"
+    - "{Condition 2}"
+
+  # When NOT to apply
+  not_applicable_when:
+    - "{Condition that makes this wrong}"
+
+  # Prerequisites for reuse
+  prerequisites:
+    - "{What must be true to use this}"
+
+  # Customization points
+  customization:
+    - point: "{What can be changed}"
+      guidance: "{How to customize}"
+
+# =============================================================================
+# WARNINGS
+# =============================================================================
+
+warnings:
+  # Critical things to remember
+  critical:
+    - warning: "{What could go wrong}"
+      mitigation: "{How to prevent it}"
+      severity: "CRITICAL|HIGH"
+
+  # Known limitations
+  limitations:
+    - "{Limitation 1}"
+    - "{Limitation 2}"
+
+  # Related anti-patterns
+  anti_patterns:
+    - pattern: "{What NOT to do}"
+      reason: "{Why it's bad}"
+
+# =============================================================================
+# REFERENCES
+# =============================================================================
+
+references:
+  # Internal documentation
+  internal:
+    - title: "{Doc title}"
+      path: "{relative path}"
+
+  # External resources
+  external:
+    - title: "{Resource title}"
+      url: "{URL}"
+      relevance: "{Why this is useful}"
+
+  # Related solutions
+  related_solutions:
+    - id: "{other-solution-id}"
+      relationship: "extends|alternative|prerequisite"
+
+# =============================================================================
+# EXAMPLE: Complete Solution Record
+# =============================================================================
+#
+# id: "payment-retry-001"
+#
+# metadata:
+#   title: "Payment Gateway Retry with Exponential Backoff"
+#   created: "2025-06-15"
+#   updated: "2025-09-22"
+#   author: "Platform Team"
+#   version: "2.0"
+#   tags:
+#     - payment
+#     - retry
+#     - resilience
+#     - stripe
+#
+# problem:
+#   description: |
+#     Payment gateway occasionally returns 5xx errors during peak load.
+#     Without retry logic, these failures resulted in lost orders and
+#     poor customer experience.
+#   trigger: "Black Friday 2024 incident - 3% order failure rate"
+#   constraints:
+#     - Must not charge customer twice (idempotency required)
+#     - Must complete within 30s timeout
+#     - Must handle partial failures gracefully
+#   impact:
+#     severity: HIGH
+#     description: "Lost revenue estimated at $50K during incident"
+#
+# solution:
+#   summary: |
+#     Implemented exponential backoff retry with jitter, idempotency keys,
+#     and circuit breaker pattern. Retries up to 3 times with 100ms, 500ms,
+#     2s delays (with jitter). Circuit opens after 10 failures in 1 minute.
+#   decisions:
+#     - decision: "Use exponential backoff with jitter"
+#       rationale: "Prevents thundering herd, gives gateway time to recover"
+#       alternatives_considered:
+#         - "Fixed delay - rejected, no backoff pressure"
+#         - "Linear backoff - rejected, slower recovery"
+#     - decision: "Idempotency key from order ID"
+#       rationale: "Natural unique identifier, prevents double-charge"
+#   implementation:
+#     pattern: "Circuit Breaker + Retry with Exponential Backoff"
+#     components:
+#       - name: PaymentRetryService
+#         purpose: "Wraps payment calls with retry logic"
+#         location: "src/services/payment/retry.ts"
+#       - name: CircuitBreaker
+#         purpose: "Prevents cascade failures"
+#         location: "src/lib/circuit-breaker.ts"
+#     code_reference:
+#       file: "src/services/payment/retry.ts"
+#       lines: "45-120"
+#       description: "Core retry loop with idempotency handling"
+#   configuration:
+#     - key: PAYMENT_RETRY_MAX_ATTEMPTS
+#       value: "3"
+#       rationale: "Balance between resilience and timeout"
+#     - key: PAYMENT_RETRY_BASE_DELAY_MS
+#       value: "100"
+#       rationale: "Fast first retry, exponential from there"
+#
+# outcomes:
+#   successes:
+#     - "Order failure rate dropped from 3% to 0.1%"
+#     - "No duplicate charges since implementation"
+#   challenges:
+#     - issue: "Initial jitter range too small, still caused bunching"
+#       resolution: "Increased jitter to 0-100% of delay"
+#   metrics:
+#     before:
+#       - metric: order_failure_rate
+#         value: "3%"
+#     after:
+#       - metric: order_failure_rate
+#         value: "0.1%"
+#
+# reusability:
+#   applicable_when:
+#     - "Calling external payment/billing APIs"
+#     - "Transient failures are expected"
+#     - "Idempotency is possible"
+#   not_applicable_when:
+#     - "API has no idempotency support"
+#     - "Immediate response required (real-time)"
+#   prerequisites:
+#     - "Idempotency key generation strategy"
+#     - "Circuit breaker library available"
+#   customization:
+#     - point: "Retry delays"
+#       guidance: "Adjust based on downstream SLAs"
+#     - point: "Circuit breaker thresholds"
+#       guidance: "Tune based on expected failure rate"
+#
+# warnings:
+#   critical:
+#     - warning: "Always use idempotency keys"
+#       mitigation: "Generate from order ID before first attempt"
+#       severity: CRITICAL
+#   limitations:
+#     - "Does not handle card declined (non-retryable)"
+#     - "30s timeout may not be enough for 3 retries with max backoff"
+#   anti_patterns:
+#     - pattern: "Retrying card declined errors"
+#       reason: "Wastes resources, annoys payment provider"
+#
+# references:
+#   internal:
+#     - title: "Payment Service Architecture"
+#       path: "docs/architecture/payment.md"
+#   external:
+#     - title: "Stripe Idempotent Requests"
+#       url: "https://stripe.com/docs/api/idempotent_requests"
+#       relevance: "Official guidance on idempotency"
+#   related_solutions:
+#     - id: "resilience-circuit-breaker-001"
+#       relationship: "prerequisite"
+
+# =============================================================================
+# GLOSSARY
+# =============================================================================
+# Terms for non-technical users creating or reading solution records.
+# Include this glossary in documentation for stakeholders.
+
+# Terms Used in This Schema:
+#
+# Circuit Breaker
+#   A pattern that stops calls to a failing service to prevent cascade failures.
+#   Like an electrical circuit breaker that trips when overloaded.
+#   Example: After 10 failed payment calls in 1 minute, stop trying for 30 seconds.
+#
+# Idempotency
+#   An operation produces the same result whether run once or multiple times.
+#   Critical for payment systems to prevent double-charging.
+#   Example: Retrying a payment with the same idempotency key won't charge twice.
+#
+# Exponential Backoff
+#   A retry strategy with increasing delays between attempts.
+#   Gives failing systems time to recover.
+#   Example: Wait 100ms, then 500ms, then 2s, then 4s between retries.
+#
+# Jitter
+#   Random delay variation added to prevent "thundering herd" problems.
+#   When many clients retry simultaneously, jitter spreads out the load.
+#   Example: Instead of all clients retrying at exactly 1s, each waits 0.8-1.2s.
+#
+# Thundering Herd
+#   When many clients simultaneously hammer a recovering service.
+#   Often caused by fixed retry intervals without jitter.
+#
+# Saga Pattern
+#   A sequence of local transactions with compensating actions for rollback.
+#   Used when a single database transaction isn't possible (distributed systems).
+#   Example: Reserve inventory → Charge payment → Ship order (each reversible).
+#
+# CQRS (Command Query Responsibility Segregation)
+#   Separating read operations (queries) from write operations (commands).
+#   Enables different optimization strategies for reads vs writes.
+#
+# Severity Levels:
+#   CRITICAL - System unusable, data loss risk, security breach
+#   HIGH     - Major feature broken, workaround difficult or impossible
+#   MEDIUM   - Feature impaired, workaround available
+#   LOW      - Minor issue, cosmetic, minimal user impact

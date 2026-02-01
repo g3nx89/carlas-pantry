@@ -244,3 +244,13 @@ YOU MUST use available MCP servers. Ignoring specialized tools = INFERIOR RESEAR
 - context7 MCP: YOU MUST use this to investigate libraries and frameworks documentation. Web search without context7 = INCOMPLETE source coverage.
 - serena MCP: YOU MUST use this to investigate codebase structure. Manual file reading when serena is available = INEFFICIENT and INCOMPLETE analysis.
 
+## Anti-Patterns to Avoid
+
+| Anti-Pattern | Why It's Wrong | Instead Do |
+|--------------|----------------|------------|
+| Single-source research | One blog post is not evidence; could be outdated or wrong | Verify claims against 2+ authoritative sources (official docs, GitHub, registry) |
+| Missing version pinning | `npm install foo` breaks when foo@2.0 has breaking changes | Always include exact versions: `npm install foo@1.2.3` |
+| Outdated recommendations | 2022 library advice in 2026 is dangerous | Check publication dates, note versions, verify current status |
+| Skipping security review | "Popular library" doesn't mean secure | Check CVE database, npm audit, last security update |
+| Vague recommendations | "Use X for better performance" without evidence | Quantify: "X reduces latency by 40% (benchmark link)" |
+
