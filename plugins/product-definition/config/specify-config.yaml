@@ -1,0 +1,1239 @@
+# /sdd:01-specify Configuration
+# ================================
+# Centralized configuration for the specification workflow.
+# All limits, thresholds, and feature flags are defined here.
+#
+# Referenced by:
+# - $CLAUDE_PLUGIN_ROOT/commands/specify.md
+# - $CLAUDE_PLUGIN_ROOT/agents/business-analyst.md
+# - $CLAUDE_PLUGIN_ROOT/skills/specify-clarification/SKILL.md
+
+---
+
+# Version tracking
+version: "2.2.0"
+last_updated: "2026-01-26"
+
+# =============================================================================
+# WORKFLOW LIMITS
+# =============================================================================
+# These control iteration counts and marker limits throughout the workflow.
+# NOTE: No artificial limits on user clarifications, user stories, or NFRs.
+# The workflow should gather ALL necessary information for complete specifications.
+
+limits:
+  # REMOVED: clarification_markers_max - No limit on clarification markers
+  # REMOVED: clarification_iterations_max - No limit on clarification iterations
+  # The workflow continues until ALL clarifications are resolved
+
+  # Maximum PAL rejection retries (Phase 5)
+  # After this many rejections, escalates to user decision
+  pal_rejection_retries_max: 2
+
+  # Maximum questions per AskUserQuestion batch
+  # AskUserQuestion tool constraint - do not increase (API limit)
+  questions_per_batch: 4
+
+  # Lock file staleness threshold (hours)
+  # Locks older than this are considered stale and auto-removed
+  lock_staleness_hours: 2
+
+  # EXPLICIT: No limits on content generation
+  # These are explicitly set to unlimited (null) for clarity
+  max_user_stories: null           # No limit - generate as many as needed
+  max_acceptance_criteria: null    # No limit - be thorough
+  max_nfrs: null                   # No limit - capture all non-functional requirements
+  max_clarification_questions: null # No limit - ask everything needed
+  max_clarification_batches: null  # No limit - iterate until complete
+
+# =============================================================================
+# QUALITY THRESHOLDS
+# =============================================================================
+# Thresholds for quality gates. Values are percentages or points.
+
+thresholds:
+  # Checklist validation (Phase 4) - percentage coverage
+  checklist:
+    green: 85    # >= this: HIGH coverage, proceed to PAL
+    yellow: 60   # >= this: MEDIUM coverage, proceed to clarifications
+    # < yellow: LOW coverage, iterate with BA
+
+  # PAL Consensus (Phase 5) - points out of 20
+  pal:
+    green: 16    # >= this: APPROVED
+    yellow: 12   # >= this: CONDITIONAL (proceed with warnings)
+    # < yellow: REJECTED (iterate or escalate)
+
+  # Self-Critique (BA Agent) - points out of 20
+  self_critique:
+    pass: 16     # >= this: Ready for submission
+    conditional: 12  # >= this: Minor revision needed
+    # < conditional: Significant rework required
+
+  # Incremental Gates (P2 enhancement)
+  incremental_gates:
+    problem_quality_min_score: 3    # Minimum score (1-4) for problem statement
+    true_need_confidence_min: "medium"  # Minimum confidence: low, medium, high
+
+# =============================================================================
+# FEATURE FLAGS
+# =============================================================================
+# Enable/disable experimental or optional features.
+
+feature_flags:
+  # P2: Enable incremental validation gates after Problem Framing and True Need Discovery
+  enable_incremental_gates: true
+
+  # P3: Enable complexity-based workflow triage (SIMPLE/MEDIUM/COMPLEX)
+  enable_complexity_triage: false  # Planned for future release
+
+  # P5: Enable parallel execution of Phase 5 and Phase 5.5
+  enable_parallel_phase_5: false  # Requires orchestrator changes
+
+  # Enable PAL Consensus validation (can be disabled for faster iteration)
+  enable_pal_validation: true
+
+  # Enable self-critique in BA agent (mandatory for quality)
+  enable_self_critique: true
+
+  # Enable Figma integration prompts (--figma / --no-figma override)
+  enable_figma_integration: true
+
+  # Enable Research Discovery Phase (Phase 1.7 and 1.8)
+  enable_research_discovery: true
+
+  # Enable Test Strategy Generation Phase (Phase 5.7)
+  enable_test_strategy: true
+
+# =============================================================================
+# RESEARCH DISCOVERY CONFIGURATION
+# =============================================================================
+# Configuration for the Research Discovery Phase (1.7 and 1.8).
+# Generates deep research questions for user investigation before spec drafting.
+
+research_discovery:
+  # Master switch
+  enabled: true
+  version: "1.0.0"
+
+  # ─────────────────────────────────────────────────────────────
+  # MODE SELECTION
+  # ─────────────────────────────────────────────────────────────
+  # Simple mode: Single BA agent generates questions (faster, cheaper)
+  # MPA mode: 3 specialized agents (Business, Technical, UX) with synthesis
+
+  default_mode: "simple"  # simple | mpa
+
+  modes:
+    simple:
+      agent: "$CLAUDE_PLUGIN_ROOT/agents/business-analyst.md"
+      model: "sonnet"
+      sequential_thinking: true
+      min_questions: 4
+      max_questions: 8
+
+    mpa:
+      parallel: true
+      agents:
+        - name: "strategic"
+          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-business.md"
+          model: "sonnet"
+          output: "questions-strategic.md"
+        - name: "technical"
+          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-technical.md"
+          model: "sonnet"
+          output: "questions-technical.md"
+        - name: "ux"
+          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-ux.md"
+          model: "sonnet"
+          output: "questions-ux.md"
+      synthesis:
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/research-question-synthesis.md"
+        model: "sonnet"
+        output: "research-questions.md"
+
+  # ─────────────────────────────────────────────────────────────
+  # QUESTION GENERATION
+  # ─────────────────────────────────────────────────────────────
+
+  question_generation:
+    # Minimum depth score (1-5) for inclusion
+    min_depth_score: 3.0
+
+    # Priority levels
+    priorities:
+      - name: "CRITICAL"
+        description: "Could invalidate entire approach"
+        research_time: "2-4 hours"
+      - name: "HIGH"
+        description: "Significantly shapes requirements"
+        research_time: "1-2 hours"
+      - name: "MEDIUM"
+        description: "Refines understanding"
+        research_time: "30-60 min"
+
+    # Question categories
+    categories:
+      - "Strategic"      # Market, competitive, business model
+      - "Technical"      # Architecture, scalability, compliance
+      - "UX"             # User behavior, community, adoption
+      - "Competitive"    # Competitor analysis, gap analysis
+
+  # ─────────────────────────────────────────────────────────────
+  # USER DECISION POINT
+  # ─────────────────────────────────────────────────────────────
+
+  user_decision:
+    prompt:
+      question: "Research questions have been generated. How would you like to proceed?"
+      header: "Research"
+      options:
+        - label: "Conduct research (Recommended)"
+          description: "I'll research these questions and provide reports"
+          action: "conduct_research"
+        - label: "Skip with context"
+          description: "I have domain knowledge to share instead"
+          action: "skip_with_context"
+        - label: "Skip entirely"
+          description: "Proceed without external research"
+          action: "skip_entirely"
+
+  # ─────────────────────────────────────────────────────────────
+  # RESEARCH REPORT ANALYSIS (Phase 1.8)
+  # ─────────────────────────────────────────────────────────────
+
+  report_analysis:
+    # Directory where user saves research reports
+    reports_directory: "research/"
+
+    # Expected report patterns
+    report_patterns:
+      - "research-*.md"
+      - "*.research.md"
+
+    # Synthesis agent
+    synthesis:
+      agent: "$CLAUDE_PLUGIN_ROOT/agents/research-question-synthesis.md"
+      model: "sonnet"
+      output: "research-synthesis.md"
+
+    # Detection behavior
+    detection:
+      min_reports: 1  # Minimum reports to proceed with analysis
+      warn_if_missing_categories: true  # Warn if major categories have no research
+
+    # Annotation format for spec
+    annotation_format: "@ResearchRef(finding=\"{finding_id}\", source=\"{source_file}\")"
+
+  # ─────────────────────────────────────────────────────────────
+  # OUTPUT CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+
+  output:
+    questions_file: "research-questions.md"
+    synthesis_file: "research-synthesis.md"
+    reports_directory: "research/"
+
+  # ─────────────────────────────────────────────────────────────
+  # TEMPLATES
+  # ─────────────────────────────────────────────────────────────
+
+  templates:
+    questions: "specs/templates/research-questions-template.md"
+    synthesis: "specs/templates/research-synthesis-template.md"
+    report: "specs/templates/research-report-template.md"
+
+# =============================================================================
+# COMPLEXITY TRIAGE (P3 - Future)
+# =============================================================================
+# Criteria for automatic workflow complexity selection.
+# Currently inactive (enable_complexity_triage: false)
+
+complexity_triage:
+  criteria:
+    user_stories:
+      simple: [1, 3]      # 1-3 stories
+      medium: [4, 8]      # 4-8 stories
+      complex: [9, null]  # 9+ stories (null = no upper limit)
+    stakeholders:
+      simple: [1, 1]
+      medium: [2, 3]
+      complex: [4, null]
+    integrations:
+      simple: [0, 0]
+      medium: [1, 2]
+      complex: [3, null]
+
+  workflow_phases:
+    simple:
+      skip: ["jtbd", "competitive", "stakeholder_detailed"]
+      templates_count: 6
+    medium:
+      skip: ["competitive"]
+      templates_count: 12
+    complex:
+      skip: []
+      templates_count: 15  # After P1 consolidation (was 25)
+
+# =============================================================================
+# AGENT RESPONSE SCHEMA (P6)
+# =============================================================================
+# Standard response format for all agents in the workflow.
+# Agents MUST return responses matching this schema.
+
+agent_response_schema:
+  version: "1.0"
+  required_fields:
+    - status        # success | partial | error
+    - outputs       # List of files created/modified
+    - next_step     # Description of recommended next action
+
+  optional_fields:
+    - metrics       # Numeric metrics (scores, counts)
+    - warnings      # List of warning messages
+    - errors        # List of error messages (if status != success)
+    - user_decisions_needed  # Questions requiring user input
+
+  status_values:
+    success: "All tasks completed successfully"
+    partial: "Some tasks completed, others need attention"
+    error: "Critical failure, cannot proceed"
+
+  output_actions:
+    created: "New file created"
+    updated: "Existing file modified"
+    deleted: "File removed"
+
+# =============================================================================
+# CHECKPOINT PROTOCOL (P4)
+# =============================================================================
+# Unified checkpoint mechanism using YAML state file only.
+# HTML comment checkpoints in agent output are DEPRECATED.
+
+checkpoint_protocol:
+  # Single source of truth for workflow state
+  state_file_pattern: ".specify-state.local.md"
+
+  # Deprecated mechanisms (for migration reference)
+  deprecated:
+    - html_comments: "<!-- CHECKPOINT: ... -->"
+    - lock_file_phase: "phase: X in lock file"
+
+  # Required fields in state file phases section
+  phase_state_fields:
+    - status        # pending | in_progress | completed | error
+    - timestamp     # ISO 8601 format
+    - outputs       # List of generated files
+    - metrics       # Phase-specific metrics
+
+  # Example phase state entry
+  example: |
+    phases:
+      spec_draft:
+        status: completed
+        timestamp: "2025-01-21T10:30:00Z"
+        outputs:
+          - file: spec.md
+            action: created
+            lines: 245
+        metrics:
+          self_critique_score: 17
+          user_stories_count: 8
+          requirements_count: 15
+
+# =============================================================================
+# INCREMENTAL GATES CONFIGURATION (P2)
+# =============================================================================
+# Configuration for early validation gates.
+
+incremental_gates:
+  # Gate 1: After Problem Framing (BA Phase 0)
+  gate_1_problem_quality:
+    enabled: true
+    trigger_after: "problem_framing"
+    evaluation_criteria:
+      - "Problem statement is specific (not generic)"
+      - "Target persona is clearly identified"
+      - "Impact/pain point is measurable or observable"
+      - "Root cause is articulated (not just symptoms)"
+
+    # Scoring: Each criterion is 1 point (max 4)
+    thresholds:
+      green: 4      # All criteria met - proceed
+      yellow: 3     # Minor gaps - proceed with note
+      red: 2        # Significant gaps - require refinement
+
+    # Question template for user validation
+    user_prompt:
+      question: "Review the problem statement below. Does it accurately capture the core issue?"
+      header: "Problem"
+      options:
+        - label: "Yes, proceed (Recommended)"
+          description: "Problem is specific, actionable, and well-articulated"
+        - label: "Needs refinement"
+          description: "Problem is vague or missing key elements - iterate"
+        - label: "Need more context"
+          description: "I need to provide additional information"
+
+  # Gate 2: After Requirements Discovery (BA Phase 1)
+  gate_2_true_need:
+    enabled: true
+    trigger_after: "requirements_discovery"
+    evaluation_criteria:
+      - "True need differs from stated request (root cause found)"
+      - "Stakeholder motivations are documented"
+      - "Success criteria are defined"
+      - "Business value is articulated"
+
+    thresholds:
+      green: 4
+      yellow: 3
+      red: 2
+
+    user_prompt:
+      question: "The analysis identified the true business need. Does this align with your understanding?"
+      header: "True Need"
+      options:
+        - label: "Yes, this captures it (Recommended)"
+          description: "The true need goes beyond the surface request"
+        - label: "Partially correct"
+          description: "Some aspects are right, but missing elements"
+        - label: "No, needs rework"
+          description: "The analysis missed the core need"
+
+# =============================================================================
+# DEPRECATION NOTICES
+# =============================================================================
+# Features or patterns that are deprecated and will be removed.
+
+deprecations:
+  - feature: "HTML checkpoint comments in agent output"
+    deprecated_in: "2.0.0"
+    removed_in: "3.0.0"
+    migration: "Use YAML state file only (checkpoint_protocol section)"
+
+  - feature: "Hardcoded limits in agent files"
+    deprecated_in: "2.0.0"
+    removed_in: "3.0.0"
+    migration: "Reference specs/config/specify-config.yaml"
+
+  - feature: "Unstructured agent markdown responses"
+    deprecated_in: "2.0.0"
+    removed_in: "3.0.0"
+    migration: "Use agent_response_schema format"
+
+# =============================================================================
+# SADD PATTERN CONFIGURATION (v1.1)
+# =============================================================================
+# Subagent-Driven Development patterns for multi-agent specification workflow.
+# Implements multi-perspective analysis, judge-based evaluation, and debate protocols.
+
+sadd_patterns:
+  # Master switch for SADD enhancements
+  enabled: true
+  version: "1.1.0"
+
+  # ─────────────────────────────────────────────────────────────
+  # MODEL ASSIGNMENT (Critical for cost control)
+  # ─────────────────────────────────────────────────────────────
+  model_assignments:
+    # OPUS - Complex synthesis requiring highest reasoning
+    opus:
+      - "stakeholder-synthesis"
+      - "question-synthesis"
+
+    # SONNET - Structured reasoning tasks
+    sonnet:
+      - "stakeholder-advocates/*"
+      - "question-discovery/*"
+      - "recommendation-judges/*"
+      - "gate-judge"
+      - "pal-rejection-analysts/*"
+      - "qa-strategist"  # V-Model test strategy generation
+
+    # HAIKU - Simple, well-defined tasks
+    haiku:
+      - "question-classifier"
+      - "consensus-checker"
+      - "progress-reporter"
+
+  # ─────────────────────────────────────────────────────────────
+  # TIER 1: Core Enhancements (Always Enabled)
+  # ─────────────────────────────────────────────────────────────
+
+  stakeholder_advocates:
+    enabled: true
+    phase: "2"
+    parallel: true
+    perspectives:
+      - name: "end_user"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-advocates/end-user-advocate.md"
+        model: "sonnet"
+      - name: "business"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-advocates/business-advocate.md"
+        model: "sonnet"
+      - name: "operations"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-advocates/operations-advocate.md"
+        model: "sonnet"
+      - name: "security"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-advocates/security-advocate.md"
+        model: "sonnet"
+    synthesis:
+      agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-synthesis.md"
+      model: "opus"
+    output_dir: "sadd/"
+
+  gate_evaluation:
+    enabled: true
+    use_judge: true
+    judge_agent: "$CLAUDE_PLUGIN_ROOT/agents/gate-judge.md"
+    judge_model: "sonnet"
+    rubric_directory: "specs/templates/gate-rubrics/"
+    gates:
+      - id: "gate_1_problem"
+        phase: "2.5"
+        rubric: "problem-quality-rubric.md"
+        thresholds:
+          green: 3.5
+          yellow: 2.5
+      - id: "gate_2_true_need"
+        phase: "2.7"
+        rubric: "true-need-rubric.md"
+        thresholds:
+          green: 3.5
+          yellow: 2.5
+
+  question_discovery:
+    enabled: true
+    phase: "4.5"
+    parallel: true
+    perspectives:
+      - name: "ux"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/question-discovery/ux-perspective.md"
+        model: "sonnet"
+      - name: "business"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/question-discovery/business-perspective.md"
+        model: "sonnet"
+      - name: "technical"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/question-discovery/technical-perspective.md"
+        model: "sonnet"
+    synthesis:
+      agent: "$CLAUDE_PLUGIN_ROOT/agents/question-synthesis.md"
+      model: "opus"
+    classifier:
+      agent: "$CLAUDE_PLUGIN_ROOT/agents/question-classifier.md"
+      model: "haiku"
+
+  recommendation_debate:
+    enabled: true
+    phase: "4.5"
+    trigger: "scope_critical"
+    adversarial: true  # Use stance-based prompting
+    judges:
+      - name: "risk"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/recommendation-judges/risk-judge.md"
+        model: "sonnet"
+        stance: "skeptical"
+        stance_prompt: "Challenge the mainstream. Find hidden risks."
+      - name: "value"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/recommendation-judges/value-judge.md"
+        model: "sonnet"
+        stance: "optimistic"
+        stance_prompt: "Advocate for user value. Push back on caution."
+      - name: "effort"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/recommendation-judges/effort-judge.md"
+        model: "sonnet"
+        stance: "pragmatic"
+        stance_prompt: "Ground in reality. Challenge both extremes."
+    consensus_threshold: 0.67
+    max_debate_rounds: 2
+    output_dir: "sadd/"
+
+  # ─────────────────────────────────────────────────────────────
+  # TIER 2: Advanced Enhancements (Enabled by Default)
+  # ─────────────────────────────────────────────────────────────
+
+  pal_rejection_analysis:
+    enabled: true
+    phase: "5"
+    trigger: "pal_score < 12"
+    judges:
+      - name: "validity"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/pal-rejection/validity-judge.md"
+        model: "sonnet"
+      - name: "actionability"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/pal-rejection/actionability-judge.md"
+        model: "sonnet"
+      - name: "root_cause"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/pal-rejection/root-cause-judge.md"
+        model: "sonnet"
+
+  # ─────────────────────────────────────────────────────────────
+  # TIER 3: Experimental (Disabled by Default)
+  # ─────────────────────────────────────────────────────────────
+
+  competitive_drafting:
+    enabled: false
+    phase: "2"
+    trigger_keywords:
+      - "security-critical"
+      - "revenue-critical"
+      - "compliance"
+    drafters:
+      - name: "user_centric"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/competitive-drafters/user-centric-ba.md"
+        model: "sonnet"
+      - name: "business_centric"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/competitive-drafters/business-centric-ba.md"
+        model: "sonnet"
+      - name: "technical_centric"
+        agent: "$CLAUDE_PLUGIN_ROOT/agents/competitive-drafters/technical-centric-ba.md"
+        model: "sonnet"
+
+  tree_of_thoughts:
+    enabled: false
+    phase: "4.5"
+    complexity_threshold: 0.7
+    complexity_indicators:
+      - "integration"
+      - "migration"
+      - "global"
+      - "enterprise"
+      - "regulatory"
+    explorers: 3
+    pruning_judges: 3
+    top_n_to_expand: 2
+
+  # ─────────────────────────────────────────────────────────────
+  # Orchestration
+  # ─────────────────────────────────────────────────────────────
+
+  orchestration:
+    skill: "$CLAUDE_PLUGIN_ROOT/skills/sadd-orchestrator/SKILL.md"
+    timeout_per_agent: 120  # seconds
+    parallel_max_concurrent: 4
+    file_coordination:
+      base_dir: "sadd/"
+      cleanup_on_complete: false  # Keep for debugging
+
+  # ─────────────────────────────────────────────────────────────
+  # Rollout Configuration
+  # ─────────────────────────────────────────────────────────────
+
+  rollout:
+    phase: "full"  # Current rollout phase: week_1_2, week_3_4, week_5_6, week_7_8, full
+    ab_testing:
+      enabled: false  # Set to true for phased rollout
+      split: 0.5
+      min_sample: 10
+
+  # ─────────────────────────────────────────────────────────────
+  # Fallback Configuration
+  # ─────────────────────────────────────────────────────────────
+
+  fallbacks:
+    on_agent_failure:
+      action: "fallback_to_single_agent"
+      log: true
+      notify_user: true
+      preserve:
+        - "gate_evaluation"
+
+    on_debate_timeout:
+      action: "present_as_contested"
+      include_all_perspectives: true
+
+    on_latency_exceeded:
+      threshold_seconds: 300
+      action: "skip_optional_enhancements"
+      preserve:
+        - "stakeholder_advocates"
+        - "gate_evaluation"
+
+    on_orchestration_failure:
+      action: "inline_execution"
+      sequential_only: true
+
+# =============================================================================
+# QUESTION CLASSIFICATION (SADD)
+# =============================================================================
+# Rules used by question-classifier agent to route questions.
+
+question_classification:
+  scope_critical_indicators:
+    - "whether to include"
+    - "whether to support"
+    - "scope"
+    - "boundary"
+    - "limit"
+    - "MVP"
+    - "phase 1"
+    - "must have"
+    - "nice to have"
+
+  ux_preference_indicators:
+    - "how to display"
+    - "animation"
+    - "layout"
+    - "color"
+    - "style"
+
+  tech_default_indicators:
+    - "cache"
+    - "timeout"
+    - "retry"
+    - "format"
+
+# =============================================================================
+# THINKDEEP INTEGRATION (MPA Framework v4.1)
+# =============================================================================
+# Multi-Perspective Analysis using PAL's ThinkDeep tool for cognitive diversity.
+# Complements PAL Consensus by providing DEEP REASONING vs voting.
+#
+# Key difference:
+# - PAL Consensus: "Is this good enough?" (agreement-seeking)
+# - ThinkDeep: "What are we missing?" (diversity-seeking)
+#
+# NOTE: grok-4 is included for additional variety but is OPTIONAL.
+# Workflow continues gracefully if any model fails.
+
+thinkdeep:
+  # Master switch for MPA framework
+  enabled: true
+  version: "4.1.0"
+
+  # ─────────────────────────────────────────────────────────────
+  # ADDITIONAL MODEL: grok-4 via openrouter (OPTIONAL)
+  # ─────────────────────────────────────────────────────────────
+  # grok-4 provides contrarian perspective and assumption validation.
+  # If unavailable, workflow continues with other models.
+
+  additional_models:
+    - alias: "openrouter/x-ai/grok-4"
+      provider: "openrouter"
+      thinking_mode: "high"
+      default_focus: "contrarian_analysis"
+
+  # ─────────────────────────────────────────────────────────────
+  # INTEGRATION POINTS
+  # ─────────────────────────────────────────────────────────────
+
+  integrations:
+    # Phase 2.3: Problem Challenge (after spec draft, before Gate 1)
+    challenge:
+      enabled: true
+      phase: "2.3"
+      trigger: "always"  # always | on_yellow (save costs on YELLOW gate 1)
+      timeout_seconds: 120
+      max_insights: null  # No limit on insights
+      red_flag_workflow: true  # Enable STOP on critical issues
+
+      # v4.1: Parallel Multi-Model Execution (grok-4 included for variety)
+      parallel:
+        enabled: true
+        models:
+          - alias: "gpt5.2"
+            thinking_mode: "high"
+            focus: "root_cause_analysis"
+          - alias: "pro"
+            thinking_mode: "high"
+            focus: "alternative_interpretations"
+          - alias: "openrouter/x-ai/grok-4"
+            provider: "openrouter"
+            thinking_mode: "high"
+            focus: "assumption_validation"
+        synthesizer:
+          model: "haiku"
+          strategy: "union_with_dedup"
+
+      # Fallback when parallel.enabled: false
+      single_model:
+        model: "pro"
+        thinking_mode: "high"
+
+    # Phase 4.3: Edge Case Mining (after checklist validation, before clarification)
+    edge_cases:
+      enabled: true
+      phase: "4.3"
+      trigger: "always"  # Changed: ALWAYS run edge case mining
+      trigger_threshold: null  # No threshold - always execute
+      timeout_seconds: 150
+      inject_critical_high: true  # Auto-inject CRITICAL/HIGH as clarifications
+
+      # v4.1: Parallel Multi-Model Execution (grok-4 included for variety)
+      parallel:
+        enabled: true
+        models:
+          - alias: "pro"
+            thinking_mode: "max"
+            focus: "security_performance"
+          - alias: "gpt5.2"
+            thinking_mode: "high"
+            focus: "user_experience"
+          - alias: "openrouter/x-ai/grok-4"
+            provider: "openrouter"
+            thinking_mode: "high"
+            focus: "accessibility_i18n_contrarian"
+        synthesizer:
+          model: "haiku"
+          strategy: "union_with_dedup"
+          severity_boost: true  # 2+ models = boost severity
+
+      # Fallback when parallel.enabled: false
+      single_model:
+        model: "pro"
+        thinking_mode: "max"
+
+    # Phase 4.6: Question Triangulation (after BA questions, before user answers)
+    triangulation:
+      enabled: true
+      phase: "4.6"
+      models:
+        technical: "pro"
+        business: "gpt5.2"
+        contrarian: "openrouter/x-ai/grok-4"  # Additional perspective for variety
+      thinking_mode: "medium"
+      max_additional_questions: null  # No limit on additional questions
+      similarity_threshold: 0.85
+      similarity_model: "flash"  # Fast model for deduplication
+      timeout_seconds: 90
+
+  # ─────────────────────────────────────────────────────────────
+  # CROSS-MODEL SYNTHESIS (v4.1)
+  # ─────────────────────────────────────────────────────────────
+
+  synthesis:
+    auto_incorporate_confidence: 0.8  # Auto-apply if confidence > 80%
+    require_user_review: true  # Always show findings to user
+    cross_model_priority_boost: true  # Issues from 2+ models = HIGH priority
+
+    # Synthesizer subagent defaults
+    synthesizer_defaults:
+      model: "haiku"
+      timeout_seconds: 30
+      strategies:
+        union_with_dedup:
+          similarity_threshold: 0.85
+          keep: "most_detailed"
+        consensus_only:
+          min_agreement: 2
+        weighted:
+          weights:
+            "gpt5.2": 1.0
+            "pro": 1.0
+            "openrouter/x-ai/grok-4": 1.2  # Slightly higher weight for contrarian
+            "flash": 0.5
+
+  # ─────────────────────────────────────────────────────────────
+  # FALLBACK BEHAVIOR
+  # ─────────────────────────────────────────────────────────────
+
+  fallback:
+    on_timeout: "skip"  # Skip model that times out, continue with others
+    on_error: "skip"    # Skip model that errors, continue with others
+    max_retries: 2
+    retry_delay_seconds: 5
+
+    # v4.1: Per-model fallback - NO substitution
+    # ThinkDeep is for VARIETY - if a model fails, we DON'T substitute with another
+    # We simply proceed with fewer perspectives, not redundant ones
+    per_model_fallback:
+      enabled: true
+      continue_if_one_fails: true  # Continue with remaining models
+      substitute_failed_model: false  # NEVER substitute - defeats variety purpose
+      min_models_required: 1  # At least one model must succeed for ThinkDeep
+
+    # User notification for model failures
+    notify_user:
+      on_model_skip: true  # Inform user when a model is skipped
+      on_partial_results: true  # Inform user when results are partial
+      message_template: "⚠️ Model {MODEL} unavailable. Continuing with {REMAINING} models."
+
+  # ─────────────────────────────────────────────────────────────
+  # COST CONTROL (v4.1 - No skipping allowed)
+  # ─────────────────────────────────────────────────────────────
+
+  cost_control:
+    max_thinkdeep_calls_per_spec: null  # No limit
+    skip_on_simple_features: false  # NEVER skip - thoroughness over cost
+
+    # v4.1: Budget preset
+    budget_preset: "thorough"  # ALWAYS thorough - quality over cost
+    presets:
+      thorough:
+        parallel_enabled: true
+        max_models: null  # No limit - use all available models
+        skip_phases: []   # NEVER skip any phase
+
+  # ─────────────────────────────────────────────────────────────
+  # SIMPLE FEATURE HEURISTICS (DISABLED)
+  # ─────────────────────────────────────────────────────────────
+  # No special handling for "simple" features - ALL features get full treatment
+
+  simple_feature_heuristics:
+    enabled: false  # DISABLED - no shortcuts
+    # No limits on user stories or acceptance criteria
+    max_user_stories: null
+    max_acceptance_criteria: null
+    skip_phases: []  # NEVER skip any phase
+
+  # ─────────────────────────────────────────────────────────────
+  # OUTPUT CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+
+  output:
+    directory: "analysis/"
+    templates:
+      challenge: "mpa-challenge.md"
+      challenge_parallel: "mpa-challenge-parallel.md"
+      edge_cases: "mpa-edgecases.md"
+      edge_cases_parallel: "mpa-edgecases-parallel.md"
+      triangulation: "mpa-triangulation.md"
+
+# =============================================================================
+# PAL CONSENSUS CONFIGURATION (v2.0)
+# =============================================================================
+# Configuration for mcp__pal__consensus tool usage.
+# grok-4 is included for additional variety but is OPTIONAL.
+# Workflow continues gracefully if any model fails.
+
+pal_consensus:
+  # Master switch
+  enabled: true
+  version: "2.0.0"
+
+  # ─────────────────────────────────────────────────────────────
+  # DEFAULT MODELS FOR CONSENSUS
+  # ─────────────────────────────────────────────────────────────
+  # grok-4 provides contrarian perspective for additional variety.
+  # If unavailable, workflow continues with other models.
+
+  default_models:
+    - model: "gemini-3-pro-preview"
+      stance: "neutral"
+    - model: "gpt-5.2"
+      stance: "for"
+    - model: "openrouter/x-ai/grok-4"
+      stance: "against"
+      stance_prompt: "Challenge every assumption. Find hidden risks. Be the devil's advocate."
+
+  # Phase 5: PAL Gate specific configuration
+  phase_5_pal_gate:
+    models:
+      - model: "gemini-3-pro-preview"
+        stance: "neutral"
+      - model: "gpt-5.2"
+        stance: "for"
+        stance_prompt: "Advocate for the specification's strengths. Focus on what works."
+      - model: "openrouter/x-ai/grok-4"
+        stance: "against"
+        stance_prompt: "Find every weakness. Challenge completeness. Be skeptical of claimed coverage."
+    min_models_for_consensus: 2  # At least 2 models must respond
+    consensus_threshold: 0.67
+
+  # Fallback behavior - require minimum 2 models for valid consensus
+  fallback:
+    on_model_unavailable: "continue"  # Continue with available models
+    min_models_required: 2  # FAIL consensus if < 2 models available
+    retry_count: 2
+    retry_delay_seconds: 5
+
+    # Failure handling - what happens when consensus cannot be reached
+    on_insufficient_models:
+      action: "fail"  # FAIL the consensus - don't proceed with single model
+      notify_user: true  # Always inform user
+      message: "❌ PAL Consensus FAILED: Only {AVAILABLE} model(s) available, minimum 2 required."
+      user_options:
+        - "Retry consensus (recommended)"
+        - "Skip PAL validation (not recommended)"
+        - "Abort workflow"
+
+    # Notify user about partial consensus (2 of 3 models)
+    on_partial_models:
+      notify_user: true
+      message: "⚠️ PAL Consensus: {AVAILABLE}/{TOTAL} models responded. Results may have reduced variety."
+
+# =============================================================================
+# DESIGN BRIEF CONFIGURATION (v2.0)
+# =============================================================================
+# MANDATORY: Design brief generation is NEVER skipped.
+# This ensures every feature has proper design documentation.
+
+design_artifacts:
+  # MANDATORY generation - BOTH files always required
+  skip_allowed: false  # NEVER skip design artifact generation
+  skip_for_efficiency: false  # NEVER skip even for "efficiency"
+
+  # Both files are ALWAYS required
+  required_outputs:
+    - "design-brief.md"    # Screen and state inventory (MANDATORY)
+    - "design-feedback.md" # Design analysis and recommendations (MANDATORY)
+
+  # Generation triggers - BOTH agents run regardless of Figma
+  generation:
+    # When Figma is NOT available
+    no_figma:
+      agents:
+        - agent: "design-brief-generator"
+          mandatory: true
+          output: "design-brief.md"
+        - agent: "gap-analyzer"
+          mandatory: true
+          output: "design-feedback.md"
+          mode: "spec-only"  # Analyze spec without Figma context
+
+    # When Figma IS available
+    with_figma:
+      agents:
+        - agent: "design-brief-generator"
+          mandatory: true
+          output: "design-brief.md"
+        - agent: "gap-analyzer"
+          mandatory: true
+          output: "design-feedback.md"
+          mode: "with-figma"  # Analyze spec WITH Figma context
+
+  # Quality requirements
+  quality:
+    min_screens_documented: 1
+    require_state_matrix: true
+    require_user_journeys: true
+    require_edge_cases: true
+
+# =============================================================================
+# TEST STRATEGY CONFIGURATION (v1.0)
+# =============================================================================
+# V-Model test strategy generation for comprehensive test planning.
+# Generates test plans that map Acceptance Criteria to test levels.
+#
+# V-Model Layers:
+# - Unit Tests (Inner Loop - TDD, automated in CI)
+# - Integration Tests (Inner Loop - automated in CI)
+# - E2E Tests (Outer Loop - agentic/manual with screenshots)
+# - Visual Tests (Outer Loop - design compliance with Figma oracles)
+
+test_strategy:
+  # Master switch for test strategy generation
+  enabled: true
+  version: "1.0.0"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+  phase: "5.7"  # After design feedback (5.5), before completion (6)
+  checkpoint: "TEST_STRATEGY"
+
+  # ─────────────────────────────────────────────────────────────
+  # AGENT CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+  agent:
+    name: "qa-strategist"
+    path: "$CLAUDE_PLUGIN_ROOT/agents/qa-strategist.md"
+    model: "sonnet"
+    sequential_thinking:
+      enabled: true
+      min_thoughts: 8
+      max_thoughts: 12
+
+  # ─────────────────────────────────────────────────────────────
+  # OUTPUT CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+  output:
+    file: "test-plan.md"
+    template: "$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md"
+    required: true  # Test plan is MANDATORY
+
+  # ─────────────────────────────────────────────────────────────
+  # RISK ANALYSIS CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+  risk_analysis:
+    enabled: true
+    categories:
+      - name: "network_failure"
+        severity_default: "high"
+        description: "What happens when network operations fail?"
+      - name: "permission_denial"
+        severity_default: "medium"
+        description: "How does the app handle permission denials?"
+      - name: "empty_states"
+        severity_default: "medium"
+        description: "What UI shows when data is absent?"
+      - name: "process_death"
+        severity_default: "high"
+        description: "What state needs restoration after process death?"
+      - name: "configuration_changes"
+        severity_default: "medium"
+        description: "What survives screen rotation and config changes?"
+      - name: "concurrency"
+        severity_default: "high"
+        description: "What operations can race? What are the consequences?"
+      - name: "data_edge_cases"
+        severity_default: "medium"
+        description: "Null, empty, boundary values, special characters?"
+
+  # ─────────────────────────────────────────────────────────────
+  # TEST LEVEL CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+  test_levels:
+    # Inner Loop - Automated in CI
+    unit_tests:
+      enabled: true
+      loop: "inner"
+      tdd_required: true  # Write tests BEFORE implementation
+      characteristics:
+        - "No external dependencies"
+        - "Fast execution (< 100ms)"
+        - "Deterministic results"
+      targets:
+        - "ViewModels/Controllers"
+        - "UseCases/Services"
+        - "Repositories (with mocks)"
+        - "Utility functions"
+
+    integration_tests:
+      enabled: true
+      loop: "inner"
+      tdd_required: false
+      characteristics:
+        - "Real dependencies (database, navigation)"
+        - "Component boundary testing"
+        - "State persistence verification"
+      targets:
+        - "ViewModel + Repository"
+        - "Repository + Database"
+        - "Screen + Navigation"
+        - "Cache + Network"
+
+    # Outer Loop - Agentic/Manual execution
+    e2e_tests:
+      enabled: true
+      loop: "outer"
+      screenshot_required: true
+      characteristics:
+        - "Full user journey"
+        - "Real device/emulator"
+        - "Screenshot evidence at checkpoints"
+      categories:
+        - "happy_path"
+        - "error_handling"
+        - "edge_cases"
+        - "error_recovery"
+
+    visual_tests:
+      enabled: true
+      loop: "outer"
+      tolerance_default: "strict"  # < 1% difference
+      tolerance_options:
+        strict: 0.01  # 1% max difference
+        flexible: 0.05  # 5% max (for animations)
+        relaxed: 0.10  # 10% max (for dynamic content)
+      source_of_truth:
+        primary: "figma"
+        fallback: "design-brief.md"
+
+  # ─────────────────────────────────────────────────────────────
+  # TRACEABILITY CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+  traceability:
+    # Every AC MUST have at least one test
+    require_full_coverage: true
+    min_coverage_percentage: 100  # All ACs must be covered
+
+    # AC → Test mapping rules
+    mapping_rules:
+      - ac_type: "state_logic"
+        recommended_level: "unit"
+      - ac_type: "data_persistence"
+        recommended_level: "integration"
+      - ac_type: "user_journey"
+        recommended_level: "e2e"
+      - ac_type: "ui_appearance"
+        recommended_level: "visual"
+
+  # ─────────────────────────────────────────────────────────────
+  # VISUAL ORACLE CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+  visual_oracles:
+    # When Figma context is available
+    figma_integration:
+      enabled: true
+      capture_states:
+        - "default"
+        - "loading"
+        - "error"
+        - "empty"
+        - "success"
+        - "disabled"
+
+    # When Figma is NOT available
+    design_brief_fallback:
+      enabled: true
+      reference_format: "design-brief.md section {section_name}"
+
+  # ─────────────────────────────────────────────────────────────
+  # EDGE CASE INTEGRATION
+  # ─────────────────────────────────────────────────────────────
+  edge_case_integration:
+    # Pull edge cases from MPA-EdgeCases phase (4.3)
+    from_mpa_edgecases: true
+    severity_to_test_level:
+      critical: "e2e"
+      high: "integration"
+      medium: "unit"
+      low: "unit"
+
+  # ─────────────────────────────────────────────────────────────
+  # TDD COMPLIANCE CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+  tdd_compliance:
+    # Execution order for TDD workflow
+    execution_phases:
+      - phase: "pre_implementation"
+        description: "Write failing unit tests (TDD)"
+        test_levels: ["unit"]
+        expectation: "all_tests_fail"
+
+      - phase: "during_implementation"
+        description: "Implement and verify unit tests pass"
+        test_levels: ["unit"]
+        expectation: "tests_pass_incrementally"
+
+      - phase: "post_implementation"
+        description: "Run integration tests"
+        test_levels: ["integration"]
+        expectation: "all_tests_pass"
+
+      - phase: "acceptance"
+        description: "Execute E2E tests with screenshots"
+        test_levels: ["e2e"]
+        expectation: "screenshot_evidence"
+
+      - phase: "visual_approval"
+        description: "Compare against Figma oracles"
+        test_levels: ["visual"]
+        expectation: "design_sign_off"
+
+  # ─────────────────────────────────────────────────────────────
+  # QUALITY THRESHOLDS
+  # ─────────────────────────────────────────────────────────────
+  thresholds:
+    # Minimum tests per level (0 = no minimum)
+    min_unit_tests: 1
+    min_integration_tests: 0
+    min_e2e_tests: 1
+    min_visual_tests: 1
+
+    # Coverage requirements
+    ac_coverage_min: 100  # All ACs must have tests
+    risk_coverage_min: 80  # 80% of identified risks must have mitigations
+
+  # ─────────────────────────────────────────────────────────────
+  # SKIP CONDITIONS
+  # ─────────────────────────────────────────────────────────────
+  skip_conditions:
+    # Test strategy can be skipped ONLY if explicitly requested
+    allow_skip: false
+    skip_reasons_allowed:
+      - "documentation_only_feature"  # Pure docs, no code
+      - "user_explicit_skip"  # User says skip
+

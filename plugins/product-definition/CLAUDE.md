@@ -91,3 +91,117 @@ Phase 6 runs multi-model ThinkDeep analysis (gpt-5.2, gemini-3-pro-preview, grok
 ## Plugin Path Variable
 
 Use `$CLAUDE_PLUGIN_ROOT` to reference plugin-relative paths in commands and agents. This resolves to the plugin installation directory.
+
+---
+
+## Learnings from Development
+
+### V-Model Test Strategy Integration (v1.3.0)
+
+The `/specify` command now includes Phase 5.7 for V-Model test strategy generation. Key architectural decisions:
+
+1. **Single Agent vs MPA**: Test strategy uses a single `qa-strategist` agent rather than MPA. Unlike question generation (where diverse perspectives reduce blind spots), test strategy benefits from unified traceability—one agent maintains consistent AC→Test mapping across all test levels.
+
+2. **Phase Placement**: Test strategy (5.7) follows Design Feedback (5.5) because:
+   - Requires completed spec.md with acceptance criteria
+   - Requires design-brief.md for visual oracles
+   - Optionally uses figma_context.md for pixel-perfect baselines
+
+3. **Inner/Outer Loop Classification**:
+   - Inner Loop (CI-automated): Unit tests, Integration tests
+   - Outer Loop (Agentic): E2E tests, Visual regression tests
+
+### Modular Reference Pattern
+
+**Problem**: Large Sequential Thinking templates bloated agent context on every invocation.
+
+**Solution**: Extract reusable templates to `agents/{domain}-references/` subdirectories:
+```
+agents/
+├── qa-strategist.md              # Core agent (~400 lines)
+└── qa-references/
+    └── sequential-thinking-templates.md  # Detailed templates (~300 lines)
+```
+
+**Benefits**:
+- Agent loads lean; templates loaded on-demand
+- Same pattern used by `ba-references/` for specification templates
+- Reduces token usage for simple invocations
+
+**Implementation**: Add "Reference Files" section to agent with `Load When` guidance:
+```markdown
+## Reference Files
+
+| Reference | Purpose | Load When |
+|-----------|---------|-----------|
+| `@$CLAUDE_PLUGIN_ROOT/agents/qa-references/...` | Templates | Starting generation |
+```
+
+### Pre-validation Gates Pattern
+
+**Problem**: Agents fail mid-execution when required inputs are missing.
+
+**Solution**: Add mandatory validation steps before launching agents:
+```markdown
+### Step X.Y: Validate Required Inputs (MANDATORY CHECK)
+
+**BEFORE launching {Agent}, verify required files exist:**
+
+```bash
+test -f {path}/required-file.md || echo "BLOCKER: file not found"
+```
+
+**If BLOCKER found**: Skip this phase, document gap, continue to next phase.
+```
+
+**Applied to**: Phase 5.7 requires both spec.md AND design-brief.md before qa-strategist launch.
+
+### Agent Definition Consistency
+
+When creating new agents, follow the established pattern:
+
+1. **Frontmatter** (lines 1-7):
+   ```yaml
+   ---
+   name: agent-name
+   description: One-line purpose
+   model: sonnet|opus|haiku
+   color: green|blue|yellow
+   tools: [list of required tools]
+   ---
+   ```
+
+2. **CRITICAL RULES** bookends:
+   ```markdown
+   **CRITICAL RULES (High Attention Zone - Start)**
+   [numbered rules]
+
+   ... agent body ...
+
+   **CRITICAL RULES (High Attention Zone - End)**
+   [repeated numbered rules]
+   ```
+
+3. **Model Assignment**: Add agent to appropriate tier in `config/specify-config.yaml`:
+   ```yaml
+   model_assignments:
+     sonnet:
+       - "qa-strategist"  # Add with comment explaining purpose
+   ```
+
+### Template Variable Conventions
+
+Use consistent `UPPERCASE_WITH_UNDERSCORES` for template variables:
+- `{FEATURE_NAME}` not `{Feature Name}` or `{feature_name}`
+- `{FEATURE_ID}` not `{feature_id}`
+- `{SPEC_VERSION}` not `{spec_version}`
+
+Exception: Test IDs use format `{XX-NNN}` where XX is level prefix (UT, INT, E2E, VIS).
+
+### Checklist Enhancement Pattern
+
+When adding new capability (like V-Model testing), update BOTH checklists:
+- `templates/spec-checklist.md` - General specifications
+- `templates/spec-checklist-mobile.md` - Mobile-specific with platform nuances
+
+Add items in logical groups with clear headers. Verify item counts after changes.
