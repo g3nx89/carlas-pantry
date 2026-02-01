@@ -205,10 +205,3 @@ When encountering edge cases or unexpected behavior:
 2. Test with explicit prompting patterns
 3. Use the troubleshooting guide for common problems
 
----
-
-## Related References
-
-- **Prompting patterns**: `prompting-patterns.md` - Strategic templates, debug protocols, quality heuristics
-- **Branching/Revision**: `branching-revision.md` - Fork-Join pattern, revision loop, convergence rules
-- **Troubleshooting**: `troubleshooting.md` - Error -32000, infinite loops, token optimization

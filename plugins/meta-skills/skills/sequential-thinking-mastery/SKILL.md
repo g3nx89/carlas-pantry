@@ -1,9 +1,16 @@
 ---
 name: sequential-thinking-mastery
-description: This skill should be used when working with the Sequential Thinking MCP server, including "use sequential thinking", "structured reasoning", "thought chains", "branching decisions", "debug with ST", or developing skills/commands that leverage ST internally. Provides decision framework, prompting patterns, branching/revision mechanics, troubleshooting, and anti-patterns.
+description: >
+  This skill should be used when the user asks "use sequential thinking", "help me reason through this",
+  "analyze this systematically", "debug with ST", "compare options with branching", or when facing problems like
+  "I need to make a complex decision", "my reasoning keeps going in circles", "I want an auditable thought process",
+  "how do I structure my analysis", or developing skills/commands that leverage ST internally.
+  Provides decision framework, prompting patterns, branching/revision mechanics, troubleshooting, and anti-patterns.
 ---
 
 # Sequential Thinking MCP Mastery
+
+> **Compatibility**: Verified against ST server v0.2.0 (npm 2025.12.18). Parameter behavior may differ in other versions.
 
 ## Overview
 
@@ -168,11 +175,21 @@ For adversarial analysis of plans or designs:
 
 For detailed information, load references as needed:
 
+### Reference Files
+
 - **Branching/Revision mechanics**: `references/branching-revision.md` - Fork-Join pattern, Revision Loop, synthesis rules
 - **Prompting patterns by use case**: `references/prompting-patterns.md` - Debug protocol, architecture trade-offs, quality heuristics
 - **Integration with other MCP servers**: `references/integration-patterns.md` - Orchestration patterns, TAO loop, domain workflows
 - **Complete technical reference**: `references/technical-reference.md` - ThoughtData interface, state management, performance, known gaps
 - **Troubleshooting guide**: `references/troubleshooting.md` - Token optimization, error -32000, infinite loop fixes
+
+### Example Files
+
+Working JSON examples in `examples/`:
+
+- **`examples/debug-session.json`** - 5-thought systematic debugging with hypothesis elimination
+- **`examples/fork-join-decision.json`** - Architecture decision with parallel branch evaluation
+- **`examples/revision-loop.json`** - Error containment when assumptions are invalidated
 
 ## For Skill/Command Development
 

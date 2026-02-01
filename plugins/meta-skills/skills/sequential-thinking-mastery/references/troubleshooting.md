@@ -156,10 +156,3 @@ Incorrect: "thoughtNumber": "1"
 
 For detailed quality diagnostics including detecting autopilot mode and orphaned branches, see `references/prompting-patterns.md#quality-diagnostics`.
 
----
-
-## Related References
-
-- **Prompting patterns**: `prompting-patterns.md` - Strategic templates, quality diagnostics, chain evaluation
-- **Technical details**: `technical-reference.md` - ThoughtData interface, state architecture, known issues
-- **Branching/Revision**: `branching-revision.md` - Fork-Join pattern, revision loop, convergence rules

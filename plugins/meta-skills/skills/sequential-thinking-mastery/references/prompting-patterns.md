@@ -166,13 +166,7 @@ For detailed anti-patterns with remediation prompts, see `SKILL.md#anti-patterns
 
 ### Termination Criteria
 
-End a thought chain when:
-1. **Verification:** Hypothesis proven true by external tool result
-2. **Exhaustion:** All hypotheses proven false (ask user for help)
-3. **Actionable Plan:** Complete list of file edits ready
-4. **Convergence:** Clear, well-supported conclusion reached
-
-**Critical:** Final thought MUST explicitly set `nextThoughtNeeded: false` to prevent infinite loop.
+> See `SKILL.md#termination-criteria` for the complete list. Final thought MUST set `nextThoughtNeeded: false`.
 
 ## Quality Diagnostics
 
@@ -207,10 +201,3 @@ Check if branches are created but never synthesized. Look for:
 Every branch MUST end with a convergence thought that integrates findings back into the main flow.
 ```
 
----
-
-## Related References
-
-- **Branching/Revision**: `branching-revision.md` - Full Fork-Join examples, revision loop pattern, convergence rules
-- **Integration patterns**: `integration-patterns.md` - Multi-MCP orchestration, TAO loop, domain workflows
-- **Troubleshooting**: `troubleshooting.md` - Error -32000, infinite loops, token optimization

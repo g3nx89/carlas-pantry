@@ -170,10 +170,3 @@ Novice users treat `totalThoughts` as a deadline. Expert implementations treat i
 - No maximum limit on chain length (potential memory concern for very long chains)
 - **State echo mechanism:** Every response includes full thoughtHistory, re-injecting context into LLM's window
 
----
-
-## Related References
-
-- **Prompting patterns**: `prompting-patterns.md` - Strategic templates, debug protocols, quality heuristics
-- **Technical details**: `technical-reference.md` - ThoughtData interface, state architecture, performance metrics
-- **Troubleshooting**: `troubleshooting.md` - Error -32000, infinite loops, token optimization

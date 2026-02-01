@@ -207,10 +207,3 @@ Complete workflow for safe code restructuring:
 10. ST:  "Refactor complete. All tests pass." → nextThoughtNeeded: false
 ```
 
----
-
-## Related References
-
-- **Prompting patterns**: `prompting-patterns.md` - Strategic templates, debug protocols, chain quality metrics
-- **Branching/Revision**: `branching-revision.md` - Fork-Join pattern, revision loop, convergence rules
-- **Technical details**: `technical-reference.md` - ThoughtData interface, state architecture, performance

@@ -1,0 +1,56 @@
+{
+  "_description": "Revision Loop Pattern - Error containment when tool output contradicts assumptions",
+  "_usage": "Use this pattern when investigating issues where initial assumptions may be wrong",
+
+  "thoughts": [
+    {
+      "_step": "Initial hypothesis based on error message",
+      "thought": "User reports 'API returns 401 Unauthorized'. Initial assessment:\n- Most likely cause: expired JWT token\n- Check: token expiration timestamp vs current time\n- Expected fix: token refresh logic",
+      "thoughtNumber": 1,
+      "totalThoughts": 5,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "First investigation",
+      "_action_before": "Decode JWT token and check expiration",
+      "thought": "Token decoded. Expiration: 2024-01-15T14:00:00Z. Current time: 2024-01-15T13:30:00Z. Token is NOT expired (30 min remaining). Initial hypothesis INVALIDATED.\n\nNew hypotheses:\n1. Token signature invalid\n2. Token issuer mismatch\n3. Required claims missing",
+      "thoughtNumber": 2,
+      "totalThoughts": 5,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Revision - Correct the record",
+      "_note": "Using isRevision to explicitly mark the assumption change",
+      "thought": "REVISING Thought 1: The 401 is NOT due to token expiration. The token is valid for 30 more minutes.\n\nCorrected investigation direction: Focus on token validation logic, not token refresh. Need to check:\n1. JWT signature verification\n2. Expected issuer (iss claim)\n3. Audience claim (aud)",
+      "thoughtNumber": 3,
+      "totalThoughts": 5,
+      "isRevision": true,
+      "revisesThought": 1,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Second investigation with corrected hypothesis",
+      "_action_before": "Read auth middleware configuration",
+      "thought": "Auth middleware config shows:\n- Expected issuer: 'https://auth.production.com'\n- Token issuer: 'https://auth.staging.com'\n\nROOT CAUSE FOUND: User has a staging token but is hitting production API. The issuer claim mismatch triggers 401.\n\nThis is a user error, not a code bug.",
+      "thoughtNumber": 4,
+      "totalThoughts": 6,
+      "needsMoreThoughts": true,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Extend analysis - Determine preventive action",
+      "_note": "Extended totalThoughts because we discovered a UX issue worth addressing",
+      "thought": "While this is user error, the 401 response doesn't help users diagnose the problem.\n\nIMPROVEMENT: Add issuer mismatch detection to auth middleware:\n- If token valid but issuer wrong, return 401 with message: 'Token issued by staging environment. Please use production credentials.'\n\nThis turns a confusing error into actionable guidance.",
+      "thoughtNumber": 5,
+      "totalThoughts": 6,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Conclude with both fix and improvement",
+      "thought": "RESOLUTION:\n\n1. IMMEDIATE: Inform user to re-authenticate against production auth endpoint\n\n2. IMPROVEMENT: Update auth middleware to detect issuer mismatch and return helpful error message (PR #1234)\n\nKEY LEARNING: The revision mechanism prevented wasted effort on token refresh logic. By explicitly marking the assumption change, the investigation pivoted quickly to the actual cause.\n\nPlan complete.",
+      "thoughtNumber": 6,
+      "totalThoughts": 6,
+      "nextThoughtNeeded": false
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "_description": "Quick Debug Session (5 Thoughts) - Systematic bug investigation with tool interleaving",
+  "_usage": "Use this pattern for root cause analysis of errors, test failures, or unexpected behavior",
+
+  "thoughts": [
+    {
+      "_step": "Initialize - Generate hypotheses ranked by likelihood",
+      "thought": "Analyzing 'Connection Reset' error in payment service. Generating hypotheses:\n1. Network firewall blocking (likelihood: 30%)\n2. Application timeout misconfiguration (likelihood: 45%)\n3. Database connection pool exhaustion (likelihood: 25%)\nStarting with Hypothesis 2 due to highest probability.",
+      "thoughtNumber": 1,
+      "totalThoughts": 5,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Investigate - Call diagnostic tool, then analyze",
+      "_action_before": "Read nginx.conf to check timeout settings",
+      "thought": "nginx.conf shows proxy_read_timeout=60s. Upstream service logs show requests taking 90s under load. This confirms timeout mismatch. Hypothesis 2 validated.",
+      "thoughtNumber": 2,
+      "totalThoughts": 5,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Narrow - Focus on confirmed hypothesis",
+      "_action_before": "Read upstream service configuration",
+      "thought": "Upstream service has no timeout limit, allowing unbounded processing. The nginx 60s timeout is the bottleneck. Fix options:\nA) Increase nginx timeout to 120s\nB) Add request timeout to upstream service\nC) Implement async processing pattern\nOption A is quickest fix; Option B prevents cascading failures.",
+      "thoughtNumber": 3,
+      "totalThoughts": 5,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Decide - Select approach with rationale",
+      "thought": "Choosing Option B (upstream timeout) as primary fix because:\n- Prevents unbounded requests from consuming resources\n- Fails fast rather than failing slow\n- Provides better error messages to clients\nWill also apply Option A as defense-in-depth.",
+      "thoughtNumber": 4,
+      "totalThoughts": 5,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Conclude - State root cause and fix",
+      "thought": "ROOT CAUSE: nginx proxy_read_timeout (60s) is shorter than upstream service processing time under load (90s+).\n\nFIX:\n1. Add 90s timeout to upstream service (prevents unbounded requests)\n2. Increase nginx timeout to 120s (allows headroom)\n3. Add monitoring alert for requests >60s\n\nPlan complete.",
+      "thoughtNumber": 5,
+      "totalThoughts": 5,
+      "nextThoughtNeeded": false
+    }
+  ]
+}

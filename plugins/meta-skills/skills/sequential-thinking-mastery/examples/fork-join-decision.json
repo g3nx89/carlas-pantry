@@ -1,0 +1,55 @@
+{
+  "_description": "Fork-Join Architecture Decision - Evaluate mutually exclusive options with trade-offs",
+  "_usage": "Use this pattern when choosing between technical approaches, libraries, or architectures",
+
+  "thoughts": [
+    {
+      "_step": "Frame - Define problem, constraints, and options",
+      "thought": "DECISION: Caching strategy for user session data.\n\nCONSTRAINTS:\n- Must handle 10k concurrent users\n- Session data ~2KB per user\n- Budget: minimal infrastructure overhead\n- Team: 2 backend developers, no DevOps\n\nOPTIONS TO EVALUATE:\nA) Redis - external cache server\nB) In-Memory - application-level cache",
+      "thoughtNumber": 1,
+      "totalThoughts": 6,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Branch A - Analyze Redis option",
+      "thought": "OPTION A: Redis Cache\n\nPROS:\n- Persistence across restarts\n- Mature ecosystem, well-documented\n- Horizontal scaling if needed\n- Shared state across app instances\n\nCONS:\n- Infrastructure cost (~$15-50/mo for managed)\n- Additional operational overhead\n- Network latency for cache hits\n- Requires Redis expertise team lacks",
+      "thoughtNumber": 2,
+      "totalThoughts": 6,
+      "branchFromThought": 1,
+      "branchId": "option-redis",
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Branch A continued - Assess fit",
+      "thought": "Redis FIT ASSESSMENT:\n- 10k users * 2KB = 20MB - Redis handles easily\n- Team lacks Redis expertise - learning curve ~1 week\n- Infrastructure overhead conflicts with 'minimal overhead' constraint\n- Overkill for current scale\n\nVERDICT: Over-engineered for requirements.",
+      "thoughtNumber": 3,
+      "totalThoughts": 6,
+      "branchId": "option-redis",
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Branch B - Analyze In-Memory option",
+      "thought": "OPTION B: In-Memory Cache (e.g., node-cache, lru-cache)\n\nPROS:\n- Zero infrastructure cost\n- Sub-millisecond access\n- Team already knows JavaScript\n- Simple implementation\n\nCONS:\n- No persistence - cache lost on restart\n- Memory limits (but 20MB is trivial)\n- Not shared across instances (single instance OK for now)\n- Must implement eviction policy",
+      "thoughtNumber": 4,
+      "totalThoughts": 6,
+      "branchFromThought": 1,
+      "branchId": "option-inmemory",
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Synthesize - Compare branches, make recommendation",
+      "_note": "Return to main trunk (no branchId) for synthesis",
+      "thought": "SYNTHESIS - Comparing branches:\n\n| Criterion | Redis | In-Memory |\n|-----------|-------|----------|\n| Cost | $15-50/mo | $0 |\n| Complexity | High | Low |\n| Team skill match | Poor | Good |\n| Scale fit | Overkill | Right-sized |\n| Risk | Operational burden | Cache loss on restart |\n\nRECOMMENDATION: In-Memory cache.\n\nRATIONALE: Matches constraints (minimal overhead, small team). Cache loss on restart is acceptable for session data - users re-authenticate. Can migrate to Redis later if scale demands.",
+      "thoughtNumber": 5,
+      "totalThoughts": 6,
+      "nextThoughtNeeded": true
+    },
+    {
+      "_step": "Finalize - Document decision",
+      "thought": "DECISION RECORD:\n\nChosen: In-Memory cache (lru-cache library)\n\nImplementation:\n1. Install lru-cache (zero dependencies)\n2. Set max 15k entries (headroom for 10k users)\n3. TTL 30 minutes (session timeout)\n4. Add cache-hit/miss metrics for monitoring\n\nMigration trigger: If we exceed single instance OR need persistence, revisit Redis.\n\nPlan complete.",
+      "thoughtNumber": 6,
+      "totalThoughts": 6,
+      "nextThoughtNeeded": false
+    }
+  ]
+}
