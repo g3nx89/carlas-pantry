@@ -1,6 +1,8 @@
 # Research MCP Servers: Detailed Comparison
 
 > **Compatibility**: Context7 API v2.x, Ref API v1.x, Tavily MCP v0.3.x (January 2026)
+>
+> **Related**: For server-specific deep dives, see `context7.md`, `ref.md`, `tavily.md`
 
 ## Architectural Differences
 
@@ -143,6 +145,44 @@ Servers can coexist. Example multi-tool workflow:
 | Rate limit (free) | 60/hr | 200 total | 100 RPM |
 | Cold start | Fast (remote) | Fast | Fast |
 | Batch efficiency | Fixed | High | 5 URLs/credit |
+
+## Quantitative Benchmarks
+
+### Token Efficiency (January 2026)
+
+| Server | Tokens per Query | Notes |
+|--------|------------------|-------|
+| **Context7** | ~3.3k avg | 65% reduction from pre-2026 (was 9.7k) |
+| **Ref** | Search: ~54, Read: ~385 | Total ~439 tokens typical; 60-95% less than Context7 |
+| **Tavily** | Variable | Depends on depth and result count |
+
+### Latency by Operation
+
+| Server | Operation | Latency |
+|--------|-----------|---------|
+| Context7 | `get-library-docs` | ~15s (38% faster than pre-2026) |
+| Ref | `ref_search_documentation` | <1s |
+| Ref | `ref_read_url` | 1-3s |
+| Tavily | `basic` search | 400-800ms |
+| Tavily | `advanced` search | 2-5s |
+| Tavily | `extract` (advanced) | 5-15s (headless browser) |
+
+### Accuracy Benchmarks
+
+| Server | Benchmark | Score |
+|--------|-----------|-------|
+| **Tavily Research** | DeepResearchBench | **#1** (52.44) - beats Gemini (49.71), OpenAI (46.45), Claude (45.00) |
+| **Tavily Search** | SimpleQA | 93.3% accuracy |
+| **Context7** | - | No public benchmarks; relies on official documentation sources |
+| **Ref** | - | No public benchmarks; relies on curated documentation index |
+
+### Tool Call Efficiency
+
+| Server | Calls per Question | Notes |
+|--------|-------------------|-------|
+| Context7 | 2.96 avg | Down from 3.95 pre-2026 |
+| Ref | 1-2 typical | Search + selective read |
+| Tavily | 1-3 typical | Search, optionally extract |
 
 ## Known Issues and Workarounds
 

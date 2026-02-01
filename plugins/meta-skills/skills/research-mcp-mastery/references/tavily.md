@@ -1,12 +1,16 @@
 # Tavily MCP Server Reference
 
 > **Compatibility**: Verified against Tavily MCP v0.3.x (January 2026)
+>
+> **Related**: See `comparison.md` for Tavily vs Context7 vs Ref decision matrix
 
 ## Overview
 
 Tavily is the leading web search API for AI agents. Returns structured, LLM-ready JSON with relevance-scored results. Use for real-time web search, news, and content extraction - **never for library documentation**.
 
-**93.3% accuracy** on SimpleQA benchmarks. Powers JetBrains, Cohere, MongoDB.
+**93.3% accuracy** on SimpleQA benchmarks. Powers JetBrains, Cohere, MongoDB. **#1 on DeepResearchBench** (52.44), outperforming Gemini, OpenAI, and Claude on deep research tasks.
+
+**Security**: SOC 2 certified with zero data retention. Includes prompt injection safeguards to prevent malicious webpage content from tricking agents.
 
 ## Tools
 
@@ -24,6 +28,12 @@ Real-time web search with AI-optimized ranking.
 | `include_answer` | No | false | `true` for quick AI summary, `"advanced"` for detailed |
 | `include_domains` | No | - | Whitelist domains (up to 300) |
 | `exclude_domains` | No | - | Blacklist domains (up to 150) |
+| `chunks_per_source` | No | 1 | Chunks per source in `advanced` mode (higher = more detail per source) |
+| `start_date` / `end_date` | No | - | Exact date bounds (YYYY-MM-DD format) |
+| `country` | No | - | Locale boost (e.g., `"us"`) - only works with `topic=general` |
+| `include_images` | No | false | Include image search results |
+| `include_usage` | No | false | Return credit consumption in response |
+| `include_favicon` | No | false | Return site favicons for each result |
 
 **Warning**: `auto_parameters` can silently upgrade to `advanced` depth (2x credits). Always set `search_depth` explicitly.
 
@@ -40,16 +50,37 @@ Extract clean content from specific URLs.
 
 **Pricing**: 1 credit per 5 URLs (basic), 2 credits per 5 URLs (advanced).
 
+**Extract depth technical details**:
+
+| Depth | Mechanism | Latency | Capabilities |
+|-------|-----------|---------|--------------|
+| `basic` | HTTP GET + HTML parsing | Fast | Cannot see Client-Side Rendered (CSR) content |
+| `advanced` | Headless browser (Puppeteer) | 5-15s | Scrapes SPAs, dynamic tables, bypasses basic anti-bot |
+
+### tavily_map
+
+Generates a sitemap of a website (page discovery without content extraction).
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `url` | Yes | Website URL to map |
+
+**Use case**: Discover URLs before selective extraction. Costs map + extract credits.
+
 ### tavily_crawl
 
 Intelligent website traversal with natural language guidance.
 
-| Parameter | Description |
-|-----------|-------------|
-| `url` | Starting URL |
-| Instructions | Natural language guidance for what to extract |
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `url` | Yes | Starting URL |
+| `max_depth` | No | Graph traversal depth (follows internal links) |
+| `limit` | No | Maximum pages to crawl |
+| `instructions` | No | Natural language pruning (e.g., "Ignore legal pages, focus on pricing") |
 
-**Cost**: Combined map + extract credits.
+**Instructions parameter**: Tavily uses internal classification during crawl to prune paths not matching instructions, optimizing credit budget.
+
+**Cost warning**: A `max_depth: 3` crawl on large sites can trigger hundreds of extractions. Budget carefully.
 
 ### tavily_research
 
@@ -63,6 +94,15 @@ Comprehensive multi-source research reports.
 | `stream` | No | Enable for long research |
 
 **Warning**: Costs are dynamic and unpredictable (4-250 credits). For cost-controlled workflows, use multiple `tavily_search` calls instead.
+
+**SSE Streaming**: Research takes 30-60 seconds. Use `stream: true` to receive:
+- `search_query` events - shows what agent is searching
+- `tool_call` events - shows internal steps
+- `content` events - streams final report
+
+**Structured Output**: Use `output_schema` parameter to enforce JSON schema on the final report for programmatic consumption. Define fields like `company_name`, `key_findings` and Tavily returns structured JSON directly usable in applications.
+
+**Async Workflow**: Research is asynchronous - initial POST returns `request_id` and `status`. Either poll for completion or use SSE streaming. Streaming is preferred for UI-driven flows; polling with reasonable intervals for backend flows.
 
 ## Configuration
 
@@ -95,6 +135,14 @@ npx -y tavily-mcp@latest
 }
 ```
 
+### mcp-remote Bridge (for clients without HTTP support)
+
+```bash
+npx mcp-remote https://mcp.tavily.com/mcp/?tavilyApiKey=YOUR_KEY
+```
+
+Acts as a local MCP proxy to the Tavily cloud for clients that only support local subprocess connections.
+
 ## Query Optimization
 
 ### Search Query Style (Not Prompts)
@@ -120,16 +168,53 @@ queries = [
 
 ## Search Depth Trade-offs
 
-| Depth | Credits | Use Case |
-|-------|---------|----------|
-| `basic` | 1 | Default for most queries |
-| `advanced` | 2 | Complex queries needing multiple perspectives |
-| `fast` | 1 | Real-time apps, lower latency |
-| `ultra-fast` | 1 | Speed over depth |
+| Depth | Credits | Latency | Technical Execution | Best For |
+|-------|---------|---------|---------------------|----------|
+| `basic` | 1 | ~400-800ms | Standard keyword index lookup | Fact-checking, navigational queries |
+| `advanced` | 2 | ~2-5s | Performs secondary crawl, extracts deeper content | Complex reasoning, deep research |
+| `fast` (Beta) | 1 | <400ms | Optimized index, prioritizes speed over reranking | Real-time autocomplete |
+| `ultra-fast` (Beta) | 1 | <200ms | Minimal processing, raw index hits | Time-critical applications |
 
 **Start with `basic`** - upgrade only when needed.
 
+**Insight**: `advanced` depth performs "RAG-in-a-box" - fetches page content and summarizes. For custom extraction logic, use `basic` search + targeted `tavily_extract` for more control.
+
+**Parsing note**: `advanced` returns multiple chunks concatenated in `content` with `[...]` separators. Agents should be aware of these separators when extracting specific answers.
+
+## Context Control Parameters
+
+### include_answer
+
+When `true`, Tavily uses an internal LLM to synthesize a direct answer.
+
+**When to enable**: Simple factual queries ("What is the capital of Mongolia?")
+
+**When to disable**: Complex queries - let main agent LLM synthesize to avoid "double-summarization" degradation.
+
+### include_raw_content
+
+Returns cleaned HTML/text of entire page, not just snippets.
+
+**Risk**: Can massively inflate token count. Only use for structural queries ("Extract all headers from this page").
+
 ## Response Handling
+
+### Response Structure
+
+Search API returns structured JSON with:
+- `query` - original search query
+- `answer` - AI-generated answer (if `include_answer` was true)
+- `results[]` - array of result objects
+- `response_time` - latency metric
+- `images[]` - image results (if `include_images` was true)
+
+Each result object contains:
+- `title`, `url`, `content` (snippet/summary)
+- `raw_content` (if requested)
+- `source` (domain), `favicon` (if requested)
+- `score` (0-1 relevance)
+
+Extract API returns `results[]` with `url`, `raw_content`, `images[]`, plus `failed_results[]` for URLs that couldn't be fetched.
 
 ### Relevance Score Filtering
 
@@ -179,8 +264,11 @@ def validate_urls(results):
 1. **Use `basic` depth by default** (saves 50%)
 2. **Batch extractions** - 5 URLs = 1 credit
 3. **Filter by score** before extraction
-4. **Cache results** - searches are highly repetitive
+4. **Cache results** - searches are highly repetitive; use semantic similarity on query embeddings to detect near-duplicate queries
 5. **Avoid `tavily_research`** for predictable costs - use multiple `tavily_search` instead
+6. **Progressive enhancement** - start with `basic`, escalate to `advanced` only if results are sparse
+7. **Tune `max_results`** - default 5 is often sufficient; don't request 20 if 5 will do
+8. **Two basics vs one advanced** - sometimes two targeted `basic` searches (2 credits) yield more unique info than one `advanced` (2 credits)
 
 ## Rate Limits
 
@@ -190,7 +278,31 @@ def validate_urls(results):
 | Production keys | 1,000 RPM |
 | Crawl endpoint | 100 RPM (always) |
 
-Implement exponential backoff for 429 errors.
+Implement **Exponential Backoff with Jitter**: Wait `base * 2^retries + random_jitter` ms. Jitter prevents "thundering herd" when parallel agents retry simultaneously.
+
+## Error Codes
+
+| Code | Error | Likely Cause | Remediation |
+|------|-------|--------------|-------------|
+| 400 | Bad Request | Invalid parameter combo, malformed JSON | Validate JSON; `days` only works with `topic="news"` |
+| 401 | Unauthorized | Invalid API key | Rotate key, check .env file loading |
+| 429 | Rate Limited | Exceeded RPM limit | Implement backoff, check for runaway loops |
+| 500 | Internal Error | Tavily backend instability | Fallback to `basic` depth or different provider |
+
+## Debugging MCP Connections
+
+If Claude Desktop shows "Disconnected" for Tavily:
+
+1. **Check Node version**: `node -v` (requires Node 18+)
+2. **Check path**: `which npx` - ensure Claude's environment can see it
+3. **Check logs**: `~/Library/Logs/Claude/mcp.log` (macOS) - shows auth failures and errors
+
+## Enterprise Features
+
+**X-Project-ID Header**: For multi-agent environments, send `X-Project-ID: <project_id>` to:
+- Segment usage logs by agent
+- Enable per-agent billing reporting
+- Internal cost allocation ("Marketing Bot" vs "Legal Bot")
 
 ## Anti-Pattern: Documentation Lookup
 
@@ -219,3 +331,26 @@ Implement exponential backoff for 429 errors.
 - Static documentation queries
 - Version-specific code examples
 - Any query where official docs are preferred
+
+## Tavily vs Alternatives
+
+| Feature | Tavily | Exa.ai | Perplexity |
+|---------|--------|--------|------------|
+| **Mechanism** | Keyword-heavy, factual | Neural/embeddings (meaning-based) | Synthesized answers |
+| **Best Query Style** | "Apple stock price today" | "Blog post explaining transformers like I'm five" | Quick Q&A |
+| **Agent Control** | High (raw data) | High (semantic URLs) | Low (pre-cooked answers) |
+| **Use Case** | RAG/Fact agents | Discovery/Recommendation | Simple answers |
+
+**Strategic Recommendation**: Coding agents should have both Tavily (StackOverflow, GitHub Issues) and Ref (official docs) connected simultaneously.
+
+## Framework Integrations
+
+| Framework | Integration |
+|-----------|-------------|
+| **LangChain** | Use `langchain-tavily` package (older `tavily_search.tool` deprecated) |
+| **LlamaIndex** | Native Tavily retriever support |
+| **Vercel AI SDK** | Direct integration |
+| **Google ADK** | Agent SDK connector |
+| **n8n/Zapier** | HTTP node with API key header |
+
+**Pattern**: Combine Tavily with other MCP servers (e.g., Neo4j for graph queries + Tavily for web) to let agents reason about when to use each source.

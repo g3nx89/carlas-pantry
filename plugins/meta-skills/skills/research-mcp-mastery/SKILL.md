@@ -1,6 +1,11 @@
 ---
 name: research-mcp-mastery
-description: This skill should be used when the user asks to "fetch library documentation", "look up React/Next.js/Rails API", "search the web for news", "research current events", "which MCP server should I use", "Context7 vs Ref vs Tavily", or needs guidance choosing between Context7, Ref, and Tavily MCP servers for documentation lookup or web research tasks. Provides decision trees, query optimization patterns, and selective reference loading.
+description: >
+  This skill should be used when the user asks to "fetch library documentation",
+  "look up React/Next.js/Rails API", "search the web for news", "research current events",
+  "which MCP server should I use", "Context7 vs Ref vs Tavily", "how do I query Context7",
+  "configure Ref MCP", "Tavily search parameters", or needs help choosing between
+  Context7, Ref, and Tavily MCP servers.
 ---
 
 # Research MCP Mastery
@@ -63,7 +68,7 @@ Tavily searches the general web, which returns:
 
 ## Context7 vs Ref: Quick Guide
 
-> Full decision matrix: `$SKILL_PATH/references/comparison.md`
+> Full decision matrix: `references/comparison.md`
 
 **TL;DR**: Context7 for mainstream library APIs (React, Next.js). Ref for prose/private repos/PDFs/token-sensitive work.
 
@@ -99,41 +104,20 @@ Tavily searches the general web, which returns:
 
 ## Query Optimization Patterns
 
-### Context7: Use Specific Queries
+> **Full patterns and examples**: See `examples/query-patterns.md`
 
-```
-# Poor - too vague
-"auth"
+**Quick summary by server:**
 
-# Good - includes framework, version, use case
-"React 19 useFormState validation patterns"
-```
+| Server | Query Style | Length | Key Rule |
+|--------|-------------|--------|----------|
+| **Context7** | Specific, version-aware | 5-15 words | Include version + feature + use case |
+| **Ref** | Full sentences | 10-20 words | Descriptive sentences with context |
+| **Tavily** | Search keywords | 5-10 words | Under 400 chars, not conversational |
 
-**Max 3 tool calls per question** - if not found after 3, work with best result.
-
-### Ref: Full Sentences Work Best
-
-```
-# Poor - keyword style
-"figma comment api"
-
-# Good - full context sentence
-"Figma API post comment endpoint documentation"
-```
-
-Session deduplication means refining queries never returns duplicate results.
-
-### Tavily: Search Query Style
-
-```
-# Poor - too conversational
-"Can you tell me everything about Tesla's Q4 earnings?"
-
-# Good - focused keywords under 400 chars
-"Tesla Q4 2024 earnings revenue guidance"
-```
-
-**Break complex topics into sub-queries** for better results.
+**Critical rules:**
+- Context7: Max 3 tool calls per question - work with best result after that
+- Ref: Session deduplication means refining queries never returns duplicates
+- Tavily: Break complex topics into sub-queries for better results
 
 ## Cost & Token Management
 
@@ -147,31 +131,29 @@ Session deduplication means refining queries never returns duplicate results.
 
 ## Selective Reference Loading
 
-**Load server-specific reference only when needed:**
+**Load server-specific reference only when deeper guidance is needed:**
 
-```
-# Before using Context7:
-Read: $SKILL_PATH/references/context7.md
-
-# Before using Ref:
-Read: $SKILL_PATH/references/ref.md
-
-# Before using Tavily:
-Read: $SKILL_PATH/references/tavily.md
-
-# For comparison and overlapping scenarios:
-Read: $SKILL_PATH/references/comparison.md
-```
-
-**Available references:**
-- `context7.md` - Context7 configuration, parameters, workflow patterns
-- `ref.md` - Ref tools, session behavior, private repo setup
-- `tavily.md` - Search/extract/crawl parameters, cost management
-- `comparison.md` - Detailed comparison matrix, edge cases
+| When Using | Load Reference |
+|------------|----------------|
+| Context7 | `references/context7.md` - Configuration, parameters, workflow patterns |
+| Ref | `references/ref.md` - Session behavior, private repo setup, Dropout mechanism |
+| Tavily | `references/tavily.md` - Search/extract/crawl parameters, cost management |
+| Comparing options | `references/comparison.md` - Detailed decision matrices, edge cases |
 
 **Working examples:**
 - `examples/multi-server-workflow.md` - Complete research workflow combining all three servers
 - `examples/query-patterns.md` - Good vs bad query patterns for each server
+
+**Utility scripts:**
+- `scripts/check-mcp-config.sh` - Validate MCP server configuration and environment variables
+
+## Parameter Naming Warning
+
+> **The `topic` parameter means different things across servers:**
+> - **Context7**: Focus area within library (e.g., "routing", "hooks") - free text
+> - **Tavily**: Content category (`general`, `news`, `finance`) - enum values
+>
+> See `references/comparison.md` for full parameter mapping.
 
 ## Common Mistakes
 
