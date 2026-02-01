@@ -12,7 +12,7 @@
 DISABLED_TOOLS=analyze,refactor,testgen,secaudit,docgen,tracer
 ```
 
-**Rule:** Enable only tools you'll use. Add tools as needed rather than enabling everything.
+**Rule:** Enable only the tools needed. Add tools as needed rather than enabling everything.
 
 ---
 
@@ -26,7 +26,7 @@ DISABLED_TOOLS=analyze,refactor,testgen,secaudit,docgen,tracer
 - "I completely agree!"
 - Enthusiastic agreement without testing assumptions
 
-**Solution:** **Auto-invoke `challenge`** whenever you find yourself agreeing enthusiastically. The `challenge` tool is the primary guardrail against this behavior.
+**Solution:** **Auto-invoke `challenge`** upon detecting enthusiastic agreement. The `challenge` tool is the primary guardrail against this behavior.
 
 **Pattern:**
 ```
@@ -200,7 +200,7 @@ If `CUSTOM_READ_TIMEOUT` isn't tuned, complex reasoning tasks timeout before com
 
 **❌ Bad:**
 ```
-"Use debug to fix the error and then use your own agent scratchpad to optimize it."
+"Use debug to fix the error and then use the agent's internal scratchpad to optimize it."
 → Mixed instructions make Claude uncertain which tool to use
 ```
 

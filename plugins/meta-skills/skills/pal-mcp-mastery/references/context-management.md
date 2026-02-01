@@ -74,7 +74,7 @@ thinkdeep(step="Step 2", continuation_id=response1.continuation_id, ...)
 
 ### Cross-Tool Threading
 
-You can chain different tools with the same thread:
+Different tools can be chained with the same thread:
 
 ```
 codereview(...) → continuation_id="abc"

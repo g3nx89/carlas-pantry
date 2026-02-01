@@ -1,6 +1,6 @@
 ---
 name: pal-mcp-mastery
-description: Use when working with PAL MCP server tools (chat, thinkdeep, consensus, codereview, precommit, debug, planner, clink, challenge, apilookup) - provides tool selection guidance, parameter optimization, workflow patterns, and context-efficient reference loading for multi-model AI orchestration
+description: This skill should be used when working with PAL MCP server tools (chat, thinkdeep, consensus, codereview, precommit, debug, planner, clink, challenge, apilookup, listmodels) - provides tool selection guidance, parameter optimization, workflow patterns, and context-efficient reference loading for multi-model AI orchestration
 ---
 
 # PAL MCP Mastery
@@ -15,6 +15,21 @@ PAL MCP (Provider Abstraction Layer) enables Claude Code to orchestrate conversa
 - **Stance-Steered Consensus**: Multiple models debate with configurable perspectives
 
 **Critical warning**: PAL tool definitions consume ~90KB of context (~60% in some configs). Always use `DISABLED_TOOLS` to disable unused tools.
+
+## Quick Start
+
+For simple tasks, use these tools directly without loading additional references:
+
+**Quick Question?** → `chat(prompt="...", model="auto")`
+**Need current API docs?** → `apilookup(prompt="React 19 streaming patterns")`
+**Validate an assumption?** → `challenge(prompt="Statement to test")`
+
+For complex tasks, follow this pattern:
+1. Load the relevant tool reference: `Read: $SKILL_PATH/references/tool-{name}.md`
+2. For multi-step workflows, always pass `continuation_id` between calls
+3. End code changes with `codereview` → `precommit` sequence
+
+**Context Budget Tip**: PAL tool definitions consume ~90KB. Disable unused tools via `DISABLED_TOOLS` in the `.env` file.
 
 ## Tool Selection Decision Tree
 
@@ -115,6 +130,9 @@ Read: $SKILL_PATH/references/anti-patterns.md
 - `tool-challenge.md` - Anti-sycophancy
 - `tool-apilookup.md` - Live API lookup
 - `tool-listmodels.md` - Model discovery
+- `tool-analyze.md` - Codebase analysis (typically disabled)
+- `tool-testgen.md` - Test generation (typically disabled)
+- `tool-refactor.md` - Code transformation (typically disabled)
 - `workflows.md` - Common workflow templates
 - `context-management.md` - Thread limits, continuation_id patterns
 - `anti-patterns.md` - Mistakes to avoid
@@ -134,13 +152,10 @@ Read: $SKILL_PATH/references/anti-patterns.md
 
 ### Thinking Mode Token Budgets
 
-| Mode | Token Budget | Cost Multiplier | Latency | Use Case |
-|------|-------------|-----------------|---------|----------|
-| `minimal` | 128 | 1x | Ultra-low | Formatting, style checks, simple syntax |
-| `low` | 2,048 | 16x | Low | Basic explanations, routine logic |
-| `medium` | 8,192 | 64x | Moderate | Standard development, initial reviews |
-| `high` | 16,384 | 128x | High | Complex debugging, security audits |
-| `max` | 32,768 | 256x | Very High | Strategic architecture, critical safety |
+See `shared-parameters.md` for detailed token budgets. Quick guide:
+- **minimal/low**: Simple tasks, formatting
+- **medium**: Default for most development (recommended starting point)
+- **high/max**: Complex debugging, security audits (256x cost increase)
 
 **Cost warning**: `max` mode costs 256x more than `minimal`. Use `medium` as default, escalate only when complexity requires it.
 

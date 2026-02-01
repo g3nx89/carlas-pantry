@@ -1,5 +1,7 @@
 # PAL MCP Workflow Templates
 
+> **Compatibility**: Verified against PAL MCP v1.x (January 2026). Report stale examples via issues.
+
 ## Workflow A: Complex Bug Investigation
 
 **Trigger:** Difficult bug requiring systematic hypothesis testing and multi-model validation.

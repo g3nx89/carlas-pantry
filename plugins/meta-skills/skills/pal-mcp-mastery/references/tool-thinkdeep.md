@@ -38,13 +38,7 @@ Multi-stage investigation for deep analysis of complex problems, edge cases, and
 
 ## Thinking Mode Selection
 
-| Mode | Token Budget | Economic Impact | Use Case |
-|------|-------------|-----------------|----------|
-| `minimal` | 128 tokens | 1x cost | Formatting, style checks, basic syntax |
-| `low` | 2,048 tokens | 16x cost | Explaining basic concepts, light reasoning |
-| `medium` | 8,192 tokens | 64x cost | Default development tasks, multi-file analysis |
-| `high` | 16,384 tokens | 128x cost | Complex logic, security audits, architecture |
-| `max` | 32,768 tokens | 256x cost | Exhaustive strategic analysis, critical debugging |
+> See `shared-parameters.md` for the complete token budget table.
 
 **Natural language triggers**: "think" < "think hard" < "think harder" < "ultrathink"
 

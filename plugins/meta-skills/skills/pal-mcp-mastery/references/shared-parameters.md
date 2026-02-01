@@ -54,6 +54,8 @@ Progress through these levels based on evidence gathered:
 
 **Critical**: Relative paths (`./file.py`) fail silently. Always use `/absolute/path/to/file.py`.
 
+**Naming Note**: `clink` uses `absolute_file_paths` (matching CLI conventions) while other tools use `relevant_files`. Both require absolute paths.
+
 ## Analysis Parameters
 
 | Parameter | Type | Description |
