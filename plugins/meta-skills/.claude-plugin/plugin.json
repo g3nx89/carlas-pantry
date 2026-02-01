@@ -1,0 +1,19 @@
+{
+  "name": "meta-skills",
+  "version": "0.1.0",
+  "description": "Collection of meta-skills for mastering Claude Code, MCP servers, and agentic workflows",
+  "author": {
+    "name": "Alessandro Fato"
+  },
+  "keywords": [
+    "meta",
+    "claude-code",
+    "mcp",
+    "productivity",
+    "workflow",
+    "best-practices",
+    "tips",
+    "optimization"
+  ],
+  "license": "MIT"
+}
