@@ -1,0 +1,74 @@
+{
+  "mcpServers": {
+    "gradle-mcp-server": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "/Users/afato/mcp-servers/gradle-mcp-server/gradle-mcp-server-all.jar"
+      ],
+      "env": {}
+    },
+    "mobile-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mobilenext/mobile-mcp@latest"
+      ],
+      "env": {}
+    },
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {}
+    },
+    "pal": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "for p in $(which uvx 2>/dev/null) $HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \"$p\" ] && exec \"$p\" --from git+https://github.com/BeehiveInnovations/pal-mcp-server.git pal-mcp-server; done; echo 'uvx not found' >&2; exit 1"
+      ],
+      "env": {
+        "DEFAULT_MODEL": "auto",
+        "DEFAULT_THINKING_MODE_THINKDEEP": "max",
+        "CONVERSATION_TIMEOUT_HOURS": "24",
+        "MAX_CONVERSATION_TURNS": "40",
+        "LOG_LEVEL": "INFO",
+        "DISABLED_TOOLS": "analyze,refactor,testgen,secaudit,docgen,tracer",
+        "PAL_MCP_FORCE_ENV_OVERRIDE": "false",
+        "COMPOSE_PROJECT_NAME": "pal-mcp",
+        "TZ": "UTC",
+        "LOG_MAX_SIZE": "10MB",
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
+      }
+    },
+    "Ref": {
+      "type": "http",
+      "url": "https://api.ref.tools/mcp",
+      "headers": {
+        "x-ref-api-key": "${REF_API_KEY}"
+      }
+    },
+    "figma-desktop": {
+      "type": "http",
+      "url": "http://127.0.0.1:3845/mcp"
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      }
+    },
+    "tavily": {
+      "type": "http",
+      "url": "https://mcp.tavily.com/mcp/?tavilyApiKey=${TAVILY_API_KEY}"
+    }
+  }
+}
