@@ -9,6 +9,7 @@ Plugin for feature planning, task decomposition, and **integrated test strategy 
 - **PAL ThinkDeep** - External model insights (performance, maintainability, security)
 - **PAL Consensus** - Multi-model validation with scoring rubric
 - **Sequential Thinking** - Structured reasoning templates
+- **Research MCP Integration** - Context7/Ref/Tavily for authoritative documentation lookup
 - **V-Model Test Planning** - Comprehensive test strategy aligned with development phases (integrated)
 - **UAT Script Generation** - User story-based acceptance testing with Given-When-Then format
 
@@ -321,10 +322,32 @@ Use `$CLAUDE_PLUGIN_ROOT` to reference plugin-relative paths in commands and age
 
 ## MCP Dependencies
 
-Optional but recommended:
+### Core MCP (Optional but recommended)
 - `mcp__sequential-thinking__sequentialthinking` - Structured reasoning
 - `mcp__pal__thinkdeep` - External model insights
 - `mcp__pal__consensus` - Multi-model validation
+- `mcp__pal__listmodels` - Model availability check
+- `mcp__pal__challenge` - Groupthink detection
+
+### Research MCP (Optional but recommended)
+Used in Phases 2, 4, and 7 for authoritative documentation lookup.
+
+| Server | Purpose | Best For |
+|--------|---------|----------|
+| `mcp__context7__query-docs` | Library documentation | React, Next.js, mainstream libs |
+| `mcp__Ref__ref_search_documentation` | Docs with prose | Explanations, niche/private repos |
+| `mcp__Ref__ref_read_url` | Read specific URLs | Changelogs, blog posts |
+| `mcp__tavily__tavily_search` | Web search | News, CVEs, recent updates |
+| `mcp__tavily__tavily_extract` | Extract URL content | Full page extraction |
+
+**Server Selection Decision Tree:**
+- Library API (mainstream) → Context7
+- Library API (niche/prose needed) → Ref
+- Current events/news → Tavily
+- Security CVE check → Tavily
+- Deep dive specific URL → Ref
+
+**Reference:** `skills/plan/references/research-mcp-patterns.md`
 
 ---
 

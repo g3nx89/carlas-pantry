@@ -949,3 +949,157 @@ blessed_profiles:
     check_requires_dependencies: true
     check_mode_availability: true
     check_mcp_requirements: true
+
+# =============================================================================
+# RESEARCH MCP SERVERS
+# =============================================================================
+# Configuration for Context7, Ref, and Tavily research MCP servers
+# See skills/plan/references/research-mcp-patterns.md for usage guidance
+
+research_mcp:
+  # Global budget and retry controls
+  budget:
+    total_calls_per_session: 25      # Max total research MCP calls per planning session
+    total_calls_per_phase: 10        # Max calls per individual phase
+    warn_at_percentage: 80           # Warn user when 80% of budget consumed
+
+  retry:
+    max_retries_per_call: 2          # Retry failed calls up to 2 times
+    retry_delay_ms: 1000             # Wait 1 second between retries
+    circuit_breaker_threshold: 3     # After 3 consecutive failures, skip server for session
+    circuit_breaker_action: "graceful_skip"  # Options: graceful_skip, ask_user, abort
+
+  # Context7 - Library documentation with code snippets
+  context7:
+    description: "Official library documentation with code examples"
+    best_for: "Mainstream library API reference (React, Next.js, Express)"
+    token_profile: "~3.3k avg (5k max)"
+
+    # Efficiency controls
+    max_calls_per_topic: 3  # Work with best result after 3 calls
+    use_direct_ids: true     # Skip resolve-library-id when possible
+
+    # Common library IDs to skip resolve-library-id
+    common_library_ids:
+      # Frontend Frameworks
+      react: "/facebook/react"
+      nextjs: "/vercel/next.js"
+      vue: "/vuejs/core"
+      angular: "/angular/angular"
+      svelte: "/sveltejs/svelte"
+      # Backend Frameworks
+      express: "/expressjs/express"
+      nestjs: "/nestjs/nest"
+      fastify: "/fastify/fastify"
+      # Databases & ORMs
+      prisma: "/prisma/prisma"
+      drizzle: "/drizzle-team/drizzle-orm"
+      mongoose: "/Automattic/mongoose"
+      typeorm: "/typeorm/typeorm"
+      # Testing
+      jest: "/jestjs/jest"
+      vitest: "/vitest-dev/vitest"
+      playwright: "/microsoft/playwright"
+      cypress: "/cypress-io/cypress"
+      # Auth
+      nextauth: "/nextauthjs/next-auth"
+      clerk: "/clerk/javascript"
+      # State Management
+      zustand: "/pmndrs/zustand"
+      redux: "/reduxjs/redux"
+      tanstack-query: "/TanStack/query"
+      # Styling
+      tailwind: "/tailwindlabs/tailwindcss"
+      # TypeScript
+      typescript: "/microsoft/typescript"
+
+    # Query format guidance
+    query_format:
+      length: "5-15 words"
+      style: "Specific, version-aware"
+      example_good: "React 18 useEffect cleanup function patterns"
+      example_bad: "react hooks"
+
+  # Ref - Documentation with prose and private repos
+  ref:
+    description: "Docs with prose explanations, private repos, PDFs"
+    best_for: "Detailed explanations, niche libraries, compliance docs"
+    token_profile: "500-5k adaptive"
+
+    # Efficiency controls
+    search_before_read: true   # Always search first, then read selectively
+    leverage_session_dedup: true  # Refine queries progressively
+
+    # Query format guidance
+    query_format:
+      length: "10-20 words"
+      style: "Full sentences, descriptive"
+      example_good: "How to implement JWT authentication with NextAuth.js in Next.js 15"
+      example_bad: "auth"
+
+  # Tavily - Web search and current events
+  tavily:
+    description: "Web search for news, current events, security CVEs"
+    best_for: "Recent announcements, breaking changes, vulnerability checks"
+    cost_model: "1-2 credits/search, 4-250 for research"
+
+    # Cost controls (CRITICAL)
+    default_search_depth: "basic"  # Prevents 2x credit usage
+    min_relevance_score: 0.5       # Filter out low-quality results
+    default_max_results: 10
+
+    # Query format guidance
+    query_format:
+      length: "5-10 words"
+      style: "Search keywords, not conversational"
+      max_chars: 400
+      example_good: "Next.js 15 release notes changes 2026"
+      example_bad: "Can you tell me about Next.js changes?"
+
+    # ANTI-PATTERN WARNING
+    never_use_for:
+      - "Library API documentation (use Context7/Ref instead)"
+      - "Framework tutorials (use Context7/Ref instead)"
+      - "Official documentation lookup (use Context7/Ref instead)"
+
+  # Server selection decision matrix
+  selection_matrix:
+    library_api_mainstream: "context7"
+    library_api_niche: "ref"
+    prose_explanations: "ref"
+    private_repos: "ref"
+    current_events: "tavily"
+    news_announcements: "tavily"
+    security_cve: "tavily"
+    specific_url: "ref"
+
+  # Multi-server workflow pattern
+  multi_server_workflow:
+    step_1:
+      name: "documentation"
+      server: "context7 OR ref"
+      purpose: "Get official API reference"
+    step_2:
+      name: "recent_updates"
+      server: "tavily"
+      purpose: "Check for recent changes, breaking updates"
+      condition: "risk_level >= medium OR technology_is_new"
+      params:
+        time_range: "month"
+        topic: "news"
+    step_3:
+      name: "deep_dive"
+      server: "ref"
+      purpose: "Read full content of important URLs"
+      condition: "step_2 found critical updates"
+    step_4:
+      name: "security_check"
+      server: "tavily"
+      purpose: "Check for known vulnerabilities"
+      condition: "technology handles auth/payments/PII"
+
+  # Graceful degradation
+  degradation:
+    context7_unavailable: "ref"
+    ref_unavailable: "tavily with include_domains filter"
+    all_unavailable: "proceed with internal knowledge, mark DEGRADED"

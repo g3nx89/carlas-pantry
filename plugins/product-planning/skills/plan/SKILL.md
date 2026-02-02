@@ -3,21 +3,37 @@ name: Feature Planning
 description: This skill should be used when the user asks to "plan a feature", "create an implementation plan", "design the architecture", "break down a feature into tasks", "decompose a specification", "plan development", "plan tests", or needs multi-perspective analysis for feature implementation. Provides 9-phase workflow with MPA agents, PAL ThinkDeep validation, V-Model test planning, and consensus scoring.
 version: 2.0.0
 allowed-tools:
+  # File operations
   - Read
   - Write
   - Edit
   - Glob
   - Grep
+  # Shell commands
   - Bash(cp:*)
   - Bash(mkdir:*)
   - Bash(rm:*)
   - Bash(git:*)
   - Bash(ls:*)
+  # Agent orchestration
   - Task
   - AskUserQuestion
+  # Sequential Thinking MCP
   - mcp__sequential-thinking__sequentialthinking
+  # PAL MCP (multi-model analysis)
   - mcp__pal__thinkdeep
   - mcp__pal__consensus
+  - mcp__pal__listmodels
+  - mcp__pal__challenge
+  # Research MCP - Context7 (library documentation)
+  - mcp__context7__resolve-library-id
+  - mcp__context7__query-docs
+  # Research MCP - Ref (docs with prose, private repos)
+  - mcp__Ref__ref_search_documentation
+  - mcp__Ref__ref_read_url
+  # Research MCP - Tavily (web search, news, current events)
+  - mcp__tavily__tavily_search
+  - mcp__tavily__tavily_extract
 ---
 
 # Feature Planning Skill

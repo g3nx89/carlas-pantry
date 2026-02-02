@@ -51,11 +51,23 @@ CREATE LOCK_FILE with pid, timestamp, user
 
 ```
 CHECK tools:
+  # Core MCP (required for Complete/Advanced modes)
   - mcp__sequential-thinking__sequentialthinking
   - mcp__pal__thinkdeep
   - mcp__pal__consensus
 
+  # Research MCP (optional, enhances Phases 2, 4, 7)
+  - mcp__context7__query-docs
+  - mcp__Ref__ref_search_documentation
+  - mcp__tavily__tavily_search
+
 DISPLAY availability status
+
+IF research MCP unavailable:
+  LOG: "Research MCP servers unavailable - Steps 2.1c, 4.0, 7.1b will use internal knowledge"
+  SET state.research_mcp_available = false
+ELSE:
+  SET state.research_mcp_available = true
 ```
 
 ### Step 1.6: Analysis Mode Selection
@@ -177,6 +189,96 @@ IF feature_flags.a3_adaptive_depth.enabled:
 | minimal | 1 | Direct matches only | None |
 | standard | 2 | Related patterns | T4, T5 |
 | deep | 3 | Comprehensive exploration | T4, T5, T6 |
+
+### Step 2.1c: Research MCP Enhancement (NEW)
+
+**Purpose:** Use research MCP servers to gather official documentation for mentioned technologies BEFORE launching researcher agents. This provides enriched context and ensures agents have access to current, authoritative information.
+
+**Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md`
+
+```
+1. EXTRACT technology mentions from spec.md:
+   technologies = PARSE spec.md for framework/library names
+   # Examples: React, Next.js, Prisma, NextAuth, etc.
+
+2. FOR EACH technology IN technologies:
+
+   a. DETERMINE server using selection matrix:
+      IF technology IN config.research_mcp.context7.common_library_ids:
+        server = "context7"
+        library_id = config.research_mcp.context7.common_library_ids[technology]
+      ELSE:
+        server = "ref"
+
+   b. QUERY documentation:
+      IF server == "context7":
+        result = mcp__context7__query-docs(
+          libraryId: library_id,
+          query: "{technology} {feature_context} patterns best practices"
+        )
+        # Efficiency: Max 3 calls per technology
+      ELSE:
+        result = mcp__Ref__ref_search_documentation(
+          query: "How to implement {feature_relevant_aspect} with {technology}"
+        )
+
+   c. STORE findings in research_context
+
+3. IF risk_level >= medium OR any technology is newly released:
+
+   # Check for recent updates/breaking changes
+   FOR EACH technology IN high_priority_technologies:
+     updates = mcp__tavily__tavily_search(
+       query: "{technology} release notes breaking changes 2026",
+       search_depth: "basic",
+       time_range: "month",
+       max_results: 5
+     )
+
+     # Filter by relevance
+     relevant_updates = FILTER updates WHERE score > 0.5
+
+     IF relevant_updates contains critical changes:
+       # Deep dive on changelog
+       changelog = mcp__Ref__ref_read_url(url: changelog_url)
+       ADD changelog to research_context
+
+4. IF any technology handles auth/payments/PII:
+
+   # Security vulnerability check
+   security_check = mcp__tavily__tavily_search(
+     query: "{technology} CVE security vulnerability 2025 2026",
+     search_depth: "basic",
+     max_results: 5
+   )
+
+   IF security_check contains vulnerabilities:
+     FLAG for immediate attention in research.md
+     ADD to risk_keywords_found
+
+5. CONSOLIDATE research_context:
+   - Official documentation snippets
+   - Recent updates/breaking changes
+   - Security findings
+   - Version compatibility notes
+
+6. OUTPUT:
+   research_context will be passed to researcher agents in Step 2.2
+```
+
+**Server Selection Quick Reference:**
+
+| Technology Type | Server | Efficiency Rule |
+|----------------|--------|-----------------|
+| Mainstream libraries (React, Next.js) | Context7 | Use direct IDs, max 3 calls |
+| Niche libraries | Ref | Search first, read selectively |
+| Recent announcements | Tavily | time_range="month", basic depth |
+| Security/CVE checks | Tavily | Filter score > 0.5 |
+| Deep URL content | Ref | ref_read_url on specific URLs |
+
+**Anti-Pattern Warning:**
+- NEVER use Tavily for library documentation (returns outdated content)
+- ALWAYS use Context7 or Ref for API reference
 
 ### Step 2.2: Launch Research Agents
 
@@ -379,6 +481,45 @@ Save all decisions to `user_decisions` (IMMUTABLE).
 ---
 
 ## Phase 4: Architecture Design
+
+### Step 4.0: Architecture Pattern Research (Research MCP)
+
+**Purpose:** Fetch framework-specific architecture patterns BEFORE launching architect agents.
+
+```
+IF analysis_mode in {advanced, complete}:
+
+  1. IDENTIFY primary framework from research.md:
+     framework = EXTRACT main framework (e.g., Next.js, Express, Django)
+
+  2. QUERY architecture patterns:
+     IF framework IN config.research_mcp.context7.common_library_ids:
+       patterns = mcp__context7__query-docs(
+         libraryId: config.research_mcp.context7.common_library_ids[framework],
+         query: "{framework} architecture patterns folder structure best practices"
+       )
+     ELSE:
+       patterns = mcp__Ref__ref_search_documentation(
+         query: "{framework} recommended architecture patterns enterprise applications"
+       )
+
+  3. IF feature involves specific domain (auth, payments, etc.):
+     domain_patterns = mcp__context7__query-docs(
+       libraryId: "{relevant_library_id}",
+       query: "{domain} implementation patterns {framework}"
+     )
+
+  4. INCLUDE patterns in architect agent prompts:
+     architecture_context = {
+       framework_patterns: patterns,
+       domain_patterns: domain_patterns,
+       source: "official documentation"
+     }
+
+ELSE:
+  # Standard/Rapid mode - skip external research
+  architecture_context = research.md findings only
+```
 
 ### Step 4.1: Launch Architecture Agents (MPA)
 
@@ -878,6 +1019,60 @@ READ:
   - {FEATURE_DIR}/spec.md (acceptance criteria, user stories)
   - {FEATURE_DIR}/design.md (architecture for test boundaries)
   - {FEATURE_DIR}/plan.md (implementation approach)
+```
+
+### Step 7.1b: Testing Best Practices Research (Research MCP)
+
+**Purpose:** Fetch framework-specific testing patterns BEFORE launching QA agents.
+
+```
+IF analysis_mode in {advanced, complete}:
+
+  1. IDENTIFY testing stack from design.md and codebase:
+     test_framework = DETECT (Jest, Vitest, Playwright, Cypress, etc.)
+     app_framework = EXTRACT from design.md (Next.js, Express, etc.)
+
+  2. QUERY testing patterns:
+     IF test_framework IN config.research_mcp.context7.common_library_ids:
+       test_patterns = mcp__context7__query-docs(
+         libraryId: config.research_mcp.context7.common_library_ids[test_framework],
+         query: "{test_framework} {app_framework} testing patterns mocking async"
+       )
+
+  3. IF feature involves specific domains requiring specialized testing:
+
+     # E2E testing patterns
+     IF e2e_tests_needed:
+       e2e_patterns = mcp__context7__query-docs(
+         libraryId: "/microsoft/playwright",  # or cypress
+         query: "Playwright {app_framework} authentication testing page objects"
+       )
+
+     # Security testing patterns
+     IF security_sensitive_feature:
+       security_tests = mcp__Ref__ref_search_documentation(
+         query: "OWASP testing checklist web application security testing"
+       )
+
+  4. CHECK for recent testing tool updates:
+     IF test_framework version is recent:
+       updates = mcp__tavily__tavily_search(
+         query: "{test_framework} breaking changes migration 2026",
+         search_depth: "basic",
+         time_range: "month"
+       )
+
+  5. INCLUDE patterns in QA agent prompts:
+     testing_context = {
+       test_patterns: test_patterns,
+       e2e_patterns: e2e_patterns,
+       security_tests: security_tests,
+       source: "official documentation"
+     }
+
+ELSE:
+  # Standard/Rapid mode - skip external research
+  testing_context = null
 ```
 
 ### Step 7.2: Risk Analysis

@@ -237,12 +237,49 @@ YOU MUST revise your solution to address any identified gaps BEFORE submission. 
 3. Any limitations or caveats discovered
 4. Actions taken to address gaps
 
-## Important - Tool Usage Requirements
+## Research MCP Server Selection (MANDATORY)
 
-YOU MUST use available MCP servers. Ignoring specialized tools = INFERIOR RESEARCH.
+YOU MUST use the correct MCP server for each research task. Using the wrong server = INFERIOR RESEARCH.
 
-- context7 MCP: YOU MUST use this to investigate libraries and frameworks documentation. Web search without context7 = INCOMPLETE source coverage.
-- serena MCP: YOU MUST use this to investigate codebase structure. Manual file reading when serena is available = INEFFICIENT and INCOMPLETE analysis.
+**Full Reference:** See `$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md` for complete decision tree, query patterns, and multi-server workflow.
+
+### Quick Server Selection
+
+| Research Type | Use Server | Key Rule |
+|---------------|------------|----------|
+| Library API (mainstream) | `mcp__context7__query-docs` | Max 3 calls, 5-15 word queries |
+| Library API (niche/prose) | `mcp__Ref__ref_search_documentation` | 10-20 word sentences |
+| Current events/news | `mcp__tavily__tavily_search` | `search_depth: "basic"` always |
+| Security CVE check | `mcp__tavily__tavily_search` | Filter score > 0.5 |
+| Read specific URL | `mcp__Ref__ref_read_url` | After search, selectively |
+
+### Critical Efficiency Rules
+
+1. **Context7:** MAX 3 calls per topic - work with best result after that
+2. **Tavily:** ALWAYS set `search_depth: "basic"` (avoids 2x credit usage)
+3. **Ref:** Search first, read selectively - leverage session deduplication
+
+### Common Library IDs (Context7)
+
+Use direct IDs to skip `resolve-library-id`. See `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` section `research_mcp.context7.common_library_ids` for full list.
+
+**Quick reference:** React (`/facebook/react`), Next.js (`/vercel/next.js`), TypeScript (`/microsoft/typescript`), Prisma (`/prisma/prisma`)
+
+### ANTI-PATTERN: Tavily for Documentation
+
+**NEVER use Tavily to look up library documentation.** Tavily returns outdated tutorials and unofficial sources. ALWAYS use Context7 or Ref for library APIs.
+
+### Multi-Server Workflow (Summary)
+
+```
+1. DOCUMENTATION → Context7/Ref
+2. RECENT UPDATES → Tavily (time_range="month")
+3. DEEP DIVE → Ref (ref_read_url)
+4. SECURITY CHECK → Tavily (CVE query)
+
+4. SECURITY CHECK (Tavily):
+   mcp__tavily__tavily_search for CVE/vulnerabilities
+```
 
 ## Anti-Patterns to Avoid
 
