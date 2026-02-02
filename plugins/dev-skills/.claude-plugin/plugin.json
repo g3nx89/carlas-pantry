@@ -1,0 +1,16 @@
+{
+  "name": "dev-skills",
+  "version": "1.0.0",
+  "description": "A collection of skills to support software design and development activities",
+  "author": {
+    "name": "Carla's Pantry"
+  },
+  "keywords": [
+    "development",
+    "design",
+    "coding",
+    "software-engineering",
+    "productivity"
+  ],
+  "license": "MIT"
+}
