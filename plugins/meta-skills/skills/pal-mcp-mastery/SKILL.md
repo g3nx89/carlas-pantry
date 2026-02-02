@@ -1,35 +1,38 @@
 ---
 name: pal-mcp-mastery
-description: This skill should be used when working with PAL MCP server tools (chat, thinkdeep, consensus, codereview, precommit, debug, planner, clink, challenge, apilookup, listmodels) - provides tool selection guidance, parameter optimization, workflow patterns, and context-efficient reference loading for multi-model AI orchestration
+description: This skill should be used when the user asks to "use PAL", "call another model", "get a second opinion from GPT/Gemini/O3", "debug with PAL", "run codereview", "use consensus for decisions", "challenge my assumption", "lookup current API docs", or mentions PAL MCP tools (chat, thinkdeep, consensus, codereview, precommit, debug, planner, clink, challenge, apilookup). Provides tool selection guidance, parameter optimization, and workflow patterns for multi-model AI orchestration.
+version: 0.2.0
 ---
 
 # PAL MCP Mastery
 
+> **Compatibility**: Verified against PAL MCP v1.x (January 2026)
+
 ## Overview
 
-PAL MCP (Provider Abstraction Layer) enables Claude Code to orchestrate conversations with multiple AI models (Gemini, GPT-5, O3, Ollama) through a unified interface. This skill teaches effective PAL usage with **selective context loading** - load only the tool reference you need.
+PAL MCP (Provider Abstraction Layer) enables Claude Code to orchestrate conversations with multiple AI models (Gemini, GPT-5, O3, Ollama) through a unified interface. This skill provides guidance for effective PAL usage with **selective context loading** - load only the tool reference needed.
 
 **Core capabilities:**
 - **Context Revival**: When Claude's context resets, other models can "remind" Claude via continuation_id
 - **CLI-to-CLI Bridge (clink)**: Launch isolated subagents that return only results, preserving context budget
 - **Stance-Steered Consensus**: Multiple models debate with configurable perspectives
 
-**Critical warning**: PAL tool definitions consume ~90KB of context (~60% in some configs). Always use `DISABLED_TOOLS` to disable unused tools.
+**Critical warning**: PAL tool definitions consume ~90KB of context (~60% in some configs). Disable unused tools via `DISABLED_TOOLS` in `.env`.
 
 ## Quick Start
 
-For simple tasks, use these tools directly without loading additional references:
+For simple tasks, invoke tools directly without loading additional references:
 
-**Quick Question?** → `chat(prompt="...", model="auto")`
-**Need current API docs?** → `apilookup(prompt="React 19 streaming patterns")`
-**Validate an assumption?** → `challenge(prompt="Statement to test")`
+**Quick Question** → `chat(prompt="...", model="auto")`
+**Current API docs** → `apilookup(prompt="React 19 streaming patterns")`
+**Validate assumption** → `challenge(prompt="Statement to test")`
 
 For complex tasks, follow this pattern:
 1. Load the relevant tool reference: `Read: $SKILL_PATH/references/tool-{name}.md`
-2. For multi-step workflows, always pass `continuation_id` between calls
+2. Pass `continuation_id` between related calls in multi-step workflows
 3. End code changes with `codereview` → `precommit` sequence
 
-**Context Budget Tip**: PAL tool definitions consume ~90KB. Disable unused tools via `DISABLED_TOOLS` in the `.env` file.
+**Context Budget Tip**: PAL tool definitions consume ~90KB. Disable unused tools via `DISABLED_TOOLS` in `.env`.
 
 ## Tool Selection Decision Tree
 
@@ -118,7 +121,16 @@ Read: $SKILL_PATH/references/anti-patterns.md
 ```
 
 **Available references:**
+
+Core documentation:
 - `shared-parameters.md` - **Core parameters shared across tools** (confidence, thinking_mode, step workflow)
+- `workflows.md` - Common workflow templates
+- `context-management.md` - Thread limits, continuation_id patterns
+- `anti-patterns.md` - Mistakes to avoid
+- `troubleshooting.md` - Error handling
+- `architecture.md` - Provider matrix, Large Prompt Bridge, BaseTool model
+
+Tool-specific references:
 - `tool-chat.md` - Collaborative conversation
 - `tool-thinkdeep.md` - Extended reasoning
 - `tool-consensus.md` - Multi-model debate
@@ -130,23 +142,20 @@ Read: $SKILL_PATH/references/anti-patterns.md
 - `tool-challenge.md` - Anti-sycophancy
 - `tool-apilookup.md` - Live API lookup
 - `tool-listmodels.md` - Model discovery
-- `tool-analyze.md` - Codebase analysis (typically disabled)
-- `tool-testgen.md` - Test generation (typically disabled)
-- `tool-refactor.md` - Code transformation (typically disabled)
-- `workflows.md` - Common workflow templates
-- `context-management.md` - Thread limits, continuation_id patterns
-- `anti-patterns.md` - Mistakes to avoid
-- `troubleshooting.md` - Error handling
-- `architecture.md` - Provider matrix, Large Prompt Bridge, BaseTool model
+
+Typically disabled tools (enable in `DISABLED_TOOLS` when needed):
+- `tool-analyze.md` - Codebase analysis
+- `tool-testgen.md` - Test generation
+- `tool-refactor.md` - Code transformation
 
 ## Essential Rules
 
-1. **Always use absolute paths** for `relevant_files` - relative paths fail silently
-2. **Progress confidence naturally**: `exploring → low → medium → high → certain`
-3. **Use continuation_id** for all related operations in a workflow
-4. **Set `next_step_required=false`** only on final step
-5. **Start with `thinking_mode=medium`** - escalate only when needed
-6. **End workflows with `precommit`** for safety validation
+1. **Absolute paths required** - `relevant_files` must use absolute paths; relative paths fail silently
+2. **Progress confidence naturally** - `exploring → low → medium → high → certain`
+3. **Chain with continuation_id** - pass between all related operations in a workflow
+4. **Terminate correctly** - set `next_step_required=false` only on final step
+5. **Start at medium thinking** - escalate `thinking_mode` only when complexity requires
+6. **End with precommit** - complete workflows with safety validation before commit
 
 ## Common Parameter Values
 
@@ -157,7 +166,7 @@ See `shared-parameters.md` for detailed token budgets. Quick guide:
 - **medium**: Default for most development (recommended starting point)
 - **high/max**: Complex debugging, security audits (256x cost increase)
 
-**Cost warning**: `max` mode costs 256x more than `minimal`. Use `medium` as default, escalate only when complexity requires it.
+**Cost warning**: `max` mode costs 256x more than `minimal`. Start with `medium`, escalate only when complexity requires.
 
 ### Confidence & Thinking Mode Values
 
