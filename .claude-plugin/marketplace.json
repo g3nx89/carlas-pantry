@@ -6,15 +6,15 @@
   },
   "metadata": {
     "description": "A curated marketplace of Claude Code plugins for product development workflows",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
       "name": "product-definition",
       "source": "./plugins/product-definition",
-      "description": "Transform rough product drafts into finalized, non-technical PRDs through iterative file-based Q&A with multi-perspective analysis",
-      "version": "1.0.0",
+      "description": "Transform rough product drafts into finalized PRDs with multi-perspective analysis, Figma integration, PAL consensus validation, and V-Model test strategy generation",
+      "version": "1.3.0",
       "author": {
         "name": "Alessandro Fato"
       },
@@ -24,9 +24,74 @@
         "product-management",
         "business-analysis",
         "mpa",
-        "multi-perspective"
+        "multi-perspective",
+        "specification",
+        "figma",
+        "pal-consensus",
+        "v-model",
+        "test-strategy"
       ],
       "category": "product-development",
+      "license": "MIT"
+    },
+    {
+      "name": "product-planning",
+      "source": "./plugins/product-planning",
+      "description": "Transform specifications into implementation plans, tasks, and test strategies using SDD patterns with V-Model testing methodology",
+      "version": "1.1.0",
+      "author": {
+        "name": "Alessandro Fato"
+      },
+      "keywords": [
+        "planning",
+        "task-decomposition",
+        "sdd",
+        "subagent",
+        "implementation",
+        "dependency-analysis",
+        "v-model",
+        "tdd",
+        "test-planning",
+        "uat"
+      ],
+      "category": "product-development",
+      "license": "MIT"
+    },
+    {
+      "name": "meta-skills",
+      "source": "./plugins/meta-skills",
+      "description": "Meta-skills for mastering Claude Code, MCP servers, and agentic workflows",
+      "version": "0.1.0",
+      "author": {
+        "name": "Alessandro Fato"
+      },
+      "keywords": [
+        "meta",
+        "claude-code",
+        "mcp",
+        "productivity",
+        "workflow",
+        "best-practices"
+      ],
+      "category": "productivity",
+      "license": "MIT"
+    },
+    {
+      "name": "dev-skills",
+      "source": "./plugins/dev-skills",
+      "description": "Skills to support software design and development activities",
+      "version": "1.0.0",
+      "author": {
+        "name": "Alessandro Fato"
+      },
+      "keywords": [
+        "development",
+        "design",
+        "coding",
+        "software-engineering",
+        "productivity"
+      ],
+      "category": "development",
       "license": "MIT"
     }
   ]
