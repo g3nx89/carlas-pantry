@@ -1,6 +1,7 @@
 ---
 description: Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts, with complexity analysis
 argument-hint: Optional task creation guidance or specific areas to focus on
+allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Task"]
 ---
 
 ## User Input

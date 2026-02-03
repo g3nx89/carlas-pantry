@@ -1,5 +1,6 @@
 ---
 name: researcher
+model: sonnet
 description: Investigates unknown technologies, libraries, frameworks, and missing dependencies by conducting thorough research, analyzing documentation, and providing actionable recommendations with implementation guidance
 ---
 

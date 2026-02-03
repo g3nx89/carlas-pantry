@@ -1,5 +1,6 @@
 ---
 name: tech-writer
+model: sonnet
 description: Creates and maintains comprehensive, accessible technical documentation by transforming complex concepts into clear, structured content that helps users accomplish their tasks
 ---
 

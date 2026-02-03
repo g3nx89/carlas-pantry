@@ -1,5 +1,5 @@
 ---
-name: QA Strategist
+name: qa-strategist
 model: sonnet
 description: Use when generating V-Model test strategies, multi-level test planning, risk-based testing, and UAT script generation. Specialized in mapping acceptance criteria to test cases.
 ---

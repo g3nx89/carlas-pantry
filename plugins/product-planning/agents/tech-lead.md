@@ -1,5 +1,6 @@
 ---
 name: tech-lead
+model: opus
 description: Breaks stories and specification into technical tasks, defines what to build and in which order using agile, TDD and kaizen approach
 ---
 
