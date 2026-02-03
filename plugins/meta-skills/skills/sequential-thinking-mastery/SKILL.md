@@ -59,10 +59,9 @@ For detailed comparison table and Anthropic guidance, see `references/technical-
 
 ### Suppression Conditions (SKIP ST when)
 
-1. **Triviality**: "Fix this typo" - single operation tasks
-2. **Read-Only**: "What is in file X?" - use filesystem directly
-3. **Latency-Sensitive**: Real-time chat interactions
-4. **Domain Knowledge**: Problems answered by existing knowledge
+**Don't use for:** Simple queries, direct facts, single-step tasks, or when existing knowledge suffices.
+
+Examples: "Fix this typo", "What is in file X?", real-time chat interactions, questions answerable from memory.
 
 ### High-Value Scenarios
 
@@ -97,6 +96,63 @@ For detailed comparison table and Anthropic guidance, see `references/technical-
   "thoughtNumber": 1,
   "totalThoughts": 5,
   "nextThoughtNeeded": true
+}
+```
+
+## Basic Workflow
+
+```
+1. Initialize   → State problem, generate hypotheses (thoughtNumber: 1)
+2. Investigate  → Call diagnostic tool, analyze results
+3. Progress     → Adjust totalThoughts as understanding evolves
+4. Branch       → (if needed) Explore alternatives with branchId
+5. Revise       → (if needed) Correct assumptions with isRevision: true
+6. Conclude     → "Plan complete", nextThoughtNeeded: false
+```
+
+## Inline Examples
+
+**Starting a debug session:**
+```typescript
+{
+  thought: "Analyzing 'Connection Reset' error. Hypotheses ranked by likelihood: 1) Timeout mismatch (45%), 2) Firewall (30%), 3) Pool exhaustion (25%). Starting with timeout investigation.",
+  thoughtNumber: 1,
+  totalThoughts: 5,
+  nextThoughtNeeded: true
+}
+```
+
+**Revising after tool output contradicts assumption:**
+```typescript
+{
+  thought: "Firewall logs clean—Hypothesis 2 eliminated. Tool output shows nginx timeout=60s but service takes 90s under load. Revising to focus entirely on timeout configuration.",
+  thoughtNumber: 3,
+  totalThoughts: 5,
+  isRevision: true,
+  revisesThought: 1,
+  nextThoughtNeeded: true
+}
+```
+
+**Creating a branch for alternative exploration:**
+```typescript
+{
+  thought: "Exploring Option A: Redis Cache. Pros: persistence, mature ecosystem. Cons: infrastructure cost, operational overhead.",
+  thoughtNumber: 2,
+  totalThoughts: 6,
+  branchFromThought: 1,
+  branchId: "option-redis",
+  nextThoughtNeeded: true
+}
+```
+
+**Final thought (termination):**
+```typescript
+{
+  thought: "ROOT CAUSE: nginx proxy_read_timeout (60s) shorter than service processing time (90s). FIX: 1) Add 90s timeout to upstream, 2) Increase nginx to 120s. Plan complete.",
+  thoughtNumber: 5,
+  totalThoughts: 5,
+  nextThoughtNeeded: false
 }
 ```
 
@@ -185,11 +241,11 @@ For detailed information, load references as needed:
 
 ### Example Files
 
-Working JSON examples in `examples/`:
+Working examples in `examples/` (TypeScript for readability, JSON for MCP reference):
 
-- **`examples/debug-session.json`** - 5-thought systematic debugging with hypothesis elimination
-- **`examples/fork-join-decision.json`** - Architecture decision with parallel branch evaluation
-- **`examples/revision-loop.json`** - Error containment when assumptions are invalidated
+- **`debug-session.ts`** / **`.json`** - 5-thought systematic debugging with hypothesis elimination
+- **`fork-join-decision.ts`** / **`.json`** - Architecture decision with parallel branch evaluation
+- **`revision-loop.json`** - Error containment when assumptions are invalidated
 
 ## For Skill/Command Development
 
@@ -210,8 +266,14 @@ When building skills that use ST internally:
 - [ ] Reasoning trace needed for audit/compliance
 - [ ] Multi-tool orchestration required
 
-**Skip ST if ALL of these are true:**
-- [ ] Single-step or trivial task
-- [ ] Read-only query answerable directly
-- [ ] Time-critical/latency-sensitive context
-- [ ] Domain knowledge sufficient (no exploration needed)
+**Skip ST when:** Single-step task, read-only query, latency-sensitive context, or domain knowledge suffices.
+
+## Quick Tips
+
+- **Start rough** — Initial `totalThoughts` is a guess; adjust freely as understanding evolves
+- **Revise early** — Use `isRevision: true` when tool output contradicts assumptions; don't double down on errors
+- **Branch at crossroads** — Multiple viable approaches? Explore each with unique `branchId`, synthesize before deciding
+- **Express uncertainty** — "This might be...", "Need to verify...", "Uncertain if..."—explicit doubt prevents overconfidence
+- **Every thought adds value** — New hypothesis, data point, or decision; never "Step 2: Thinking..."
+- **Checkpoint at 15** — Long chains need summary thoughts to consolidate findings and free cognitive space
+- **End decisively** — Final thought must state "Plan complete" with `nextThoughtNeeded: false`
