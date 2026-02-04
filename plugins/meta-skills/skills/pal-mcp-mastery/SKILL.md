@@ -1,7 +1,7 @@
 ---
 name: pal-mcp-mastery
-description: This skill should be used when the user asks to "use PAL", "call another model", "get a second opinion from GPT/Gemini/O3", "debug with PAL", "run codereview", "use consensus for decisions", "challenge my assumption", "lookup current API docs", or mentions PAL MCP tools (chat, thinkdeep, consensus, codereview, precommit, debug, planner, clink, challenge, apilookup). Provides tool selection guidance, parameter optimization, and workflow patterns for multi-model AI orchestration.
-version: 0.2.0
+description: This skill should be used when the user asks to "use PAL", "call another model", "get a second opinion from GPT/Gemini/O3", "debug with PAL", "run codereview", "use consensus for decisions", "challenge my assumption", "lookup current API docs", "configure PAL", "set PAL environment variables", "disable PAL tools", "configure PAL timeout", "create a clink role", "customize clink", "use deepthinker", "use planreviewer", "migrate from ~/.pal/", or mentions PAL MCP tools (chat, thinkdeep, consensus, codereview, precommit, debug, planner, clink, challenge, apilookup). Provides tool selection guidance, parameter optimization, configuration management, custom clink roles, and workflow patterns for multi-model AI orchestration.
+version: 0.4.0
 ---
 
 # PAL MCP Mastery
@@ -118,6 +118,12 @@ Read: $SKILL_PATH/references/troubleshooting.md
 
 # For common mistakes:
 Read: $SKILL_PATH/references/anti-patterns.md
+
+# For PAL configuration and overrides:
+Read: $SKILL_PATH/references/configuration.md
+
+# For custom clink roles:
+Read: $SKILL_PATH/references/clink-roles.md
 ```
 
 **Available references:**
@@ -129,6 +135,8 @@ Core documentation:
 - `anti-patterns.md` - Mistakes to avoid
 - `troubleshooting.md` - Error handling
 - `architecture.md` - Provider matrix, Large Prompt Bridge, BaseTool model
+- `configuration.md` - **PAL configuration hierarchy, env vars, ~/.pal overrides**
+- `clink-roles.md` - **Custom clink roles (deepthinker, planreviewer, etc.)**
 
 Tool-specific references:
 - `tool-chat.md` - Collaborative conversation
@@ -138,7 +146,7 @@ Tool-specific references:
 - `tool-precommit.md` - Git validation
 - `tool-debug.md` - Root cause analysis
 - `tool-planner.md` - Project planning
-- `tool-clink.md` - CLI subagent bridge
+- `tool-clink.md` - CLI subagent bridge (includes custom roles)
 - `tool-challenge.md` - Anti-sycophancy
 - `tool-apilookup.md` - Live API lookup
 - `tool-listmodels.md` - Model discovery
@@ -148,14 +156,22 @@ Typically disabled tools (enable in `DISABLED_TOOLS` when needed):
 - `tool-testgen.md` - Test generation
 - `tool-refactor.md` - Code transformation
 
+Example clink role templates:
+- `examples/clink-roles/deepthinker.txt` - Deep analysis with ST
+- `examples/clink-roles/planreviewer.txt` - Red/Blue team review
+- `examples/clink-roles/uat_mobile.txt` - Mobile UAT testing
+- `examples/clink-roles/researcher.txt` - Documentation research
+- `examples/clink-roles/securityauditor.txt` - Security assessment
+
 ## Essential Rules
 
-1. **Absolute paths required** - `relevant_files` must use absolute paths; relative paths fail silently
-2. **Progress confidence naturally** - `exploring → low → medium → high → certain`
-3. **Chain with continuation_id** - pass between all related operations in a workflow
-4. **Terminate correctly** - set `next_step_required=false` only on final step
-5. **Start at medium thinking** - escalate `thinking_mode` only when complexity requires
-6. **End with precommit** - complete workflows with safety validation before commit
+1. **Absolute paths required** - File parameters must use absolute paths; relative paths fail silently
+2. **Parameter naming varies** - `clink` uses `absolute_file_paths`, other tools use `relevant_files` (same purpose, different names)
+3. **Progress confidence naturally** - `exploring → low → medium → high → certain`
+4. **Chain with continuation_id** - pass between all related operations in a workflow
+5. **Terminate correctly** - set `next_step_required=false` only on final step
+6. **Start at medium thinking** - escalate `thinking_mode` only when complexity requires
+7. **End with precommit** - complete workflows with safety validation before commit
 
 ## Common Parameter Values
 
@@ -183,8 +199,12 @@ model: auto | pro | flash | o3 | o4-mini | gpt5 | gpt5-mini
 # CLI names for clink
 cli_name: gemini | claude | codex
 
-# Clink roles
+# Clink roles (built-in)
 role: default | planner | codereviewer
+
+# Clink roles (custom)
+role: deepthinker | planreviewer | uat_mobile | researcher | securityauditor
+# See clink-roles.md for detailed specifications and examples/clink-roles/ for templates
 ```
 
 ## Model Selection
@@ -206,9 +226,59 @@ role: default | planner | codereviewer
 | AI looping without progress | Request summary, start fresh | Being Stuck section |
 | Model not available | Check `listmodels`, verify API key | Error Lookup Table |
 | Response blocked | Try different model or simplify prompt | Model-Specific Issues |
-| Changes not taking effect | Set `FORCE_ENV_FILE=true`, restart Claude | Environment Variables |
+| Changes not taking effect | Set `PAL_MCP_FORCE_ENV_OVERRIDE=true`, restart | Environment Variables |
 
 **Full reference**: `$SKILL_PATH/references/troubleshooting.md`
+
+## Configuration Quick Reference
+
+**Philosophy**: Prefer project-level overrides (`PROJECT_ROOT/conf/`, `.env`) over user-level (`~/.pal/`).
+
+**Priority**: Env Vars > `~/.pal/` (clink only) > `*_CONFIG_PATH` > `PROJECT_ROOT/conf/` > Defaults
+
+### Minimal Project Setup
+
+```bash
+# PROJECT_ROOT/.env
+PAL_MCP_FORCE_ENV_OVERRIDE=true        # Always set this
+DEFAULT_MODEL=flash
+DISABLED_TOOLS=analyze,refactor,testgen,secaudit,docgen,tracer  # Save ~90KB
+LOG_LEVEL=INFO
+```
+
+### Full Project Setup with Custom Clink Roles
+
+```
+my-project/
+├── .env                              # Environment overrides (gitignored)
+├── conf/
+│   └── cli_clients/
+│       ├── gemini.json               # Clink config
+│       ├── gemini_deepthinker.txt    # Role prompt
+│       └── gemini_planreviewer.txt
+```
+
+```bash
+# .env
+PAL_MCP_FORCE_ENV_OVERRIDE=true
+CLI_CLIENTS_CONFIG_PATH=./conf/cli_clients/
+DISABLED_TOOLS=analyze,refactor,testgen,secaudit,docgen,tracer
+```
+
+```json
+// conf/cli_clients/gemini.json
+{
+  "name": "gemini",
+  "command": "gemini",
+  "additional_args": ["--yolo"],
+  "roles": {
+    "deepthinker": { "prompt_path": "gemini_deepthinker.txt" },
+    "planreviewer": { "prompt_path": "gemini_planreviewer.txt" }
+  }
+}
+```
+
+**Full reference**: `$SKILL_PATH/references/configuration.md`
 
 ## When NOT to Use PAL
 

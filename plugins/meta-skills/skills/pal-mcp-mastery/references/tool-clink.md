@@ -35,11 +35,21 @@ Launch isolated CLI instances (Gemini CLI, Codex CLI, Claude Code) as subagents 
 
 ## Role-Based Prompts
 
+### Built-in Roles
+
 | Role | Behavior |
 |------|----------|
 | `default` | General-purpose assistance |
 | `planner` | Project planning and decomposition |
 | `codereviewer` | Code quality and security analysis |
+
+### Advanced Custom Roles
+
+Custom roles extend clink with specialized behaviors. **Prefer project-level configuration** (`PROJECT_ROOT/conf/cli_clients/`) over user-level (`~/.pal/cli_clients/`).
+
+> See `clink-roles.md` for the canonical role specifications table, detailed protocols, and `examples/clink-roles/` for ready-to-use templates.
+
+Available custom roles: `deepthinker`, `planreviewer`, `uat_mobile`, `researcher`, `securityauditor`
 
 ## Example Usage
 
