@@ -90,6 +90,15 @@ claude plugins enable plugin-name
 - [ ] No project-specific hardcoded content in generic skills
 - [ ] Canonical definitions (Priority, Severity) live in SKILL.md, not duplicated in references
 
+### Git Workflow for Multi-Plugin Commits
+
+When committing changes scoped to a single plugin:
+- **Stage by explicit file path**, not `git add .` or directory globs — untracked files from other plugins can silently infiltrate the index
+- **Always verify** with `git diff --cached --stat` before committing; check that no files outside the target plugin appear
+- **Unstaging new files**: `git reset HEAD -- <file>` silently does nothing for files that have no HEAD version (i.e., never-committed files). Use `git rm --cached <file>` to remove newly staged but untracked files from the index
+- **After `git reset --soft HEAD~1`**: new files from the undone commit remain in the index. Use `git rm --cached` (not `git reset HEAD`) to clean them out
+- **Commit grouping**: In this mono-repo, prefer one commit per plugin to keep changes reviewable and independently revertable
+
 ### Skill Optimization Patterns
 
 When auditing or improving skills:

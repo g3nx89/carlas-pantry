@@ -442,6 +442,16 @@ When running `/reflexion:critique`, address findings by priority:
 - [ ] Related phases have reconciliation steps
 - [ ] Templates have glossaries for non-technical users
 
+#### Post-Refactoring Cross-Reference Validation
+After bulk refactoring (e.g., extracting monolithic files into per-phase files):
+- [ ] All agent names in SKILL.md dispatch table have corresponding files in `agents/`
+- [ ] All template paths referenced in phase files exist in `templates/`
+- [ ] All per-phase files referenced in dispatch table exist in `references/`
+- [ ] Config feature flags referenced in phase files are defined in `config/planning-config.yaml`
+- [ ] No stub markers remain (search for TODO, FIXME, TBD, PLACEHOLDER)
+- [ ] `references/README.md` index is updated with new file entries and sizes
+- [ ] No cross-plugin file leakage in staged commits (verify with `git diff --cached --stat`)
+
 ### Agent Design Standards
 
 #### Anti-Patterns Sections
@@ -638,4 +648,4 @@ When adding new ST template groups:
 
 ---
 
-*Last updated: 2026-02-01 - Added ST implementation guidelines, workflow coordination rules, feature flag best practices*
+*Last updated: 2026-02-06 - Added post-refactoring cross-reference validation checklist*
