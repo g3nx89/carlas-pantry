@@ -99,9 +99,39 @@ When committing changes scoped to a single plugin:
 - **After `git reset --soft HEAD~1`**: new files from the undone commit remain in the index. Use `git rm --cached` (not `git reset HEAD`) to clean them out
 - **Commit grouping**: In this mono-repo, prefer one commit per plugin to keep changes reviewable and independently revertable
 
+### Command → Skill Migration
+
+When a command outgrows its single-file format or multiple coupled commands need unification:
+1. Lift command logic into `skills/{name}/SKILL.md` + `references/` directory
+2. Merge coupled commands into a single skill (e.g., implement + document → implement skill with 5 stages)
+3. Audit `agents/` directory — unused agents from command-era often remain; remove any not referenced by the new skill
+4. Run multi-agent critique to catch contradictions, missing config, version misalignment
+5. If workflow has 3+ stages, refactor to lean orchestrator delegation (see below)
+- **Gotcha**: Legacy command files in `commands/` should be kept but marked as superseded (git tracks the deletion, but users may still reference old paths)
+
+### Lean Orchestrator Delegation
+
+Proven pattern across product-planning and product-implementation for multi-stage workflows:
+- **SKILL.md as dispatch table** (<300 lines): stage list, critical rules, reference map — no procedural detail
+- **Coordinators dispatched** via `Task(subagent_type="general-purpose")` with prompt pointing to stage reference file
+- **Summary contract**: each coordinator writes a summary file with YAML frontmatter (`stage`, `status`, `artifacts_written`, `summary`, `flags`)
+- **User interaction protocol**: coordinators NEVER interact with users directly; they set `status: needs-user-input` + `flags.block_reason` in summary; orchestrator mediates ALL user prompts via `AskUserQuestion`
+- **Crash recovery**: if coordinator produces no summary, orchestrator reconstructs minimal summary from artifact state
+- **Inline exception**: Stage 1 (lightweight setup) runs inline to avoid dispatch overhead; subsequent stages are delegated
+- **Trade-off**: each coordinator dispatch adds 5-15s latency (~20-60s cumulative for 4 stages), accepted for context reduction and fault isolation
+
 ### Skill Optimization Patterns
 
 When auditing or improving skills:
 - **Hub-Spoke Model**: SKILL.md lean (<300 lines) with brief patterns; detail in `references/`. Enables progressive disclosure (metadata → skill body → references on-demand)
 - **Deduplication**: Replace duplicate tables in references with cross-reference notes; surface unique reference content to SKILL.md if frequently needed
 - **Multi-Agent Critique**: After bulk skill changes, run 3-judge critique (Requirements Validator, Solution Architect, Code Quality Reviewer) to catch broken references, orphaned files, and project-specific leakage
+- **Common critique findings**: contradictions between rules (e.g., "skip tests" vs TDD enforcement), missing config centralization, unused agents in `agents/`, missing model specifications in agent frontmatter, version misalignment between SKILL.md and plugin.json
+
+### State File Design
+
+For skills that track execution progress across stages or sessions:
+- **Version the schema**: include `version: N` in YAML frontmatter; implement auto-migration (v1→v2) with non-breaking field preservation
+- **Lock protocol**: acquire at start, release at completion; define stale timeout in config (e.g., 60 min)
+- **Immutable user decisions**: once a user decision is recorded (e.g., review outcome), never overwrite — only append new decisions
+- **Checkpoint-based resume**: use `current_stage` + `stage_summaries` to determine entry point on re-invocation
