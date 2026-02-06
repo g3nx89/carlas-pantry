@@ -3,10 +3,10 @@ name: Feature Implementation
 description: |
   This skill should be used when the user asks to "implement the feature", "execute the tasks",
   "run the implementation plan", "build the feature", "start coding", "document the feature",
-  or needs to execute tasks defined in tasks.md. Orchestrates phase-by-phase implementation
+  or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 1.0.0
+version: 2.0.0
 allowed-tools:
   # File operations
   - Read
@@ -27,19 +27,22 @@ allowed-tools:
 
 > **Invoke:** `/product-implementation:implement` or ask "implement this feature"
 
-Execute the implementation plan by processing all tasks defined in `tasks.md`, phase by phase, using developer agents with TDD workflow, progress tracking, quality review, and feature documentation.
+Execute the implementation plan by processing all tasks defined in `tasks.md`, stage by stage. This orchestrator delegates stages to coordinator subagents, reading only standardized summary files between stages.
 
 ## Critical Rules
 
 1. **Context First** — Read ALL required spec files before launching any agent. Missing context = hallucinated code.
-2. **Phase Order** — Complete each phase fully before starting the next. Never skip phases.
+2. **Stage Order** — Complete each stage fully before starting the next. Never skip stages.
 3. **TDD Enforcement** — Developer agents follow test-first approach. Tests before implementation, always.
 4. **Progress Tracking** — Mark tasks `[X]` in tasks.md after completion. Uncommitted progress = lost progress.
 5. **Error Halting** — Sequential task failure halts the phase. Parallel `[P]` tasks: continue others, report failures.
-6. **State Persistence** — Checkpoint after each phase in `.implementation-state.local.md`.
+6. **State Persistence** — Checkpoint after each stage in `.implementation-state.local.md`.
 7. **User Decisions are Final** — Quality review and documentation decisions are immutable once saved.
 8. **No Spec Changes** — DO NOT create or modify specification files during implementation.
-9. **Lock Protocol** — Acquire lock at start, release at completion. Check for stale locks (>60 min).
+9. **Lock Protocol** — Acquire lock at start, release at completion. Check for stale locks (>60 min per `config/implementation-config.yaml`).
+10. **Delegation Protocol** — Delegated stages execute via `Task(subagent_type="general-purpose")` coordinators. Stage 1 is inline. See dispatch table below.
+11. **Summary-Only Context** — Between stages, read ONLY summary files from `{FEATURE_DIR}/.stage-summaries/`. Never read full reference files or raw artifacts in orchestrator context.
+12. **No User Interaction from Coordinators** — Coordinators set `status: needs-user-input` in their summary. The orchestrator mediates ALL user prompts via `AskUserQuestion`.
 
 ## Workflow Overview
 
@@ -49,98 +52,84 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, p
 ├──────────────────────────────────────────────────────┤
 │                                                       │
 │  ┌───────────┐                                        │
-│  │  Stage 1  │  Setup & Context Loading               │
+│  │  Stage 1  │  Setup & Context Loading  (inline)     │
 │  └─────┬─────┘                                        │
 │        ↓                                              │
 │  ┌───────────┐                                        │
-│  │  Stage 2  │  Phase-by-Phase Execution              │
-│  │           │  ┌─────────────────────────┐           │
-│  │           │  │ For each phase:         │           │
-│  │           │  │  1. Launch developer    │           │
-│  │           │  │  2. Execute tasks       │           │
-│  │           │  │  3. Mark [X] completed  │           │
-│  │           │  │  4. Checkpoint state    │           │
-│  │           │  └─────────────────────────┘           │
+│  │  Stage 2  │  Phase-by-Phase Execution (coordinator)│
 │  └─────┬─────┘                                        │
 │        ↓                                              │
 │  ┌───────────┐                                        │
-│  │  Stage 3  │  Completion Validation                 │
+│  │  Stage 3  │  Completion Validation    (coordinator)│
 │  └─────┬─────┘                                        │
 │        ↓                                              │
 │  ┌───────────┐                                        │
-│  │  Stage 4  │  Quality Review                        │
-│  │           │  → Present findings to user             │
-│  │           │  → Fix now / fix later / proceed        │
+│  │  Stage 4  │  Quality Review           (coordinator)│
 │  └─────┬─────┘                                        │
 │        ↓                                              │
 │  ┌───────────┐                                        │
-│  │  Stage 5  │  Feature Documentation                 │
-│  │           │  → Verify completion                    │
-│  │           │  → Launch tech-writer agent             │
-│  │           │  → Release lock                         │
+│  │  Stage 5  │  Feature Documentation    (coordinator)│
 │  └───────────┘                                        │
 │                                                       │
 └──────────────────────────────────────────────────────┘
 ```
 
+## Latency Trade-off
+
+Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for significant orchestrator context reduction and fault isolation. Stage 1 is inline to avoid overhead for lightweight setup.
+
 ## Stage Dispatch Table
 
-| Stage | Delegation | Reference File | Agents Used | User Interaction |
-|-------|-----------|----------------|-------------|------------------|
-| 1 | Inline | `setup-and-context.md` | — | — |
-| 2 | Direct (one agent per phase) | `execution-and-validation.md` | `developer` | On error only |
-| 3 | Direct | `execution-and-validation.md` (Stage 3 section) | `developer` | If issues found |
-| 4 | Direct (3 agents parallel) | `quality-review.md` | `developer` x3 or code-review skill | Fix/defer/proceed |
-| 5 | Direct | `documentation.md` | `developer`, `tech-writer` | If incomplete tasks |
+| Stage | Delegation | Reference File | Agents Used | Prior Summaries | User Interaction | Checkpoint |
+|-------|-----------|----------------|-------------|-----------------|------------------|------------|
+| 1 | Inline | `stage-1-setup.md` | — | — | — | SETUP |
+| 2 | Coordinator | `stage-2-execution.md` | `developer` | stage-1 | On error only | EXECUTION |
+| 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 | If issues found | VALIDATION |
+| 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3 or code-review skill | stage-2, stage-3 | Fix/defer/proceed | QUALITY_REVIEW |
+| 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer` | stage-3, stage-4 | If incomplete tasks | DOCUMENTATION |
 
 All reference files are in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/`.
 
-## Stage 1: Setup & Context Loading (Inline)
+## Orchestrator Loop
 
-Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/setup-and-context.md`
+Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/orchestrator-loop.md`
 
-**Summary:** Parse current git branch to derive FEATURE_NAME and FEATURE_DIR. Load required files (tasks.md, plan.md) and optional files (data-model.md, contracts.md, research.md). Validate that tasks.md exists and has parseable phase structure. Acquire lock and initialize or resume `.implementation-state.local.md`.
+The loop reads state → dispatches stages in order → reads summaries → handles user interaction → updates state. It includes crash recovery, summary validation, and v1-to-v2 state migration.
 
-## Stage 2: Phase-by-Phase Execution
+## Stage 1 (Inline)
 
-Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/execution-and-validation.md`
+Execute Stage 1 inline. Read `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-1-setup.md` for full instructions. After completion, write Stage 1 summary to `{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`.
 
-**Summary:** For each phase in tasks.md, launch a `developer` agent with the phase-specific prompt template from `agent-prompts.md`. Track completion, mark tasks `[X]`, checkpoint state. Handle errors per the execution rules in the reference file.
+## Summary Convention
 
-### Agent Dispatch
+- **Path:** `{FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md`
+- **Template:** `$CLAUDE_PLUGIN_ROOT/templates/stage-summary-template.md`
+- **Size:** 20-60 lines (YAML frontmatter + markdown)
+- **Required YAML fields:** `stage`, `status`, `checkpoint`, `artifacts_written`, `summary`
+- **Critical section:** "Context for Next Stage" — this is what the next coordinator reads to understand state
 
-Each phase is executed by launching:
-```
-Task(subagent_type="product-implementation:developer")
-```
+## State Management
 
-Prompt templates: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md`
+State persisted in `{FEATURE_DIR}/.implementation-state.local.md` (version 2):
+- YAML frontmatter tracks stage, decisions, stage_summaries, orchestrator metadata
+- Markdown body contains human-readable log
+- Immutable fields: `user_decisions`
+- Migration: If `version: 1`, see `orchestrator-loop.md` for auto-migration to v2
 
-## Stage 3: Completion Validation
+**Template:** `$CLAUDE_PLUGIN_ROOT/templates/implementation-state-template.local.md`
 
-Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/execution-and-validation.md` (Stage 3 section)
+### Stage-Level Resume
 
-**Summary:** Launch a `developer` agent to verify task completeness, spec alignment, test coverage, and plan adherence. Produces a validation report. If issues found, present options to user.
+On resume, use `current_stage`, `stage_summaries`, and `user_decisions` to determine the correct entry point:
+- If `current_stage` < 2 → start from Stage 1
+- If `current_stage` = 2 → resume from first phase in `phases_remaining`
+- If `current_stage` = 3 and `user_decisions.validation_outcome` exists:
+  - If value is `"stopped"` → halt (user previously chose to stop)
+  - Otherwise → skip to Stage 4
+- If `current_stage` = 4 and `user_decisions.review_outcome` exists → skip to Stage 5
+- If `current_stage` = 5 and `user_decisions.documentation_outcome` exists → already complete, report status
 
-## Stage 4: Quality Review
-
-Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/quality-review.md`
-
-**Summary:** Launch 3 parallel `developer` agents (or use `/code-review:review-local-changes` if available), each focusing on a different quality dimension (simplicity/DRY, correctness/bugs, conventions/abstractions). Consolidate findings with severity ranking. Present to user. See `quality-review.md` Section 4.2 for detailed review dimensions and focus areas.
-
-**Severity Levels** (canonical definitions in `config/implementation-config.yaml`): **Critical** (breaks functionality, security/data risk), **High** (likely bugs, significant quality issue), **Medium** (code smell, maintainability), **Low** (style, minor optimization).
-
-## Stage 5: Feature Documentation
-
-Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/documentation.md`
-
-**Summary:** Verify implementation completeness (re-check tasks.md). If incomplete tasks exist, let user choose to fix or proceed. Launch `tech-writer` agent to create/update project documentation — API guides, architecture updates, module READMEs, and lessons learned. Present documentation summary. Release lock.
-
-## Design Decisions
-
-**Direct agent dispatch (not coordinator model):** Unlike `product-planning:plan` which uses `general-purpose` coordinators that read phase files and write structured summaries, this skill dispatches `developer` and `tech-writer` agents directly. This is intentional — implementation phases are mechanically simpler (one agent per phase executing tasks) and don't require multi-agent analysis or consensus scoring. The coordinator overhead would be over-engineering. State is tracked through tasks.md `[X]` markers instead of phase summaries.
-
-**Cross-reference:** The `developer` agent has its own "Tasks.md Execution Workflow" section (in `agents/developer.md`) that the orchestrator's phase prompts trigger. The `tech-writer` agent has its own "Feature Implementation Documentation Workflow" section (in `agents/tech-writer.md`). If execution rules change, update both the reference files and the corresponding agent definitions.
+Stage completion is derived from `stage_summaries` (non-null = completed). The `current_stage` field tracks the next stage to execute.
 
 ## Agents
 
@@ -149,36 +138,24 @@ Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/documentation.
 | `product-implementation:developer` | Implementation, testing, validation, review | Stages 2, 3, 4, 5 |
 | `product-implementation:tech-writer` | Feature documentation, API guides, architecture updates | Stage 5 |
 
-## State Management
+## Severity Levels (Canonical)
 
-State persisted in `{FEATURE_DIR}/.implementation-state.local.md`.
+Canonical definitions — sourced from `config/implementation-config.yaml`:
 
-**Template:** `$CLAUDE_PLUGIN_ROOT/templates/implementation-state-template.local.md`
-
-Key fields: `version`, `feature_name`, `feature_dir`, `current_stage`, `phases_completed`, `phases_remaining`, `user_decisions`, `lock`, `last_checkpoint`. See template for full schema and valid values.
-
-### Stage-Level Resume
-
-On resume, use `current_stage` and `user_decisions` to determine the correct entry point:
-- If `current_stage` < 2 → start from Stage 1
-- If `current_stage` = 2 → resume from first phase in `phases_remaining`
-- If `current_stage` = 3 and `user_decisions.validation_outcome` exists → skip to Stage 4
-- If `current_stage` = 4 and `user_decisions.review_outcome` exists → skip to Stage 5
-- If `current_stage` = 5 and `user_decisions.documentation_outcome` exists → already complete, report status
-
-### Lock Protocol
-
-Before starting execution, acquire lock in the state file (stale timeout configured in `config/implementation-config.yaml`):
-- Set `lock.acquired: true`, `lock.acquired_at: "{ISO_TIMESTAMP}"`, `lock.session_id: "{unique_id}"`
-- If lock already acquired: check `lock.acquired_at`. If older than the configured stale timeout, treat as stale and override.
-- On completion (Stage 5 end) or error halt: release lock by setting `lock.acquired: false`
+| Severity | Description |
+|----------|-------------|
+| **Critical** | Breaks functionality, security vulnerability, data loss risk |
+| **High** | Likely to cause bugs, significant code quality issue |
+| **Medium** | Code smell, maintainability concern, minor pattern violation |
+| **Low** | Style preference, minor optimization opportunity |
 
 ## Output Artifacts
 
 | Artifact | Content |
 |----------|---------|
 | `tasks.md` | Updated with `[X]` marks for all completed tasks |
-| `.implementation-state.local.md` | Execution state, phase tracking, and implementation log |
+| `.implementation-state.local.md` | Execution state, stage tracking, and implementation log |
+| `.stage-summaries/` | Inter-stage coordinator summary files |
 | `review-findings.md` | Quality review findings (created only if user chooses "fix later") |
 | `docs/` | Feature documentation, API guides, architecture updates (Stage 5) |
 | Module `README.md` files | Updated READMEs in folders affected by implementation (Stage 5) |
@@ -187,35 +164,27 @@ Before starting execution, acquire lock in the state file (stale timeout configu
 
 | File | When to Read | Content |
 |------|-------------|---------|
-| `references/setup-and-context.md` | Stage 1 (always) | Branch parsing, file loading, lock, state init |
-| `references/execution-and-validation.md` | Stage 2-3 (always) | Phase loop, task parsing, error handling, validation |
-| `references/quality-review.md` | Stage 4 (always) | Review dimensions, finding consolidation, user interaction |
-| `references/documentation.md` | Stage 5 (always) | Completion re-check, tech-writer dispatch, lock release |
-| `references/agent-prompts.md` | Stage 2-5 (always) | All agent prompt templates |
+| `references/orchestrator-loop.md` | Workflow start (always) | Dispatch loop, crash recovery, state migration |
+| `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, lock, state init |
+| `references/stage-2-execution.md` | Stage 2 (coordinator) | Phase loop, task parsing, error handling |
+| `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage |
+| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Review dimensions, finding consolidation, user interaction |
+| `references/stage-5-documentation.md` | Stage 5 (coordinator) | Completion re-check, tech-writer dispatch, lock release |
+| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates |
 
 ## Error Handling
 
 - **Missing tasks.md** — Halt with guidance: "Run `/product-planning:tasks` first"
 - **Missing plan.md** — Halt with guidance: "Run `/product-planning:plan` first"
-- **Empty tasks.md** — Halt with guidance: "tasks.md has no parseable phases. Verify the file was generated correctly."
-- **Lock conflict** — Check timestamp; override if stale (>60 min per `config/implementation-config.yaml`), otherwise halt with guidance
-- **Interrupted execution** — Resume from checkpoint via state file (see Stage-Level Resume)
-
-Stage-specific errors (task failures, agent crashes, test failures) are documented in `execution-and-validation.md` Section 2.2.
-
-## Guidelines
-
-- DO NOT CREATE new specification files
-- Maintain consistent documentation style across all documents
-- Include practical examples where appropriate
-- Cross-reference related documentation sections
-- Ensure documentation reflects actual implementation, not just plans
-- Document best practices and lessons learned during implementation
+- **Empty tasks.md** — Halt with guidance: "tasks.md has no parseable phases"
+- **Lock conflict** — Check timestamp; override if stale, otherwise halt with guidance
+- **Interrupted execution** — Resume from checkpoint via state file
+- **Coordinator crash** — See `orchestrator-loop.md` for crash recovery and summary reconstruction
 
 ## Quick Start
 
 1. Ensure `{FEATURE_DIR}/tasks.md` and `plan.md` exist (run `/product-planning:plan` then `/product-planning:tasks`)
 2. Run `/product-implementation:implement`
-3. Monitor phase-by-phase progress
+3. Monitor stage-by-stage progress
 4. Review quality findings and choose fix / defer / proceed
 5. Review documentation updates generated by tech-writer

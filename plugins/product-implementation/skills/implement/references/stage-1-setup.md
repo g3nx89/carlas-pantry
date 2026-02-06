@@ -1,4 +1,22 @@
+---
+stage: "1"
+stage_name: "Setup & Context Loading"
+checkpoint: "SETUP"
+delegation: "inline"
+prior_summaries: []
+artifacts_read:
+  - "tasks.md"
+  - "plan.md"
+artifacts_written: []
+agents: []
+additional_references: []
+---
+
 # Stage 1: Setup & Context Loading
+
+> **INLINE STAGE:** This stage executes directly in the orchestrator's context.
+> After completion, the orchestrator MUST write a Stage 1 summary to
+> `{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`.
 
 ## 1.1 Branch Parsing
 
@@ -87,25 +105,28 @@ Create `{FEATURE_DIR}/.implementation-state.local.md` from the template, filling
 - `lock.acquired: true`, `lock.acquired_at`, `lock.session_id`
 - `last_checkpoint` with current ISO timestamp
 
+Create the `.stage-summaries/` directory:
+```
+mkdir -p {FEATURE_DIR}/.stage-summaries
+```
+
 ### Resume Implementation
 
 If `.implementation-state.local.md` already exists (and lock was acquired in 1.6):
 
 1. Read state file
-2. Parse `current_stage`, `phases_completed`, `phases_remaining`, and `user_decisions`
-3. Verify state consistency with tasks.md:
+2. If `version: 1` → run v1-to-v2 migration (see `orchestrator-loop.md`)
+3. Parse `current_stage`, `phases_completed`, `phases_remaining`, and `user_decisions`
+4. Verify state consistency with tasks.md:
    - Check that tasks marked `[X]` in tasks.md match completed phases
    - If inconsistent, reconcile by trusting tasks.md as source of truth
-4. Determine resume entry point using stage-level routing (see SKILL.md "Stage-Level Resume"):
-   - If `current_stage` < 2 → restart from Stage 1
-   - If `current_stage` = 2 → resume from first phase in `phases_remaining`
-   - If `current_stage` >= 3 and the corresponding `user_decisions` key exists → advance to next stage
-5. Report resume point to user:
+5. Determine resume entry point using stage-level routing (see SKILL.md "Stage-Level Resume")
+6. Report resume point to user:
    ```
    Resuming implementation from Stage {S}, Phase {N}: {phase_name}
    Completed: {X}/{Y} phases ({Z} tasks done)
    ```
-6. Continue from the determined resume point
+7. Continue from the determined resume point
 
 ## 1.8 User Input Handling
 
@@ -115,3 +136,39 @@ If user provided arguments (non-empty `$ARGUMENTS`):
 - NOTE: "skip tests" is NOT a valid preference — TDD is enforced unconditionally (see Critical Rule 3)
 - Apply these as filters/overrides to the execution plan
 - Store in state file under `user_decisions`
+
+## 1.9 Write Stage 1 Summary
+
+After completing all setup steps, write the summary to `{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`:
+
+```yaml
+---
+stage: "1"
+stage_name: "Setup & Context Loading"
+checkpoint: "SETUP"
+status: "completed"
+artifacts_written: []
+summary: |
+  Loaded context for {FEATURE_NAME}. Found {N} phases with {M} tasks.
+  Required files: tasks.md, plan.md. Optional files loaded: {list}.
+  {Resume status if applicable}.
+flags:
+  block_reason: null
+---
+## Context for Next Stage
+
+- FEATURE_NAME: {FEATURE_NAME}
+- FEATURE_DIR: {FEATURE_DIR}
+- TASKS_FILE: {TASKS_FILE}
+- Total phases: {N}
+- Total tasks: {M}
+- Phases remaining: {list}
+- Resume from: {phase_name or "beginning"}
+
+## Stage Log
+
+- [{timestamp}] Branch parsed: {branch_name}
+- [{timestamp}] Context loaded: {N} phases, {M} tasks
+- [{timestamp}] Lock acquired
+- [{timestamp}] State initialized / resumed from Stage {S}
+```

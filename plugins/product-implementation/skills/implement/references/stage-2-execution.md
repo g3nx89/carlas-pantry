@@ -1,4 +1,34 @@
+---
+stage: "2"
+stage_name: "Phase-by-Phase Execution"
+checkpoint: "EXECUTION"
+delegation: "coordinator"
+prior_summaries:
+  - ".stage-summaries/stage-1-summary.md"
+artifacts_read:
+  - "tasks.md"
+  - "plan.md"
+  - "spec.md"
+  - "design.md"
+  - "data-model.md"
+  - "contracts.md"
+  - "research.md"
+  - "test-plan.md"
+artifacts_written:
+  - "tasks.md (updated with [X] marks)"
+  - ".implementation-state.local.md (updated phases)"
+agents:
+  - "product-implementation:developer"
+additional_references:
+  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
+  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
+---
+
 # Stage 2: Phase-by-Phase Execution
+
+> **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
+> Read the Stage 1 summary first to obtain FEATURE_NAME, FEATURE_DIR, TASKS_FILE,
+> and the list of phases to execute.
 
 ## 2.1 Phase Loop
 
@@ -15,7 +45,7 @@ Extract from the current phase section in tasks.md:
 
 ### Step 2: Launch Developer Agent
 
-Launch a single `developer` agent for the entire phase using the prompt template from `agent-prompts.md` (Section: Phase Implementation Prompt). The agent handles all tasks within the phase internally, including sequencing of parallel `[P]` tasks. The orchestrator dispatches one agent per phase, not one agent per task.
+Launch a single `developer` agent for the entire phase using the prompt template from `agent-prompts.md` (Section: Phase Implementation Prompt). The agent handles all tasks within the phase internally, including sequencing of parallel `[P]` tasks. Dispatch one agent per phase, not one agent per task.
 
 ```
 Task(subagent_type="product-implementation:developer")
@@ -24,9 +54,9 @@ Task(subagent_type="product-implementation:developer")
 **Key variables to prefill in prompt:**
 - `{phase_name}` — Current phase name from tasks.md
 - `{user_input}` — Original user arguments (if any)
-- `{FEATURE_NAME}` — Derived from git branch
-- `{FEATURE_DIR}` — Spec directory path
-- `{TASKS_FILE}` — Path to tasks.md
+- `{FEATURE_NAME}` — From Stage 1 summary
+- `{FEATURE_DIR}` — From Stage 1 summary
+- `{TASKS_FILE}` — From Stage 1 summary
 
 ### Step 3: Verify Phase Completion
 
@@ -47,7 +77,7 @@ If verification fails:
    - Update `current_stage` if needed
    - Update `last_checkpoint` timestamp
    - Append to Implementation Log
-3. Report progress to user:
+3. Report progress:
    ```
    Phase {N} completed: {phase_name}
    Tasks: {completed}/{total}
@@ -57,7 +87,7 @@ If verification fails:
 ### Step 5: Repeat or Proceed
 
 - If more phases remain → return to Step 1 for next phase
-- If all phases complete → proceed to Stage 3: Completion Validation
+- If all phases complete → write Stage 2 summary and return to orchestrator
 
 ## 2.2 Execution Rules
 
@@ -72,7 +102,7 @@ If verification fails:
 
 ### TDD Enforcement
 
-The `developer` agent follows TDD internally (see `agents/developer.md`). The orchestrator enforces:
+The `developer` agent follows TDD internally (see `agents/developer.md`). This coordinator enforces:
 - Test tasks (when present) execute before their corresponding implementation tasks
 - Phase is NOT complete until all tests in the phase pass
 - If tests fail, the agent must fix implementation until tests pass
@@ -94,59 +124,37 @@ After EVERY completed task (not just phase), the developer agent must mark it `[
 - Resume picks up at the correct task, not just phase
 - User has real-time visibility into progress
 
+## 2.3 Write Stage 2 Summary
+
+After all phases complete (or on halt), write summary to `{FEATURE_DIR}/.stage-summaries/stage-2-summary.md`:
+
+```yaml
 ---
+stage: "2"
+stage_name: "Phase-by-Phase Execution"
+checkpoint: "EXECUTION"
+status: "completed"  # or "failed" if halted, or "needs-user-input" if user decision needed
+artifacts_written:
+  - "tasks.md (updated with [X] marks)"
+  - ".implementation-state.local.md"
+summary: |
+  Executed {N}/{M} phases. {X} tasks completed, {Y} tasks remaining.
+  All tests passing: {yes/no}.
+  {Error details if halted}.
+flags:
+  block_reason: null  # or description of error if needs-user-input
+---
+## Context for Next Stage
 
-# Stage 3: Completion Validation
+- Phases completed: {list}
+- Tasks completed: {count}/{total}
+- Tests status: all passing / {N} failures
+- Files modified: {list of key files}
+- Errors encountered: {none / list}
 
-After all phases complete, launch a final `developer` agent for comprehensive validation.
+## Stage Log
 
-## 3.1 Validation Agent
-
-Launch using the validation prompt template from `agent-prompts.md` (Section: Completion Validation Prompt).
-
-```
-Task(subagent_type="product-implementation:developer")
-```
-
-## 3.2 Validation Checks
-
-The validation agent verifies:
-
-1. **Task completeness**: Every task in tasks.md is marked `[X]`
-2. **Specification alignment**: Implemented features match the original spec
-3. **Test coverage**: All tests pass, coverage meets project requirements
-4. **Plan adherence**: Implementation follows the technical plan (architecture, patterns, file structure)
-5. **Integration integrity**: All components integrate correctly
-
-## 3.3 Validation Report
-
-Agent produces a summary:
-
-```text
-## Implementation Validation Report
-
-Tasks: {completed}/{total} (100%)
-Tests: {passing}/{total} (100% pass rate)
-Spec Coverage: {covered ACs}/{total ACs}
-
-### Issues Found
-- [severity] Description — file:line
+- [{timestamp}] Phase 1: {phase_name} — {task_count} tasks completed
+- [{timestamp}] Phase 2: {phase_name} — {task_count} tasks completed
 - ...
-
-### Recommendation
-PASS / PASS WITH NOTES / NEEDS ATTENTION
 ```
-
-## 3.4 Handling Validation Failures
-
-If validation reveals issues:
-1. Present findings to user via `AskUserQuestion`
-2. Options: "Fix now", "Proceed to quality review anyway", "Stop here"
-3. If "Fix now": launch developer agent to address specific issues, then re-validate
-4. Store decision in state file under `user_decisions.validation_outcome`
-
-## 3.5 Lock Release
-
-Lock is released at the end of Stage 5 (Feature Documentation) — see `documentation.md` Section 5.4. If execution halts permanently at any earlier stage, release the lock in `.implementation-state.local.md` (stale timeout configured in `config/implementation-config.yaml`):
-- Set `lock.acquired: false`
-- Update `last_checkpoint` with current timestamp

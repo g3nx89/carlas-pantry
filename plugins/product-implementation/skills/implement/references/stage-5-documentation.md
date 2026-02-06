@@ -1,4 +1,32 @@
+---
+stage: "5"
+stage_name: "Feature Documentation"
+checkpoint: "DOCUMENTATION"
+delegation: "coordinator"
+prior_summaries:
+  - ".stage-summaries/stage-3-summary.md"
+  - ".stage-summaries/stage-4-summary.md"
+artifacts_read:
+  - "tasks.md"
+  - "plan.md"
+  - "spec.md"
+  - "contracts.md"
+  - "data-model.md"
+artifacts_written:
+  - "docs/"
+  - "README.md files"
+  - ".implementation-state.local.md"
+agents:
+  - "product-implementation:developer"
+  - "product-implementation:tech-writer"
+additional_references:
+  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
+---
+
 # Stage 5: Feature Documentation
+
+> **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
+> Read the prior stage summaries to understand validation and review results.
 
 ## 5.1 Implementation Verification
 
@@ -13,25 +41,24 @@ Before documenting, verify that the implementation is complete enough to documen
 
 2. **If all tasks are complete**: Proceed to Section 5.2 (Documentation Update)
 
-3. **If incomplete tasks exist**: Present findings to user via `AskUserQuestion`:
+3. **If incomplete tasks exist**: Set `status: needs-user-input` in the stage summary with the incomplete task list as `block_reason`.
 
-   **Question:** "{N} tasks are incomplete in tasks.md. How would you like to proceed?"
-
-   **Options:**
+   The orchestrator will present options to the user:
    1. **Fix now** — Launch `developer` agent to address incomplete tasks before documenting
    2. **Document as-is** — Proceed with documentation noting incomplete areas
    3. **Stop here** — Halt and return to implementation
 
-### On "Fix Now"
+### On "Fix Now" (from user-input file)
 
-1. Launch `developer` agent with the incomplete task fix prompt from `agent-prompts.md` (Section: Incomplete Task Fix Prompt)
-2. After fixes, re-verify task completion
-3. If still incomplete, present to user again (loop until resolved or user chooses to proceed)
-4. Store decision in state file: `user_decisions.documentation_verification: "fixed"`
+1. Read `{FEATURE_DIR}/.stage-summaries/stage-5-user-input.md`
+2. Launch `developer` agent with the incomplete task fix prompt from `agent-prompts.md` (Section: Incomplete Task Fix Prompt)
+3. After fixes, re-verify task completion
+4. If still incomplete, rewrite summary with `status: needs-user-input` again (loop until resolved or user proceeds)
+5. Set `user_decisions.documentation_verification: "fixed"` in state file
 
 ### On "Document As-Is"
 
-1. Store decision: `user_decisions.documentation_verification: "accepted_incomplete"`
+1. Set `user_decisions.documentation_verification: "accepted_incomplete"` in state file
 2. Note incomplete tasks for the tech-writer agent to document as known limitations
 3. Proceed to Section 5.2
 
@@ -51,7 +78,7 @@ Use the documentation prompt template from `agent-prompts.md` (Section: Document
 
 The tech-writer agent should:
 
-1. **Load context** from FEATURE_DIR (the tech-writer agent operates in a separate context and must load these files independently from Stage 1):
+1. **Load context** from FEATURE_DIR (the tech-writer agent operates in a separate context and must load these files independently):
    - Read spec.md for feature requirements
    - Read plan.md for architecture and file structure
    - Read tasks.md for what was implemented
@@ -76,7 +103,7 @@ The tech-writer agent should:
 
 ## 5.3 Documentation Summary
 
-After the tech-writer agent completes, present output to user:
+After the tech-writer agent completes, capture the summary:
 
 ```text
 ## Documentation Update Summary
@@ -112,4 +139,44 @@ After documentation completes:
 2. Release lock:
    - Set `lock.acquired: false`
 
-3. Report final status to user with the complete implementation journey summary.
+## 5.5 Write Stage 5 Summary
+
+Write summary to `{FEATURE_DIR}/.stage-summaries/stage-5-summary.md`:
+
+```yaml
+---
+stage: "5"
+stage_name: "Feature Documentation"
+checkpoint: "DOCUMENTATION"
+status: "completed"
+artifacts_written:
+  - "docs/"
+  - "README.md files"
+  - ".implementation-state.local.md"
+summary: |
+  Documentation {completed / completed with gaps}.
+  {N} files updated, {M} new documents created.
+  Lock released.
+flags:
+  block_reason: null
+  documentation_outcome: "completed"
+---
+## Context for Next Stage
+
+Implementation complete. No further stages.
+
+## Documentation Files
+
+- {file1} — {description}
+- {file2} — {description}
+
+## Final Implementation Summary
+
+Feature: {FEATURE_NAME}
+Tasks: {completed}/{total}
+Phases: {completed}/{total}
+Tests: All passing
+Quality Review: {outcome}
+Documentation: {status}
+Lock: Released
+```

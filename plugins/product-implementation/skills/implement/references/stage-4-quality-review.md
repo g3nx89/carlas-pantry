@@ -1,4 +1,27 @@
+---
+stage: "4"
+stage_name: "Quality Review"
+checkpoint: "QUALITY_REVIEW"
+delegation: "coordinator"
+prior_summaries:
+  - ".stage-summaries/stage-2-summary.md"
+  - ".stage-summaries/stage-3-summary.md"
+artifacts_read:
+  - "tasks.md"
+artifacts_written:
+  - "review-findings.md (if user chooses fix-later)"
+  - ".implementation-state.local.md"
+agents:
+  - "product-implementation:developer"
+additional_references:
+  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
+  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
+---
+
 # Stage 4: Quality Review
+
+> **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
+> Read the prior stage summaries to understand what was implemented and validated.
 
 ## 4.1 Review Strategy Selection
 
@@ -37,14 +60,7 @@ After all reviewers complete, consolidate findings:
 
 ### Severity Classification
 
-Severity levels are defined in `config/implementation-config.yaml`. Summary:
-
-| Severity | Description |
-|----------|-------------|
-| **Critical** | Breaks functionality, security vulnerability, data loss risk |
-| **High** | Likely to cause bugs, significant code quality issue |
-| **Medium** | Code smell, maintainability concern, minor pattern violation |
-| **Low** | Style preference, minor optimization opportunity |
+Use the canonical severity levels defined in SKILL.md and `config/implementation-config.yaml`: Critical, High, Medium, Low.
 
 ### Deduplication
 
@@ -79,7 +95,7 @@ Total findings: {count}
 
 ## 4.4 User Decision
 
-Present the consolidated findings to the user via `AskUserQuestion`:
+Set `status: needs-user-input` in the stage summary with the consolidated findings as the `block_reason`. The orchestrator will present options to the user:
 
 **Question:** "Quality review found {N} issues ({critical} critical, {high} high). How would you like to proceed?"
 
@@ -88,44 +104,56 @@ Present the consolidated findings to the user via `AskUserQuestion`:
 2. **Fix later** — Log issues for later attention, proceed as-is
 3. **Proceed as-is** — Accept current implementation without changes
 
+**Important:** The coordinator does NOT interact with the user directly. Write the summary and let the orchestrator relay the interaction.
+
+If orchestrator provides a user-input file:
+- Read `{FEATURE_DIR}/.stage-summaries/stage-4-user-input.md`
+- Execute the chosen option (see below)
+
 ### On "Fix Now"
 
 1. Launch a `developer` agent with the fix prompt template from `agent-prompts.md` (Section: Review Fix Prompt)
 2. Agent addresses Critical and High findings
 3. After fixes, re-run a quick validation (tests pass, no regressions)
-4. Update state file: `user_decisions.review_outcome: "fixed"`
+4. Rewrite summary with `review_outcome: "fixed"`
 
 ### On "Fix Later"
 
 1. Write findings to `{FEATURE_DIR}/review-findings.md`
-2. Update state file: `user_decisions.review_outcome: "deferred"`
-3. Report: "Findings saved to review-findings.md for later attention"
+2. Set `review_outcome: "deferred"` in summary
 
 ### On "Proceed As-Is"
 
-1. Update state file: `user_decisions.review_outcome: "accepted"`
-2. Report: "Implementation complete. Review findings acknowledged."
+1. Set `review_outcome: "accepted"` in summary
 
-## 4.5 Stage Summary
+## 4.5 Write Stage 4 Summary
 
-After quality review is resolved, produce the stage summary and proceed to Stage 5:
+Write summary to `{FEATURE_DIR}/.stage-summaries/stage-4-summary.md`:
 
-```text
-## Quality Review Complete
+```yaml
+---
+stage: "4"
+stage_name: "Quality Review"
+checkpoint: "QUALITY_REVIEW"
+status: "completed"  # or "needs-user-input" initially
+artifacts_written:
+  - "review-findings.md"  # only if deferred
+  - ".implementation-state.local.md"
+summary: |
+  Quality review {outcome}: {count} findings ({critical} critical, {high} high).
+  User decision: {fixed / deferred / accepted}.
+flags:
+  block_reason: null  # or consolidated findings if needs-user-input
+  review_outcome: "fixed"  # fixed | deferred | accepted
+---
+## Context for Next Stage
 
-Feature: {FEATURE_NAME}
-Tasks: {completed}/{total}
-Phases: {completed}/{total}
-Tests: All passing
-
-Quality Review: {outcome}
+- Review outcome: {fixed / deferred / accepted}
 - Critical issues: {count} ({resolved/deferred/accepted})
 - High issues: {count} ({resolved/deferred/accepted})
+- Files changed during review fixes: {list, if any}
 
-Files Changed:
-- {file1} — {brief description}
-- {file2} — {brief description}
-- ...
+## Quality Review Details
 
-Proceeding to Stage 5: Feature Documentation.
+{Consolidated findings summary}
 ```
