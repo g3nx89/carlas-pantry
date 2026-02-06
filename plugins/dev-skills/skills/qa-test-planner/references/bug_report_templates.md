@@ -373,14 +373,16 @@ For application crashes and unhandled errors.
 
 ---
 
-## Severity Definitions
+> **Note:** For Severity Definitions, see the main SKILL.md file.
 
-| Level | Criteria | Response Time | Examples |
-|-------|----------|---------------|----------|
-| **Critical** | System down, data loss, security breach | < 4 hours | Login broken, payment fails, data exposed |
-| **High** | Major feature broken, no workaround | < 24 hours | Search not working, checkout fails |
-| **Medium** | Feature partial, workaround exists | < 1 week | Filter missing option, slow load |
-| **Low** | Cosmetic, rare edge case | Next release | Typo, minor alignment, rare crash |
+## Response Time Guidelines
+
+| Severity | Target Response |
+|----------|-----------------|
+| Critical | < 4 hours |
+| High | < 24 hours |
+| Medium | < 1 week |
+| Low | Next release |
 
 ---
 

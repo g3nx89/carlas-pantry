@@ -420,11 +420,4 @@ Verify [feature] meets performance requirements
 
 ---
 
-## Priority Definitions
-
-| Priority | Description | When to Run |
-|----------|-------------|-------------|
-| P0 | Critical path, blocks release | Every build |
-| P1 | Major features, high impact | Daily/Weekly |
-| P2 | Standard features, moderate impact | Weekly/Release |
-| P3 | Minor features, low impact | Release only |
+> **Note:** For Priority Definitions (P0-P3), see the main SKILL.md file.

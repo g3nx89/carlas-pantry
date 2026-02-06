@@ -108,6 +108,28 @@ Request → Analyze → Generate → Validate → Deliverable
 
 ---
 
+## Response Time Guidelines
+
+| Severity | Target Response |
+|----------|-----------------|
+| Critical | < 4 hours |
+| High | < 24 hours |
+| Medium | < 1 week |
+| Low | Next release |
+
+---
+
+## Priority vs Severity Matrix
+
+|  | Low Impact | Medium Impact | High Impact | Critical Impact |
+|--|-----------|---------------|-------------|-----------------|
+| **Rare** | P3 | P3 | P2 | P1 |
+| **Sometimes** | P3 | P2 | P1 | P0 |
+| **Often** | P2 | P1 | P0 | P0 |
+| **Always** | P2 | P1 | P0 | P0 |
+
+---
+
 ## Anti-Patterns to Avoid
 
 | Avoid | Why | Instead |

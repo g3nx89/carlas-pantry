@@ -9,13 +9,13 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 > API design principles and decision-making for 2025.
 > **Learn to THINK, not copy fixed patterns.**
 
-## 🎯 Selective Reading Rule
+## Selective Reading Rule
 
 **Read ONLY files relevant to the request!** Check the content map, find what you need.
 
 ---
 
-## 📑 Content Map
+## Content Map
 
 | File | Description | When to Read |
 |------|-------------|--------------|
@@ -32,13 +32,13 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 
 ---
 
-## 🔗 Related Skills
+## Related Skills
 
 | Need | Skill |
 |------|-------|
-| API implementation | `@[skills/backend-development]` |
-| Data structure | `@[skills/database-design]` |
-| Security details | `@[skills/security-hardening]` |
+| Data structure | `database-design` |
+| Database schema | `database-schema-designer` |
+| Code quality | `clean-code` |
 
 ---
 

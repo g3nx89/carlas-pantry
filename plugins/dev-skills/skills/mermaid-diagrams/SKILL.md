@@ -8,6 +8,69 @@ allowed-tools: Read, Glob, Grep
 
 Create professional software diagrams using Mermaid's text-based syntax. Mermaid renders diagrams from simple text definitions, making diagrams version-controllable, easy to update, and maintainable alongside code.
 
+## Workflow
+
+When this skill is invoked:
+
+1. **Clarify Intent** - Ask what the user wants to visualize if unclear
+2. **Select Diagram Type** - Use the Decision Tree below
+3. **Gather Requirements** - Identify entities, relationships, or flow steps
+4. **Create Diagram** - Generate Mermaid syntax following best practices
+5. **Refine** - Iterate based on feedback
+
+## Decision Tree: Choosing Diagram Type
+
+```
+What do you want to visualize?
+│
+├── Data relationships / Database schema
+│   └── ERD (Entity Relationship Diagram)
+│
+├── Object-oriented classes / Domain model
+│   └── Class Diagram
+│
+├── Message flow over time / API interactions
+│   └── Sequence Diagram
+│
+├── Process / Algorithm / Decision logic
+│   └── Flowchart
+│
+├── Software architecture / System overview
+│   └── C4 Diagram (Context → Container → Component)
+│
+├── State machine / Lifecycle transitions
+│   └── State Diagram
+│
+├── Git branching strategy
+│   └── Git Graph
+│
+├── Project timeline / Schedule
+│   └── Gantt Chart
+│
+└── Data distribution / Statistics
+    └── Pie or Bar Chart
+```
+
+## Quick Selection Table
+
+| User Says | Diagram Type | Reference |
+|-----------|--------------|-----------|
+| "database schema", "tables", "ERD" | `erDiagram` | erd-diagrams.md |
+| "class", "domain model", "OOP" | `classDiagram` | class-diagrams.md |
+| "API flow", "request/response", "interaction" | `sequenceDiagram` | sequence-diagrams.md |
+| "process", "workflow", "flowchart" | `flowchart` | flowcharts.md |
+| "architecture", "system context" | C4 Diagram | c4-diagrams.md |
+| "states", "lifecycle", "transitions" | `stateDiagram-v2` | advanced-features.md |
+| "git branches", "merge strategy" | `gitGraph` | advanced-features.md |
+| "timeline", "schedule", "gantt" | `gantt` | advanced-features.md |
+
+## When NOT to Use
+
+Delegate to specialized skills:
+- **Software architecture (C4 model)** → Use `c4-architecture` skill
+- **Database schema design** → Use `database-schema-designer` skill
+- **API design patterns** → Use `api-patterns` skill
+
 ## Core Syntax Structure
 
 All Mermaid diagrams follow this pattern:
@@ -22,43 +85,6 @@ diagramType
 - Use `%%` for comments
 - Line breaks and indentation improve readability but aren't required
 - Unknown words break diagrams; parameters fail silently
-
-## Diagram Type Selection Guide
-
-**Choose the right diagram type:**
-
-1. **Class Diagrams** - Domain modeling, OOP design, entity relationships
-   - Domain-driven design documentation
-   - Object-oriented class structures
-   - Entity relationships and dependencies
-
-2. **Sequence Diagrams** - Temporal interactions, message flows
-   - API request/response flows
-   - User authentication flows
-   - System component interactions
-   - Method call sequences
-
-3. **Flowcharts** - Processes, algorithms, decision trees
-   - User journeys and workflows
-   - Business processes
-   - Algorithm logic
-   - Deployment pipelines
-
-4. **Entity Relationship Diagrams (ERD)** - Database schemas
-   - Table relationships
-   - Data modeling
-   - Schema design
-
-5. **C4 Diagrams** - Software architecture at multiple levels
-   - System Context (systems and users)
-   - Container (applications, databases, services)
-   - Component (internal structure)
-   - Code (class/interface level)
-
-6. **State Diagrams** - State machines, lifecycle states
-7. **Git Graphs** - Version control branching strategies
-8. **Gantt Charts** - Project timelines, scheduling
-9. **Pie/Bar Charts** - Data visualization
 
 ## Quick Start Examples
 

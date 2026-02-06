@@ -187,31 +187,23 @@ flowchart LR
 
 ## Styling
 
-### Individual Node Styling
+> For comprehensive styling, theming, and configuration options, see **advanced-features.md**.
+
+### Quick Reference
+
 ```mermaid
 flowchart LR
     A[Normal]
-    B[Styled]
-    
+    B[Styled]:::highlight
+
     style B fill:#ff6b6b,stroke:#333,stroke-width:4px,color:#fff
-```
-
-### Class-based Styling
-```mermaid
-flowchart LR
-    A[Node 1]:::className
-    B[Node 2]:::className
-    C[Node 3]
-    
-    classDef className fill:#f9f,stroke:#333,stroke-width:2px
-```
-
-### Link Styling
-```mermaid
-flowchart LR
-    A --> B
+    classDef highlight fill:#f9f,stroke:#333,stroke-width:2px
     linkStyle 0 stroke:#ff3,stroke-width:4px,color:red
 ```
+
+- `style <node>` - Inline style for individual nodes
+- `classDef <name>` + `:::name` - Reusable style classes
+- `linkStyle <index>` - Style connections by order
 
 ## Comprehensive Example: User Registration Flow
 
