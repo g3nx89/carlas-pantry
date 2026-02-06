@@ -173,7 +173,7 @@ consensus(
   findings="My analysis before consulting models",
   models=[
     {model: "gpt-5", stance: "for"},
-    {model: "gemini-pro", stance: "against"},
+    {model: "pro", stance: "against"},
     {model: "o3", stance: "neutral"}
   ]
 )
@@ -386,7 +386,7 @@ consensus(
   findings="Cross-checking root cause hypothesis",
   models=[
     {model: "gpt-5", stance: "neutral", stance_prompt: "focus on code-level causes"},
-    {model: "gemini-pro", stance: "neutral", stance_prompt: "focus on infrastructure causes"}
+    {model: "pro", stance: "neutral", stance_prompt: "focus on infrastructure causes"}
   ],
   continuation_id="<from_thinkdeep>"
 )
@@ -437,7 +437,7 @@ consensus(
   findings="Technical proposal for service boundaries",
   models=[
     {model: "gpt-5", stance: "for", stance_prompt: "Advocate for the proposed architecture"},
-    {model: "gemini-pro", stance: "against", stance_prompt: "Critique integration risks and complexity"}
+    {model: "pro", stance: "against", stance_prompt: "Critique integration risks and complexity"}
   ]
 )
 → Structured debate highlights potential integration risks

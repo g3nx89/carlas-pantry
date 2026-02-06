@@ -1,6 +1,6 @@
 # PAL MCP Configuration & Override Guide
 
-> **Compatibility**: Verified against PAL MCP v1.x (January 2026)
+> **Compatibility**: Verified against PAL MCP v9.8.x (February 2026)
 
 ## Override Philosophy
 
@@ -272,16 +272,16 @@ Create project-specific model catalogs in `PROJECT_ROOT/conf/`:
 {
   "models": [
     {
-      "id": "gemini-2.0-flash",
+      "id": "gemini-3.0-flash",
       "name": "flash",
-      "aliases": ["gemini-flash", "flash-2.0"],
+      "aliases": ["gemini-flash", "flash-3.0"],
       "context_window": 1000000,
       "supports_thinking": false
     },
     {
-      "id": "gemini-2.0-pro",
+      "id": "gemini-3.0-pro",
       "name": "pro",
-      "aliases": ["gemini-pro", "pro-2.0"],
+      "aliases": ["gemini-pro", "pro-3.0"],
       "context_window": 1000000,
       "supports_thinking": true
     }

@@ -13,7 +13,7 @@ These parameters appear in `debug`, `thinkdeep`, `codereview`, `precommit`, and 
 | `total_steps` | integer | Yes | Estimated total steps needed (adjust as you go) |
 | `next_step_required` | boolean | Yes | `true` to continue workflow, `false` on final step |
 | `findings` | string | Yes | Evidence, clues, observations from current step |
-| `model` | string | Yes | Model to use (auto, pro, o3, flash, gpt5) |
+| `model` | string | Yes | Model to use (auto, pro, flash, o3, gpt5, gpt5.2, codex) |
 | `continuation_id` | string | No | Thread ID from previous step (preserves context) |
 
 ## Confidence Levels
@@ -34,27 +34,31 @@ Progress through these levels based on evidence gathered:
 
 ## Thinking Mode Token Budgets
 
-| Mode | Token Budget | Cost Multiplier | Latency | Recommended Use |
-|------|-------------|-----------------|---------|-----------------|
-| `minimal` | 128 | 1x | Ultra-low | Formatting, style checks |
-| `low` | 2,048 | 16x | Low | Basic explanations, routine logic |
-| `medium` | 8,192 | 64x | Moderate | **Default** - standard development |
-| `high` | 16,384 | 128x | High | Complex debugging, security audits |
-| `max` | 32,768 | 256x | Very High | Strategic architecture, critical decisions |
+> **Note**: The token budgets below are **illustrative guidance** showing relative cost/capability trade-offs. Actual token allocations depend on model-specific `max_thinking_tokens` configured in the model catalog (e.g., Gemini Pro: 32,768, Gemini Flash: 24,576).
 
-**Rule**: Start with `medium`, escalate only when complexity requires deeper reasoning.
+| Mode | Relative Budget | Cost Impact | Latency | Recommended Use |
+|------|-----------------|-------------|---------|-----------------|
+| `minimal` | Very Low | 1x baseline | Ultra-low | Formatting, style checks |
+| `low` | Low | ~16x | Low | Basic explanations, routine logic |
+| `medium` | Medium | ~64x | Moderate | **Default** - standard development |
+| `high` | High | ~128x | High | Complex debugging, security audits |
+| `max` | Maximum | ~256x | Very High | Strategic architecture, critical decisions |
+
+**Rule**: Start with `medium`, escalate only when complexity requires deeper reasoning. Use `listmodels` to check specific model capabilities.
 
 ## File Path Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `relevant_files` | array | Files directly related to the task - **MUST be absolute paths** |
-| `files_checked` | array | All files examined (including ruled-out) |
-| `absolute_file_paths` | array | Used by `clink` - **MUST be absolute paths** |
+| Parameter | Type | Used By | Description |
+|-----------|------|---------|-------------|
+| `relevant_files` | array | Workflow tools (debug, codereview, thinkdeep, etc.) | Files directly related to the task |
+| `files_checked` | array | Workflow tools | All files examined (including ruled-out) |
+| `absolute_file_paths` | array | `chat`, `clink` | Files for context (CLI-style naming) |
 
-**Critical**: Relative paths (`./file.py`) fail silently. Always use `/absolute/path/to/file.py`.
+**Critical**: ALL file path parameters require **absolute paths**. Relative paths (`./file.py`) fail silently. Always use `/absolute/path/to/file.py`.
 
-**Naming Note**: `clink` uses `absolute_file_paths` (matching CLI conventions) while other tools use `relevant_files`. Both require absolute paths.
+**Naming Convention**:
+- Workflow tools (`debug`, `codereview`, `thinkdeep`, `precommit`, `analyze`) use `relevant_files`
+- Simple tools (`chat`, `clink`) use `absolute_file_paths` (matching CLI conventions)
 
 ## Analysis Parameters
 
@@ -75,14 +79,37 @@ Progress through these levels based on evidence gathered:
 
 ## Model Aliases
 
+> **Note**: Use `listmodels` tool to see all available models for your configured providers. Common aliases below.
+
+### Gemini Models
+| Alias | Model | Best For |
+|-------|-------|----------|
+| `pro` / `gemini3` | Gemini Pro 3.0 Preview | 1M context, complex analysis, thinking modes |
+| `flash` | Gemini Flash 2.5 | Fast, low-cost validation |
+| `flash2` | Gemini Flash 2.0 | Previous-gen fast model, audio/video input |
+| `flashlite` | Gemini Flash Lite 2.0 | Lowest cost, text-only |
+
+### OpenAI Models
+| Alias | Model | Best For |
+|-------|-------|----------|
+| `gpt5` | GPT-5 | General code generation |
+| `gpt5-mini` / `mini` | GPT-5-mini | Fast code tasks, budget-friendly |
+| `gpt5.2` | GPT-5.2 | Flagship reasoning, configurable effort |
+| `gpt5.2-pro` / `gpt5-pro` | GPT-5.2 Pro | Very advanced reasoning (272K output) |
+| `gpt5-codex` / `codex` | GPT-5 Codex | Specialized coding, refactoring |
+| `gpt5.1-codex` / `codex-5.1` | GPT-5.1 Codex | Agentic coding (Responses API) |
+| `codex-mini` | GPT-5.1 Codex mini | Cost-efficient Codex variant |
+| `o3` | O3 | Extended reasoning, logic-heavy tasks |
+| `o3-mini` | O3-mini | Balanced performance/speed |
+| `o3-pro` | O3-Pro | Professional-grade reasoning |
+| `o4-mini` | O4-mini | Rapid reasoning, short contexts |
+| `gpt4.1` | GPT-4.1 | 1M context, large codebase analysis |
+| `nano` | GPT-5 nano | Fastest, cheapest for simple tasks |
+
+### Special
 | Alias | Provider | Best For |
 |-------|----------|----------|
 | `auto` | Claude selection | General tasks (recommended default) |
-| `pro` | Gemini 3.0 Pro | 1M token context, complex analysis |
-| `flash` | Gemini Flash | Fast, low-cost validation |
-| `o3` | OpenAI | Extended reasoning, logic-heavy tasks |
-| `gpt5` | OpenAI GPT-5 | Code generation, implementation |
-| `gpt5-mini` | OpenAI | Fast code tasks |
 
 ## Parameter Interaction Rules
 

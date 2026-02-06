@@ -28,12 +28,14 @@ PAL MCP Server is a collaborative intelligence layer implemented in Python 3.10+
 
 | Provider | Technical Role | Connection Type | Capability Highlights |
 |----------|----------------|-----------------|----------------------|
-| **Google Gemini** | High-Context Specialist | Native API | 1M token window, advanced thinking modes |
-| **OpenAI** | Logical Reasoning Expert | Native / Azure / OpenRouter | o3/o4 reasoning, agentic coding focus |
+| **Google Gemini** | High-Context Specialist | Native API | 1M token window, advanced thinking modes (Pro 3.0 Preview, Flash 2.5) |
+| **OpenAI** | Logical Reasoning Expert | Native / Azure / OpenRouter | GPT-5.x series, O3/O4 reasoning, Codex for agentic coding |
 | **X.AI (Grok)** | Flagship Generalist | Native API | Vision capabilities, massive reasoning depth |
 | **OpenRouter** | Unified Cloud Bridge | Multi-Provider API | Access to Llama, Mistral, and niche models |
 | **Local (Ollama)** | Privacy/Zero-Cost Utility | Localhost / v1 API | On-device processing, privacy-safe analysis |
 | **DIAL Platform** | Enterprise Orchestrator | Vendor-Agnostic API | Compliance-focused model routing |
+
+> **Note**: Model availability depends on configured API keys. Use `listmodels` tool to see available models.
 
 ## Core Infrastructure
 
@@ -55,7 +57,7 @@ Tools are "capability-aware" - they route tasks only to models possessing necess
 
 **Problem:** MCP ecosystem imposes ~25k token limit on tool inputs.
 
-**Solution:** When prompt exceeds ~50k characters:
+**Solution:** When prompt exceeds ~60k characters (configurable via `MAX_MCP_OUTPUT_TOKENS`):
 1. Server detects oversized prompt
 2. Returns special status instructing agent to persist content
 3. Agent writes full content to temporary `prompt.txt` file
@@ -63,6 +65,8 @@ Tools are "capability-aware" - they route tasks only to models possessing necess
 5. Bypasses protocol limitations
 
 This enables analysis of entire codebases in a single turn.
+
+> **Note**: The default threshold is 60,000 characters (~15k tokens). This can be adjusted via the `MAX_MCP_OUTPUT_TOKENS` environment variable.
 
 ## Context Revival Logic
 
@@ -80,11 +84,12 @@ Most agents suffer from context degradation as sessions progress. PAL mitigates 
 | Variable | Default | Strategic Impact |
 |----------|---------|------------------|
 | `DEFAULT_MODEL` | auto | Claude intelligently selects best model |
-| `DISABLED_TOOLS` | analyze,refactor,docgen | Reduces context clutter |
-| `CONVERSATION_TIMEOUT_HOURS` | 5 | Thread expiry time |
-| `MAX_CONVERSATION_TURNS` | 40 | Prevents infinite loops |
+| `DISABLED_TOOLS` | _(none)_ | Recommended: `analyze,refactor,testgen,secaudit,docgen,tracer` to save ~90KB |
+| `CONVERSATION_TIMEOUT_HOURS` | 3 (code) / 24 (suggested) | Thread expiry time |
+| `MAX_CONVERSATION_TURNS` | 50 (code) / 40 (suggested) | Prevents infinite loops |
 | `LOG_LEVEL` | DEBUG | Essential for troubleshooting handoffs |
-| `FORCE_ENV_FILE` | true | Ensures .env values take precedence |
+| `PAL_MCP_FORCE_ENV_OVERRIDE` | false | When `true`, .env values override system env |
+| `MAX_MCP_OUTPUT_TOKENS` | ~25000 | MCP response token limit; Large Prompt Bridge triggers at ~60k characters input |
 
 ## Two-Phase Tool Methodology
 

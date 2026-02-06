@@ -81,14 +81,14 @@ rm -rf .pal_venv && ./run-server.sh
 ### Changes Not Taking Effect
 
 **Solution checklist:**
-1. Set `FORCE_ENV_FILE=true` in `.env`
+1. Set `PAL_MCP_FORCE_ENV_OVERRIDE=true` in `.env`
 2. Save `.env` file
 3. Restart Claude Code completely
 4. Verify with `listmodels`
 
 ### Cached Environment Variables
 
-Claude Code may pass environment variables that override `.env` values. `FORCE_ENV_FILE=true` ensures `.env` values take precedence.
+Claude Code may pass environment variables that override `.env` values. `PAL_MCP_FORCE_ENV_OVERRIDE=true` ensures `.env` values take precedence.
 
 ---
 
@@ -138,7 +138,7 @@ tool_timeout_sec = 1200  # 20 minutes
 GEMINI_API_KEY=your-key
 DISABLED_TOOLS=analyze,refactor,testgen,secaudit,docgen,tracer
 DEFAULT_MODEL=auto
-FORCE_ENV_FILE=true
+PAL_MCP_FORCE_ENV_OVERRIDE=true
 
 # Timeout configuration
 MCP_TIMEOUT=300000
@@ -246,7 +246,7 @@ thinkdeep(
 After any configuration change:
 
 - [ ] `.env` file saved
-- [ ] `FORCE_ENV_FILE=true` set
+- [ ] `PAL_MCP_FORCE_ENV_OVERRIDE=true` set
 - [ ] Claude Code restarted (not just conversation)
 - [ ] `/mcp` shows PAL connected
 - [ ] `listmodels` shows expected models

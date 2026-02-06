@@ -45,7 +45,7 @@ PAL MCP uses **token budgeting** to prevent context overflow:
 
 A significant challenge in MCP is the 25k token limit on tool inputs. PAL addresses this via the **Large Prompt Bridge**:
 
-1. When prompt exceeds ~50k characters, server returns a special status
+1. When prompt exceeds ~60k characters, server returns a special status
 2. Primary agent persists full content to temporary `prompt.txt` file
 3. Server reads file directly into target model's memory space
 4. Bypasses protocol limitations, enabling entire codebase analysis in one turn

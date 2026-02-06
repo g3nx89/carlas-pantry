@@ -34,7 +34,7 @@ models:
   - model: "gpt-5"
     stance: "for"        # for, against, or neutral
     stance_prompt: "..."  # Optional custom stance instruction
-  - model: "gemini-pro"
+  - model: "pro"
     stance: "against"
   - model: "o3"
     stance: "neutral"
@@ -62,7 +62,7 @@ consensus(
   findings="My analysis: Monolith simpler for small team, but...",
   models=[
     {model: "gpt-5", stance: "for"},
-    {model: "gemini-pro", stance: "against"},
+    {model: "pro", stance: "against"},
     {model: "o3", stance: "neutral"}
   ]
 )

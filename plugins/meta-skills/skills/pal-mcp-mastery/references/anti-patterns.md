@@ -104,7 +104,7 @@ challenge(prompt="Microservices are the right choice for a team of 3 developers"
 **Problem:** Changes to `.env` or `DISABLED_TOOLS` don't take effect until restart.
 
 **Solution checklist:**
-1. Set `FORCE_ENV_FILE=true` in `.env`
+1. Set `PAL_MCP_FORCE_ENV_OVERRIDE=true` in `.env`
 2. Save `.env` file
 3. Completely restart Claude Code
 4. Verify with `listmodels`

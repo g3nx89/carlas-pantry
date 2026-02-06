@@ -1,12 +1,12 @@
 ---
 name: pal-mcp-mastery
 description: This skill should be used when the user asks to "use PAL", "call another model", "get a second opinion from GPT/Gemini/O3", "debug with PAL", "run codereview", "use consensus for decisions", "challenge my assumption", "lookup current API docs", "configure PAL", "set PAL environment variables", "disable PAL tools", "configure PAL timeout", "create a clink role", "customize clink", "use deepthinker", "use planreviewer", "migrate from ~/.pal/", or mentions PAL MCP tools (chat, thinkdeep, consensus, codereview, precommit, debug, planner, clink, challenge, apilookup). Provides tool selection guidance, parameter optimization, configuration management, custom clink roles, and workflow patterns for multi-model AI orchestration.
-version: 0.4.0
+version: 0.5.0
 ---
 
 # PAL MCP Mastery
 
-> **Compatibility**: Verified against PAL MCP v1.x (January 2026)
+> **Compatibility**: Verified against PAL MCP v9.8.x (February 2026)
 
 ## Overview
 
@@ -17,7 +17,7 @@ PAL MCP (Provider Abstraction Layer) enables Claude Code to orchestrate conversa
 - **CLI-to-CLI Bridge (clink)**: Launch isolated subagents that return only results, preserving context budget
 - **Stance-Steered Consensus**: Multiple models debate with configurable perspectives
 
-**Critical warning**: PAL tool definitions consume ~90KB of context (~60% in some configs). Disable unused tools via `DISABLED_TOOLS` in `.env`.
+**Critical warning**: PAL tool definitions can consume up to ~90KB of context when all tools are enabled. Disable unused tools via `DISABLED_TOOLS` in `.env`.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ For complex tasks, follow this pattern:
 2. Pass `continuation_id` between related calls in multi-step workflows
 3. End code changes with `codereview` → `precommit` sequence
 
-**Context Budget Tip**: PAL tool definitions consume ~90KB. Disable unused tools via `DISABLED_TOOLS` in `.env`.
+**Context Budget Tip**: PAL tool definitions can consume up to ~90KB when all tools enabled. Disable unused tools via `DISABLED_TOOLS` in `.env`.
 
 ## Tool Selection Decision Tree
 
@@ -85,7 +85,7 @@ Heavy task needing context isolation?
 | `precommit` | Final validation before git commit | `continuation_id` (from codereview) |
 | `debug` | Runtime errors, race conditions, root cause | `hypothesis`, `confidence`, `thinking_mode` |
 | `planner` | Project breakdown, migration planning | `step_number`, `total_steps` |
-| `clink` | Context isolation, spawn CLI subagents | `cli_name`, `role`, `files` |
+| `clink` | Context isolation, spawn CLI subagents | `cli_name`, `role`, `absolute_file_paths` |
 | `challenge` | Test assumptions, prevent sycophancy | `prompt` (statement to challenge) |
 | `apilookup` | Current docs, avoid stale training data | `prompt` (API/SDK query) |
 
@@ -166,12 +166,14 @@ Example clink role templates:
 ## Essential Rules
 
 1. **Absolute paths required** - File parameters must use absolute paths; relative paths fail silently
-2. **Parameter naming varies** - `clink` uses `absolute_file_paths`, other tools use `relevant_files` (same purpose, different names)
-3. **Progress confidence naturally** - `exploring → low → medium → high → certain`
+2. **Parameter naming varies by tool type**:
+   - `chat` and `clink` use `absolute_file_paths`
+   - Workflow tools (`debug`, `codereview`, `thinkdeep`, etc.) use `relevant_files`
+3. **Progress confidence naturally** - `exploring → low → medium → high → very_high → almost_certain → certain`
 4. **Chain with continuation_id** - pass between all related operations in a workflow
 5. **Terminate correctly** - set `next_step_required=false` only on final step
 6. **Start at medium thinking** - escalate `thinking_mode` only when complexity requires
-7. **End with precommit** - complete workflows with safety validation before commit
+7. **End with precommit** - complete code change workflows with safety validation before commit
 
 ## Common Parameter Values
 
@@ -193,10 +195,15 @@ confidence: exploring | low | medium | high | very_high | almost_certain | certa
 # Thinking modes (cost ascending)
 thinking_mode: minimal | low | medium | high | max
 
-# Model aliases
-model: auto | pro | flash | o3 | o4-mini | gpt5 | gpt5-mini
+# Model aliases (common shortcuts - use `listmodels` for full list)
+# Gemini:
+model: pro | flash | flashlite | flash2 | gemini3
+# OpenAI:
+model: gpt5 | gpt5-mini | gpt5.2 | gpt5.2-pro | gpt5-codex | codex | gpt5.1-codex | codex-mini | o3 | o3-mini | o3-pro | o4-mini | gpt4.1 | nano
+# Special:
+model: auto  # Claude intelligently selects optimal model
 
-# CLI names for clink
+# CLI names for clink (gemini is default when only one configured)
 cli_name: gemini | claude | codex
 
 # Clink roles (built-in)
@@ -211,11 +218,14 @@ role: deepthinker | planreviewer | uat_mobile | researcher | securityauditor
 
 | Scenario | Model | Rationale |
 |----------|-------|-----------|
-| Maximum reasoning | `o3` | Extended thinking |
-| Code generation | `gpt5` / `gpt5-codex` | Strong implementation |
-| Fast iteration | `flash` | Lower latency/cost |
-| Complex analysis | `pro` (Gemini) | Capability/cost balance |
-| Large codebase | Gemini Pro | 1M token context |
+| Maximum reasoning | `o3` or `gpt5.2` | Extended thinking, deep analysis |
+| Code generation | `gpt5-codex` or `codex` | Specialized for coding tasks |
+| Fast iteration | `flash` | Lower latency/cost (Gemini Flash 2.5) |
+| Complex analysis | `pro` (Gemini Pro 3.0 Preview) | 1M token context, thinking modes |
+| Large codebase | `pro` or `gpt5.2` | High context windows |
+| Budget-conscious | `flashlite` or `nano` | Lowest cost options |
+
+**Note**: Run `listmodels` to see all available models and their capabilities for your configured providers.
 
 ## Troubleshooting Quick Index
 

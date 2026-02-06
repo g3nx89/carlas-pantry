@@ -17,13 +17,15 @@ Multi-turn conversation with external AI models for second opinions, approach va
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `prompt` | string | Yes | The message or question to discuss |
-| `model` | string | No | Target model (auto, pro, flash, o3, gpt5) |
+| `model` | string | No | Target model (auto, pro, flash, o3, gpt5, gpt5.2, codex) |
 | `continuation_id` | string | No | UUID to continue existing conversation |
-| `relevant_files` | array | No | File paths for context (ABSOLUTE paths) |
+| `absolute_file_paths` | array | No | File paths for context (**MUST be absolute paths**) |
 | `images` | array | No | Image paths for vision-capable models |
 | `temperature` | number | No | 0 = deterministic, 1 = creative |
 | `thinking_mode` | string | No | Reasoning depth: minimal, low, medium, high, max |
-| `working_directory_absolute_path` | string | No | Directory for generated artifacts |
+| `working_directory_absolute_path` | string | Yes | Directory for generated code artifacts |
+
+> **Note**: The `chat` tool uses `absolute_file_paths` (not `relevant_files` like workflow tools). This matches CLI conventions.
 
 ## Example Usage
 
@@ -37,7 +39,8 @@ chat(
 # With file context
 chat(
   prompt="Review this authentication approach",
-  relevant_files=["/absolute/path/to/auth.py"],
+  absolute_file_paths=["/absolute/path/to/auth.py"],
+  working_directory_absolute_path="/absolute/path/to/project",
   model="auto"
 )
 
@@ -67,9 +70,10 @@ chat(
 ## Best Practices
 
 1. **Start with `model=auto`** - let Claude select optimal model
-2. **Specify explicit models** only when specific capabilities needed (e.g., `o3` for maximum reasoning)
+2. **Specify explicit models** only when specific capabilities needed (e.g., `o3` for reasoning, `codex` for code)
 3. **Use continuation_id** for follow-up questions to maintain context
-4. **Provide absolute paths** for relevant_files
+4. **Provide absolute paths** for `absolute_file_paths` - relative paths fail silently
+5. **Always provide `working_directory_absolute_path`** - required for code generation artifacts
 
 ## Common Mistakes
 
