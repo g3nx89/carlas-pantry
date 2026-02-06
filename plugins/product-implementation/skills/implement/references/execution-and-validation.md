@@ -147,6 +147,6 @@ If validation reveals issues:
 
 ## 3.5 Lock Release
 
-After Stage 4 (Quality Review) completes — or if execution halts permanently at any stage — release the lock in `.implementation-state.local.md`:
+Lock is released at the end of Stage 5 (Feature Documentation) — see `documentation.md` Section 5.4. If execution halts permanently at any earlier stage, release the lock in `.implementation-state.local.md`:
 - Set `lock.acquired: false`
 - Update `last_checkpoint` with current timestamp

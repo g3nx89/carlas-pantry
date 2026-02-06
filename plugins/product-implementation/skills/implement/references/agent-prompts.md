@@ -1,6 +1,6 @@
 # Agent Prompt Templates
 
-All prompts in this file are used by the orchestrator to launch `developer` agents. Variables in `{braces}` MUST be prefilled by the orchestrator before dispatching.
+All prompts in this file are used by the orchestrator to launch `developer` and `tech-writer` agents. Variables in `{braces}` MUST be prefilled by the orchestrator before dispatching.
 
 ---
 
@@ -108,3 +108,55 @@ TASKS_FILE: {TASKS_FILE}
 - Other variables: Same as Phase Implementation Prompt.
 
 **Agent behavior:** The developer agent reads each referenced file, applies targeted fixes for each listed finding, runs tests to verify no regressions, and reports what was fixed with file:line references.
+
+---
+
+## Incomplete Task Fix Prompt
+
+Used in Stage 5 when user chooses to fix incomplete tasks before documentation.
+
+```markdown
+**Goal**: Complete the following incomplete tasks from tasks.md before documentation proceeds.
+
+## Incomplete Tasks
+
+{incomplete_tasks_list}
+
+## Context
+
+User Input: {user_input}
+
+FEATURE_NAME: {FEATURE_NAME}
+FEATURE_DIR: {FEATURE_DIR}
+TASKS_FILE: {TASKS_FILE}
+```
+
+**Variables:**
+- `{incomplete_tasks_list}` — Markdown list of incomplete tasks from tasks.md, each with:
+  - Task ID (T001, T002, etc.)
+  - Description
+  - File path
+  - Current status (not started / partially done)
+- Other variables: Same as Phase Implementation Prompt.
+
+**Agent behavior:** The developer agent reads tasks.md, identifies the listed incomplete tasks, implements them following the Tasks.md Execution Workflow, marks each `[X]` on completion, and runs tests to verify correctness.
+
+---
+
+## Documentation Update Prompt
+
+Used in Stage 5 to launch the tech-writer agent for feature documentation.
+
+```markdown
+**Goal**: Document feature implementation with API guides, architecture updates, and lessons learned, by following Documentation Update Workflow.
+
+User Input: {user_input}
+
+FEATURE_NAME: {FEATURE_NAME}
+FEATURE_DIR: {FEATURE_DIR}
+TASKS_FILE: {TASKS_FILE}
+```
+
+**Variables:** Same as Phase Implementation Prompt.
+
+**Agent behavior:** The tech-writer agent reads all context files from FEATURE_DIR, reviews the implemented code, and creates/updates project documentation including API guides, usage examples, architecture updates, module READMEs, and lessons learned. Produces a documentation update summary.

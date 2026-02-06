@@ -2,10 +2,11 @@
 name: Feature Implementation
 description: |
   This skill should be used when the user asks to "implement the feature", "execute the tasks",
-  "run the implementation plan", "build the feature", "start coding", or needs to execute tasks
-  defined in tasks.md. Orchestrates phase-by-phase implementation using developer agents with TDD,
-  progress tracking, and integrated quality review.
-version: 1.0.0
+  "run the implementation plan", "build the feature", "start coding", "document the feature",
+  or needs to execute tasks defined in tasks.md. Orchestrates phase-by-phase implementation
+  using developer agents with TDD, progress tracking, integrated quality review, and feature
+  documentation.
+version: 1.1.0
 allowed-tools:
   # File operations
   - Read
@@ -26,7 +27,7 @@ allowed-tools:
 
 > **Invoke:** `/product-implementation:implement` or ask "implement this feature"
 
-Execute the implementation plan by processing all tasks defined in `tasks.md`, phase by phase, using developer agents with TDD workflow, progress tracking, and quality review.
+Execute the implementation plan by processing all tasks defined in `tasks.md`, phase by phase, using developer agents with TDD workflow, progress tracking, quality review, and feature documentation.
 
 ## Critical Rules
 
@@ -36,7 +37,7 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, p
 4. **Progress Tracking** — Mark tasks `[X]` in tasks.md after completion. Uncommitted progress = lost progress.
 5. **Error Halting** — Sequential task failure halts the phase. Parallel `[P]` tasks: continue others, report failures.
 6. **State Persistence** — Checkpoint after each phase in `.implementation-state.local.md`.
-7. **User Decisions are Final** — Quality review decisions (fix now / fix later / proceed) are immutable.
+7. **User Decisions are Final** — Quality review and documentation decisions are immutable once saved.
 8. **No Spec Changes** — DO NOT create or modify specification files during implementation.
 9. **Lock Protocol** — Acquire lock at start, release at completion. Check for stale locks (>60 min).
 
@@ -70,6 +71,13 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, p
 │  │  Stage 4  │  Quality Review                        │
 │  │           │  → Present findings to user             │
 │  │           │  → Fix now / fix later / proceed        │
+│  └─────┬─────┘                                        │
+│        ↓                                              │
+│  ┌───────────┐                                        │
+│  │  Stage 5  │  Feature Documentation                 │
+│  │           │  → Verify completion                    │
+│  │           │  → Launch tech-writer agent             │
+│  │           │  → Release lock                         │
 │  └───────────┘                                        │
 │                                                       │
 └──────────────────────────────────────────────────────┘
@@ -83,6 +91,7 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, p
 | 2 | Coordinator per phase | `execution-and-validation.md` | `developer` | On error only |
 | 3 | Coordinator | `execution-and-validation.md` (Stage 3 section) | `developer` | If issues found |
 | 4 | Coordinator | `quality-review.md` | `developer` x3 or code-review skill | Fix/defer/proceed |
+| 5 | Coordinator | `documentation.md` | `developer`, `tech-writer` | If incomplete tasks |
 
 All reference files are in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/`.
 
@@ -119,17 +128,24 @@ Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/quality-review
 
 **Summary:** Launch 3 parallel `developer` agents (or use `/code-review:review-local-changes` if available), each focusing on a different quality dimension (simplicity/DRY, correctness/bugs, conventions/abstractions). Consolidate findings with severity ranking. Present to user. See `quality-review.md` Section 4.2 for detailed review dimensions and focus areas.
 
+## Stage 5: Feature Documentation
+
+Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/documentation.md`
+
+**Summary:** Verify implementation completeness (re-check tasks.md). If incomplete tasks exist, let user choose to fix or proceed. Launch `tech-writer` agent to create/update project documentation — API guides, architecture updates, module READMEs, and lessons learned. Present documentation summary. Release lock.
+
 ## Design Decisions
 
-**Direct agent dispatch (not coordinator model):** Unlike `product-planning:plan` which uses `general-purpose` coordinators that read phase files and write structured summaries, this skill dispatches `developer` agents directly. This is intentional — implementation phases are mechanically simpler (one agent per phase executing tasks) and don't require multi-agent analysis or consensus scoring. The coordinator overhead would be over-engineering. State is tracked through tasks.md `[X]` markers instead of phase summaries.
+**Direct agent dispatch (not coordinator model):** Unlike `product-planning:plan` which uses `general-purpose` coordinators that read phase files and write structured summaries, this skill dispatches `developer` and `tech-writer` agents directly. This is intentional — implementation phases are mechanically simpler (one agent per phase executing tasks) and don't require multi-agent analysis or consensus scoring. The coordinator overhead would be over-engineering. State is tracked through tasks.md `[X]` markers instead of phase summaries.
 
-**Cross-reference:** The `developer` agent has its own "Tasks.md Execution Workflow" section (in `agents/developer.md`) that the orchestrator's phase prompts trigger. If execution rules change, update both `execution-and-validation.md` and the agent's workflow section.
+**Cross-reference:** The `developer` agent has its own "Tasks.md Execution Workflow" section (in `agents/developer.md`) that the orchestrator's phase prompts trigger. The `tech-writer` agent has its own "Documentation Update Workflow" section (in `agents/tech-writer.md`). If execution rules change, update both the reference files and the corresponding agent definitions.
 
 ## Agents
 
 | Agent | Role | Used In |
 |-------|------|---------|
-| `product-implementation:developer` | Implementation, testing, validation, review | Stages 2, 3, 4 |
+| `product-implementation:developer` | Implementation, testing, validation, review | Stages 2, 3, 4, 5 |
+| `product-implementation:tech-writer` | Feature documentation, API guides, architecture updates | Stage 5 |
 
 ## State Management
 
@@ -144,7 +160,7 @@ Key fields: `version`, `feature_name`, `feature_dir`, `current_stage`, `phases_c
 Before starting execution, acquire lock in the state file:
 - Set `lock.acquired: true`, `lock.acquired_at: "{ISO_TIMESTAMP}"`, `lock.session_id: "{unique_id}"`
 - If lock already acquired: check `lock.acquired_at`. If older than 60 minutes, treat as stale and override.
-- On completion (or error halt): release lock by setting `lock.acquired: false`
+- On completion (Stage 5 end) or error halt: release lock by setting `lock.acquired: false`
 
 ## Output Artifacts
 
@@ -153,6 +169,8 @@ Before starting execution, acquire lock in the state file:
 | `tasks.md` | Updated with `[X]` marks for all completed tasks |
 | `.implementation-state.local.md` | Execution state, phase tracking, and implementation log |
 | `review-findings.md` | Quality review findings (created only if user chooses "fix later") |
+| `docs/` | Feature documentation, API guides, architecture updates (Stage 5) |
+| Module `README.md` files | Updated READMEs in folders affected by implementation (Stage 5) |
 
 ## Reference Map
 
@@ -161,7 +179,8 @@ Before starting execution, acquire lock in the state file:
 | `references/setup-and-context.md` | Stage 1 (always) | Branch parsing, file loading, lock, state init |
 | `references/execution-and-validation.md` | Stage 2-3 (always) | Phase loop, task parsing, error handling, validation |
 | `references/quality-review.md` | Stage 4 (always) | Review dimensions, finding consolidation, user interaction |
-| `references/agent-prompts.md` | Stage 2-4 (always) | All agent prompt templates |
+| `references/documentation.md` | Stage 5 (always) | Completion re-check, tech-writer dispatch, lock release |
+| `references/agent-prompts.md` | Stage 2-5 (always) | All agent prompt templates |
 
 ## Error Handling
 
@@ -187,3 +206,4 @@ Stage-specific errors (task failures, agent crashes, test failures) are document
 2. Run `/product-implementation:implement`
 3. Monitor phase-by-phase progress
 4. Review quality findings and choose fix / defer / proceed
+5. Review documentation updates generated by tech-writer
