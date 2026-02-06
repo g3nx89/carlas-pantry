@@ -28,7 +28,7 @@ claude plugins enable product-planning
 
 ### 9-Phase Integrated Workflow
 
-The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includes both feature planning AND test strategy:
+The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includes both feature planning AND test strategy. The orchestrator delegates phases to coordinator subagents via `Task(general-purpose)`. Each coordinator reads a self-contained per-phase instruction file and communicates results through standardized summary files. See `skills/plan/references/orchestrator-loop.md` for dispatch logic.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -51,12 +51,15 @@ The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includ
 │       ↓                                                          │
 │  Phase 8: Test Coverage Validation                               │
 │       ↓                                                          │
-│  Phase 9: Completion                                             │
+│  Phase 9: Task Generation & Completion ─→ tasks.md (TDD)        │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Integration:** Test planning (Phases 7-8) is now embedded directly in the main workflow, not a separate skill.
+**Key Integrations:**
+- Test planning (Phases 7-8) is embedded directly in the main workflow
+- Task generation (Phase 9) uses test artifacts for TDD integration
+- The `/tasks` command is deprecated - use `/plan` for complete workflow
 
 ### Phase Summary
 
@@ -70,16 +73,18 @@ The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includ
 | 6 | Validation | PAL Consensus plan validation |
 | **7** | **Test Strategy** | **V-Model test planning, UAT generation** |
 | **8** | **Test Coverage** | **Coverage validation, PAL Consensus** |
-| 9 | Completion | Final artifacts, TDD-structured task breakdown |
+| **9** | **Task Generation** | **TDD-structured tasks with test refs, clarification loop** |
 
 ### Analysis Mode Hierarchy
 
-| Mode | Description | MCP Required | Cost |
-|------|-------------|--------------|------|
-| Complete | MPA + ThinkDeep (9) + ST + Consensus + Full Test Plan | Yes | $0.80-1.50 |
-| Advanced | MPA + ThinkDeep (6) + Test Plan | Yes | $0.45-0.75 |
-| Standard | MPA only + Basic Test Plan | No | $0.15-0.30 |
-| Rapid | Single agent + Minimal Test Plan | No | $0.05-0.12 |
+| Mode | Description | MCP Required |
+|------|-------------|--------------|
+| Complete | MPA + ThinkDeep (9) + ST + Consensus + Full Test Plan | Yes |
+| Advanced | MPA + ThinkDeep (6) + Test Plan | Yes |
+| Standard | MPA only + Basic Test Plan | No |
+| Rapid | Single agent + Minimal Test Plan | No |
+
+See `config/planning-config.yaml` `analysis_modes` for current cost estimates and `blessed_profiles` for full-ST costs.
 
 The plugin gracefully degrades when MCP tools are unavailable.
 
@@ -116,7 +121,9 @@ Thresholds: GREEN ≥80%, YELLOW ≥65%, RED <65%
 
 State is persisted in `{FEATURE_DIR}/.planning-state.local.md` (YAML frontmatter + markdown). The workflow is resumable—user decisions are immutable and never re-asked.
 
-Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → **TEST_STRATEGY** → **TEST_COVERAGE_VALIDATION** → COMPLETION
+Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → EXPERT_REVIEW → **TEST_STRATEGY** → **TEST_COVERAGE_VALIDATION** → COMPLETION
+
+State file version 2 adds `phase_summaries` tracking and `orchestrator` metadata. v1 files are auto-migrated on resume.
 
 ## V-Model Test Planning (Integrated)
 
@@ -300,13 +307,14 @@ Phase 7 uses MPA (Multi-Perspective Analysis) pattern similar to Phase 4 archite
 |----------|---------|
 | `design.md` | Final architecture design |
 | `plan.md` | Implementation plan |
-| `tasks.md` | Task breakdown (TDD-structured) |
+| `tasks.md` | Dependency-ordered tasks with TDD structure and test refs |
 | `research.md` | Codebase analysis findings |
 | `test-plan.md` | V-Model test strategy |
 | `test-cases/unit/` | Unit test specifications |
 | `test-cases/integration/` | Integration test specs |
 | `test-cases/e2e/` | E2E scenario scripts |
 | `test-cases/uat/` | UAT scripts (Given-When-Then) |
+| `.phase-summaries/*.md` | Inter-phase coordinator summary files |
 
 ## File Naming Conventions
 
@@ -366,6 +374,13 @@ Used in Phases 2, 4, and 7 for authoritative documentation lookup.
 - **Implementation**: Launch 2-3 specialized agents in parallel, synthesize their outputs
 - **Applied to**: Phase 4 (architecture: minimal/clean/pragmatic) and Phase 7 (QA: general/security/performance)
 - **Checklist**: When adding MPA, define: agent variants, mode availability, output synthesis rules
+
+#### Lean Orchestrator Delegation
+- **Pattern**: Orchestrator dispatches coordinator subagents per phase, reads only summary files between phases
+- **Rationale**: Reduces orchestrator context from ~2700 lines to ~590 lines (~78% reduction)
+- **Trade-off**: ~5-15s latency overhead per coordinator dispatch
+- **Implementation**: Per-phase instruction files in `skills/plan/references/phase-{N}-*.md`, summary files in `{FEATURE_DIR}/.phase-summaries/`
+- **Exception**: Phase 1 (inline) and Phase 3 Standard/Rapid (inline) execute in orchestrator context
 
 #### Phase Reconciliation
 - **Pattern**: Multi-phase workflows with related analysis need explicit reconciliation steps

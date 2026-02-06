@@ -325,6 +325,94 @@ THOUGHT: Complete picture:
 Architecture pattern: Middleware chain for auth (authentication) + authorization (roles)
 ```
 
+---
+
+## Sequential Thinking Integration
+
+When the MCP tool `mcp__sequential-thinking__sequentialthinking` is available AND mode is Complete/Advanced, YOU MUST use ST for structured exploration and synthesis.
+
+### TAO Loop for Exploration Synthesis (MANDATORY when ST available)
+
+After completing codebase exploration, YOU MUST synthesize findings using the TAO (Think-Analyze-Output) Loop. This prevents rushed conclusions and ensures systematic categorization.
+
+**When to Invoke:** After completing all exploration phases (discovery, tracing, architecture analysis) but BEFORE generating final output.
+
+```javascript
+// Step 1: ANALYSIS - Categorize what you found
+mcp__sequential-thinking__sequentialthinking({
+  thought: "ANALYSIS of codebase exploration for {FEATURE_NAME}. PATTERNS FOUND: [list with file:line refs]. INTEGRATION POINTS: [list entry/exit points]. SIMILAR FEATURES: [list with relevance score]. TECHNICAL CONSTRAINTS: [list]. CONCERNS/ISSUES: [list]. CONFIDENCE per finding: [high/medium/low per item].",
+  thoughtNumber: 1,
+  totalThoughts: 3,
+  nextThoughtNeeded: true,
+  hypothesis: "Codebase has {N} patterns applicable to feature, {M} integration points identified",
+  confidence: "medium"
+})
+
+// Step 2: SYNTHESIS - Derive actionable insights
+mcp__sequential-thinking__sequentialthinking({
+  thought: "SYNTHESIS of exploration findings. PATTERNS TO REUSE: [specific patterns with adoption guidance]. PATTERNS TO AVOID: [anti-patterns found with file:line evidence]. RECOMMENDED APPROACH: [based on similar features]. RISK AREAS: [complexity, unknowns, technical debt]. KEY FILES for understanding: [prioritized list with justification].",
+  thoughtNumber: 2,
+  totalThoughts: 3,
+  nextThoughtNeeded: true,
+  hypothesis: "Synthesis identifies {N} reusable patterns, {M} risk areas, recommended approach is {approach}",
+  confidence: "high"
+})
+
+// Step 3: VALIDATION - Verify completeness before output
+mcp__sequential-thinking__sequentialthinking({
+  thought: "VALIDATION of exploration completeness. CHECKLIST: [ ] All entry points traced? [ ] All execution paths followed? [ ] Patterns verified with code evidence? [ ] Dependencies complete (internal + external)? [ ] Error paths documented? [ ] file:line references for all claims? GAPS FOUND: [list]. RESULT: {PASS|FAIL}.",
+  thoughtNumber: 3,
+  totalThoughts: 3,
+  nextThoughtNeeded: false,
+  hypothesis: "Exploration {complete|incomplete}, confidence {HIGH|MEDIUM|LOW}",
+  confidence: "high"
+})
+```
+
+**TAO Loop Outputs:**
+1. **Categorized findings** - Not a flat list but organized by type (patterns, integrations, risks)
+2. **Actionable insights** - Not just observations but recommendations
+3. **Validated completeness** - Explicit checklist verification before delivery
+
+### Checkpoint for Long Explorations (Rule of 5)
+
+For explorations exceeding 5 analysis steps, invoke T-CHECKPOINT:
+
+```javascript
+// Every 5 thoughts, consolidate progress
+mcp__sequential-thinking__sequentialthinking({
+  thought: "CHECKPOINT at thought {N}. PROGRESS: [what has been definitively established]. REMAINING: [open questions to investigate]. CONFIDENCE TREND: {increasing|stable|decreasing}. ESTIMATE CHECK: {totalThoughts} {adequate|needs extension}.",
+  thoughtNumber: 5,
+  totalThoughts: 10,
+  nextThoughtNeeded: true,
+  needsMoreThoughts: false,  // Set true if estimate needs extension
+  hypothesis: "On track with {X}% progress",
+  confidence: "medium"
+})
+```
+
+### When ST is Unavailable
+
+If `mcp__sequential-thinking__sequentialthinking` is not available, use structured markdown reasoning with the same TAO structure:
+
+```markdown
+## Exploration Synthesis
+
+### 1. ANALYSIS
+[Categorized findings with file:line references]
+
+### 2. SYNTHESIS
+[Actionable insights and recommendations]
+
+### 3. VALIDATION
+- [ ] All entry points traced?
+- [ ] Patterns verified with evidence?
+- [ ] Dependencies complete?
+- [ ] Error paths documented?
+```
+
+---
+
 ## Output Guidance (NON-NEGOTIABLE)
 
 YOU MUST provide a comprehensive analysis that enables developers to modify or extend the feature. Analysis without file:line references = USELESS. Every time.

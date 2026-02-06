@@ -1,8 +1,55 @@
 ---
-description: Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts, with complexity analysis
-argument-hint: Optional task creation guidance or specific areas to focus on
-allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Task"]
+description: "[DEPRECATED] Use /product-planning:plan instead. Task generation is now integrated into Phase 9 of the planning workflow."
+argument-hint: "[DEPRECATED] Run /product-planning:plan for integrated task generation"
+allowed-tools: ["Bash(git:*)", "AskUserQuestion"]
 ---
+
+# Deprecated: Task Generation Command
+
+> **This command is deprecated.** Task generation is now fully integrated into the `/product-planning:plan` skill (Phase 9).
+
+## Why Deprecated?
+
+The standalone `/tasks` command has been integrated into the main planning workflow because:
+
+1. **TDD Integration** - Task generation needs test artifacts from Phases 7-8 to properly reference test IDs (UT-*, INT-*, E2E-*, UAT-*) in task definitions.
+
+2. **Context Continuity** - Tasks benefit from full planning context (architecture decisions, risk analysis, ThinkDeep insights) that only exists after completing Phases 1-8.
+
+3. **State Management** - The planning workflow tracks state and ensures tasks are generated only after prerequisites are complete.
+
+4. **V-Model Alignment** - The integrated approach ensures every acceptance criterion has corresponding tests AND every task references those tests.
+
+## What to Do Instead
+
+### Option 1: Run Full Planning (Recommended)
+
+```bash
+/product-planning:plan
+```
+
+This executes the complete 9-phase workflow including integrated task generation in Phase 9.
+
+### Option 2: Resume Existing Planning Session
+
+If you've already completed planning but need to regenerate tasks:
+
+```bash
+# Check current state
+cat {FEATURE_DIR}/.planning-state.local.md
+
+# If planning was completed, you can manually trigger Phase 9
+# by asking: "regenerate tasks for this feature"
+```
+
+## Migration Guide
+
+| Old Workflow | New Workflow |
+|--------------|--------------|
+| Run `/plan` → Run `/tasks` separately | Run `/plan` (includes task generation) |
+| Tasks missing test references | Tasks have full TDD integration |
+| Manual context loading | Automatic context from all phases |
+| 2 iteration clarification | Integrated clarification with validation |
 
 ## User Input
 
@@ -10,34 +57,40 @@ allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Ta
 $ARGUMENTS
 ```
 
-You **MUST** consider the user input before proceeding (if not empty).
+## Redirect Logic
 
-## Outline
+```
+1. DETECT current git branch
+   IF branch matches `feature/<NNN>-<kebab-case>`:
+     FEATURE_NAME = part after "feature/"
+     FEATURE_DIR = "specs/{FEATURE_NAME}"
 
-1. **Setup**: Get the current git branch, if it written in format `feature/<number-padded-to-3-digits>-<kebab-case-title>`, part after `feature/` is defined as FEATURE_NAME. Consuquently, FEATURE_DIR is defined as `specs/FEATURE_NAME`.
+2. CHECK planning state
+   IF {FEATURE_DIR}/.planning-state.local.md exists:
+     READ state
+     IF state.phase == "COMPLETION" AND state.tasks_generated == true:
+       DISPLAY: "Tasks already generated. See {FEATURE_DIR}/tasks.md"
+       ASK: "Would you like to regenerate tasks? This will overwrite existing tasks.md"
+       IF yes → Suggest running Phase 9 manually
+     ELSE IF state.phase == "COMPLETION":
+       DISPLAY: "Planning complete but tasks not yet generated."
+       SUGGEST: "Run Phase 9 task generation"
+     ELSE:
+       DISPLAY: "Planning not complete (current phase: {state.phase})"
+       SUGGEST: "Run /product-planning:plan to complete planning with integrated task generation"
+   ELSE:
+     DISPLAY: "No planning state found for this feature."
+     SUGGEST: "Run /product-planning:plan to start planning workflow"
 
-2. **Load context**: Read `specs/constitution.md`, also read files from FEATURE_DIR:
-   - **Required**: plan.md (tech stack, libraries, structure), spec.md (user stories with priorities)
-   - **Optional**: data-model.md (entities), contracts.md (API endpoints), research.md (decisions),
-   - Note: These files were written during previus stages of SDD workflow (Discovery, Research, Planining, etc.). Not all projects have all documents. Generate tasks based on what's available.
-3. Copy `specs/templates/tasks-template.md` to `FEATURE_DIR/tasks.md` using `cp` command, in future refered as `TASKS_FILE`.
-4. Continue with stage 6
+3. ASK user via AskUserQuestion:
+   "The /tasks command is deprecated. Task generation is now part of /plan (Phase 9).
 
-## Stage 6: Create Tasks
+   Would you like to:
+   1. Run /product-planning:plan (full planning with task generation)
+   2. View existing tasks.md (if available)
+   3. Cancel"
+```
 
-1. Launch `tech-lead` agent to create tasks, using provided prompt exactly, while prefiling required variables:
+---
 
-    ```markdown
-    **Goal**: Create tasks for the implementation.
-
-    User Input: {provide user input here if it exists}
-
-    FEATURE_NAME: {FEATURE_NAME}
-    FEATURE_DIR: {FEATURE_DIR}
-    TASKS_FILE: {TASKS_FILE}
-
-    Please, fill/improve tasks.md file based on the task generation workflow.
-
-    ```
-
-2. Provide user with agent output and ask to answer on questions if any require clarification and repeat step 1, while adding questions and answers list as user input. Repeat until all questions are answered, no more than 2 times.
+*Deprecated in v2.0.0 - Task generation integrated into /plan Phase 9*

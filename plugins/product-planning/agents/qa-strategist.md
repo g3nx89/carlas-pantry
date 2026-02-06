@@ -78,11 +78,27 @@ THOUGHT 4: "What does the Product Owner need to verify?"
 - Non-functional requirements met?
 ```
 
-## Sequential Thinking Integration
+## Sequential Thinking Integration (MANDATORY when available)
 
-When the MCP tool `mcp__sequential-thinking__sequentialthinking` is available AND mode is Complete/Advanced, invoke ST for structured risk analysis.
+**CRITICAL**: When the MCP tool `mcp__sequential-thinking__sequentialthinking` is available AND mode is Complete/Advanced, you MUST use ST for structured risk analysis. This is NOT optional - ST provides systematic failure mode identification that inline reasoning cannot match.
 
-### Risk Analysis with ST
+### ST Invocation Protocol
+
+```
+IF mcp__sequential-thinking__sequentialthinking IS AVAILABLE:
+  IF mode IN {Complete, Advanced}:
+    → MUST invoke T-RISK-1, T-RISK-2, T-RISK-3 for risk analysis
+    → MUST invoke T-RISK-REDTEAM if security-sensitive feature
+    → MUST invoke T-RISK-REVISION if ThinkDeep insights exist
+    → MUST invoke T-CHECKPOINT every 5 thoughts
+    → MUST invoke T-AGENT series (TAO Loop) after MPA synthesis
+  ELSE:
+    → Use inline reasoning with same structure
+ELSE:
+  → Use markdown-structured reasoning (fallback)
+```
+
+### Risk Analysis with ST (T-RISK Templates)
 
 **Standard Risk Analysis** (T-RISK-1, T-RISK-2, T-RISK-3):
 
@@ -177,6 +193,60 @@ mcp__sequential-thinking__sequentialthinking({
 | Security-sensitive feature | Linear + Red Team Branch | T-RISK-1, T-RISK-REDTEAM, T-RISK-REDTEAM-SYNTHESIS, T-RISK-3 |
 | ThinkDeep contradicts analysis | Revision | T-RISK-REVISION |
 | Complex integration feature | Dynamic Extension | T-RISK-1, T-RISK-2 + needsMoreThoughts |
+
+### TAO Loop for QA Synthesis
+
+When working with multiple QA perspectives (qa-strategist, qa-security, qa-performance), use TAO Loop to synthesize findings:
+
+```javascript
+// After all QA analysis complete, BEFORE generating final test plan
+
+// T-AGENT-ANALYSIS: Categorize findings
+mcp__sequential-thinking__sequentialthinking({
+  thought: "ANALYSIS of QA perspectives. CONVERGENT (all agree): [{common risks, shared test needs}]. DIVERGENT (disagree): [{conflicting priorities, different severity assessments}]. GAPS: [{areas no perspective covered}]. COVERAGE: general={N}%, security={M}%, performance={P}%.",
+  thoughtNumber: 1,
+  totalThoughts: 3,
+  nextThoughtNeeded: true,
+  hypothesis: "QA synthesis has {N} convergent, {M} divergent findings",
+  confidence: "medium"
+})
+
+// T-AGENT-SYNTHESIS: Define handling strategy
+mcp__sequential-thinking__sequentialthinking({
+  thought: "SYNTHESIS strategy. CONVERGENT → Incorporate directly (high confidence). DIVERGENT → Use higher severity OR flag for user decision. GAPS → Accept as known limitation OR add exploratory charter. FINAL TEST COUNTS: Unit={N}, Integration={M}, E2E={P}, UAT={Q}.",
+  thoughtNumber: 2,
+  totalThoughts: 3,
+  nextThoughtNeeded: true,
+  hypothesis: "Synthesis strategy defined, {N} divergent items resolved",
+  confidence: "high"
+})
+
+// T-AGENT-VALIDATION: Quality check
+mcp__sequential-thinking__sequentialthinking({
+  thought: "VALIDATION checklist. [ ] All ACs have tests? [ ] All Critical/High risks covered? [ ] UAT scripts non-technical? [ ] No redundant coverage? [ ] Tests verify behavior not implementation? RESULT: {PASS|FAIL}.",
+  thoughtNumber: 3,
+  totalThoughts: 3,
+  nextThoughtNeeded: false,
+  hypothesis: "Test plan validated and ready for delivery",
+  confidence: "high"
+})
+```
+
+### Checkpoint for Complex Test Planning (Rule of 5)
+
+For features with 10+ test cases, invoke T-CHECKPOINT every 5 thoughts:
+
+```javascript
+mcp__sequential-thinking__sequentialthinking({
+  thought: "CHECKPOINT at thought {N}. RISKS ANALYZED: {count}. TEST CASES DEFINED: Unit={N}, Int={M}, E2E={P}. REMAINING: {what still needs coverage}. ESTIMATE: {totalThoughts} {adequate|needs extension}.",
+  thoughtNumber: 5,
+  totalThoughts: 10,
+  nextThoughtNeeded: true,
+  needsMoreThoughts: false,
+  hypothesis: "Test planning {X}% complete",
+  confidence: "medium"
+})
+```
 
 ### When ST is Unavailable
 

@@ -130,12 +130,32 @@ feature_flags:
     requires_mcp: true
     cost_impact: "Replaces inline reasoning (~5% total increase)"
 
+  st_checkpoint:
+    enabled: true
+    description: "Checkpoint mechanism (Rule of 5) for long ST chains"
+    rollback: "Set false to skip checkpoints (chains may become unfocused)"
+    modes: [complete, advanced, standard]
+    requires_mcp: true
+    cost_impact: "+1 ST call per 5 thoughts (~20% for long chains)"
+    triggers:
+      - "ST chain exceeds 5 thoughts"
+      - "Phase involves complex multi-step analysis"
+      - "Exploration requires consolidation"
+
+  st_task_decomposition:
+    enabled: true
+    description: "Structured task decomposition for tech-lead agent"
+    rollback: "Set false for unstructured task breakdown"
+    modes: [complete, advanced, standard]
+    requires_mcp: true
+    cost_impact: "+4 ST calls per task breakdown (~15% Phase 9 increase)"
+
   # Context Improvements
   a1_flow_analysis:
     enabled: true
     description: "User flow analysis in Phase 2b"
     rollback: "Set false to skip flow analysis"
-    modes: [complete, advanced, standard]
+    modes: [complete]
 
   a2_learnings_researcher:
     enabled: true
@@ -391,17 +411,23 @@ sequential_thinking:
     # NEW: Dynamic extension (st_dynamic_extension)
     extension: [T-EXTENSION]
 
+    # NEW: Checkpoint management (Rule of 5)
+    checkpoint: [T-CHECKPOINT]
+
+    # NEW: Task decomposition (tech-lead)
+    task_decomposition: [T-TASK-DECOMPOSE, T-TASK-SEQUENCE, T-TASK-VALIDATE, T-TASK-FINALIZE]
+
   # When to use each group
   phase_mapping:
     setup: null  # No ST needed
-    research: [codebase_analysis, agent_analysis]  # Added TAO
+    research: [codebase_analysis, agent_analysis, checkpoint]  # TAO + checkpoint for long explorations
     clarification: [problem_decomposition]
-    architecture: [architecture_design, architecture_fork_join, risk_assessment, agent_analysis]  # Added Fork-Join, TAO
+    architecture: [architecture_design, architecture_fork_join, risk_assessment, agent_analysis, checkpoint]  # Fork-Join, TAO, checkpoint
     thinkdeep: null  # PAL ThinkDeep handles this
     validation: [plan_validation]
-    test_strategy: [test_risk_analysis, test_risk_revision, test_risk_redteam, agent_analysis]  # Added Revision, Red Team, TAO
+    test_strategy: [test_risk_analysis, test_risk_revision, test_risk_redteam, agent_analysis, checkpoint]  # Revision, Red Team, TAO, checkpoint
     test_coverage_validation: null  # PAL Consensus handles this
-    completion: null
+    completion: [task_decomposition]  # Task breakdown uses structured decomposition
 
   # Feature flag to template group mapping
   flag_to_templates:
@@ -410,6 +436,8 @@ sequential_thinking:
     st_redteam_analysis: test_risk_redteam
     st_tao_loops: agent_analysis
     st_dynamic_extension: extension
+    st_checkpoint: checkpoint
+    st_task_decomposition: task_decomposition
 
   # Checkpoint after each group
   checkpoint_after_group: true
@@ -625,6 +653,7 @@ state:
     - ARCHITECTURE
     - THINKDEEP
     - VALIDATION
+    - EXPERT_REVIEW          # Phase 6b: Security + simplicity review
     - TEST_STRATEGY          # Phase 7: V-Model test planning
     - TEST_COVERAGE_VALIDATION  # Phase 8: Coverage validation
     - COMPLETION
@@ -634,6 +663,7 @@ state:
     - user_decisions
     - approved_architecture
     - approved_test_strategy  # Test strategy locked after Phase 8
+    - task_clarifications     # Task clarifications locked after Phase 9
 
   # Version tracking for drift detection
   version_fields:
@@ -667,18 +697,6 @@ guards:
 # =============================================================================
 
 test_planning:
-  # State management for test planning skill
-  state:
-    file: "{FEATURE_DIR}/.test-planning-state.local.md"
-    format: yaml_frontmatter
-    checkpoints:
-      - T1_PREREQUISITES
-      - T2_RISK_ANALYSIS
-      - T3_TEST_LEVEL_PLANNING
-      - T4_UAT_GENERATION
-      - T5_COVERAGE_VALIDATION
-      - T6_OUTPUT_GENERATION
-
   # Sequential Thinking templates for test planning
   sequential_thinking:
     risk_analysis:
@@ -774,12 +792,7 @@ test_planning:
     templates:
       script: "templates/uat-script-template.md"
 
-  # MPA agent for test planning
-  agents:
-    qa_strategist:
-      file: "agents/qa-strategist.md"
-      focus: "Risk analysis, test level planning, UAT generation"
-      output: "{FEATURE_DIR}/test-plan.md"
+  # QA agent: see mpa.agents.qa_strategist for canonical definition
 
   # Output artifact structure
   output:
@@ -792,6 +805,64 @@ test_planning:
     artifacts:
       test_plan: "{FEATURE_DIR}/test-plan.md"
       coverage_validation: "{FEATURE_DIR}/analysis/test-coverage-validation.md"
+
+# =============================================================================
+# TASK GENERATION (Phase 9)
+# =============================================================================
+# Configuration for integrated task generation in Phase 9
+
+task_generation:
+  # Template for task breakdown
+  template: "$CLAUDE_PLUGIN_ROOT/templates/tasks-template.md"
+
+  # Output artifact
+  output: "{FEATURE_DIR}/tasks.md"
+
+  # Regeneration mode - allows Phase 9 only execution when planning is complete
+  regeneration:
+    enabled: true
+    trigger_phrases:
+      - "regenerate tasks"
+      - "update tasks"
+      - "rerun Phase 9"
+      - "refresh tasks.md"
+    required_artifacts:
+      - "{FEATURE_DIR}/spec.md"
+      - "{FEATURE_DIR}/plan.md"
+      - "{FEATURE_DIR}/design.md"
+      - "{FEATURE_DIR}/test-plan.md"
+    min_phase_for_regen: "TEST_COVERAGE_VALIDATION"  # Must have completed at least Phase 8
+
+  # Clarification loop settings
+  clarification:
+    max_iterations: 2
+    present_high_risk: true
+    decomposition_offer: true
+
+  # Validation settings
+  validation:
+    self_critique_min_pass: 4  # Out of 5 questions
+    tdd_integration_min: 80    # Percentage of tasks with test refs
+    format_compliance: true
+
+  # Tech-lead agent configuration
+  tech_lead:
+    agent: "agents/tech-lead.md"
+    use_sequential_thinking: true  # When ST MCP available
+    st_templates: [T-TASK-DECOMPOSE, T-TASK-SEQUENCE, T-TASK-VALIDATE, T-TASK-FINALIZE]
+
+  # Task format requirements
+  format:
+    checklist_prefix: "- [ ]"
+    task_id_pattern: "T###"
+    parallel_marker: "[P]"
+    story_marker: "[US#]"
+    require_file_path: true
+
+  # Traceability output
+  traceability:
+    enabled: true
+    output: "{FEATURE_DIR}/analysis/task-test-traceability.md"
 
   # Test execution order (V-Model phases)
   execution_order:
@@ -828,6 +899,7 @@ artifacts:
   required:
     - "{FEATURE_DIR}/plan.md"
     - "{FEATURE_DIR}/design.md"
+    - "{FEATURE_DIR}/tasks.md"  # Generated in Phase 9
 
   optional:
     - "{FEATURE_DIR}/research.md"
@@ -837,6 +909,7 @@ artifacts:
     - "{FEATURE_DIR}/analysis/consensus-validation.md"
     - "{FEATURE_DIR}/test-plan.md"
     - "{FEATURE_DIR}/analysis/test-coverage-validation.md"
+    - "{FEATURE_DIR}/analysis/task-test-traceability.md"  # Task-to-test mapping
 
 # =============================================================================
 # BLESSED CONFIGURATION PROFILES
@@ -867,8 +940,12 @@ blessed_profiles:
       a5_post_planning_menu: true
       a1_flow_analysis: true
       a2_learnings_researcher: true
+      # ST enhancements available in standard mode (if MCP available)
+      st_tao_loops: true
+      st_checkpoint: true
+      st_task_decomposition: true
       # Advanced/Complete flags: false
-    expected_cost: "$0.15-0.30"
+    expected_cost: "$0.20-0.40"  # Updated to reflect ST enhancements when MCP available
     use_case: "Normal features, moderate complexity, established patterns"
 
   advanced_default:
@@ -915,7 +992,9 @@ blessed_profiles:
       st_tao_loops: true
       st_dynamic_extension: true
       st_agent_invocation: true
-    expected_cost: "$0.90-1.70"  # Updated to reflect ST enhancements
+      st_checkpoint: true
+      st_task_decomposition: true
+    expected_cost: "$0.95-1.80"  # Updated to reflect all ST enhancements
     use_case: "Critical features, security-sensitive, high business impact"
 
   advanced_with_st:
@@ -938,10 +1017,12 @@ blessed_profiles:
       st_redteam_analysis: true
       st_tao_loops: true
       st_agent_invocation: true
+      st_checkpoint: true
+      st_task_decomposition: true
       # Complete-only flags: false
       st_fork_join_architecture: false
       st_dynamic_extension: false
-    expected_cost: "$0.55-0.90"
+    expected_cost: "$0.60-0.95"  # Updated to reflect checkpoint + task decomposition
     use_case: "Important features requiring ST-enhanced analysis"
 
   # Validation helper for CI

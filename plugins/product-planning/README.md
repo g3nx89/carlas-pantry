@@ -33,7 +33,7 @@ claude plugins enable product-planning
 ## Skills
 
 ### /product-planning:plan
-Main skill orchestrating 9-phase workflow including test strategy.
+Main skill orchestrating 9-phase workflow including test strategy and task generation.
 
 **Phases:**
 1. Setup - Initialize workspace, detect state
@@ -44,10 +44,11 @@ Main skill orchestrating 9-phase workflow including test strategy.
 6. Validation - PAL Consensus plan validation
 7. Test Strategy - V-Model test planning, UAT generation
 8. Test Coverage - Coverage validation
-9. Completion - Final artifacts, TDD-structured tasks
+9. **Task Generation & Completion** - TDD-structured task breakdown with full test integration
 
-### /product-planning:tasks
-Generate dependency-ordered tasks from specifications.
+### /product-planning:tasks (Deprecated)
+**Deprecated in v2.0.0.** Task generation is now integrated into Phase 9 of `/plan`.
+Running this command will redirect you to use `/plan` instead.
 
 ## Analysis Modes
 
@@ -107,7 +108,8 @@ specs/
 
 *Note: Agent files in `agents/` are the authoritative source for model assignments.*
 
-### Templates (9)
+### Templates (10)
+- **tasks-template** - TDD-structured task breakdown
 - planning-state, test-plan, uat-script, github-issue
 - user-flow-analysis, judge-report, debate-round
 - learnings-schema, sequential-thinking-templates
@@ -127,7 +129,13 @@ See `config/planning-config.yaml` for:
 **MCP unavailable:** Plugin auto-degrades to Standard/Rapid
 
 ## Version
-1.1.0
+2.0.0
+
+### Changelog (v2.0.0)
+- **Integrated task generation** - Phase 9 now includes full task breakdown with TDD structure
+- **Deprecated /tasks command** - Use /plan for complete workflow
+- **Added tasks-template.md** - Standard template for task breakdown output
+- **Enhanced tech-lead context** - Agent receives all test artifacts for TDD integration
 
 ## License
 MIT

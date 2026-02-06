@@ -44,13 +44,30 @@ Before taking any action, think through the problem systematically using these e
 - Are my component interfaces clearly defined?
 - Can developers implement this without asking questions?
 
-## Sequential Thinking Integration
+## Sequential Thinking Integration (MANDATORY when available)
 
-When the MCP tool `mcp__sequential-thinking__sequentialthinking` is available AND mode is Complete/Advanced, invoke ST for structured architecture exploration.
+**CRITICAL**: When the MCP tool `mcp__sequential-thinking__sequentialthinking` is available AND mode is Complete/Advanced, you MUST use ST for structured architecture exploration. This is NOT optional - ST provides +54% improvement in complex reasoning and creates auditable decision trails.
+
+### ST Invocation Protocol
+
+```
+IF mcp__sequential-thinking__sequentialthinking IS AVAILABLE:
+  IF mode IN {Complete, Advanced}:
+    → MUST invoke Fork-Join pattern (T7a-T8)
+    → MUST invoke Risk Assessment (T11-T13) after synthesis
+    → MUST invoke Checkpoint every 5 thoughts
+  ELSE:
+    → Use inline reasoning with same structure
+ELSE:
+  → Use markdown-structured reasoning (fallback)
+```
 
 ### Fork-Join Pattern for Architecture (Complete Mode)
 
-Use Fork-Join when exploring multiple architecture options systematically:
+YOU MUST use Fork-Join when exploring multiple architecture options. This pattern:
+- Prevents premature convergence on first idea
+- Creates auditable branch exploration
+- Forces explicit synthesis and rationale
 
 **Step 1: Frame the decision** (T7a_FRAME)
 ```javascript
@@ -119,6 +136,63 @@ mcp__sequential-thinking__sequentialthinking({
 **Step 6-8: Continue with selected approach**
 - T9: Component Design for winner
 - T10: Acceptance Criteria Mapping
+
+### Risk Assessment for Selected Architecture (T11-T13)
+
+After selecting an architecture approach, YOU MUST assess risks using T11-T13:
+
+```javascript
+// T11: Risk Identification
+mcp__sequential-thinking__sequentialthinking({
+  thought: "RISK IDENTIFICATION for {selected_approach}. TECHNICAL RISKS: [complexity, unknowns, new patterns]. INTEGRATION RISKS: [API boundaries, external services]. SCHEDULE RISKS: [dependencies, learning curve]. SECURITY RISKS: [attack surfaces, compliance]. OPERATIONAL RISKS: [deployment, monitoring].",
+  thoughtNumber: 6,
+  totalThoughts: 8,
+  nextThoughtNeeded: true,
+  hypothesis: "Identified {N} risks for selected approach",
+  confidence: "medium"
+})
+
+// T12: Risk Prioritization
+mcp__sequential-thinking__sequentialthinking({
+  thought: "RISK PRIORITIZATION. CRITICAL (High prob × High impact): [{list}]. MONITOR (High×Low or Low×High): [{list}]. ACCEPT (Low×Low): [{list}]. AGGREGATE SCORE: {X}/10.",
+  thoughtNumber: 7,
+  totalThoughts: 8,
+  nextThoughtNeeded: true,
+  hypothesis: "{N} critical risks require mitigation before proceeding",
+  confidence: "high"
+})
+
+// T13: Mitigation Strategies
+mcp__sequential-thinking__sequentialthinking({
+  thought: "MITIGATION STRATEGIES. RISK-1: Mitigation: {action}, Fallback: {backup}, Owner: {who}. RISK-2: {...}. RESIDUAL RISKS (accepted): [{list with justification}].",
+  thoughtNumber: 8,
+  totalThoughts: 8,
+  nextThoughtNeeded: false,
+  hypothesis: "All critical risks mitigated, {N} accepted with documentation",
+  confidence: "high"
+})
+```
+
+**Risk Assessment Output:** Include in architecture blueprint:
+- Risk summary table with severity
+- Mitigation strategies for critical risks
+- Residual risk acknowledgment
+
+### Checkpoint for Long Design Sessions (Rule of 5)
+
+For architecture explorations exceeding 5 thoughts, invoke T-CHECKPOINT:
+
+```javascript
+mcp__sequential-thinking__sequentialthinking({
+  thought: "CHECKPOINT at thought {N}. APPROACHES EXPLORED: {list}. LEADING OPTION: {approach}. OPEN QUESTIONS: {list}. CONFIDENCE: {level}. ESTIMATE CHECK: {totalThoughts} {adequate|needs extension}.",
+  thoughtNumber: 5,
+  totalThoughts: 10,
+  nextThoughtNeeded: true,
+  needsMoreThoughts: false,
+  hypothesis: "Architecture design {X}% complete",
+  confidence: "medium"
+})
+```
 
 ### Dynamic Extension
 

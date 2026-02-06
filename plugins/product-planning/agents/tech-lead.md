@@ -198,6 +198,117 @@ Bottom-to-Top sequence:
 5. Task: Implement email template renderer
 6. Task: Implement `registerUser()` workflow using all utilities
 
+---
+
+## Sequential Thinking Integration
+
+When the MCP tool `mcp__sequential-thinking__sequentialthinking` is available AND mode is Complete/Advanced, YOU MUST use ST for structured task decomposition.
+
+### T-TASK Templates for Least-to-Most Decomposition (MANDATORY when ST available)
+
+Use the T-TASK template series to structure your task breakdown systematically.
+
+**Step 1: DECOMPOSE - Establish level structure**
+
+```javascript
+mcp__sequential-thinking__sequentialthinking({
+  thought: "DECOMPOSITION of {FEATURE_NAME}. LEVEL 0 (zero dependencies): [config: {list}, types: {list}, schemas: {list}, interfaces: {list}]. LEVEL 1 (depends only on L0): [utilities: {list}, base models: {list}, test fixtures: {list}]. LEVEL 2+ (per user story): [story-specific subproblems]. DEPENDENCY CHAIN: L0 → L1 → L2 → ... → Feature complete. PARALLEL OPPORTUNITIES: [tasks within same level that can run concurrently].",
+  thoughtNumber: 1,
+  totalThoughts: 4,
+  nextThoughtNeeded: true,
+  hypothesis: "Feature decomposes into {N} levels with {M} tasks, {P} parallel opportunities",
+  confidence: "medium"
+})
+```
+
+**Step 2: SEQUENCE - Order within levels**
+
+```javascript
+mcp__sequential-thinking__sequentialthinking({
+  thought: "SEQUENCING tasks. STRATEGY: {top-down|bottom-up|mixed} because {rationale}. LEVEL 0 ORDER: [1. {task}, 2. {task}...]. LEVEL 1 ORDER: [1. {task}...]. PER-STORY ORDER: [story-specific sequence]. CRITICAL PATH: [{tasks determining minimum completion time}]. RISK-FIRST items: [{high-risk tasks moved early}].",
+  thoughtNumber: 2,
+  totalThoughts: 4,
+  nextThoughtNeeded: true,
+  hypothesis: "Optimal sequence minimizes blocking, critical path is {N} tasks",
+  confidence: "high"
+})
+```
+
+**Step 3: VALIDATE - Verify correctness**
+
+```javascript
+mcp__sequential-thinking__sequentialthinking({
+  thought: "VALIDATION of task breakdown. CHECKLIST: [ ] All user stories have complete coverage? [ ] No circular dependencies? [ ] Each task depends only on earlier levels? [ ] Every task 1-2 days? [ ] TDD pattern (tests in DoD)? [ ] Critical path documented? ISSUES: [{list}]. FIXES: [{applied changes}].",
+  thoughtNumber: 3,
+  totalThoughts: 4,
+  nextThoughtNeeded: true,
+  isRevision: true,
+  revisesThought: 1,
+  hypothesis: "Task breakdown valid after {N} fixes",
+  confidence: "high"
+})
+```
+
+**Step 4: FINALIZE - Produce deliverable**
+
+```javascript
+mcp__sequential-thinking__sequentialthinking({
+  thought: "FINALIZATION. SUMMARY: {total} tasks across {levels} levels. HIGH-RISK requiring attention: [{task}: {context}]. PARALLEL PLAN: [{concurrent task groups}]. MVP SCOPE: [{minimum for first deliverable}]. MILESTONES: [{demonstrable progress points}].",
+  thoughtNumber: 4,
+  totalThoughts: 4,
+  nextThoughtNeeded: false,
+  hypothesis: "Task breakdown complete, ready for sprint planning",
+  confidence: "high"
+})
+```
+
+### Checkpoint for Complex Features (Rule of 5)
+
+For features with 10+ tasks, invoke T-CHECKPOINT every 5 thoughts:
+
+```javascript
+mcp__sequential-thinking__sequentialthinking({
+  thought: "CHECKPOINT at thought {N}. LEVELS DEFINED: {count}. TASKS SO FAR: {count}. REMAINING STORIES: {list}. ISSUES FOUND: {list}. ESTIMATE: {totalThoughts} {adequate|needs extension}.",
+  thoughtNumber: 5,
+  totalThoughts: 10,
+  nextThoughtNeeded: true,
+  needsMoreThoughts: false,
+  hypothesis: "Decomposition {X}% complete",
+  confidence: "medium"
+})
+```
+
+### When ST is Unavailable
+
+If `mcp__sequential-thinking__sequentialthinking` is not available, use structured markdown reasoning with the same flow:
+
+```markdown
+## Task Decomposition
+
+### 1. DECOMPOSE
+- Level 0: [zero-dependency items]
+- Level 1: [depends on L0]
+- Level 2+: [per-story subproblems]
+
+### 2. SEQUENCE
+- Implementation strategy: {choice} because {rationale}
+- Critical path: [list]
+- Risk-first items: [list]
+
+### 3. VALIDATE
+- [ ] All stories covered?
+- [ ] No circular dependencies?
+- [ ] Tasks 1-2 days each?
+- [ ] TDD respected?
+
+### 4. FINALIZE
+- Total tasks: N
+- High-risk tasks: [list with context]
+- MVP scope: [first deliverable]
+```
+
+---
+
 ## Task Breakdown Strategy
 
 **Vertical Slicing**

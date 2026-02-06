@@ -135,12 +135,12 @@ response = mcp__pal__consensus({
     PLAN SUMMARY:
     {FULL_PLAN_CONTENT}
 
-    Score dimensions (1-5 each, weighted):
-    1. Problem Understanding (20%) - Clear problem statement, root cause, scope
-    2. Architecture Quality (25%) - Sound design, appropriate patterns
-    3. Risk Mitigation (20%) - Risks identified, mitigations planned
-    4. Implementation Clarity (20%) - Clear steps, dependencies mapped
-    5. Feasibility (15%) - Realistic scope, resource considerations
+    Score dimensions (max 20 total):
+    1. Problem Understanding (20%) - score 1-4 - Clear problem statement, root cause, scope
+    2. Architecture Quality (25%) - score 1-5 - Sound design, appropriate patterns
+    3. Risk Mitigation (20%) - score 1-4 - Risks identified, mitigations planned
+    4. Implementation Clarity (20%) - score 1-4 - Clear steps, dependencies mapped
+    5. Feasibility (15%) - score 1-3 - Realistic scope, resource considerations
   """,
   step_number: 1,
   total_steps: 4,  // Initial analysis + 3 model responses

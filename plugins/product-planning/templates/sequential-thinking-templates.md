@@ -19,6 +19,9 @@ Templates are organized by planning phase and loaded on-demand during structured
 | Revision | T-RISK-REVISION | 1 | Phase 7 reconciliation (when ThinkDeep contradicts) |
 | Red Team | T-RISK-REDTEAM series | 2 | Phase 7 Complete/Advanced (adversarial analysis) |
 | TAO Analysis | T-AGENT series | 3 | After MPA in Phases 2, 4, 7 (structured pause) |
+| Dynamic Extension | T-EXTENSION | 1 | When complexity exceeds initial estimates |
+| Checkpoint | T-CHECKPOINT | 1 | Every 5 thoughts (Rule of 5) |
+| Task Decomposition | T-TASK series | 4 | Tech-lead task breakdown (Least-to-Most) |
 
 ---
 
@@ -814,13 +817,15 @@ Key Outputs:
 
 | Agent | Uses Templates | Purpose |
 |-------|---------------|---------|
-| code-explorer | T4-T6 | Codebase analysis |
-| software-architect | T7-T10, T7a-T8 (Fork-Join) | Architecture design |
-| tech-lead | T1-T3, T11-T13 | Decomposition and risk |
-| orchestrator | T14-T16, T-AGENT series | Validation and synthesis |
-| qa-strategist | T-RISK-1 to T-RISK-3, T-RISK-REVISION, T-RISK-REDTEAM series | Test risk analysis (Phase 7) |
-| qa-security | T-RISK-1, T-RISK-2, T-RISK-REDTEAM | Security-focused test planning |
-| qa-performance | T-RISK-1, T-RISK-2 | Performance-focused test planning |
+| code-explorer | T4-T6, T-AGENT series, T-CHECKPOINT | Codebase analysis with TAO synthesis |
+| software-architect | T7-T10, T7a-T8 (Fork-Join), T11-T13, T-CHECKPOINT | Architecture design with risk assessment |
+| tech-lead | T1-T3, T-TASK series, T-CHECKPOINT | Problem decomposition and task breakdown |
+| orchestrator | T14-T16, T-AGENT series, T-CHECKPOINT | Validation and synthesis |
+| qa-strategist | T-RISK-1 to T-RISK-3, T-RISK-REVISION, T-RISK-REDTEAM series, T-CHECKPOINT | Test risk analysis (Phase 7) |
+| qa-security | T-RISK-1, T-RISK-2, T-RISK-REDTEAM, T-CHECKPOINT | Security-focused test planning |
+| qa-performance | T-RISK-1, T-RISK-2, T-CHECKPOINT | Performance-focused test planning |
+
+**Note:** T-CHECKPOINT is used by ALL agents for chains of 5+ thoughts following the Rule of 5.
 
 ### ST Feature Availability by Mode
 
@@ -837,6 +842,227 @@ Key Outputs:
 | Red Team (T-RISK-REDTEAM) | ❌ | ❌ | ✅ | ✅ |
 | TAO Loop (T-AGENT series) | ❌ | ✅ | ✅ | ✅ |
 | Dynamic Extension (T-EXTENSION) | ❌ | ❌ | ❌ | ✅ |
+| Checkpoint (T-CHECKPOINT) | ❌ | ✅ | ✅ | ✅ |
+| Task Decomposition (T-TASK series) | ❌ | ❌ | ✅ | ✅ |
+
+---
+
+## Group 12: Checkpoint Management (T-CHECKPOINT)
+
+Checkpoint templates consolidate progress every 5 thoughts to prevent cognitive drift and ensure chain coherence. Following the "Rule of 5" from ST best practices.
+
+### T-CHECKPOINT
+
+```json
+{
+  "thought": "CHECKPOINT at thought {N}. PROGRESS SUMMARY: [key findings so far]. HYPOTHESES STATUS: Confirmed: [list], Rejected: [list], Open: [list]. REMAINING INVESTIGATION: [open questions]. NEXT PLANNED STEP: [specific next action]. CONFIDENCE TREND: {increasing|stable|decreasing}. ESTIMATE CHECK: Current {totalThoughts} {adequate|needs extension}.",
+  "thoughtNumber": 5,
+  "totalThoughts": 10,
+  "nextThoughtNeeded": true,
+  "needsMoreThoughts": false,
+  "hypothesis": "On track with {X}% progress, {Y} open items remain",
+  "confidence": "medium"
+}
+```
+
+**Purpose:** Create mental buffer clear, consolidating findings and freeing cognitive space for next analysis phase.
+
+**When to Invoke:**
+- Every 5 thoughts in any chain
+- When switching between analysis phases
+- Before major branching decisions
+- When confidence drops significantly
+
+**Checkpoint Content Requirements:**
+1. **Progress Summary:** What has been definitively established
+2. **Hypothesis Status:** Track which hypotheses are confirmed/rejected/open
+3. **Remaining Work:** Clear list of what still needs investigation
+4. **Next Step:** Explicit plan for continuing
+5. **Estimate Adjustment:** Whether `totalThoughts` needs updating
+
+**Integration Rule:** Any agent using ST chains of 5+ thoughts MUST include T-CHECKPOINT.
+
+---
+
+## Group 13: Task Decomposition (T-TASK Series)
+
+Task decomposition templates support Least-to-Most problem breakdown for tech-lead agent. Structures the process of breaking features into ordered, dependency-respecting tasks.
+
+### T-TASK-DECOMPOSE
+
+```json
+{
+  "thought": "DECOMPOSITION of {FEATURE_NAME}. LEVEL 0 (zero dependencies): [config, types, schemas, interfaces - list specific items]. LEVEL 1 (depends only on L0): [utilities, base models, test fixtures - list specific items]. LEVEL 2+ (per user story): [story-specific subproblems in dependency order]. DEPENDENCY CHAIN: L0 → L1 → L2 → ... → Complete feature. PARALLEL OPPORTUNITIES at each level: [tasks that can run concurrently].",
+  "thoughtNumber": 1,
+  "totalThoughts": 4,
+  "nextThoughtNeeded": true,
+  "hypothesis": "Feature decomposes into {N} levels with {M} tasks, {P} parallel opportunities",
+  "confidence": "medium"
+}
+```
+
+**Purpose:** Establish the Least-to-Most decomposition chain before creating individual tasks.
+
+**Key Outputs:**
+- Level assignments for all subproblems
+- Dependency relationships between levels
+- Parallel execution opportunities within each level
+
+---
+
+### T-TASK-SEQUENCE
+
+```json
+{
+  "thought": "SEQUENCING tasks within levels. IMPLEMENTATION STRATEGY: {top-down|bottom-up|mixed} because {rationale}. LEVEL 0 ORDER: [ordered list]. LEVEL 1 ORDER: [ordered list]. LEVEL 2+ ORDER (per story): [ordered list]. CRITICAL PATH: [tasks that determine minimum completion time]. RISK-FIRST items moved early: [high-risk tasks placed in early positions].",
+  "thoughtNumber": 2,
+  "totalThoughts": 4,
+  "nextThoughtNeeded": true,
+  "hypothesis": "Optimal sequence minimizes blocking, critical path is {N} tasks",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Order tasks within each level following TDD and risk-first principles.
+
+**Sequencing Rules:**
+1. Test infrastructure before features needing tests
+2. High-risk/uncertainty tasks early for fast feedback
+3. Blocking dependencies before dependent tasks
+4. Parallel opportunities grouped for team distribution
+
+---
+
+### T-TASK-VALIDATE
+
+```json
+{
+  "thought": "VALIDATION of task breakdown. CHECKING: [ ] All user stories have complete task coverage? [ ] No circular dependencies exist? [ ] Each task depends only on earlier levels? [ ] Every task completable in 1-2 days? [ ] TDD pattern respected (tests in DoD)? [ ] Critical path correctly identified? ISSUES FOUND: [list]. FIXES APPLIED: [list].",
+  "thoughtNumber": 3,
+  "totalThoughts": 4,
+  "nextThoughtNeeded": true,
+  "isRevision": true,
+  "revisesThought": 1,
+  "hypothesis": "Task breakdown valid after {N} fixes applied",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Verify task breakdown before delivery, applying fixes for any issues found.
+
+**Validation Checklist:**
+- [ ] All user stories from spec have tasks
+- [ ] No forward dependencies (task referencing later task)
+- [ ] No circular dependencies
+- [ ] Tasks sized appropriately (1-2 days)
+- [ ] Test infrastructure in Level 0-1
+- [ ] Every task has DoD including tests
+- [ ] Critical path documented
+
+---
+
+### T-TASK-FINALIZE
+
+```json
+{
+  "thought": "FINALIZATION of task breakdown. SUMMARY: {total_tasks} tasks across {levels} levels. HIGH-RISK TASKS requiring attention: [list with context]. PARALLEL EXECUTION PLAN: [which tasks can run concurrently per level]. MVP SCOPE: [minimum tasks for first deliverable]. INCREMENTAL MILESTONES: [demonstrable progress points].",
+  "thoughtNumber": 4,
+  "totalThoughts": 4,
+  "nextThoughtNeeded": false,
+  "hypothesis": "Task breakdown complete and ready for sprint planning",
+  "confidence": "high"
+}
+```
+
+**Purpose:** Produce final task breakdown with clear next steps and risk callouts.
+
+**Required Outputs:**
+- Total task count and level distribution
+- Flagged high-risk tasks with context
+- Parallel execution recommendations
+- MVP scope identification
+- Incremental milestones
+
+---
+
+## Termination Criteria by Template Group
+
+Each template group has explicit criteria for when to set `nextThoughtNeeded: false`.
+
+### Problem Decomposition (T1-T3) Termination
+
+Set `nextThoughtNeeded: false` after T3 when ALL are true:
+- ✅ Feature understood with explicit/implicit requirements listed
+- ✅ Scope boundaries defined (IN/OUT/ASSUMES/DEPENDS)
+- ✅ Atomic and composite subproblems identified
+- ✅ Execution order determined based on dependencies
+
+### Codebase Analysis (T4-T6) Termination
+
+Set `nextThoughtNeeded: false` after T6 when ALL are true:
+- ✅ Existing patterns identified with file:line references
+- ✅ Integration points mapped with data flows
+- ✅ Technical constraints documented
+- ✅ Similar features found and analyzed
+
+### Architecture Design (T7-T10) Termination
+
+Set `nextThoughtNeeded: false` after T10 when ALL are true:
+- ✅ One approach selected with documented rationale
+- ✅ All components have defined file paths and interfaces
+- ✅ Integration points mapped to existing code
+- ✅ Acceptance criteria mapped to components
+- ✅ Self-critique passed (5/5 questions verified)
+
+### Fork-Join Architecture (T7a-T8) Termination
+
+Set `nextThoughtNeeded: false` after T8_SYNTHESIS when ALL are true:
+- ✅ All three branches explored (minimal, clean, pragmatic)
+- ✅ Comparative scores documented
+- ✅ Winner selected with explicit rationale
+- ✅ Best elements from other branches considered for merge
+
+### Risk Assessment (T11-T13) Termination
+
+Set `nextThoughtNeeded: false` after T13 when ALL are true:
+- ✅ Risks identified across all categories (technical, integration, schedule, security)
+- ✅ Priority matrix applied (probability × impact)
+- ✅ Critical risks have mitigation strategies
+- ✅ Residual risks documented with justification
+
+### Plan Validation (T14-T16) Termination
+
+Set `nextThoughtNeeded: false` after T16 when ALL are true:
+- ✅ Completeness check passed
+- ✅ Internal consistency verified (spec↔design↔tasks)
+- ✅ Feasibility assessed (technical, schedule, resource)
+- ✅ Clear recommendation (PROCEED/REVISE/BLOCK)
+
+### Test Risk Analysis (T-RISK-1 to T-RISK-3) Termination
+
+Set `nextThoughtNeeded: false` after T-RISK-3 when ALL are true:
+- ✅ Failure modes identified across all categories
+- ✅ Risks prioritized by severity
+- ✅ Each Critical/High risk mapped to test IDs
+- ✅ Coverage matrix complete with no gaps
+- ✅ Phase 5 reconciliation addressed (if applicable)
+
+### TAO Loop (T-AGENT series) Termination
+
+Set `nextThoughtNeeded: false` after T-AGENT-VALIDATION when ALL are true:
+- ✅ Agent outputs categorized (convergent/divergent/gaps)
+- ✅ Handling strategy defined for each category
+- ✅ Validation checklist passed
+- ✅ No unresolved conflicts flagged
+
+### Task Decomposition (T-TASK series) Termination
+
+Set `nextThoughtNeeded: false` after T-TASK-FINALIZE when ALL are true:
+- ✅ All levels defined with dependency chains
+- ✅ Sequencing optimized for parallel execution
+- ✅ Validation checklist passed (no circular deps, proper sizing)
+- ✅ High-risk tasks flagged with context
+- ✅ MVP scope identified
 
 ---
 
