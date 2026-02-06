@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Planning Skill Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+    --border: #30363d; --text: #c9d1d9; --text-dim: #8b949e;
+    --accent: #58a6ff; --accent2: #3fb950; --accent3: #d29922;
+    --red: #f85149; --purple: #bc8cff; --pink: #f778ba;
+    --radius: 8px; --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+  .app { display: grid; grid-template-columns: 320px 1fr; grid-template-rows: auto 1fr auto; height: 100vh; }
+  .header { grid-column: 1 / -1; padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header .subtitle { color: var(--text-dim); font-size: 13px; }
+  .sidebar { overflow-y: auto; background: var(--surface); border-right: 1px solid var(--border); padding: 16px; }
+  .main { overflow-y: auto; padding: 24px; }
+  .prompt-bar { grid-column: 1 / -1; background: var(--surface); border-top: 1px solid var(--border); padding: 16px 24px; }
+  .control-group { margin-bottom: 20px; }
+  .control-group h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  select { width: 100%; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; font-size: 13px; font-family: var(--mono); }
+  select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
+  .toggle input { display: none; }
+  .toggle .switch { width: 32px; height: 18px; border-radius: 9px; background: var(--surface2); border: 1px solid var(--border); position: relative; transition: 0.2s; flex-shrink: 0; }
+  .toggle .switch::after { content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--text-dim); top: 2px; left: 2px; transition: 0.2s; }
+  .toggle input:checked + .switch { background: var(--accent); border-color: var(--accent); }
+  .toggle input:checked + .switch::after { left: 16px; background: #fff; }
+  .preset-btn { display: inline-block; padding: 4px 10px; margin: 2px; font-size: 11px; font-family: var(--mono); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text-dim); cursor: pointer; transition: 0.15s; }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { border-color: var(--accent); background: rgba(88,166,255,0.1); color: var(--accent); }
+  .phase-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; transition: 0.25s; cursor: pointer; }
+  .phase-card.active { border-color: var(--accent); box-shadow: 0 0 12px rgba(88,166,255,0.15); }
+  .phase-card.skipped { opacity: 0.35; border-style: dashed; }
+  .phase-card:hover:not(.skipped) { border-color: var(--accent); background: rgba(88,166,255,0.03); }
+  .phase-num { font-size: 10px; font-family: var(--mono); color: var(--text-dim); margin-bottom: 2px; }
+  .phase-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .phase-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .badge { font-size: 10px; font-family: var(--mono); padding: 2px 6px; border-radius: 3px; }
+  .badge.agent { background: rgba(59,130,246,0.15); color: #58a6ff; border: 1px solid rgba(59,130,246,0.25); }
+  .badge.st { background: rgba(188,140,255,0.15); color: #bc8cff; border: 1px solid rgba(188,140,255,0.25); }
+  .badge.pal { background: rgba(247,120,186,0.15); color: #f778ba; border: 1px solid rgba(247,120,186,0.25); }
+  .badge.mcp { background: rgba(210,153,34,0.15); color: #d29922; border: 1px solid rgba(210,153,34,0.25); }
+  .badge.gate { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.25); }
+  .badge.flag { background: rgba(248,81,73,0.15); color: #f85149; border: 1px solid rgba(248,81,73,0.25); }
+  .connector { display: flex; justify-content: center; align-items: center; height: 20px; }
+  .connector-arrow { width: 2px; height: 20px; background: var(--border); position: relative; }
+  .connector-arrow::after { content: ''; position: absolute; bottom: 0; left: -4px; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--border); }
+  .connector.on .connector-arrow { background: var(--accent); }
+  .connector.on .connector-arrow::after { border-top-color: var(--accent); }
+  .details-section { margin-top: 10px; background: var(--surface2); border-radius: 4px; padding: 10px 12px; }
+  .details-section h4 { font-size: 11px; color: var(--accent); margin-bottom: 6px; }
+  .details-section ul { list-style: none; padding: 0; }
+  .details-section li { font-size: 11px; color: var(--text-dim); padding: 2px 0; padding-left: 12px; position: relative; }
+  .details-section li::before { content: '\2192'; position: absolute; left: 0; color: var(--border); }
+  .vmodel-tag { font-size: 10px; color: var(--accent2); margin-top: 6px; font-family: var(--mono); }
+  .stats-bar { display: flex; gap: 24px; padding: 8px 0; flex-wrap: wrap; }
+  .stat { text-align: center; }
+  .stat .val { font-size: 20px; font-weight: 700; font-family: var(--mono); color: var(--accent); }
+  .stat .lbl { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .cost-bar { height: 6px; border-radius: 3px; background: var(--surface2); margin-top: 4px; overflow: hidden; }
+  .cost-fill { height: 100%; border-radius: 3px; transition: 0.3s; }
+  .cost-fill.low { background: var(--accent2); }
+  .cost-fill.med { background: var(--accent3); }
+  .cost-fill.high { background: var(--red); }
+  .prompt-output { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--text); max-height: 140px; overflow-y: auto; white-space: pre-wrap; }
+  .copy-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 14px; font-size: 12px; color: var(--accent); cursor: pointer; font-family: var(--mono); transition: 0.15s; margin-top: 8px; float: right; }
+  .copy-btn:hover { background: rgba(88,166,255,0.1); }
+  .copy-btn.copied { color: var(--accent2); border-color: var(--accent2); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-dim); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .legend-dot.c-agent { background: rgba(59,130,246,0.5); }
+  .legend-dot.c-st { background: rgba(188,140,255,0.5); }
+  .legend-dot.c-pal { background: rgba(247,120,186,0.5); }
+  .legend-dot.c-mcp { background: rgba(210,153,34,0.5); }
+  .legend-dot.c-gate { background: rgba(63,185,80,0.5); }
+  .legend-dot.c-flag { background: rgba(248,81,73,0.5); }
+  .tab-bar { display: flex; gap: 2px; margin-bottom: 16px; background: var(--surface); border-radius: var(--radius); padding: 3px; }
+  .tab { flex: 1; text-align: center; padding: 8px; font-size: 12px; font-family: var(--mono); border-radius: 6px; cursor: pointer; color: var(--text-dim); transition: 0.15s; }
+  .tab.active { background: var(--surface2); color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .tab-content { display: none; }
+  .tab-content.visible { display: block; }
+  .list-item { font-size: 12px; font-family: var(--mono); padding: 6px 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+  .list-item:last-child { border-bottom: none; }
+  .list-item.inactive { opacity: 0.35; }
+  .item-name { color: var(--accent); }
+  .item-meta { color: var(--text-dim); font-size: 10px; }
+  .flag-item { font-size: 12px; padding: 5px 0; display: flex; align-items: center; gap: 6px; }
+  .flag-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .flag-dot.on { background: var(--accent2); }
+  .flag-dot.off { background: var(--red); }
+
+  /* Config tab styles */
+  .cfg-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+  .cfg-header { padding: 12px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.15s; }
+  .cfg-header:hover { background: rgba(88,166,255,0.03); }
+  .cfg-header .cfg-chevron { font-size: 10px; color: var(--text-dim); transition: 0.2s; display: inline-block; width: 14px; flex-shrink: 0; }
+  .cfg-header .cfg-chevron.open { transform: rotate(90deg); }
+  .cfg-header .cfg-title { font-size: 13px; font-weight: 600; }
+  .cfg-header .cfg-path { font-size: 10px; font-family: var(--mono); color: var(--text-dim); margin-left: auto; }
+  .cfg-body { display: none; border-top: 1px solid var(--border); }
+  .cfg-body.open { display: block; }
+  .cfg-explain { padding: 12px 16px; font-size: 12px; color: var(--text-dim); line-height: 1.6; border-bottom: 1px solid var(--border); }
+  .cfg-explain strong { color: var(--text); }
+  .cfg-explain code { font-family: var(--mono); font-size: 11px; background: var(--surface2); padding: 1px 5px; border-radius: 3px; color: var(--accent); }
+  .cfg-kv-list { padding: 0; }
+  .cfg-kv { display: flex; align-items: baseline; padding: 6px 16px; border-bottom: 1px solid var(--border); font-size: 12px; gap: 12px; }
+  .cfg-kv:last-child { border-bottom: none; }
+  .cfg-kv .cfg-key { font-family: var(--mono); color: var(--purple); min-width: 200px; flex-shrink: 0; font-size: 11px; }
+  .cfg-kv .cfg-val { font-family: var(--mono); font-size: 11px; }
+  .cfg-kv .cfg-val.active { color: var(--accent2); }
+  .cfg-kv .cfg-val.inactive { color: var(--text-dim); }
+  .cfg-kv .cfg-val.warn { color: var(--accent3); }
+  .cfg-kv .cfg-note { color: var(--text-dim); font-size: 10px; margin-left: 8px; }
+  .cfg-sub { padding: 8px 16px; }
+  .cfg-sub-title { font-size: 11px; font-weight: 600; color: var(--accent3); margin: 8px 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+  .cfg-matrix { width: 100%; border-collapse: collapse; margin: 6px 0 10px 0; }
+  .cfg-matrix th, .cfg-matrix td { font-size: 11px; font-family: var(--mono); padding: 4px 8px; border: 1px solid var(--border); text-align: center; }
+  .cfg-matrix th { color: var(--text-dim); background: var(--surface2); font-weight: 500; }
+  .cfg-matrix td.highlight { background: rgba(88,166,255,0.1); color: var(--accent); font-weight: 600; }
+  .cfg-matrix td.dim { color: var(--text-dim); opacity: 0.5; }
+  .cfg-tip { display: flex; gap: 8px; padding: 8px 12px; margin: 8px 16px 12px; background: rgba(88,166,255,0.05); border: 1px solid rgba(88,166,255,0.15); border-radius: 4px; font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+  .cfg-tip .tip-icon { color: var(--accent); flex-shrink: 0; font-size: 13px; }
+  .cfg-interaction { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 16px 10px; }
+  .cfg-interaction .cfg-affects { font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>/product-planning:plan</h1>
+      <div class="subtitle">9-Phase Feature Planning Workflow (+ 6b Expert Review) with V-Model Test Strategy</div>
+    </div>
+    <div style="margin-left:auto;">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot c-agent"></div>Agent</div>
+        <div class="legend-item"><div class="legend-dot c-st"></div>Seq. Thinking</div>
+        <div class="legend-item"><div class="legend-dot c-pal"></div>PAL MCP</div>
+        <div class="legend-item"><div class="legend-dot c-mcp"></div>Research MCP</div>
+        <div class="legend-item"><div class="legend-dot c-gate"></div>Quality Gate</div>
+        <div class="legend-item"><div class="legend-dot c-flag"></div>Feature Flag</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="control-group">
+      <h3>Analysis Mode</h3>
+      <select id="mode-select" onchange="updateAll()">
+        <option value="complete">Complete ($0.80-1.50)</option>
+        <option value="advanced">Advanced ($0.45-0.75)</option>
+        <option value="standard" selected>Standard ($0.15-0.30)</option>
+        <option value="rapid">Rapid ($0.05-0.12)</option>
+      </select>
+      <div class="cost-bar"><div class="cost-fill" id="cost-fill"></div></div>
+    </div>
+    <div class="control-group">
+      <h3>Presets</h3>
+      <div id="preset-container"></div>
+    </div>
+    <div class="control-group">
+      <h3>MCP Availability</h3>
+      <label class="toggle"><input type="checkbox" id="mcp-st" checked onchange="updateAll()"><span class="switch"></span><span>Sequential Thinking</span></label>
+      <label class="toggle"><input type="checkbox" id="mcp-pal" checked onchange="updateAll()"><span class="switch"></span><span>PAL (ThinkDeep/Consensus)</span></label>
+      <label class="toggle"><input type="checkbox" id="mcp-research" checked onchange="updateAll()"><span class="switch"></span><span>Research (Context7/Ref/Tavily)</span></label>
+    </div>
+    <div class="control-group">
+      <h3>Feature Flags</h3>
+      <div id="flags-container"></div>
+    </div>
+    <div class="control-group">
+      <h3>Risk Level</h3>
+      <select id="risk-select" onchange="updateAll()">
+        <option value="low">Low (simple feature)</option>
+        <option value="medium" selected>Medium (API/integration)</option>
+        <option value="high">High (auth/payments/PII)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="stats-bar" id="stats-bar"></div>
+    <div class="tab-bar" id="tab-bar"></div>
+    <div id="tab-workflow" class="tab-content visible"></div>
+    <div id="tab-artifacts" class="tab-content"></div>
+    <div id="tab-agents" class="tab-content"></div>
+    <div id="tab-flags" class="tab-content"></div>
+    <div id="tab-config" class="tab-content"></div>
+  </div>
+
+  <div class="prompt-bar">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span style="font-size:11px; color:var(--text-dim); font-family:var(--mono);">CONFIGURATION SUMMARY</span>
+      <button class="copy-btn" id="copy-btn" onclick="copyPrompt()">Copy</button>
+    </div>
+    <div class="prompt-output" id="prompt-output"></div>
+  </div>
+</div>
+
+<script>
+// ── Utility: safe element creation ──────────────────────────────────
+function el(tag, attrs, children) {
+  const e = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k,v]) => {
+    if (k === 'class') e.className = v;
+    else if (k === 'onclick') e.addEventListener('click', v);
+    else if (k === 'onchange') e.addEventListener('change', v);
+    else if (k === 'checked') { if (v) e.checked = true; }
+    else if (k === 'type') e.type = v;
+    else if (k === 'id') e.id = v;
+    else if (k === 'style') e.style.cssText = v;
+    else e.setAttribute(k, v);
+  });
+  if (children != null) {
+    if (typeof children === 'string') e.textContent = children;
+    else if (Array.isArray(children)) children.forEach(c => { if (c) e.appendChild(c); });
+    else e.appendChild(children);
+  }
+  return e;
+}
+
+// ── State ───────────────────────────────────────────────────────────
+const state = {
+  mode: 'standard', risk: 'medium',
+  mcpSt: true, mcpPal: true, mcpResearch: true,
+  flags: {
+    s1:true, s2:true, s3:false, s4:false, s5:false, s6:false,
+    a1:false, a2:true, a3:true, a4:false, a5:true,
+    stFork:false, stRevision:false, stRedteam:false, stTao:true, stDynExt:false, stAgentInv:false, stChk:true, stTask:true
+  },
+  selectedPhase: null, activeTab: 'workflow'
+};
+
+// ── Data ────────────────────────────────────────────────────────────
+const FLAG_DEFS = [
+  { key:'s1', label:'S1 Self-Critique', id:'flag-s1' },
+  { key:'s2', label:'S2 CoT Prefix', id:'flag-s2' },
+  { key:'s3', label:'S3 Judge Gates', id:'flag-s3' },
+  { key:'s4', label:'S4 Adaptive Strategy', id:'flag-s4' },
+  { key:'s5', label:'S5 ToT Architecture', id:'flag-s5' },
+  { key:'s6', label:'S6 Multi-Judge Debate', id:'flag-s6' },
+  { key:'a1', label:'A1 Flow Analysis', id:'flag-a1' },
+  { key:'a2', label:'A2 Learnings Researcher', id:'flag-a2' },
+  { key:'a3', label:'A3 Adaptive Depth', id:'flag-a3' },
+  { key:'a4', label:'A4 Expert Review', id:'flag-a4' },
+  { key:'a5', label:'A5 Post-Planning Menu', id:'flag-a5' },
+  { key:'stFork', label:'ST Fork-Join Arch', id:'flag-st-fork' },
+  { key:'stRevision', label:'ST Revision Reconcile', id:'flag-st-revision' },
+  { key:'stRedteam', label:'ST Red Team', id:'flag-st-redteam' },
+  { key:'stTao', label:'ST TAO Loops', id:'flag-st-tao' },
+  { key:'stDynExt', label:'ST Dynamic Extension', id:'flag-st-dynext' },
+  { key:'stAgentInv', label:'ST Agent Invocation', id:'flag-st-agentinv' },
+  { key:'stChk', label:'ST Checkpoint (Rule of 5)', id:'flag-st-chk' },
+  { key:'stTask', label:'ST Task Decomp', id:'flag-st-task' }
+];
+
+const PHASES = [
+  { id:1, name:'Setup & Init', checkpoint:'SETUP',
+    desc:'Verify prereqs, detect branch, check MCP, select mode, acquire lock',
+    modes:['rapid','standard','advanced','complete'],
+    agents:[], st:[], pal:[], mcp:[], gates:[], flags:[],
+    details:['Check spec.md & constitution.md exist','Detect git branch to feature dir','MCP availability scan','Auto-suggest mode from spec analysis','Acquire planning lock'] },
+  { id:2, name:'Research & Exploration', checkpoint:'RESEARCH',
+    desc:'Codebase analysis, technology research, institutional knowledge',
+    modes:['rapid','standard','advanced','complete'],
+    agents:[{name:'code-explorer',modes:['standard','advanced','complete']},{name:'researcher',modes:['standard','advanced','complete']},{name:'learnings-researcher',modes:['standard','advanced','complete'],flag:'a2'},{name:'flow-analyzer',modes:['complete'],flag:'a1'}],
+    st:[{name:'T4-T6 Codebase',modes:['complete']},{name:'TAO Loop',modes:['standard','advanced','complete'],flag:'stTao'},{name:'Checkpoint',modes:['standard','advanced','complete'],flag:'stChk'}],
+    pal:[], mcp:[{name:'Context7/Ref/Tavily',modes:['advanced','complete'],needsRes:true}],
+    gates:[{name:'Research Completeness',modes:['advanced','complete'],flag:'s3'}],
+    flags:['a1','a2','a3','stChk'],
+    details:['Load spec.md + constitution.md','Adaptive research depth (A3)','Research MCP doc lookup','Launch code-explorer agents (MPA)','Launch learnings-researcher (A2)','User flow analysis (A1, Complete only)','TAO Loop synthesis','ST Checkpoint (Rule of 5)','Consolidate to research.md','Quality Gate: Research Completeness'] },
+  { id:3, name:'Clarifying Questions', checkpoint:'CLARIFICATION',
+    desc:'Generate & collect user responses for scope, edge cases, preferences',
+    modes:['rapid','standard','advanced','complete'],
+    agents:[], st:[{name:'T1-T3 Decomposition',modes:['complete']}], pal:[], mcp:[], gates:[], flags:[],
+    details:['ST T1-T3 problem decomposition (Complete)','Generate questions: scope, edge cases, errors','BLOCKING: wait for all answers','Save decisions as IMMUTABLE'] },
+  { id:4, name:'Architecture Design', checkpoint:'ARCHITECTURE',
+    desc:'MPA architecture options, Fork-Join exploration, risk assessment',
+    modes:['standard','advanced','complete'],
+    agents:[{name:'software-architect x3',modes:['standard','advanced','complete']},{name:'wildcard-architect',modes:['complete'],flag:'s5'},{name:'arch-pruning-judge',modes:['complete'],flag:'s5'}],
+    st:[{name:'T7-T10 Architecture',modes:['complete']},{name:'Fork-Join T7a-T8',modes:['complete'],flag:'stFork'},{name:'T11-T13 Risk',modes:['advanced','complete']},{name:'TAO Loop',modes:['standard','advanced','complete'],flag:'stTao'},{name:'Checkpoint',modes:['standard','advanced','complete'],flag:'stChk'}],
+    pal:[], mcp:[{name:'Context7/Ref patterns',modes:['advanced','complete'],needsRes:true}],
+    gates:[{name:'Architecture Quality',modes:['advanced','complete'],flag:'s3'}],
+    flags:['s4','s5','stFork','stTao','stChk'],
+    details:['Research MCP: framework patterns','Launch 3 MPA architect agents','Wildcard architect (S5 ToT, Complete)','Architecture pruning judge (S5, Complete)','TAO Loop for agent synthesis','Fork-Join ST branching (Complete)','Risk assessment T11-T13 per option','ST Checkpoint (Rule of 5)','Present comparison table','Adaptive Strategy S4 selection','Quality Gate: Architecture Quality'] },
+  { id:5, name:'PAL ThinkDeep', checkpoint:'THINKDEEP',
+    desc:'Multi-model analysis: performance, maintainability, security',
+    modes:['advanced','complete'],
+    agents:[], st:[], pal:[{name:'ThinkDeep x9',modes:['complete']},{name:'ThinkDeep x6',modes:['advanced']}], mcp:[], gates:[], flags:[],
+    details:['Verify model availability via PAL listModels','Performance perspective (3 models)','Maintainability perspective (Complete only)','Security perspective (3 models)','Synthesize convergent vs divergent insights','Present findings for user decision'] },
+  { id:6, name:'Plan Validation', checkpoint:'VALIDATION',
+    desc:'PAL Consensus scoring, groupthink detection',
+    modes:['standard','advanced','complete'],
+    agents:[],
+    st:[{name:'T14-T16 Validation',modes:['complete']}],
+    pal:[{name:'Consensus (3 models)',modes:['complete']},{name:'Challenge (groupthink)',modes:['complete']},{name:'Debate (S6)',modes:['complete'],flag:'s6'}],
+    mcp:[], gates:[], flags:['s6'],
+    details:['PAL Consensus: 3 stances (neutral/for/against)','Score: 20pts across 5 dimensions','GREEN >=16, YELLOW >=12, RED <12','Groupthink detection via PAL Challenge','Multi-round debate (S6, Complete)','RED returns to Phase 4 for revision','Fallback: ST T14-T16 internal validation'] },
+  { id:'6b', name:'Expert Review', checkpoint:'EXPERT_REVIEW',
+    desc:'Security and simplicity expert review (A4 flag)',
+    modes:['advanced','complete'],
+    agents:[{name:'security-analyst',modes:['advanced','complete'],flag:'a4'},{name:'simplicity-reviewer',modes:['advanced','complete'],flag:'a4'}],
+    st:[], pal:[], mcp:[],
+    gates:[],
+    flags:['a4'],
+    details:['Blocking security review','Simplicity / over-engineering review','Expert findings feed into Phase 7 test strategy','Only runs when A4 Expert Review flag enabled','Checkpoint: EXPERT_REVIEW'] },
+  { id:7, name:'Test Strategy (V-Model)', checkpoint:'TEST_STRATEGY',
+    desc:'Risk analysis, QA MPA agents, UAT scripts, reconciliation',
+    modes:['rapid','standard','advanced','complete'],
+    agents:[{name:'qa-strategist',modes:['rapid','standard','advanced','complete']},{name:'qa-security',modes:['advanced','complete']},{name:'qa-performance',modes:['advanced','complete']}],
+    st:[{name:'T-RISK-1..3 Analysis',modes:['complete','advanced']},{name:'T-RISK-REVISION',modes:['complete','advanced'],flag:'stRevision'},{name:'T-RISK-REDTEAM',modes:['complete','advanced'],flag:'stRedteam'},{name:'TAO Loop (QA)',modes:['standard','advanced','complete'],flag:'stTao'},{name:'Checkpoint',modes:['standard','advanced','complete'],flag:'stChk'}],
+    pal:[], mcp:[{name:'Testing patterns',modes:['advanced','complete'],needsRes:true}],
+    gates:[{name:'Test Coverage',modes:['advanced','complete'],flag:'s3'}],
+    flags:['stRevision','stRedteam','stTao','stChk'],
+    details:['Research MCP: testing best practices','Risk Analysis: failure modes, prioritization','Launch QA agents (MPA)','Phase 5-7 reconciliation with ST Revision','Red Team adversarial branch','TAO Loop for QA synthesis','ST Checkpoint (Rule of 5)','Generate: unit, integration, e2e, UAT specs','Quality Gate: Test Coverage'] },
+  { id:8, name:'Test Coverage Validation', checkpoint:'TEST_COVERAGE_VALIDATION',
+    desc:'Coverage matrix, PAL Consensus validation',
+    modes:['standard','advanced','complete'],
+    agents:[], st:[], pal:[{name:'Consensus (coverage)',modes:['advanced','complete']}], mcp:[], gates:[], flags:[],
+    details:['Build coverage matrix: AC to tests','PAL Consensus: 5 dimensions (100%)','GREEN >=80%, YELLOW >=65%, RED <65%','RED returns to Phase 7','Fallback: self-assessment checklist'] },
+  { id:9, name:'Task Generation & Completion', checkpoint:'COMPLETION',
+    desc:'TDD-structured tasks, clarification loop, traceability matrix',
+    modes:['rapid','standard','advanced','complete'],
+    agents:[{name:'tech-lead',modes:['rapid','standard','advanced','complete']}],
+    st:[{name:'T-TASK-1..4 Decomp',modes:['complete','advanced','standard'],flag:'stTask'}],
+    pal:[], mcp:[], gates:[], flags:['stTask','a5'],
+    details:['Load all planning + test artifacts','Extract test IDs for TDD integration','Launch tech-lead with ST decomposition','Task clarification loop (max 2 iterations)','Self-critique validation (5 questions)','Generate tasks.md (checklist format)','Task-to-test traceability matrix','Release lock, summary report','Post-planning menu (A5)'] }
+];
+
+const ARTIFACTS = [
+  {name:'.phase-summaries/',phase:'all',modes:['rapid','standard','advanced','complete']},
+  {name:'research.md',phase:2,modes:['standard','advanced','complete']},
+  {name:'design.md',phase:4,modes:['standard','advanced','complete']},
+  {name:'plan.md',phase:4,modes:['rapid','standard','advanced','complete']},
+  {name:'thinkdeep-insights.md',phase:5,modes:['advanced','complete']},
+  {name:'consensus-validation.md',phase:6,modes:['complete']},
+  {name:'expert-review.md',phase:'6b',modes:['advanced','complete'],flag:'a4'},
+  {name:'test-plan.md',phase:7,modes:['rapid','standard','advanced','complete']},
+  {name:'test-cases/unit/',phase:7,modes:['standard','advanced','complete']},
+  {name:'test-cases/integration/',phase:7,modes:['advanced','complete']},
+  {name:'test-cases/e2e/',phase:7,modes:['advanced','complete']},
+  {name:'test-cases/uat/',phase:7,modes:['standard','advanced','complete']},
+  {name:'test-coverage-validation.md',phase:8,modes:['standard','advanced','complete']},
+  {name:'tasks.md',phase:9,modes:['rapid','standard','advanced','complete']},
+  {name:'task-test-traceability.md',phase:9,modes:['standard','advanced','complete']},
+  {name:'data-model.md',phase:4,modes:['standard','advanced','complete']},
+  {name:'contract.md',phase:4,modes:['standard','advanced','complete']}
+];
+
+const ALL_AGENTS = [
+  {name:'code-explorer',role:'Codebase patterns, similar features',phases:[2],modes:['standard','advanced','complete']},
+  {name:'researcher',role:'Technology research, unknowns',phases:[2],modes:['standard','advanced','complete']},
+  {name:'learnings-researcher',role:'Institutional knowledge lookup',phases:[2],modes:['standard','advanced','complete'],flag:'a2'},
+  {name:'flow-analyzer',role:'User flow mapping, permutations',phases:[2],modes:['complete'],flag:'a1'},
+  {name:'software-architect',role:'Architecture options (MPA x3)',phases:[4],modes:['standard','advanced','complete']},
+  {name:'wildcard-architect',role:'Unconstrained exploration (ToT)',phases:[4],modes:['complete'],flag:'s5'},
+  {name:'arch-pruning-judge',role:'ToT option pruning (ranked-choice)',phases:[4],modes:['complete'],flag:'s5'},
+  {name:'phase-gate-judge',role:'Quality gate evaluation',phases:[2,4,7],modes:['advanced','complete'],flag:'s3'},
+  {name:'debate-judge',role:'Multi-round debate moderation',phases:[6],modes:['complete'],flag:'s6'},
+  {name:'security-analyst',role:'STRIDE threat analysis',phases:['6b'],modes:['advanced','complete'],flag:'a4'},
+  {name:'simplicity-reviewer',role:'Over-engineering detection',phases:['6b'],modes:['advanced','complete'],flag:'a4'},
+  {name:'qa-strategist',role:'V-Model test strategy, UAT',phases:[7],modes:['rapid','standard','advanced','complete']},
+  {name:'qa-security',role:'Security testing, STRIDE',phases:[7],modes:['advanced','complete']},
+  {name:'qa-performance',role:'Performance/load testing',phases:[7],modes:['advanced','complete']},
+  {name:'tech-lead',role:'Task breakdown, TDD structure',phases:[9],modes:['rapid','standard','advanced','complete']},
+  {name:'tech-writer',role:'Documentation generation',phases:[9],modes:['standard','advanced','complete']}
+];
+
+const PRESETS = {
+  rapid:{mode:'rapid',flags:{s1:true,s2:true,s3:false,s4:false,s5:false,s6:false,a1:false,a2:false,a3:false,a4:false,a5:true,stFork:false,stRevision:false,stRedteam:false,stTao:false,stDynExt:false,stAgentInv:false,stChk:false,stTask:false}},
+  standard:{mode:'standard',flags:{s1:true,s2:true,s3:false,s4:false,s5:false,s6:false,a1:true,a2:true,a3:true,a4:false,a5:true,stFork:false,stRevision:false,stRedteam:false,stTao:true,stDynExt:false,stAgentInv:false,stChk:true,stTask:true}},
+  advanced:{mode:'advanced',flags:{s1:true,s2:true,s3:true,s4:true,s5:false,s6:false,a1:true,a2:true,a3:true,a4:true,a5:true,stFork:false,stRevision:false,stRedteam:false,stTao:false,stDynExt:false,stAgentInv:false,stChk:false,stTask:false}},
+  advanced_st:{mode:'advanced',flags:{s1:true,s2:true,s3:true,s4:true,s5:false,s6:false,a1:true,a2:true,a3:true,a4:true,a5:true,stFork:false,stRevision:true,stRedteam:true,stTao:true,stDynExt:false,stAgentInv:true,stChk:true,stTask:true}},
+  complete:{mode:'complete',flags:{s1:true,s2:true,s3:true,s4:true,s5:true,s6:true,a1:true,a2:true,a3:true,a4:true,a5:true,stFork:true,stRevision:true,stRedteam:true,stTao:true,stDynExt:true,stAgentInv:true,stChk:true,stTask:true}}
+};
+
+const FLAG_MODE_INFO = [
+  {key:'s1',label:'S1 Self-Critique',modes:'all'},
+  {key:'s2',label:'S2 CoT Prefix',modes:'all'},
+  {key:'s3',label:'S3 Judge Gates',modes:'adv/complete'},
+  {key:'s4',label:'S4 Adaptive Strategy',modes:'adv/complete'},
+  {key:'s5',label:'S5 ToT Architecture',modes:'complete'},
+  {key:'s6',label:'S6 Multi-Judge Debate',modes:'complete'},
+  {key:'a1',label:'A1 Flow Analysis',modes:'complete'},
+  {key:'a2',label:'A2 Learnings Researcher',modes:'std/adv/complete'},
+  {key:'a3',label:'A3 Adaptive Depth',modes:'all'},
+  {key:'a4',label:'A4 Expert Review',modes:'adv/complete'},
+  {key:'a5',label:'A5 Post-Planning Menu',modes:'all'},
+  {key:'stFork',label:'ST Fork-Join',modes:'complete',needsSt:true},
+  {key:'stRevision',label:'ST Revision Reconcile',modes:'adv/complete',needsSt:true},
+  {key:'stRedteam',label:'ST Red Team',modes:'adv/complete',needsSt:true},
+  {key:'stTao',label:'ST TAO Loops',modes:'std/adv/complete',needsSt:true},
+  {key:'stDynExt',label:'ST Dynamic Extension',modes:'complete',needsSt:true},
+  {key:'stAgentInv',label:'ST Agent Invocation',modes:'adv/complete',needsSt:true},
+  {key:'stChk',label:'ST Checkpoint (Rule of 5)',modes:'std/adv/complete',needsSt:true},
+  {key:'stTask',label:'ST Task Decomp',modes:'std/adv/complete',needsSt:true}
+];
+
+// ── Helpers ─────────────────────────────────────────────────────────
+function isActive(item) {
+  if (!item.modes.includes(state.mode)) return false;
+  if (item.flag && !state.flags[item.flag]) return false;
+  if (item.needsRes && !state.mcpResearch) return false;
+  return true;
+}
+function phaseActive(p) {
+  if (!p.modes.includes(state.mode)) return false;
+  // Phase 6b only active when A4 Expert Review flag is enabled
+  if (p.id === '6b' && !state.flags.a4) return false;
+  return true;
+}
+
+function countAgents() {
+  let c = 0;
+  PHASES.forEach(p => { if (phaseActive(p)) p.agents.forEach(a => { if (isActive(a)) c++; }); });
+  return c;
+}
+function countST() {
+  if (!state.mcpSt) return 0;
+  let c = 0;
+  PHASES.forEach(p => {
+    if (!phaseActive(p)) return;
+    p.st.forEach(s => {
+      if (!isActive(s)) return;
+      const n = s.name;
+      if (n.includes('Fork-Join')) c += 5;
+      else if (n.includes('T7-T10') || n.includes('T-TASK')) c += 4;
+      else if (n.includes('T4-T6') || n.includes('T1-T3') || n.includes('T14-T16') || n.includes('T-RISK-1') || n.includes('T11-T13') || n.includes('TAO')) c += 3;
+      else c += 1;
+    });
+  });
+  return c;
+}
+function countPAL() {
+  if (!state.mcpPal) return 0;
+  let c = 0;
+  PHASES.forEach(p => {
+    if (!phaseActive(p)) return;
+    p.pal.forEach(x => {
+      if (!isActive(x)) return;
+      if (x.name.includes('x9')) c += 9;
+      else if (x.name.includes('x6')) c += 6;
+      else if (x.name.includes('Consensus')) c += 4;
+      else c += 1;
+    });
+  });
+  return c;
+}
+function getCost() { return {rapid:[0.05,0.12],standard:[0.15,0.30],advanced:[0.45,0.75],complete:[0.80,1.50]}[state.mode]; }
+function getDepth() {
+  const m = {rapid:{low:'minimal',medium:'minimal',high:'standard'},standard:{low:'minimal',medium:'standard',high:'standard'},advanced:{low:'standard',medium:'standard',high:'deep'},complete:{low:'standard',medium:'deep',high:'deep'}};
+  return m[state.mode]?.[state.risk] || 'standard';
+}
+
+// ── Sync ────────────────────────────────────────────────────────────
+function syncState() {
+  state.mode = document.getElementById('mode-select').value;
+  state.risk = document.getElementById('risk-select').value;
+  state.mcpSt = document.getElementById('mcp-st').checked;
+  state.mcpPal = document.getElementById('mcp-pal').checked;
+  state.mcpResearch = document.getElementById('mcp-research').checked;
+  FLAG_DEFS.forEach(f => { state.flags[f.key] = document.getElementById(f.id).checked; });
+}
+function syncDOM() {
+  document.getElementById('mode-select').value = state.mode;
+  document.getElementById('risk-select').value = state.risk;
+  document.getElementById('mcp-st').checked = state.mcpSt;
+  document.getElementById('mcp-pal').checked = state.mcpPal;
+  document.getElementById('mcp-research').checked = state.mcpResearch;
+  FLAG_DEFS.forEach(f => { document.getElementById(f.id).checked = state.flags[f.key]; });
+}
+
+// ── Build static sidebar elements ──────────────────────────────────
+function buildFlags() {
+  const container = document.getElementById('flags-container');
+  FLAG_DEFS.forEach(f => {
+    const lbl = el('label', {class:'toggle'}, [
+      el('input', {type:'checkbox', id:f.id, checked:state.flags[f.key], onchange:updateAll}),
+      el('span', {class:'switch'}),
+      el('span', {style:'font-size:11px'}, f.label)
+    ]);
+    container.appendChild(lbl);
+  });
+}
+function buildPresets() {
+  const container = document.getElementById('preset-container');
+  [['rapid','Rapid'],['standard','Standard'],['advanced','Advanced'],['advanced_st','Adv+ST'],['complete','Complete']].forEach(([k,label]) => {
+    const btn = el('button', {class:'preset-btn' + (k==='standard' ? ' active' : ''), onclick: () => applyPreset(k, btn)}, label);
+    container.appendChild(btn);
+  });
+}
+function buildTabs() {
+  const bar = document.getElementById('tab-bar');
+  [['workflow','Workflow'],['config','Config'],['artifacts','Artifacts'],['agents','Agents'],['flags','Active Flags']].forEach(([id,label]) => {
+    bar.appendChild(el('div', {class:'tab' + (id==='workflow' ? ' active' : ''), onclick: () => switchTab(id)}, label));
+  });
+}
+
+// ── Render ───────────────────────────────────────────────────────────
+function renderStats() {
+  const cost = getCost();
+  const el_sb = document.getElementById('stats-bar');
+  el_sb.replaceChildren();
+  const data = [
+    [PHASES.filter(p => phaseActive(p)).length, 'Phases'],
+    [countAgents(), 'Agents'],
+    [countST(), 'ST Calls'],
+    [countPAL(), 'PAL Calls'],
+    ['$'+cost[0].toFixed(2)+'-'+cost[1].toFixed(2), 'Est. Cost'],
+    [getDepth(), 'Research']
+  ];
+  data.forEach(([v,l]) => {
+    const s = el('div',{class:'stat'},[el('div',{class:'val'},String(v)),el('div',{class:'lbl'},l)]);
+    el_sb.appendChild(s);
+  });
+  const pct = {rapid:10,standard:25,advanced:55,complete:90}[state.mode];
+  const cfill = document.getElementById('cost-fill');
+  cfill.className = 'cost-fill ' + (pct<30?'low':pct<60?'med':'high');
+  cfill.style.width = pct + '%';
+}
+
+function renderPhases() {
+  const container = document.getElementById('tab-workflow');
+  container.replaceChildren();
+  const testMap = {'3':'UAT Scripts','4':'E2E Tests','5':'Integration Tests','7':'Unit Tests (TDD)'};
+
+  PHASES.forEach((p, idx) => {
+    const act = phaseActive(p);
+    const sel = state.selectedPhase === p.id;
+
+    if (idx > 0) {
+      const conn = el('div',{class:'connector' + (act ? ' on' : '')}, el('div',{class:'connector-arrow'}));
+      container.appendChild(conn);
+    }
+
+    const card = el('div',{class:'phase-card' + (act ? ' active' : ' skipped'), onclick: () => { state.selectedPhase = sel ? null : p.id; renderPhases(); }});
+
+    card.appendChild(el('div',{class:'phase-num'}, 'PHASE ' + String(p.id).toUpperCase() + ' \u00B7 ' + p.checkpoint));
+    const title = el('div',{class:'phase-title'}, p.name);
+    if (!act) { const sk = el('span',{style:'color:var(--text-dim);font-size:11px;font-style:italic'},' (skipped)'); title.appendChild(sk); }
+    card.appendChild(title);
+    card.appendChild(el('div',{class:'phase-desc'}, p.desc));
+
+    // Badges
+    const badgeRow = el('div',{class:'badge-row'});
+    let hasBadge = false;
+    p.agents.forEach(a => { if (isActive(a)) { badgeRow.appendChild(el('span',{class:'badge agent'},a.name)); hasBadge=true; } });
+    if (state.mcpSt) p.st.forEach(s => { if (isActive(s)) { badgeRow.appendChild(el('span',{class:'badge st'},s.name)); hasBadge=true; } });
+    if (state.mcpPal) p.pal.forEach(x => { if (isActive(x)) { badgeRow.appendChild(el('span',{class:'badge pal'},x.name)); hasBadge=true; } });
+    p.mcp.forEach(m => { if (isActive(m)) { badgeRow.appendChild(el('span',{class:'badge mcp'},m.name)); hasBadge=true; } });
+    p.gates.forEach(g => { if (isActive(g)) { badgeRow.appendChild(el('span',{class:'badge gate'},'Gate: '+g.name)); hasBadge=true; } });
+    p.flags.forEach(f => { if (state.flags[f]) { badgeRow.appendChild(el('span',{class:'badge flag'},f)); hasBadge=true; } });
+    if (hasBadge) card.appendChild(badgeRow);
+
+    if (testMap[String(p.id)] && act) card.appendChild(el('div',{class:'vmodel-tag'}, '\u2194 V-Model: ' + testMap[String(p.id)]));
+
+    if (sel && act) {
+      const det = el('div',{class:'details-section'});
+      det.appendChild(el('h4',null,'Steps'));
+      const ul = el('ul');
+      p.details.forEach(d => ul.appendChild(el('li',null,d)));
+      det.appendChild(ul);
+      card.appendChild(det);
+    }
+
+    container.appendChild(card);
+  });
+}
+
+function renderArtifacts() {
+  const container = document.getElementById('tab-artifacts');
+  container.replaceChildren();
+  ARTIFACTS.forEach(a => {
+    const act = a.modes.includes(state.mode) && (!a.flag || state.flags[a.flag]);
+    const phaseLabel = a.phase === 'all' ? 'All phases' : 'Phase ' + a.phase;
+    const item = el('div',{class:'list-item' + (act ? '' : ' inactive')},[
+      el('span',{class:'item-name'},a.name),
+      el('span',{class:'item-meta'},phaseLabel)
+    ]);
+    container.appendChild(item);
+  });
+}
+
+function renderAgentsList() {
+  const container = document.getElementById('tab-agents');
+  container.replaceChildren();
+  ALL_AGENTS.forEach(a => {
+    const act = a.modes.includes(state.mode) && (!a.flag || state.flags[a.flag]);
+    const item = el('div',{class:'list-item' + (act ? '' : ' inactive')},[
+      el('span',{class:'item-name'},a.name),
+      el('span',{class:'item-meta'},a.role + ' \u00B7 P' + a.phases.map(String).join(','))
+    ]);
+    container.appendChild(item);
+  });
+}
+
+function renderFlagsList() {
+  const container = document.getElementById('tab-flags');
+  container.replaceChildren();
+  FLAG_MODE_INFO.forEach(f => {
+    const on = state.flags[f.key] && (!f.needsSt || state.mcpSt);
+    const item = el('div',{class:'flag-item'},[
+      el('div',{class:'flag-dot ' + (on?'on':'off')}),
+      el('span',{style:'color:' + (on?'var(--text)':'var(--text-dim)')},f.label),
+      el('span',{style:'margin-left:auto;font-size:10px;color:var(--text-dim)'},f.modes)
+    ]);
+    container.appendChild(item);
+  });
+}
+
+function renderPrompt() {
+  const parts = [];
+  parts.push('Mode: ' + state.mode.toUpperCase());
+  const cost = getCost();
+  parts.push('Estimated cost: $' + cost[0].toFixed(2) + '-' + cost[1].toFixed(2));
+  parts.push('Risk level: ' + state.risk);
+  parts.push('Research depth: ' + getDepth());
+
+  const mcpParts = [];
+  if (state.mcpSt) mcpParts.push('Sequential Thinking');
+  if (state.mcpPal) mcpParts.push('PAL');
+  if (state.mcpResearch) mcpParts.push('Research');
+  parts.push('MCP: ' + (mcpParts.length ? mcpParts.join(', ') : 'none'));
+
+  const activePhases = PHASES.filter(p => phaseActive(p));
+  parts.push('Active phases: ' + activePhases.map(p => String(p.id)).join(' \u2192 '));
+  parts.push('Agents: ' + countAgents() + ' | ST calls: ' + countST() + ' | PAL calls: ' + countPAL());
+
+  const enabledFlags = Object.entries(state.flags).filter(([k,v]) => v).map(([k]) => k);
+  if (enabledFlags.length > 0) parts.push('Flags: ' + enabledFlags.join(', '));
+
+  const skipped = PHASES.filter(p => !phaseActive(p));
+  if (skipped.length > 0) parts.push('Skipped: ' + skipped.map(p => 'P' + String(p.id) + ' ' + p.name).join(', '));
+
+  if (!state.mcpPal && ['complete','advanced'].includes(state.mode))
+    parts.push('\u26A0 PAL unavailable \u2192 degrades to Standard mode for validation');
+  if (!state.mcpSt && state.mode === 'complete')
+    parts.push('\u26A0 ST unavailable \u2192 degrades to Advanced mode (keeps PAL, loses ST)');
+
+  const artifacts = ARTIFACTS.filter(a => a.modes.includes(state.mode) && (!a.flag || state.flags[a.flag]));
+  parts.push('Output artifacts: ' + artifacts.map(a => a.name).join(', '));
+
+  document.getElementById('prompt-output').textContent = parts.join('\n');
+}
+
+// ── Config Section Data ──────────────────────────────────────────────
+// Each section mirrors a top-level key in planning-config.yaml
+// with dynamic values computed from current sidebar state.
+
+const CONFIG_SECTIONS = [
+  {
+    id: 'cfg-modes',
+    title: 'Analysis Modes',
+    path: 'analysis_modes',
+    explain: 'Defines the four hierarchical modes. Each mode sets how many agents launch, whether PAL/ST MCP is used, and the estimated cost. The workflow reads <code>analysis_modes.{mode}</code> at Phase 1 and uses it to gate every subsequent phase.',
+    tip: 'Graceful degradation is automatic: if PAL MCP is unavailable, Complete/Advanced fall back to Standard. If ST is also missing, Complete falls to Advanced.',
+    kvFn: function() {
+      const modes = {
+        complete: { desc:'Full analysis with PAL ThinkDeep + ST + Consensus + Full Test Plan', agents:6, td:9, st:true, con:true, mcp:true, cost:'$0.80-1.50' },
+        advanced: { desc:'MPA + ThinkDeep (reduced) + Test Plan', agents:5, td:6, st:false, con:true, mcp:true, cost:'$0.45-0.75' },
+        standard: { desc:'MPA only (no PAL/ST) + Basic Test Plan', agents:4, td:0, st:false, con:false, mcp:false, cost:'$0.15-0.30' },
+        rapid:    { desc:'Single agent fast path + Minimal Test Plan', agents:2, td:0, st:false, con:false, mcp:false, cost:'$0.05-0.12' }
+      };
+      return Object.entries(modes).map(([k,v]) => ({
+        key: k,
+        val: v.desc,
+        active: state.mode === k,
+        detail: 'agents: '+v.agents+' | thinkdeep: '+v.td+' | st: '+(v.st?'yes':'no')+' | consensus: '+(v.con?'yes':'no')+' | cost: '+v.cost
+      }));
+    }
+  },
+  {
+    id: 'cfg-flags',
+    title: 'Feature Flags',
+    path: 'feature_flags',
+    explain: 'Every behavioral enhancement is controlled by a feature flag. Flags specify which <strong>modes</strong> they apply to, whether they <strong>require MCP</strong>, their <strong>cost impact</strong>, and any <strong>dependency</strong> on other flags. The <code>requires</code> field prevents enabling advanced features without prerequisites (e.g. <code>s5_tot_architecture</code> requires <code>s4_adaptive_strategy</code>).',
+    tip: 'Each flag has a rollback field documenting how to disable it and what the fallback behavior is. This makes it safe to experiment with new features.',
+    kvFn: function() {
+      const defs = [
+        { key:'s1_self_critique', flag:'s1', modes:'all', req:null, mcp:false, cost:'minimal', desc:'Agent self-verification before submission' },
+        { key:'s2_cot_prefix', flag:'s2', modes:'all', req:null, mcp:false, cost:'minimal', desc:'Zero-Shot Chain-of-Thought reasoning prefix' },
+        { key:'s3_judge_gates', flag:'s3', modes:'adv, complete', req:null, mcp:false, cost:'1 agent/gate', desc:'Quality gates between phases (3 gates)' },
+        { key:'s4_adaptive_strategy', flag:'s4', modes:'adv, complete', req:null, mcp:false, cost:'minimal', desc:'SELECT_AND_POLISH / FULL_SYNTHESIS / REDESIGN selection' },
+        { key:'s5_tot_architecture', flag:'s5', modes:'complete', req:'s4', mcp:false, cost:'8 agents + 3 judges', desc:'Hybrid Tree-of-Thoughts architecture exploration' },
+        { key:'s6_multi_judge_debate', flag:'s6', modes:'complete', req:'s3', mcp:true, cost:'3 PAL rounds', desc:'Multi-round debate for plan validation' },
+        { key:'a1_flow_analysis', flag:'a1', modes:'complete', req:null, mcp:false, cost:'1 agent', desc:'User flow analysis to discover edge cases' },
+        { key:'a2_learnings_researcher', flag:'a2', modes:'std+', req:null, mcp:false, cost:'1 agent', desc:'Institutional knowledge base integration' },
+        { key:'a3_adaptive_depth', flag:'a3', modes:'all', req:null, mcp:false, cost:'none', desc:'Risk-based research depth adjustment matrix' },
+        { key:'a4_expert_review', flag:'a4', modes:'adv, complete', req:null, mcp:false, cost:'2 agents', desc:'Security + simplicity expert review in Phase 6b' },
+        { key:'a5_post_planning_menu', flag:'a5', modes:'all', req:null, mcp:false, cost:'none', desc:'Interactive next-step menu after completion' },
+        { key:'st_fork_join_architecture', flag:'stFork', modes:'complete', req:null, mcp:true, cost:'+3 ST calls', desc:'Fork-Join branching for Phase 4 architecture' },
+        { key:'st_revision_reconciliation', flag:'stRevision', modes:'adv, complete', req:null, mcp:true, cost:'+1 ST call', desc:'Revision when ThinkDeep contradicts risk analysis' },
+        { key:'st_redteam_analysis', flag:'stRedteam', modes:'adv, complete', req:null, mcp:true, cost:'+2 ST calls', desc:'Adversarial red team branch in Phase 7' },
+        { key:'st_tao_loops', flag:'stTao', modes:'std+', req:null, mcp:true, cost:'+3 ST calls/phase', desc:'TAO structured pause after MPA agent outputs' },
+        { key:'st_dynamic_extension', flag:'stDynExt', modes:'complete', req:null, mcp:true, cost:'0-2 ST calls', desc:'Extend ST chains when complexity exceeds estimates' },
+        { key:'st_agent_invocation', flag:'stAgentInv', modes:'adv, complete', req:null, mcp:true, cost:'~5% total', desc:'Agents invoke ST MCP instead of inline reasoning' },
+        { key:'st_checkpoint', flag:'stChk', modes:'std+', req:null, mcp:true, cost:'+1 ST/5 thoughts', desc:'Checkpoint (Rule of 5) for long ST chains' },
+        { key:'st_task_decomposition', flag:'stTask', modes:'std+', req:null, mcp:true, cost:'+4 ST calls', desc:'Structured task decomposition for tech-lead' }
+      ];
+      return defs.map(d => ({
+        key: d.key,
+        val: (state.flags[d.flag] ? 'ENABLED' : 'disabled') + (d.req ? '  requires: '+d.req : ''),
+        active: state.flags[d.flag],
+        detail: 'modes: '+d.modes+' | mcp: '+(d.mcp?'yes':'no')+' | cost: '+d.cost+' | '+d.desc
+      }));
+    }
+  },
+  {
+    id: 'cfg-depth',
+    title: 'Research Depth Matrix',
+    path: 'research_depth',
+    explain: 'Controls how intensely the codebase is explored in Phase 2. The matrix crosses <strong>analysis mode</strong> (rows) with <strong>risk level</strong> (columns) to produce a depth: <code>minimal</code> (1 agent, surface scan), <code>standard</code> (2 agents, related patterns), or <code>deep</code> (3 agents, comprehensive). Risk level is determined by scanning <code>spec.md</code> for keywords defined in <code>risk_keywords.high</code> and <code>risk_keywords.medium</code>.',
+    tip: 'The depth matrix is only consulted when the A3 (Adaptive Depth) flag is enabled. When disabled, depth defaults to the mode baseline.',
+    matrixFn: function() {
+      const matrix = {
+        rapid:    { low:'minimal', medium:'minimal', high:'standard' },
+        standard: { low:'minimal', medium:'standard', high:'standard' },
+        advanced: { low:'standard', medium:'standard', high:'deep' },
+        complete: { low:'standard', medium:'deep', high:'deep' }
+      };
+      return { headers: ['','low','medium','high'], rows: Object.entries(matrix).map(([mode,vals]) => ({
+        label: mode,
+        cells: ['low','medium','high'].map(r => ({
+          val: vals[r],
+          highlight: state.mode === mode && state.risk === r
+        }))
+      }))};
+    },
+    kvFn: function() {
+      return [
+        { key:'current_depth', val: getDepth(), active: true, detail: 'mode='+state.mode+' x risk='+state.risk+' = '+getDepth() },
+        { key:'risk_keywords.high', val:'payment, auth, security, encryption, PII, GDPR, HIPAA...', active:false, detail:'17 keywords that trigger high risk classification' },
+        { key:'risk_keywords.medium', val:'API, integration, migration, database, performance, cache...', active:false, detail:'12 keywords that trigger medium risk classification' },
+        { key:'depth.minimal', val:'1 agent, direct matches only, no ST', active: getDepth()==='minimal', detail:'Surface-level scan for low-risk simple features' },
+        { key:'depth.standard', val:'2 agents, related patterns, T4+T5', active: getDepth()==='standard', detail:'Moderate exploration with pattern recognition' },
+        { key:'depth.deep', val:'3 agents, comprehensive, T4+T5+T6', active: getDepth()==='deep', detail:'Full codebase exploration with constraint analysis' }
+      ];
+    }
+  },
+  {
+    id: 'cfg-st',
+    title: 'Sequential Thinking Templates',
+    path: 'sequential_thinking',
+    explain: 'Defines 13 template groups containing 30+ individual ST templates. Each group maps to specific phases via <code>phase_mapping</code>, and each feature flag maps to its template group via <code>flag_to_templates</code>. Templates use MCP parameters like <code>branchFromThought</code>, <code>branchId</code>, <code>isRevision</code>, and <code>needsMoreThoughts</code> for advanced reasoning patterns. Includes <strong>Checkpoint (Rule of 5)</strong> and <strong>Dynamic Extension</strong> for chain management.',
+    tip: 'Templates are in templates/sequential-thinking-templates.md. The phase_mapping section tells the orchestrator WHICH template groups to load for EACH phase.',
+    kvFn: function() {
+      const groups = [
+        { key:'problem_decomposition', templates:'T1, T2, T3', phase:'P3 Clarification', mode:'complete' },
+        { key:'codebase_analysis', templates:'T4, T5, T6', phase:'P2 Research', mode:'complete' },
+        { key:'architecture_design', templates:'T7, T8, T9, T10', phase:'P4 Architecture', mode:'complete' },
+        { key:'architecture_fork_join', templates:'T7a, T7b, T7c, T7d, T8', phase:'P4 Architecture', mode:'complete', flag:'stFork' },
+        { key:'risk_assessment', templates:'T11, T12, T13', phase:'P4 Architecture', mode:'adv+' },
+        { key:'plan_validation', templates:'T14, T15, T16', phase:'P6 Validation', mode:'complete' },
+        { key:'test_risk_analysis', templates:'T-RISK-1, T-RISK-2, T-RISK-3', phase:'P7 Test Strategy', mode:'adv+' },
+        { key:'test_risk_revision', templates:'T-RISK-REVISION', phase:'P7 Test Strategy', mode:'adv+', flag:'stRevision' },
+        { key:'test_risk_redteam', templates:'T-RISK-REDTEAM, T-RISK-REDTEAM-SYNTHESIS', phase:'P7 Test Strategy', mode:'adv+', flag:'stRedteam' },
+        { key:'agent_analysis', templates:'T-AGENT-ANALYSIS, T-AGENT-SYNTHESIS, T-AGENT-VALIDATION', phase:'P2, P4, P7 (after MPA)', mode:'std+', flag:'stTao' },
+        { key:'checkpoint', templates:'T-CHECKPOINT', phase:'Every 5 thoughts', mode:'std+', flag:'stChk' },
+        { key:'task_decomposition', templates:'T-TASK-1..4', phase:'P9 Task Gen', mode:'std+', flag:'stTask' },
+        { key:'extension', templates:'T-EXTENSION', phase:'Dynamic', mode:'complete', flag:'stDynExt' }
+      ];
+      return groups.map(g => {
+        const flagOn = !g.flag || state.flags[g.flag];
+        const modeMatch = g.mode === 'complete' ? state.mode === 'complete' :
+                          g.mode === 'adv+' ? ['advanced','complete'].includes(state.mode) :
+                          ['standard','advanced','complete'].includes(state.mode);
+        return {
+          key: g.key,
+          val: g.templates,
+          active: state.mcpSt && modeMatch && flagOn,
+          detail: 'phase: '+g.phase+' | available: '+g.mode + (g.flag ? ' | flag: '+g.flag : '')
+        };
+      });
+    }
+  },
+  {
+    id: 'cfg-pal',
+    title: 'PAL ThinkDeep & Consensus',
+    path: 'pal',
+    explain: 'Configures the external multi-model analysis engine. <strong>ThinkDeep</strong> (Phase 5) sends architecture plans to 3 external models across 2-3 perspectives. <strong>Consensus</strong> (Phases 6, 8) uses 3 models with different stances (neutral/advocate/challenger) to score plans. Model names are <strong>configurable placeholders</strong> \u2014 update them to match your PAL MCP server.',
+    tip: 'The continuation_id parameter chains multiple ThinkDeep calls within the same perspective, building cumulative context across models.',
+    kvFn: function() {
+      const palAvail = state.mcpPal;
+      const isAdv = ['advanced','complete'].includes(state.mode);
+      const isCom = state.mode === 'complete';
+      return [
+        { key:'thinkdeep.models[0]', val:'gpt-5.2', active: palAvail && isAdv, detail:'Primary analysis model (configurable placeholder)' },
+        { key:'thinkdeep.models[1]', val:'gemini-3-pro-preview', active: palAvail && isAdv, detail:'Secondary analysis model (configurable placeholder)' },
+        { key:'thinkdeep.models[2]', val:'openrouter/x-ai/grok-4', active: palAvail && isAdv, detail:'Diversity model (configurable placeholder)' },
+        { key:'thinkdeep.perspectives', val: isCom ? 'performance, maintainability, security (3)' : isAdv ? 'performance, security (2)' : 'N/A', active: palAvail && isAdv, detail: isCom ? 'Complete: 3 persp x 3 models = 9 calls' : isAdv ? 'Advanced: 2 persp x 3 models = 6 calls' : 'Not active in this mode' },
+        { key:'consensus.dimensions', val:'5 dimensions, 20pts total', active: palAvail && isCom, detail:'problem_understanding(20%), architecture_quality(25%), risk_mitigation(20%), implementation_clarity(20%), feasibility(15%)' },
+        { key:'consensus.thresholds', val:'GREEN >= 16 | YELLOW >= 12 | RED < 12', active: palAvail && isCom, detail:'RED triggers return to Phase 4 for revision' },
+        { key:'consensus.stances', val:'neutral (gemini) + for (gpt) + against (grok)', active: palAvail && isCom, detail:'Adversarial stance assignment prevents groupthink' },
+        { key:'consensus.groupthink', val:'score_range < 0.5 triggers PAL Challenge', active: palAvail && isCom, detail:'When all models agree too closely, force critical examination' }
+      ];
+    }
+  },
+  {
+    id: 'cfg-mpa',
+    title: 'MPA (Multi-Perspective Analysis)',
+    path: 'mpa',
+    explain: 'Defines how parallel agents are launched and their outputs are merged. MPA is used in <strong>Phase 2</strong> (code exploration), <strong>Phase 4</strong> (architecture: minimal/clean/pragmatic), and <strong>Phase 7</strong> (QA: general/security/performance). After agents complete, outputs are synthesized using convergent prioritization with configurable deduplication threshold.',
+    tip: 'The synthesis.priority_weights control how conflicting agent findings are ranked: impact(35%) > risk(30%) > complexity(20%) > dependencies(15%).',
+    kvFn: function() {
+      return [
+        { key:'synthesis.merge_strategy', val:'convergent_prioritization', active: true, detail:'Items all agents agree on get highest priority' },
+        { key:'synthesis.deduplication', val:'0.80 threshold', active: true, detail:'Findings > 80% similar are merged into one' },
+        { key:'synthesis.weights.impact', val:'0.35', active: true, detail:'How much the finding impacts the feature' },
+        { key:'synthesis.weights.risk', val:'0.30', active: true, detail:'Risk severity of the finding' },
+        { key:'synthesis.weights.complexity', val:'0.20', active: true, detail:'Implementation complexity' },
+        { key:'synthesis.weights.dependencies', val:'0.15', active: true, detail:'Cross-cutting dependency concerns' },
+        { key:'agents.qa_security.modes', val:'[complete, advanced]', active: ['complete','advanced'].includes(state.mode), detail:'Security QA agent only in higher modes' },
+        { key:'agents.qa_performance.modes', val:'[complete, advanced]', active: ['complete','advanced'].includes(state.mode), detail:'Performance QA agent only in higher modes' }
+      ];
+    }
+  },
+  {
+    id: 'cfg-state',
+    title: 'State Management',
+    path: 'state',
+    explain: 'The workflow persists state in <code>{FEATURE_DIR}/.planning-state.local.md</code> using YAML frontmatter + markdown body. <strong>Checkpoints</strong> mark phase completion for resumability. <strong>Immutable fields</strong> prevent re-asking user decisions. A <strong>lock file</strong> prevents concurrent execution (auto-expires after 60 min).',
+    tip: 'When resuming a session, the orchestrator reads state, skips to the last checkpoint, and never re-asks questions stored in user_decisions. This is critical for workflow reliability.',
+    kvFn: function() {
+      const checkpoints = ['SETUP','RESEARCH','CLARIFICATION','ARCHITECTURE','THINKDEEP','VALIDATION','EXPERT_REVIEW','TEST_STRATEGY','TEST_COVERAGE_VALIDATION','COMPLETION'];
+      const activeCheckpoints = PHASES.filter(p => phaseActive(p)).map(p => p.checkpoint);
+      return [
+        ...checkpoints.map(c => ({
+          key: 'checkpoints.' + c,
+          val: activeCheckpoints.includes(c) ? 'active' : 'skipped',
+          active: activeCheckpoints.includes(c),
+          detail: 'Phase checkpoint for resume capability'
+        })),
+        { key:'immutable_fields', val:'user_decisions, approved_architecture, approved_test_strategy, task_clarifications', active: true, detail:'Once saved, these fields are NEVER overwritten' },
+        { key:'lock.timeout_minutes', val:'60', active: true, detail:'Lock auto-expires after 60 min to prevent deadlocks' },
+        { key:'version_fields', val:'spec_version, plan_version, design_version, test_plan_version', active: true, detail:'Track artifact versions for drift detection' }
+      ];
+    }
+  },
+  {
+    id: 'cfg-test',
+    title: 'Test Planning (V-Model)',
+    path: 'test_planning',
+    explain: 'Configures the integrated V-Model test strategy in Phases 7-8. Defines <strong>5 test levels</strong> aligned with development phases: unit (inner/TDD), integration (inner/CI), e2e (outer/pre-merge), UAT (outer/pre-release), and exploratory (outer/time-boxed). Coverage validation uses 5 dimensions with configurable thresholds.',
+    tip: 'The V-Model alignment means each development artifact (requirements, architecture, design, implementation) has a corresponding test level. This ensures nothing ships untested.',
+    kvFn: function() {
+      return [
+        { key:'test_levels.unit', val:'inner loop | every commit | TDD | CI pipeline', active: true, detail:'Write BEFORE implementation (RED/GREEN/REFACTOR)' },
+        { key:'test_levels.integration', val:'inner loop | every PR | post-impl | CI pipeline', active: ['standard','advanced','complete'].includes(state.mode), detail:'Test component boundaries after implementation' },
+        { key:'test_levels.e2e', val:'outer loop | pre-merge | scenario-based | QA', active: ['advanced','complete'].includes(state.mode), detail:'Complete user flows with evidence screenshots' },
+        { key:'test_levels.uat', val:'outer loop | pre-release | Given-When-Then | PO', active: true, detail:'Business acceptance with Product Owner sign-off' },
+        { key:'test_levels.exploratory', val:'outer loop | pre-release | charter-based | QA', active: ['advanced','complete'].includes(state.mode), detail:'Time-boxed edge case and chaos discovery' },
+        { key:'coverage.thresholds', val:'GREEN >= 80% | YELLOW >= 65% | RED < 65%', active: true, detail:'RED triggers return to Phase 7 to add tests' },
+        { key:'coverage.dimensions', val:'AC(25%) + Risk(25%) + UAT(20%) + Independence(15%) + Maintainability(15%)', active: true, detail:'Weighted scoring for coverage validation' },
+        { key:'coverage.targets', val:'100% AC, 100% critical risks, 100% high risks, 100% stories', active: true, detail:'Hard targets \u2014 every AC and risk must have coverage' }
+      ];
+    }
+  },
+  {
+    id: 'cfg-tasks',
+    title: 'Task Generation (Phase 9)',
+    path: 'task_generation',
+    explain: 'Controls how Phase 9 produces <code>tasks.md</code>. Tasks follow strict checklist format with TDD structure (TEST \u2192 IMPLEMENT \u2192 VERIFY). The <strong>clarification loop</strong> presents high-risk tasks for user review (max 2 iterations). <strong>Validation</strong> ensures self-critique passes and TDD integration exceeds 80%. Supports <strong>regeneration</strong> \u2014 re-running Phase 9 without Phases 1-8.',
+    tip: 'Trigger regeneration with "regenerate tasks" or "refresh tasks.md" when planning is already complete. This re-runs only the tech-lead agent with the latest artifacts.',
+    kvFn: function() {
+      return [
+        { key:'format.checklist_prefix', val:'"- [ ]"', active: true, detail:'Every task is a checkable item' },
+        { key:'format.task_id_pattern', val:'"T###"', active: true, detail:'Sequential numeric IDs: T001, T002...' },
+        { key:'format.parallel_marker', val:'"[P]"', active: true, detail:'Marks tasks that can run concurrently' },
+        { key:'format.story_marker', val:'"[US#]"', active: true, detail:'Links task to user story from spec.md' },
+        { key:'clarification.max_iterations', val:'2', active: true, detail:'Max rounds of user clarification for risky tasks' },
+        { key:'validation.self_critique_min', val:'4/5 questions', active: true, detail:'Tech-lead must pass 4 of 5 self-critique questions' },
+        { key:'validation.tdd_integration_min', val:'80%', active: true, detail:'80% of tasks must reference test IDs in DoD' },
+        { key:'regeneration.enabled', val:'true', active: true, detail:'Allow Phase 9 re-run without full re-planning' },
+        { key:'regeneration.min_phase', val:'TEST_COVERAGE_VALIDATION', active: true, detail:'Must have completed Phase 8 to regenerate' },
+        { key:'traceability.enabled', val:'true', active: true, detail:'Generate task-to-test mapping matrix' }
+      ];
+    }
+  },
+  {
+    id: 'cfg-research',
+    title: 'Research MCP Servers',
+    path: 'research_mcp',
+    explain: 'Configures three external documentation servers used in Phases 2, 4, and 7. <strong>Context7</strong> provides library API docs with code snippets (best for mainstream libs). <strong>Ref</strong> handles prose explanations, niche libraries, and private repos. <strong>Tavily</strong> does web search for news, CVEs, and recent changes. Includes <strong>budget controls</strong> (25 calls/session), <strong>retry logic</strong> (2 retries, circuit breaker after 3 failures), and a <strong>selection matrix</strong>.',
+    tip: 'NEVER use Tavily for library docs (returns outdated content). ALWAYS prefer Context7 for mainstream library API reference. The common_library_ids map lets you skip the resolve-library-id step for 25+ popular libraries.',
+    kvFn: function() {
+      const avail = state.mcpResearch;
+      return [
+        { key:'budget.total_calls_per_session', val:'25', active: avail, detail:'Hard cap on total research MCP calls' },
+        { key:'budget.total_calls_per_phase', val:'10', active: avail, detail:'Per-phase cap prevents runaway usage' },
+        { key:'budget.warn_at_percentage', val:'80%', active: avail, detail:'User warned when 80% of budget consumed' },
+        { key:'retry.max_retries_per_call', val:'2', active: avail, detail:'Retry failed calls up to 2 times' },
+        { key:'retry.circuit_breaker_threshold', val:'3 failures', active: avail, detail:'After 3 consecutive failures, skip server for session' },
+        { key:'context7.max_calls_per_topic', val:'3', active: avail, detail:'Work with best result after 3 calls max' },
+        { key:'context7.common_library_ids', val:'25+ pre-mapped (react, nextjs, prisma, playwright...)', active: avail, detail:'Skip resolve-library-id for known libraries' },
+        { key:'ref.search_before_read', val:'true', active: avail, detail:'Always search first, then selectively read URLs' },
+        { key:'tavily.default_search_depth', val:'"basic"', active: avail, detail:'Prevents 2x credit usage from "advanced" depth' },
+        { key:'tavily.min_relevance_score', val:'0.5', active: avail, detail:'Filter out low-quality search results' },
+        { key:'selection_matrix', val:'library(mainstream)\u2192Context7 | library(niche)\u2192Ref | events\u2192Tavily | CVE\u2192Tavily | URL\u2192Ref', active: avail, detail:'Decision tree for choosing which server to query' }
+      ];
+    }
+  },
+  {
+    id: 'cfg-profiles',
+    title: 'Blessed Configuration Profiles',
+    path: 'blessed_profiles',
+    explain: 'Pre-tested flag combinations for each mode. These are the <strong>"known good" configurations</strong> that have been validated end-to-end. The presets in the sidebar correspond to these profiles. Use <code>validation</code> settings to enforce dependency checking and MCP requirements in CI.',
+    tip: 'When creating a custom configuration, start from a blessed profile and toggle individual flags. The requires field on flags will warn you about missing prerequisites.',
+    kvFn: function() {
+      const profiles = [
+        { key:'rapid_default', mode:'rapid', flags:3, cost:'$0.05-0.12', use:'Small features, quick prototypes, low-risk changes' },
+        { key:'standard_default', mode:'standard', flags:9, cost:'$0.20-0.40', use:'Normal features, moderate complexity, established patterns' },
+        { key:'advanced_default', mode:'advanced', flags:9, cost:'$0.45-0.75', use:'Important features, risky changes, cross-cutting concerns' },
+        { key:'advanced_with_st', mode:'advanced', flags:15, cost:'$0.60-0.95', use:'Important features + ST-enhanced analysis' },
+        { key:'complete_default', mode:'complete', flags:19, cost:'$0.95-1.80', use:'Critical features, security-sensitive, high business impact' }
+      ];
+      return profiles.map(p => ({
+        key: p.key,
+        val: p.mode + ' | ' + p.flags + ' flags | ' + p.cost,
+        active: false,
+        detail: p.use
+      }));
+    }
+  },
+  {
+    id: 'cfg-limits',
+    title: 'Limits & Guards',
+    path: 'limits + guards',
+    explain: 'Safety rails that prevent runaway behavior. <strong>Limits</strong> cap maximums for questions, architecture options, tasks, and loop iterations. <strong>Guards</strong> enforce prerequisites and block on gate failures. These values are rarely changed but prevent edge-case failures.',
+    kvFn: function() {
+      return [
+        { key:'limits.max_clarifying_questions', val:'15', active: true, detail:'Cap on Phase 3 questions to prevent analysis paralysis' },
+        { key:'limits.max_architecture_options', val:'4', active: true, detail:'Max options presented after Phase 4 pruning' },
+        { key:'limits.max_tasks_per_story', val:'8', active: true, detail:'Keeps task granularity reasonable' },
+        { key:'limits.max_rounds', val:'10', active: true, detail:'Circuit breaker for any iterative loop' },
+        { key:'guards.require_spec_exists', val:'true', active: true, detail:'Abort if spec.md is missing' },
+        { key:'guards.require_constitution_exists', val:'true', active: true, detail:'Abort if constitution.md is missing' },
+        { key:'guards.block_on_gate_failure', val:'true', active: true, detail:'Gates are blocking when S3 is enabled' }
+      ];
+    }
+  },
+  {
+    id: 'cfg-degradation',
+    title: 'Graceful Degradation',
+    path: 'degradation + research_mcp.degradation',
+    explain: 'Defines automatic fallback behavior when MCP servers are unavailable. The system <strong>never fails silently</strong> \u2014 it logs the degradation, marks state as degraded, and uses internal reasoning as a substitute. This is why the workflow works even with zero MCP servers configured.',
+    kvFn: function() {
+      const palOff = !state.mcpPal;
+      const stOff = !state.mcpSt;
+      const resOff = !state.mcpResearch;
+      return [
+        { key:'if_pal_unavailable.complete', val:'\u2192 standard', active: palOff && state.mode==='complete', detail:'Loses ThinkDeep + Consensus, keeps MPA agents' },
+        { key:'if_pal_unavailable.advanced', val:'\u2192 standard', active: palOff && state.mode==='advanced', detail:'Loses ThinkDeep, keeps MPA agents' },
+        { key:'if_st_unavailable.complete', val:'\u2192 advanced', active: stOff && state.mode==='complete', detail:'Keeps PAL but loses structured reasoning templates' },
+        { key:'if_st_unavailable', val:'use_internal_reasoning: true', active: stOff, detail:'Agents use inline reasoning instead of ST MCP calls' },
+        { key:'research.context7_unavailable', val:'\u2192 ref', active: resOff, detail:'Ref handles library docs as fallback' },
+        { key:'research.ref_unavailable', val:'\u2192 tavily with domain filter', active: resOff, detail:'Tavily with include_domains for targeted search' },
+        { key:'research.all_unavailable', val:'\u2192 internal knowledge, mark DEGRADED', active: resOff, detail:'Proceed with agent knowledge only, flag in state' }
+      ];
+    }
+  }
+];
+
+// Track which config sections are expanded
+const cfgOpen = {};
+
+function renderConfig() {
+  const container = document.getElementById('tab-config');
+  container.replaceChildren();
+
+  // Intro
+  const intro = el('div', {style:'margin-bottom:16px'});
+  intro.appendChild(el('div', {style:'font-size:13px;color:var(--text);margin-bottom:4px;font-weight:600'}, 'config/planning-config.yaml'));
+  intro.appendChild(el('div', {style:'font-size:12px;color:var(--text-dim);line-height:1.6'}, 'Single source of truth for all configurable values. Click any section to explore its keys, see how they map to the current sidebar state, and understand their interactions.'));
+  container.appendChild(intro);
+
+  CONFIG_SECTIONS.forEach(section => {
+    const isOpen = cfgOpen[section.id] || false;
+    const sec = el('div', {class:'cfg-section'});
+
+    // Header
+    const header = el('div', {class:'cfg-header', onclick: () => {
+      cfgOpen[section.id] = !cfgOpen[section.id];
+      renderConfig();
+    }});
+    header.appendChild(el('span', {class:'cfg-chevron' + (isOpen ? ' open' : '')}, '\u25B6'));
+    header.appendChild(el('span', {class:'cfg-title'}, section.title));
+    header.appendChild(el('span', {class:'cfg-path'}, section.path));
+    sec.appendChild(header);
+
+    // Body (only if open)
+    if (isOpen) {
+      const body = el('div', {class:'cfg-body open'});
+
+      // Explanation
+      const explainDiv = el('div', {class:'cfg-explain'});
+      // Use a temp element to safely set explanation (contains <code> and <strong> tags from our own hardcoded data)
+      const tempDiv = document.createElement('div');
+      tempDiv.textContent = '';
+      // We need to render the HTML tags in explain text. Since this is all hardcoded data (no user input),
+      // we create elements manually for the common patterns.
+      const explainText = section.explain;
+      renderRichText(explainDiv, explainText);
+      body.appendChild(explainDiv);
+
+      // Tip
+      if (section.tip) {
+        const tip = el('div', {class:'cfg-tip'}, [
+          el('span', {class:'tip-icon'}, '\u2139'),
+          el('span', null, section.tip)
+        ]);
+        body.appendChild(tip);
+      }
+
+      // Matrix (if present)
+      if (section.matrixFn) {
+        const matrixData = section.matrixFn();
+        const sub = el('div', {class:'cfg-sub'});
+        sub.appendChild(el('div', {class:'cfg-sub-title'}, 'Depth Matrix (mode x risk)'));
+        const table = el('table', {class:'cfg-matrix'});
+        const thead = el('tr');
+        matrixData.headers.forEach(h => thead.appendChild(el('th', null, h)));
+        table.appendChild(thead);
+        matrixData.rows.forEach(row => {
+          const tr = el('tr');
+          tr.appendChild(el('th', null, row.label));
+          row.cells.forEach(cell => {
+            tr.appendChild(el('td', {class: cell.highlight ? 'highlight' : 'dim'}, cell.val));
+          });
+          table.appendChild(tr);
+        });
+        sub.appendChild(table);
+        body.appendChild(sub);
+      }
+
+      // Key-value list
+      const kvs = section.kvFn();
+      const kvList = el('div', {class:'cfg-kv-list'});
+      kvs.forEach(kv => {
+        const row = el('div', {class:'cfg-kv'});
+        row.appendChild(el('span', {class:'cfg-key'}, kv.key));
+        const valSpan = el('span', {class:'cfg-val ' + (kv.active ? 'active' : 'inactive')}, kv.val);
+        row.appendChild(valSpan);
+        if (kv.detail) {
+          row.appendChild(el('span', {class:'cfg-note'}, kv.detail));
+        }
+        kvList.appendChild(row);
+      });
+      body.appendChild(kvList);
+
+      sec.appendChild(body);
+    }
+
+    container.appendChild(sec);
+  });
+}
+
+// Render text with <code> and <strong> tags safely from hardcoded strings
+function renderRichText(parent, text) {
+  // Split on <code>, </code>, <strong>, </strong> tags
+  const regex = /(<code>|<\/code>|<strong>|<\/strong>)/g;
+  const parts = text.split(regex);
+  let inCode = false;
+  let inStrong = false;
+
+  parts.forEach(part => {
+    if (part === '<code>') { inCode = true; return; }
+    if (part === '</code>') { inCode = false; return; }
+    if (part === '<strong>') { inStrong = true; return; }
+    if (part === '</strong>') { inStrong = false; return; }
+    if (!part) return;
+
+    if (inCode) {
+      parent.appendChild(el('code', null, part));
+    } else if (inStrong) {
+      parent.appendChild(el('strong', null, part));
+    } else {
+      parent.appendChild(document.createTextNode(part));
+    }
+  });
+}
+
+function switchTab(name) {
+  state.activeTab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('visible'));
+  const tabs = document.querySelectorAll('.tab');
+  const map = {'Workflow':'workflow','Config':'config','Artifacts':'artifacts','Agents':'agents','Active Flags':'flags'};
+  tabs.forEach(t => { if (map[t.textContent] === name) t.classList.add('active'); });
+  const target = document.getElementById('tab-' + name);
+  if (target) target.classList.add('visible');
+}
+
+function applyPreset(name, btnEl) {
+  const p = PRESETS[name];
+  if (!p) return;
+  state.mode = p.mode;
+  Object.assign(state.flags, p.flags);
+  syncDOM();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  updateAll();
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-output').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+function updateAll() {
+  syncState();
+  renderStats();
+  renderPhases();
+  renderArtifacts();
+  renderAgentsList();
+  renderFlagsList();
+  renderConfig();
+  renderPrompt();
+}
+
+// ── Init ────────────────────────────────────────────────────────────
+buildFlags();
+buildPresets();
+buildTabs();
+updateAll();
+</script>
+</body>
+</html>
