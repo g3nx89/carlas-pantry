@@ -8,6 +8,7 @@ A curated marketplace of Claude Code plugins for product development workflows.
 |--------|-------------|----------|
 | [product-definition](plugins/product-definition) | Transform rough product drafts into finalized PRDs with MPA, Figma integration, and V-Model test strategies | product-development |
 | [product-planning](plugins/product-planning) | Transform specifications into implementation plans, tasks, and test strategies using SDD patterns | product-development |
+| [product-implementation](plugins/product-implementation) | Execute implementation plans from product-planning, orchestrating TDD cycles, code generation, and verification | product-development |
 | [meta-skills](plugins/meta-skills) | Meta-skills for mastering Claude Code, MCP servers, and agentic workflows | productivity |
 | [dev-skills](plugins/dev-skills) | Skills to support software design and development activities | development |
 

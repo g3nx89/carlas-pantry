@@ -85,3 +85,14 @@ claude plugins enable plugin-name
 - [ ] Related phases have reconciliation steps
 - [ ] Templates have glossaries for non-technical users
 - [ ] Agents specify model and mode availability in frontmatter
+- [ ] Cross-references between skills point to existing skill directories
+- [ ] All reference files listed in skill's Reference Map table
+- [ ] No project-specific hardcoded content in generic skills
+- [ ] Canonical definitions (Priority, Severity) live in SKILL.md, not duplicated in references
+
+### Skill Optimization Patterns
+
+When auditing or improving skills:
+- **Hub-Spoke Model**: SKILL.md lean (<300 lines) with brief patterns; detail in `references/`. Enables progressive disclosure (metadata → skill body → references on-demand)
+- **Deduplication**: Replace duplicate tables in references with cross-reference notes; surface unique reference content to SKILL.md if frequently needed
+- **Multi-Agent Critique**: After bulk skill changes, run 3-judge critique (Requirements Validator, Solution Architect, Code Quality Reviewer) to catch broken references, orphaned files, and project-specific leakage
