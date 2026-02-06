@@ -6,7 +6,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates phase-by-phase implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 1.1.0
+version: 1.0.0
 allowed-tools:
   # File operations
   - Read
@@ -88,10 +88,10 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, p
 | Stage | Delegation | Reference File | Agents Used | User Interaction |
 |-------|-----------|----------------|-------------|------------------|
 | 1 | Inline | `setup-and-context.md` | — | — |
-| 2 | Coordinator per phase | `execution-and-validation.md` | `developer` | On error only |
-| 3 | Coordinator | `execution-and-validation.md` (Stage 3 section) | `developer` | If issues found |
-| 4 | Coordinator | `quality-review.md` | `developer` x3 or code-review skill | Fix/defer/proceed |
-| 5 | Coordinator | `documentation.md` | `developer`, `tech-writer` | If incomplete tasks |
+| 2 | Direct (one agent per phase) | `execution-and-validation.md` | `developer` | On error only |
+| 3 | Direct | `execution-and-validation.md` (Stage 3 section) | `developer` | If issues found |
+| 4 | Direct (3 agents parallel) | `quality-review.md` | `developer` x3 or code-review skill | Fix/defer/proceed |
+| 5 | Direct | `documentation.md` | `developer`, `tech-writer` | If incomplete tasks |
 
 All reference files are in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/`.
 
@@ -128,6 +128,8 @@ Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/quality-review
 
 **Summary:** Launch 3 parallel `developer` agents (or use `/code-review:review-local-changes` if available), each focusing on a different quality dimension (simplicity/DRY, correctness/bugs, conventions/abstractions). Consolidate findings with severity ranking. Present to user. See `quality-review.md` Section 4.2 for detailed review dimensions and focus areas.
 
+**Severity Levels** (canonical definitions in `config/implementation-config.yaml`): **Critical** (breaks functionality, security/data risk), **High** (likely bugs, significant quality issue), **Medium** (code smell, maintainability), **Low** (style, minor optimization).
+
 ## Stage 5: Feature Documentation
 
 Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/documentation.md`
@@ -138,7 +140,7 @@ Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/documentation.
 
 **Direct agent dispatch (not coordinator model):** Unlike `product-planning:plan` which uses `general-purpose` coordinators that read phase files and write structured summaries, this skill dispatches `developer` and `tech-writer` agents directly. This is intentional — implementation phases are mechanically simpler (one agent per phase executing tasks) and don't require multi-agent analysis or consensus scoring. The coordinator overhead would be over-engineering. State is tracked through tasks.md `[X]` markers instead of phase summaries.
 
-**Cross-reference:** The `developer` agent has its own "Tasks.md Execution Workflow" section (in `agents/developer.md`) that the orchestrator's phase prompts trigger. The `tech-writer` agent has its own "Documentation Update Workflow" section (in `agents/tech-writer.md`). If execution rules change, update both the reference files and the corresponding agent definitions.
+**Cross-reference:** The `developer` agent has its own "Tasks.md Execution Workflow" section (in `agents/developer.md`) that the orchestrator's phase prompts trigger. The `tech-writer` agent has its own "Feature Implementation Documentation Workflow" section (in `agents/tech-writer.md`). If execution rules change, update both the reference files and the corresponding agent definitions.
 
 ## Agents
 
@@ -153,13 +155,22 @@ State persisted in `{FEATURE_DIR}/.implementation-state.local.md`.
 
 **Template:** `$CLAUDE_PLUGIN_ROOT/templates/implementation-state-template.local.md`
 
-Key fields: `version`, `feature_name`, `feature_dir`, `current_stage`, `phases_completed`, `phases_remaining`, `user_decisions`, `lock`, `last_checkpoint`. See template for full schema.
+Key fields: `version`, `feature_name`, `feature_dir`, `current_stage`, `phases_completed`, `phases_remaining`, `user_decisions`, `lock`, `last_checkpoint`. See template for full schema and valid values.
+
+### Stage-Level Resume
+
+On resume, use `current_stage` and `user_decisions` to determine the correct entry point:
+- If `current_stage` < 2 → start from Stage 1
+- If `current_stage` = 2 → resume from first phase in `phases_remaining`
+- If `current_stage` = 3 and `user_decisions.validation_outcome` exists → skip to Stage 4
+- If `current_stage` = 4 and `user_decisions.review_outcome` exists → skip to Stage 5
+- If `current_stage` = 5 and `user_decisions.documentation_outcome` exists → already complete, report status
 
 ### Lock Protocol
 
-Before starting execution, acquire lock in the state file:
+Before starting execution, acquire lock in the state file (stale timeout configured in `config/implementation-config.yaml`):
 - Set `lock.acquired: true`, `lock.acquired_at: "{ISO_TIMESTAMP}"`, `lock.session_id: "{unique_id}"`
-- If lock already acquired: check `lock.acquired_at`. If older than 60 minutes, treat as stale and override.
+- If lock already acquired: check `lock.acquired_at`. If older than the configured stale timeout, treat as stale and override.
 - On completion (Stage 5 end) or error halt: release lock by setting `lock.acquired: false`
 
 ## Output Artifacts
@@ -186,8 +197,9 @@ Before starting execution, acquire lock in the state file:
 
 - **Missing tasks.md** — Halt with guidance: "Run `/product-planning:tasks` first"
 - **Missing plan.md** — Halt with guidance: "Run `/product-planning:plan` first"
-- **Lock conflict** — Check timestamp; override if stale (>60 min), otherwise halt with guidance
-- **Interrupted execution** — Resume from checkpoint via state file
+- **Empty tasks.md** — Halt with guidance: "tasks.md has no parseable phases. Verify the file was generated correctly."
+- **Lock conflict** — Check timestamp; override if stale (>60 min per `config/implementation-config.yaml`), otherwise halt with guidance
+- **Interrupted execution** — Resume from checkpoint via state file (see Stage-Level Resume)
 
 Stage-specific errors (task failures, agent crashes, test failures) are documented in `execution-and-validation.md` Section 2.2.
 

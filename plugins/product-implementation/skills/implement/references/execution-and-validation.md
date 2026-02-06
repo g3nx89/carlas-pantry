@@ -15,7 +15,7 @@ Extract from the current phase section in tasks.md:
 
 ### Step 2: Launch Developer Agent
 
-Launch a `developer` agent for the phase using the prompt template from `agent-prompts.md` (Section: Phase Implementation Prompt).
+Launch a single `developer` agent for the entire phase using the prompt template from `agent-prompts.md` (Section: Phase Implementation Prompt). The agent handles all tasks within the phase internally, including sequencing of parallel `[P]` tasks. The orchestrator dispatches one agent per phase, not one agent per task.
 
 ```
 Task(subagent_type="product-implementation:developer")
@@ -147,6 +147,6 @@ If validation reveals issues:
 
 ## 3.5 Lock Release
 
-Lock is released at the end of Stage 5 (Feature Documentation) — see `documentation.md` Section 5.4. If execution halts permanently at any earlier stage, release the lock in `.implementation-state.local.md`:
+Lock is released at the end of Stage 5 (Feature Documentation) — see `documentation.md` Section 5.4. If execution halts permanently at any earlier stage, release the lock in `.implementation-state.local.md` (stale timeout configured in `config/implementation-config.yaml`):
 - Set `lock.acquired: false`
 - Update `last_checkpoint` with current timestamp

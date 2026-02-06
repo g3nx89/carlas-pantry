@@ -59,7 +59,24 @@ TASKS_FILE: {TASKS_FILE}
 Used in Stage 4. Launched 3 times in parallel with different `{focus_area}` values.
 
 ```markdown
-**Goal**: Tasks.md file is implemented, review newly implemented code. Focus on {focus_area}.
+**Goal**: Review the code implemented for {FEATURE_NAME}. Your assigned focus: {focus_area}.
+
+## Review Instructions
+
+1. Read TASKS_FILE to identify all files modified during implementation
+2. Read each modified file and review through your assigned lens
+3. Compare against existing codebase patterns (check CLAUDE.md, constitution.md if present)
+4. For each finding, provide structured output as described below
+
+## Output Format
+
+Return findings as a markdown list, one per issue:
+
+- [{severity}] {description} — {file}:{line} — Recommendation: {fix}
+
+Severity levels: Critical (breaks functionality, security risk), High (likely bugs, significant quality issue), Medium (code smell, maintainability concern), Low (style preference, minor optimization)
+
+If no issues found for your focus area, state "No issues found" with a brief explanation of what you reviewed.
 
 User Input: {user_input}
 
@@ -69,13 +86,13 @@ TASKS_FILE: {TASKS_FILE}
 ```
 
 **Variables:**
-- `{focus_area}` — One of:
+- `{focus_area}` — One of (see `config/implementation-config.yaml` for canonical list):
   - `"simplicity, DRY principles, and code elegance"`
   - `"bugs, functional correctness, and edge case handling"`
   - `"project conventions, abstractions, and pattern adherence"`
 - Other variables: Same as Phase Implementation Prompt.
 
-**Agent behavior:** The developer agent reads the changed files (extracted from tasks.md file paths), reviews code through its assigned lens, and produces a structured list of findings with severity, file:line references, and recommendations.
+**Agent behavior:** The developer agent reads the changed files (extracted from tasks.md file paths), reviews code through its assigned lens, and produces a structured list of findings using the specified output format.
 
 ---
 
@@ -148,7 +165,7 @@ TASKS_FILE: {TASKS_FILE}
 Used in Stage 5 to launch the tech-writer agent for feature documentation.
 
 ```markdown
-**Goal**: Document feature implementation with API guides, architecture updates, and lessons learned, by following Documentation Update Workflow.
+**Goal**: Document feature implementation with API guides, architecture updates, and lessons learned, by following Feature Implementation Documentation Workflow.
 
 User Input: {user_input}
 

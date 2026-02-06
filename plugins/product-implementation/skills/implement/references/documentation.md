@@ -51,7 +51,7 @@ Use the documentation prompt template from `agent-prompts.md` (Section: Document
 
 The tech-writer agent should:
 
-1. **Load context** from FEATURE_DIR:
+1. **Load context** from FEATURE_DIR (the tech-writer agent operates in a separate context and must load these files independently from Stage 1):
    - Read spec.md for feature requirements
    - Read plan.md for architecture and file structure
    - Read tasks.md for what was implemented

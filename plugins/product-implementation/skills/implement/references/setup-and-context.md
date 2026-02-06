@@ -61,6 +61,8 @@ Extract and store:
 - List of phase names in order
 - Which tasks are already marked `[X]` (for resume scenarios)
 
+**Validation:** If tasks.md exists but contains zero phases (empty or malformed), halt with guidance: "tasks.md has no parseable phases. Verify the file was generated correctly by `/product-planning:tasks`."
+
 ## 1.6 Lock Acquisition
 
 Before initializing or resuming state, acquire the execution lock:
@@ -68,9 +70,9 @@ Before initializing or resuming state, acquire the execution lock:
 1. If state file does not exist → no lock to check, proceed to initialization (Section 1.7)
 2. If state file exists, read `lock` field:
    - If `lock.acquired: false` → acquire lock (set `lock.acquired: true`, `lock.acquired_at: "{ISO_TIMESTAMP}"`, `lock.session_id: "{unique_id}"`)
-   - If `lock.acquired: true` → check `lock.acquired_at`:
-     - If older than 60 minutes → treat as stale, override with new lock, log warning: "Overriding stale lock from {timestamp}"
-     - If within 60 minutes → halt with guidance: "Another implementation session is active (started {timestamp}). Wait for it to complete or manually release the lock in `.implementation-state.local.md`."
+   - If `lock.acquired: true` → check `lock.acquired_at` against the stale timeout in `config/implementation-config.yaml` (default: 60 minutes):
+     - If older than the configured timeout → treat as stale, override with new lock, log warning: "Overriding stale lock from {timestamp}"
+     - If within the configured timeout → halt with guidance: "Another implementation session is active (started {timestamp}). Wait for it to complete or manually release the lock in `.implementation-state.local.md`."
 
 ## 1.7 State Initialization
 
@@ -90,21 +92,26 @@ Create `{FEATURE_DIR}/.implementation-state.local.md` from the template, filling
 If `.implementation-state.local.md` already exists (and lock was acquired in 1.6):
 
 1. Read state file
-2. Parse `phases_completed` and `phases_remaining`
+2. Parse `current_stage`, `phases_completed`, `phases_remaining`, and `user_decisions`
 3. Verify state consistency with tasks.md:
    - Check that tasks marked `[X]` in tasks.md match completed phases
    - If inconsistent, reconcile by trusting tasks.md as source of truth
-4. Report resume point to user:
+4. Determine resume entry point using stage-level routing (see SKILL.md "Stage-Level Resume"):
+   - If `current_stage` < 2 → restart from Stage 1
+   - If `current_stage` = 2 → resume from first phase in `phases_remaining`
+   - If `current_stage` >= 3 and the corresponding `user_decisions` key exists → advance to next stage
+5. Report resume point to user:
    ```
-   Resuming implementation from Phase {N}: {phase_name}
+   Resuming implementation from Stage {S}, Phase {N}: {phase_name}
    Completed: {X}/{Y} phases ({Z} tasks done)
    ```
-5. Continue from first phase in `phases_remaining`
+6. Continue from the determined resume point
 
 ## 1.8 User Input Handling
 
 If user provided arguments (non-empty `$ARGUMENTS`):
 - Parse for specific phase/task preferences (e.g., "start from Phase 3", "only US1")
-- Parse for implementation preferences (e.g., "skip tests", "focus on backend")
+- Parse for implementation preferences (e.g., "focus on backend", "start from Phase 3", "only US1")
+- NOTE: "skip tests" is NOT a valid preference — TDD is enforced unconditionally (see Critical Rule 3)
 - Apply these as filters/overrides to the execution plan
 - Store in state file under `user_decisions`

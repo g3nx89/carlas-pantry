@@ -2,10 +2,10 @@
 
 ## 4.1 Review Strategy Selection
 
-Check if `/code-review:review-local-changes` command is available:
+Check if `/code-review:review-local-changes` command is available by attempting to invoke it. If the command returns an error indicating it is not found or the skill is not installed, fall back to the three-agent review:
 
-- **If available**: Use it for the review (preferred — integrates with existing review infrastructure)
-- **If not available**: Launch 3 parallel `developer` agents, each focusing on a different quality dimension
+- **If available**: Use it for the review (preferred — integrates with existing review infrastructure). Normalize the output to match the finding format in Section 4.3 before consolidation.
+- **If not available**: Launch 3 parallel `developer` agents, each focusing on a different quality dimension (see `config/implementation-config.yaml` for focus areas)
 
 ## 4.2 Three-Agent Review (Fallback)
 
@@ -37,12 +37,14 @@ After all reviewers complete, consolidate findings:
 
 ### Severity Classification
 
-| Severity | Description | Example |
-|----------|-------------|---------|
-| **Critical** | Breaks functionality, security vulnerability, data loss risk | Unvalidated user input in SQL query |
-| **High** | Likely to cause bugs, significant code quality issue | Missing error handling on API call |
-| **Medium** | Code smell, maintainability concern, minor pattern violation | Duplicated logic across two files |
-| **Low** | Style preference, minor optimization opportunity | Variable naming inconsistency |
+Severity levels are defined in `config/implementation-config.yaml`. Summary:
+
+| Severity | Description |
+|----------|-------------|
+| **Critical** | Breaks functionality, security vulnerability, data loss risk |
+| **High** | Likely to cause bugs, significant code quality issue |
+| **Medium** | Code smell, maintainability concern, minor pattern violation |
+| **Low** | Style preference, minor optimization opportunity |
 
 ### Deduplication
 
@@ -104,12 +106,12 @@ Present the consolidated findings to the user via `AskUserQuestion`:
 1. Update state file: `user_decisions.review_outcome: "accepted"`
 2. Report: "Implementation complete. Review findings acknowledged."
 
-## 4.5 Final Report
+## 4.5 Stage Summary
 
-After quality review is resolved, produce the final implementation report:
+After quality review is resolved, produce the stage summary and proceed to Stage 5:
 
 ```text
-## Implementation Complete
+## Quality Review Complete
 
 Feature: {FEATURE_NAME}
 Tasks: {completed}/{total}
@@ -125,8 +127,5 @@ Files Changed:
 - {file2} — {brief description}
 - ...
 
-Next Steps:
-- Run full test suite: {test command}
-- Review changes: git diff {base_branch}
-- Create PR: /commit-push-pr or git push
+Proceeding to Stage 5: Feature Documentation.
 ```

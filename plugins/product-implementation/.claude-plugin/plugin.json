@@ -1,0 +1,18 @@
+{
+  "name": "product-implementation",
+  "version": "1.0.0",
+  "description": "Execute implementation plans produced by product-planning, orchestrating TDD cycles, code generation, and verification against the plan",
+  "author": {
+    "name": "Alessandro Fato",
+    "email": "afato@example.com"
+  },
+  "keywords": [
+    "implementation",
+    "tdd",
+    "code-generation",
+    "plan-execution",
+    "verification",
+    "product-development"
+  ],
+  "license": "MIT"
+}

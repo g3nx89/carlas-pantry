@@ -1,0 +1,35 @@
+# Implementation Skill Configuration
+# Single source of truth for all configurable values used by the implement skill.
+# Referenced by: skills/implement/SKILL.md and skills/implement/references/
+
+# Lock protocol
+lock:
+  stale_timeout_minutes: 60  # Locks older than this are treated as stale and overridden
+
+# Quality review (Stage 4)
+quality_review:
+  agent_count: 3  # Number of parallel reviewer agents when code-review skill is unavailable
+  focus_areas:
+    - "simplicity, DRY principles, and code elegance"
+    - "bugs, functional correctness, and edge case handling"
+    - "project conventions, abstractions, and pattern adherence"
+
+# Severity classification (canonical definitions)
+severity:
+  critical:
+    description: "Breaks functionality, security vulnerability, data loss risk"
+    example: "Unvalidated user input in SQL query"
+  high:
+    description: "Likely to cause bugs, significant code quality issue"
+    example: "Missing error handling on API call"
+  medium:
+    description: "Code smell, maintainability concern, minor pattern violation"
+    example: "Duplicated logic across two files"
+  low:
+    description: "Style preference, minor optimization opportunity"
+    example: "Variable naming inconsistency"
+
+# Branch format
+branch:
+  pattern: "feature/<number-padded-to-3-digits>-<kebab-case-title>"
+  example: "feature/001-user-auth"
