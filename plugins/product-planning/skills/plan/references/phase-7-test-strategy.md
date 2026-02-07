@@ -20,6 +20,7 @@ artifacts_written:
   - "test-cases/e2e/"
   - "test-cases/uat/"
   - "analysis/clink-testreview-report.md"  # conditional: clink enabled
+  - ".phase-summaries/phase-7-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
   - "product-planning:qa-strategist"
   - "product-planning:qa-security"
@@ -38,10 +39,12 @@ feature_flags:
   - "s3_judge_gates"
   - "clink_context_isolation"
   - "clink_custom_roles"
+  - "dev_skills_integration"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/v-model-methodology.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
 # Phase 7: Test Strategy (V-Model)
@@ -118,6 +121,49 @@ IF analysis_mode in {advanced, complete}:
 ELSE:
   # Standard/Rapid mode - skip external research
   testing_context = null
+```
+
+## Step 7.1c: Dev-Skills Context Loading (Subagent)
+
+**Purpose:** Load QA domain expertise and accessibility patterns before launching QA agents. Runs IN PARALLEL with Step 7.1b Research MCP queries.
+
+**Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md`
+
+```
+IF state.dev_skills.available AND analysis_mode != "rapid":
+
+  DISPATCH Task(subagent_type="general-purpose", prompt="""
+    You are a skill context loader for Phase 7 (Test Strategy).
+
+    Detected domains: {state.dev_skills.detected_domains}
+    Technology markers: {state.dev_skills.technology_markers}
+
+    Load the following skills and extract ONLY the specified sections:
+
+    1. Skill("dev-skills:qa-test-planner") → extract:
+       - Regression suite types (smoke, targeted, full, sanity)
+       - Priority definitions (P0-P3)
+       - Severity definitions
+       - Figma design validation checklist (if "figma" in domains)
+       LIMIT: 1200 tokens
+
+    2. IF "frontend" in domains OR "mobile" in domains:
+       Skill("dev-skills:accessibility-auditor") → extract:
+         - WCAG quick audit checklist (critical items only)
+         - Semantic HTML vs ARIA summary
+       LIMIT: 600 tokens
+
+    WRITE condensed output to: {FEATURE_DIR}/.phase-summaries/phase-7-skill-context.md
+    FORMAT: YAML frontmatter + markdown sections per skill
+    TOTAL BUDGET: 2000 tokens max
+    IF any Skill() call fails → log in skills_failed, continue with remaining
+  """)
+
+  # READ result AFTER both 7.1b and 7.1c complete
+  READ {FEATURE_DIR}/.phase-summaries/phase-7-skill-context.md
+  IF file exists AND not empty:
+    INJECT qa-test-planner section into qa-strategist prompt (Step 7.3)
+    INJECT accessibility section into qa-security prompt (Step 7.3) if UI feature
 ```
 
 ## Step 7.2: Risk Analysis

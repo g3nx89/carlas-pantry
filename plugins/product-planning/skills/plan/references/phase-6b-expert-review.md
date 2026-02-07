@@ -12,6 +12,7 @@ artifacts_read:
 artifacts_written:
   - "analysis/expert-review.md"
   - "analysis/clink-security-report.md"  # conditional: clink enabled
+  - ".phase-summaries/phase-6b-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
   - "product-planning:security-analyst"
   - "product-planning:simplicity-reviewer"
@@ -21,8 +22,10 @@ feature_flags:
   - "a4_expert_review"
   - "clink_context_isolation"
   - "clink_custom_roles"
+  - "dev_skills_integration"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
 # Phase 6b: Expert Review (A4)
@@ -41,6 +44,46 @@ additional_references:
 **Purpose:** Qualitative expert review of architecture and plan.
 
 **Prerequisite:** Feature flag `a4_expert_review` must be enabled AND analysis_mode in {advanced, complete}.
+
+## Step 6b.0a: Dev-Skills Context Loading (Subagent)
+
+**Purpose:** Load clean-code principles and API security patterns before launching expert review agents.
+
+**Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md`
+
+```
+IF state.dev_skills.available AND analysis_mode != "rapid":
+
+  DISPATCH Task(subagent_type="general-purpose", prompt="""
+    You are a skill context loader for Phase 6b (Expert Review).
+
+    Detected domains: {state.dev_skills.detected_domains}
+    Technology markers: {state.dev_skills.technology_markers}
+
+    Load the following skills and extract ONLY the specified sections:
+
+    1. Skill("dev-skills:clean-code") → extract:
+       - Core principles (SRP, DRY, KISS, YAGNI)
+       - Anti-patterns table with fixes
+       - Function rules (max lines, arguments)
+       LIMIT: 1000 tokens
+
+    2. IF feature has API components (check technology_markers for api, rest, graphql):
+       Skill("dev-skills:api-patterns") → extract:
+         - OWASP API Top 10 security testing section
+       LIMIT: 800 tokens
+
+    WRITE condensed output to: {FEATURE_DIR}/.phase-summaries/phase-6b-skill-context.md
+    FORMAT: YAML frontmatter + markdown sections per skill
+    TOTAL BUDGET: 2000 tokens max
+    IF any Skill() call fails → log in skills_failed, continue with remaining
+  """)
+
+  READ {FEATURE_DIR}/.phase-summaries/phase-6b-skill-context.md
+  IF file exists AND not empty:
+    INJECT clean-code section into simplicity-reviewer prompt (Step 6b.1)
+    INJECT api-security section into security-analyst prompt (Step 6b.1)
+```
 
 ## Step 6b.1: Launch Expert Review Agents
 

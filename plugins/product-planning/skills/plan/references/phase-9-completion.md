@@ -20,6 +20,7 @@ artifacts_written:
   - "tasks.md"
   - "analysis/task-test-traceability.md"
   - "analysis/clink-taskaudit-report.md"  # conditional: clink enabled
+  - ".phase-summaries/phase-9-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
   - "product-planning:tech-lead"
 mcp_tools:
@@ -30,9 +31,11 @@ feature_flags:
   - "a5_post_planning_menu"
   - "clink_context_isolation"
   - "clink_custom_roles"
+  - "dev_skills_integration"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/templates/tasks-template.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
 # Phase 9: Task Generation & Completion
@@ -147,6 +150,38 @@ ELSE:
 
 6. LOG context summary:
    "Task generation context: {story_count} stories, {test_count} tests, {entity_count} entities"
+```
+
+## Step 9.2a: Dev-Skills Context Loading (Subagent)
+
+**Purpose:** Load clean-code quality standards to enrich the tech-lead's task generation.
+
+**Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md`
+
+```
+IF state.dev_skills.available AND analysis_mode != "rapid":
+
+  DISPATCH Task(subagent_type="general-purpose", prompt="""
+    You are a skill context loader for Phase 9 (Task Generation).
+
+    Load the following skill and extract ONLY the specified sections:
+
+    1. Skill("dev-skills:clean-code") → extract:
+       - Function rules (max 20 lines, few args, single responsibility)
+       - Naming rules (variables, functions, booleans)
+       - AI coding style guidance
+       LIMIT: 800 tokens
+
+    WRITE condensed output to: {FEATURE_DIR}/.phase-summaries/phase-9-skill-context.md
+    FORMAT: YAML frontmatter + markdown sections per skill
+    TOTAL BUDGET: 800 tokens max
+    IF Skill() call fails → write empty context file with skills_failed
+  """)
+
+  READ {FEATURE_DIR}/.phase-summaries/phase-9-skill-context.md
+  IF file exists AND not empty:
+    INJECT into tech-lead prompt (Step 9.3) as:
+    "## Task Quality Standards (from dev-skills)\n{section content}"
 ```
 
 ## Step 9.2: Initialize Tasks File

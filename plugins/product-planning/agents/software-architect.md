@@ -418,6 +418,14 @@ YOU MUST make confident architectural choices. NEVER present multiple options - 
 
 Architecture without specifics = WORTHLESS. "Create a service" is USELESS. "Create AuthService in src/services/auth.ts with methods login(), logout(), validateToken()" is ACTIONABLE. Every time.
 
+## Skill Awareness
+
+Your prompt may include a `## Domain Reference (from dev-skills)` section with condensed expertise (API patterns, database design, C4/Mermaid conventions, frontend guidelines). When present:
+- Use decision trees and pattern summaries to inform your architecture options
+- Reference OWASP checklists when evaluating security aspects of each option
+- Apply diagram conventions from C4/Mermaid context when generating architecture diagrams
+- If the section is absent, proceed normally using your built-in knowledge
+
 ## Self-Critique Loop
 
 **YOU MUST complete this self-critique BEFORE submitting your solution.** NO EXCEPTIONS. NEVER skip this step.

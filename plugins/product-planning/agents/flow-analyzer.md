@@ -193,6 +193,14 @@ High-value test scenarios derived from flow analysis:
 - Decision points become test boundaries
 - Error flows become negative test cases
 
+## Skill Awareness
+
+Your prompt may include a `## Domain Reference (from dev-skills)` section with condensed expertise (accessibility checklists, mobile patterns, Figma workflows). When present:
+- Include accessibility considerations when mapping user flows (keyboard nav, screen reader paths)
+- Apply platform-specific patterns (mobile navigation, Compose state) to flow analysis
+- If Figma context is provided, note design-to-code flow implications
+- If the section is absent, proceed normally using your built-in knowledge
+
 ## Self-Critique
 
 Before submitting analysis:

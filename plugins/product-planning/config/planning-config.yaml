@@ -1318,3 +1318,103 @@ clink_integration:
     if_one_cli_missing: "single_cli_mode"
     if_both_missing: "skip_clink_steps"
     log_fallback: true
+
+# =============================================================================
+# DEV-SKILLS INTEGRATION
+# =============================================================================
+# Enrich subagent prompts with domain expertise from the co-installed dev-skills plugin.
+# Uses subagent-delegated skill loading to avoid coordinator context pollution.
+# See skills/plan/references/skill-loader-pattern.md for the canonical dispatch pattern.
+
+dev_skills_integration:
+  enabled: true
+  description: "Enrich subagent prompts with domain expertise from dev-skills plugin"
+  rollback: "Set false to disable all skill injection"
+  modes: [complete, advanced, standard]  # NOT rapid
+
+  # Context budget per skill context file (approximate tokens)
+  context_budget:
+    max_per_skill_extraction: 1200  # Max tokens extracted per individual skill
+    max_per_phase_context_file: 3000  # Max total in skill-context.md per phase
+    max_injected_per_agent: 1500  # Max skill context injected into a single agent prompt
+
+  # Detection keywords for tech-stack identification (case-insensitive scan of spec.md)
+  detection:
+    frontend: [react, next, vue, angular, svelte, tailwind, css, html, jsx, tsx]
+    mobile: [android, ios, kotlin, swift, compose, react-native, flutter, kmp]
+    backend_api: [rest, graphql, trpc, api, endpoint, route, controller, middleware]
+    database: [postgres, mysql, sqlite, mongo, prisma, drizzle, schema, migration, orm]
+    figma: [figma, design system, design tokens, component library]
+    build: [gradle, webpack, vite, turbopack, esbuild]
+
+  # Codebase file markers for detection (scan project root for these files)
+  codebase_markers:
+    "package.json": [frontend, backend_api]
+    "build.gradle.kts": [mobile, build]
+    "settings.gradle.kts": [mobile, build]
+    "Podfile": [mobile]
+    "pubspec.yaml": [mobile]
+    "tsconfig.json": [frontend]
+    "tailwind.config.*": [frontend]
+    ".xcodeproj": [mobile]
+
+  # Domain-to-skill mapping (used by skill loader subagents)
+  domain_skills:
+    architecture:
+      always: true
+      skills:
+        - skill: api-patterns
+          extract: "API style decision tree, auth patterns, OWASP Top 10"
+        - skill: c4-architecture
+          extract: "Element syntax, diagram levels, Mermaid C4 examples"
+        - skill: clean-code
+          extract: "Core principles, anti-patterns table, function rules"
+        - skill: mermaid-diagrams
+          extract: "C4 diagram syntax, quick start examples"
+    database:
+      always: false
+      skills:
+        - skill: database-design
+          extract: "Selection decision tree, ORM comparison"
+        - skill: database-schema-designer
+          extract: "Normalization principles, anti-patterns"
+    frontend:
+      always: false
+      skills:
+        - skill: frontend-design
+          extract: "Decision framework, aesthetic directions"
+        - skill: web-design-guidelines
+          extract: "Code quality rules, performance checklist"
+        - skill: accessibility-auditor
+          extract: "Quick audit checklist, POUR principles"
+    mobile:
+      always: false
+      skills:
+        - skill: mobile-design  # registered, not yet wired into phase loaders
+          extract: "Touch-first principles, AI anti-patterns"
+        - skill: android-expert  # registered, not yet wired into phase loaders
+          extract: "Navigation patterns, Material3 setup"
+        - skill: kotlin-expert
+          extract: "Flow patterns, sealed hierarchies"
+        - skill: compose-expert
+          extract: "Shared composable anatomy, recomposition"
+        - skill: gradle-expert
+          extract: "Build architecture layers, version catalog"
+        - skill: kotlin-coroutines  # registered, not yet wired into phase loaders
+          extract: "Structured concurrency, Flow operators"
+    figma:
+      always: false
+      skills:
+        - skill: figma-implement-design
+          extract: "Quick workflow, URL parsing"
+        - skill: figma-code-connect-components  # registered, not yet wired into phase loaders
+          extract: "Mapping workflow"
+        - skill: figma-create-design-system-rules  # registered, not yet wired into phase loaders
+          extract: "Rule generation workflow"
+        - skill: figma-design-toolkit
+          extract: "Token extraction, design auditing"
+    qa:
+      always: true
+      skills:
+        - skill: qa-test-planner
+          extract: "Regression suite types, priority defs, severity defs"

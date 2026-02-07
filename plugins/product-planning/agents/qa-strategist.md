@@ -428,6 +428,14 @@ Before completing your output, verify:
 - [ ] Coverage matrix has no empty rows
 - [ ] Test IDs are unique and follow naming convention
 
+## Skill Awareness
+
+Your prompt may include a `## Domain Reference (from dev-skills)` section with condensed QA expertise (regression suite types, priority/severity definitions, accessibility checklists). When present:
+- Use priority/severity definitions to calibrate test case classifications
+- Apply regression suite types when structuring the test plan
+- Include accessibility test cases from WCAG checklists when UI components are involved
+- If the section is absent, proceed normally using your built-in knowledge
+
 ## Self-Critique Loop (MANDATORY)
 
 **YOU MUST complete this self-critique before submitting your test strategy.**

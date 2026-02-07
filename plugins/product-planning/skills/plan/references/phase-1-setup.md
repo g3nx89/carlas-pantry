@@ -15,6 +15,7 @@ mcp_tools:
 feature_flags:
   - "clink_context_isolation"
   - "clink_custom_roles"
+  - "dev_skills_integration"
 additional_references: []
 ---
 
@@ -147,6 +148,59 @@ IF feature_flags.clink_context_isolation.enabled:
 ELSE:
   SET state.clink.available = false
   SET state.clink.mode = "disabled"
+```
+
+## Step 1.5c: Dev-Skills Relevance Detection
+
+**Purpose:** Detect whether the `dev-skills` plugin is installed and which skill domains are relevant to this feature based on spec.md content and codebase markers.
+
+```
+IF config.dev_skills_integration.enabled:
+
+  1. CHECK dev-skills plugin installed:
+     TRY: Skill("dev-skills:clean-code") with minimal invocation
+     IF fails → SET state.dev_skills.available = false, SKIP rest of 1.5c
+
+  2. SCAN spec.md for technology indicators (case-insensitive):
+     FOR EACH domain IN config.dev_skills_integration.detection:
+       FOR EACH keyword IN domain.keywords:
+         IF spec.md contains keyword:
+           ADD domain to detected_domains
+           ADD keyword to technology_markers
+
+  3. SCAN codebase root for framework markers:
+     FOR EACH marker_file, domains IN config.dev_skills_integration.codebase_markers:
+       IF marker_file exists at project root:
+         ADD domains to detected_domains
+         IF marker_file == "package.json":
+           READ dependencies → scan for react, next, vue, express, etc.
+           ADD matching framework names to technology_markers
+         IF marker_file IN ["build.gradle.kts", "settings.gradle.kts"]:
+           ADD "kotlin" to technology_markers
+
+  4. DETERMINE applicable skill domains:
+     # Always-on domains
+     FOR EACH domain IN config.dev_skills_integration.domain_skills:
+       IF domain.always == true:
+         ADD domain to applicable_domains
+
+     # Conditional domains
+     IF "frontend" in detected_domains: ADD frontend to applicable_domains
+     IF "mobile" in detected_domains: ADD mobile to applicable_domains
+     IF "database" in detected_domains: ADD database to applicable_domains
+     IF "figma" in detected_domains: ADD figma to applicable_domains
+
+  5. WRITE to state:
+     dev_skills:
+       available: true
+       detected_domains: [architecture, database, frontend, ...]
+       technology_markers: {react: true, prisma: true, ...}
+
+  6. LOG: "Dev-skills detected: {detected_domains} (markers: {technology_markers})"
+
+ELSE:
+  SET state.dev_skills.available = false
+  SET state.dev_skills.detected_domains = []
 ```
 
 ## Step 1.6: Analysis Mode Selection

@@ -406,6 +406,14 @@ Would you like me to:
 3. Proceed as-is with these risks documented?
 ```
 
+## Skill Awareness
+
+Your prompt may include a `## Task Quality Standards (from dev-skills)` section with condensed clean-code principles (function rules, naming conventions, AI coding style). When present:
+- Apply function size and argument limits when decomposing tasks
+- Use naming conventions to guide task descriptions and file path suggestions
+- Ensure task definitions of done reflect quality standards
+- If the section is absent, proceed normally using your built-in knowledge
+
 ## Self-Critique Loop
 
 **YOU MUST complete this self-critique loop BEFORE submitting your solution. NO EXCEPTIONS.**

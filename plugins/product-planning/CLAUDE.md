@@ -13,6 +13,7 @@ Plugin for feature planning, task decomposition, and **integrated test strategy 
 - **Research MCP Integration** - Context7/Ref/Tavily for authoritative documentation lookup
 - **V-Model Test Planning** - Comprehensive test strategy aligned with development phases (integrated)
 - **UAT Script Generation** - User story-based acceptance testing with Given-When-Then format
+- **Dev-Skills Integration** - Subagent-delegated domain expertise injection from dev-skills plugin
 
 ## Plugin Testing
 
@@ -744,6 +745,41 @@ When adding new ST template groups:
 - **Format**: Add a column for the new cost factor showing per-mode impact
 - **Example**: Clink integration added "With Clink" column: $1.10-2.00 (Complete), $0.55-0.90 (Advanced), N/A (Standard/Rapid)
 
+### Dev-Skills Integration
+
+#### Subagent-Delegated Skill Loading
+- **Pattern**: Coordinators dispatch a throwaway `Task(general-purpose)` subagent to load dev-skills, extract relevant sections, and write a condensed context file. Coordinator reads only the small output file (~1-3K tokens), never the raw skill content (~5-15K tokens)
+- **Rationale**: Preserves lean orchestrator context reduction (~70% savings vs inline loading). Same isolation technique as clink CoVe self-critique
+- **Detection**: Phase 1 Step 1.5c scans spec.md for technology keywords and project root for framework markers (package.json, build.gradle.kts, etc.)
+- **Modes**: Complete, Advanced, Standard (NOT Rapid)
+- **Reference**: `skills/plan/references/skill-loader-pattern.md` — canonical dispatch pattern
+- **Config**: `config/planning-config.yaml` `dev_skills_integration:` section — domain-to-skill mappings, budgets, detection keywords
+
+#### Skill Loader Steps by Phase
+
+| Phase | Step | Skills Loaded | Budget | Parallel With |
+|-------|------|---------------|--------|---------------|
+| 2 | 2.2c-a | accessibility, mobile, figma | 2500 | code-explorer, researcher |
+| 4 | 4.0a | api-patterns, database, c4, mermaid, frontend | 3000 | Research MCP (Step 4.0) |
+| 6b | 6b.0a | clean-code, api-security | 2000 | N/A |
+| 7 | 7.1c | qa-test-planner, accessibility | 2000 | Research MCP (Step 7.1b) |
+| 9 | 9.2a | clean-code | 800 | N/A |
+
+#### Agent Awareness Hints
+- 6 agent files have a lightweight "Skill Awareness" section (5-10 lines)
+- Tells agents that a `## Domain Reference (from dev-skills)` section may appear in their prompt
+- Agents: software-architect, simplicity-reviewer, qa-strategist, security-analyst, flow-analyzer, tech-lead
+
+#### Dev-Skills Integration Anti-Patterns
+
+| Anti-Pattern | Problem | Solution |
+|--------------|---------|----------|
+| Invoke Skill() directly in coordinator | Context pollution (~5-15K) | Delegate to subagent |
+| Load skills in Rapid mode | Unnecessary latency | Skip via mode guard |
+| Exceed per-phase token budget | Coordinator context bloat | Enforce limits in loader prompt |
+| Skip Phase 1 detection | All phases load max skills | Always run Step 1.5c |
+| Hard-depend on skill content in agents | Breaks when dev-skills not installed | Treat as supplementary, never required |
+
 ---
 
-*Last updated: 2026-02-07 - Added critique-derived learnings: step ordering, config alignment, DRY dispatch, YAML typing, MCP conditionals*
+*Last updated: 2026-02-07 - Added dev-skills integration: subagent-delegated skill loading, tech-stack detection, agent awareness hints*

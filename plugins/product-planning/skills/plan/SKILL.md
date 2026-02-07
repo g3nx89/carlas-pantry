@@ -230,6 +230,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `references/debate-protocol.md` — Multi-round debate validation (S6)
 - `references/research-mcp-patterns.md` — Research MCP server usage guide
 - `references/clink-dispatch-pattern.md` — Canonical clink dual-CLI dispatch pattern (retry, synthesis, self-critique)
+- `references/skill-loader-pattern.md` — Canonical dev-skills context loading via subagent delegation (Phases 2, 4, 6b, 7, 9)
 
 ### Sequential Thinking Reference
 - `$CLAUDE_PLUGIN_ROOT/templates/sequential-thinking-templates.md`

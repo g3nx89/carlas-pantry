@@ -15,6 +15,7 @@ artifacts_written:
   - "design.clean.md"
   - "design.pragmatic.md"
   - "design.md"
+  - ".phase-summaries/phase-4-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
   - "product-planning:software-architect"
   - "product-planning:wildcard-architect"
@@ -31,10 +32,12 @@ feature_flags:
   - "s3_judge_gates"
   - "st_fork_join_architecture"
   - "st_tao_loops"
+  - "dev_skills_integration"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/tot-workflow.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/adaptive-strategy-logic.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
 # Phase 4: Architecture Design
@@ -49,6 +52,69 @@ additional_references:
 > 6. Write your phase summary to `{FEATURE_DIR}/.phase-summaries/phase-4-summary.md` using the template at `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`.
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
+
+## Step 4.0a: Dev-Skills Context Loading (Subagent)
+
+**Purpose:** Load domain expertise from dev-skills plugin before launching architect agents. Runs IN PARALLEL with Step 4.0 Research MCP queries.
+
+**Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md`
+
+```
+IF state.dev_skills.available AND analysis_mode != "rapid":
+
+  DISPATCH Task(subagent_type="general-purpose", prompt="""
+    You are a skill context loader for Phase 4 (Architecture Design).
+
+    Detected domains: {state.dev_skills.detected_domains}
+    Technology markers: {state.dev_skills.technology_markers}
+
+    Load the following skills and extract ONLY the specified sections:
+
+    1. IF "architecture" in domains:
+       Skill("dev-skills:api-patterns") → extract:
+         - API style decision tree (REST vs GraphQL vs tRPC)
+         - Authentication pattern summary
+         - OWASP API Top 10 checklist
+       LIMIT: 1200 tokens
+
+    2. IF "database" in domains:
+       Skill("dev-skills:database-design") → extract:
+         - Database selection decision tree
+         - ORM comparison table (Drizzle vs Prisma vs Kysely)
+       LIMIT: 800 tokens
+
+       Skill("dev-skills:database-schema-designer") → extract:
+         - Normalization principles + anti-patterns
+       LIMIT: 600 tokens
+
+    3. IF "frontend" in domains:
+       Skill("dev-skills:frontend-design") → extract:
+         - Decision framework for aesthetic direction
+       Skill("dev-skills:web-design-guidelines") → extract:
+         - Code quality rules (semantic HTML, CSS custom props)
+       LIMIT: 800 tokens combined
+
+    4. Skill("dev-skills:c4-architecture") → extract:
+       - C4 diagram level definitions
+       - Mermaid C4 syntax examples
+       LIMIT: 600 tokens
+
+    5. Skill("dev-skills:mermaid-diagrams") → extract:
+       - Quick start examples for architecture diagrams
+       LIMIT: 400 tokens
+
+    WRITE condensed output to: {FEATURE_DIR}/.phase-summaries/phase-4-skill-context.md
+    FORMAT: YAML frontmatter + markdown sections per skill
+    TOTAL BUDGET: 3000 tokens max
+    IF any Skill() call fails → log in skills_failed, continue with remaining
+  """)
+
+  # READ result AFTER both 4.0a and 4.0 complete
+  READ {FEATURE_DIR}/.phase-summaries/phase-4-skill-context.md
+  IF file exists AND not empty:
+    INJECT relevant sections into architect agent prompts (Step 4.1) as:
+    "## Domain Reference (from dev-skills)\n{section content}"
+```
 
 ## Step 4.0: Architecture Pattern Research (Research MCP)
 

@@ -193,6 +193,14 @@ Reasons to keep complexity despite suggestions:
 
 The goal is to surface opportunities, not mandate changes.
 
+## Skill Awareness
+
+Your prompt may include a `## Domain Reference (from dev-skills)` section with condensed clean-code principles (SRP, DRY, KISS, YAGNI, anti-patterns table, function rules). When present:
+- Use the anti-patterns table to identify specific over-engineering patterns in the plan
+- Apply function rules (max lines, argument limits) when evaluating component design
+- Reference named principles (SRP, DRY) in your findings for clarity
+- If the section is absent, proceed normally using your built-in knowledge
+
 ## Self-Critique
 
 Before submitting review:

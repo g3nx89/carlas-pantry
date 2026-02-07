@@ -11,6 +11,7 @@ artifacts_read:
   - "specs/constitution.md"
 artifacts_written:
   - "research.md"
+  - ".phase-summaries/phase-2-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
   - "product-planning:code-explorer"
   - "product-planning:researcher"
@@ -30,8 +31,10 @@ feature_flags:
   - "a3_adaptive_depth"
   - "s3_judge_gates"
   - "st_tao_loops"
+  - "dev_skills_integration"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
 # Phase 2: Research & Codebase Exploration
@@ -235,6 +238,65 @@ IF feature_flags.a2_learnings_researcher.enabled:
 - Learnings researcher runs in parallel with code-explorer agents
 - Results merged into research.md "Institutional Knowledge" section
 - High-relevance learnings highlighted in Phase 3 question generation
+
+## Step 2.2c-a: Dev-Skills Context Loading (Subagent)
+
+**Purpose:** Load accessibility, mobile, and Figma domain expertise before flow analysis and code exploration. Runs IN PARALLEL with Steps 2.2, 2.2b, and 2.3.
+
+**Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md`
+
+```
+IF state.dev_skills.available AND analysis_mode != "rapid":
+
+  DISPATCH Task(subagent_type="general-purpose", prompt="""
+    You are a skill context loader for Phase 2 (Research & Exploration).
+
+    Detected domains: {state.dev_skills.detected_domains}
+    Technology markers: {state.dev_skills.technology_markers}
+
+    Load the following skills and extract ONLY the specified sections:
+
+    1. IF "frontend" in domains OR "mobile" in domains:
+       Skill("dev-skills:accessibility-auditor") → extract:
+         - Quick audit checklist (critical + important items)
+         - Semantic HTML vs ARIA summary
+       LIMIT: 800 tokens
+
+    2. IF "mobile" in domains:
+       IF "kotlin" in technology_markers:
+         Skill("dev-skills:kotlin-expert") → extract:
+           - Flow patterns, sealed hierarchy summary
+         LIMIT: 500 tokens
+       IF "compose" in technology_markers:
+         Skill("dev-skills:compose-expert") → extract:
+           - Shared composable anatomy
+         LIMIT: 500 tokens
+       IF "gradle" in technology_markers:
+         Skill("dev-skills:gradle-expert") → extract:
+           - Build architecture layers
+         LIMIT: 400 tokens
+       COMBINED MOBILE LIMIT: 1000 tokens
+
+    3. IF "figma" in domains:
+       Skill("dev-skills:figma-implement-design") → extract:
+         - Quick workflow overview
+       Skill("dev-skills:figma-design-toolkit") → extract:
+         - Token extraction workflow
+       LIMIT: 600 tokens combined
+
+    WRITE condensed output to: {FEATURE_DIR}/.phase-summaries/phase-2-skill-context.md
+    FORMAT: YAML frontmatter + markdown sections per skill
+    TOTAL BUDGET: 2500 tokens max
+    IF any Skill() call fails → log in skills_failed, continue with remaining
+  """)
+
+  # Skill loader runs in parallel with code-explorer and researcher agents
+  # READ result BEFORE dispatching flow-analyzer (if a11y context needed in Step 2.2c)
+  READ {FEATURE_DIR}/.phase-summaries/phase-2-skill-context.md
+  IF file exists AND not empty:
+    INJECT relevant sections into flow-analyzer prompt (Step 2.2c) as:
+    "## Domain Reference (from dev-skills)\n{matching section content}"
+```
 
 ## Step 2.2c: User Flow Analysis (A1)
 

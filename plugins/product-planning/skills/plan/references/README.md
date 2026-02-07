@@ -30,6 +30,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `coverage-validation-rubric.md` | Understanding Phase 8 test coverage validation |
 | `v-model-methodology.md` | Understanding test level mapping and V-Model alignment |
 | `clink-dispatch-pattern.md` | Canonical clink dual-CLI dispatch pattern (referenced by all clink phase steps) |
+| `skill-loader-pattern.md` | Canonical dev-skills context loading via subagent delegation (referenced by Phases 2, 4, 6b, 7, 9) |
 
 ## Working with Clink Integration
 
@@ -96,12 +97,31 @@ Each clink role runs BOTH Gemini and Codex in parallel. The coordinator synthesi
 | `debate-protocol.md` | ~425 | Multi-round debate structure |
 | Others | <100 | Focused reference content |
 | `clink-dispatch-pattern.md` | ~120 | Canonical clink dual-CLI dispatch pattern |
+| `skill-loader-pattern.md` | ~100 | Dev-skills context loading via subagent delegation |
 | `$PLUGIN/templates/clink-roles/*.txt` | ~80-120 | Clink role prompts (10 files) |
 | `$PLUGIN/templates/clink-roles/README.md` | ~100 | Clink role index and patterns |
+
+### Working with Dev-Skills Integration
+1. Read `skill-loader-pattern.md` for the canonical subagent dispatch pattern
+2. Check `config/planning-config.yaml` `dev_skills_integration:` section for domain-skill mappings
+3. Phase 1 (`phase-1-setup.md`) Step 1.5c handles detection
+4. Phases 2, 4, 6b, 7, 9 each have a skill loader step (e.g., Step 4.0a)
+5. Agent files (`agents/*.md`) have "Skill Awareness" sections for runtime context
+
+### Dev-Skills Enhanced Phases
+| Phase | Step | Skills Loaded (Conditional) | Budget |
+|-------|------|-----------------------------|--------|
+| 1 | 1.5c | Detection only (inline) | — |
+| 2 | 2.2c-a | accessibility, mobile, figma | 2500 |
+| 4 | 4.0a | api-patterns, database, c4, mermaid, frontend | 3000 |
+| 6b | 6b.0a | clean-code, api-patterns (security) | 2000 |
+| 7 | 7.1c | qa-test-planner, accessibility | 2000 |
+| 9 | 9.2a | clean-code | 800 |
 
 ## Cross-References
 
 - `phase-workflows.md` references most other files
+- `skill-loader-pattern.md` used by Phase 2, 4, 6b, 7, 9 skill loader steps
 - `clink-dispatch-pattern.md` used by Phase 5, 6, 6b, 7, 9 clink steps
 - `research-mcp-patterns.md` used by `researcher` agent and Phase 2/4/7 workflows
 - `judge-gate-rubrics.md` used by `phase-gate-judge` agent
