@@ -29,6 +29,10 @@ Test cases directory: {test_cases_dir}
 Task-test traceability: {traceability_file}
 
 When test-case specs are available, read the relevant spec file BEFORE writing tests to align with the planned test strategy. If a test ID is referenced in a task, locate its spec in test-cases/ and implement accordingly.
+
+## Domain-Specific Skill References
+
+{skill_references}
 ```
 
 **Variables:**
@@ -41,8 +45,9 @@ When test-case specs are available, read the relevant spec file BEFORE writing t
 - `{test_specs_summary}` — Test Specifications section from Stage 1 summary. Lists available test-case specs by level with counts. **Fallback if unavailable:** `"No test specifications available — proceed with standard TDD approach."`
 - `{test_cases_dir}` — Path to test-cases/ directory, or `"Not available"` if the directory does not exist
 - `{traceability_file}` — Path to `analysis/task-test-traceability.md`, or `"Not available"` if the file does not exist
+- `{skill_references}` — Domain-specific skill references resolved by the coordinator from `detected_domains` (see `stage-2-execution.md` Section 2.0). Contains skill paths and usage guidance. **Fallback if no skills apply or dev-skills not installed:** `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`
 
-**Agent behavior:** The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy.
+**Agent behavior:** The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy. When skill references are provided, the agent reads the referenced SKILL.md files on-demand for domain-specific patterns and anti-patterns — skills are consulted, not followed blindly (codebase conventions take precedence).
 
 ---
 
@@ -95,7 +100,8 @@ Used in Stage 4. Launched 3 times in parallel with different `{focus_area}` valu
 1. Read TASKS_FILE to identify all files modified during implementation
 2. Read each modified file and review through your assigned lens
 3. Compare against existing codebase patterns (check CLAUDE.md, constitution.md if present)
-4. For each finding, provide structured output as described below
+4. If domain-specific skill references are provided below, consult them for domain-specific best practices relevant to your focus area
+5. For each finding, provide structured output as described below
 
 ## Output Format
 
@@ -112,6 +118,10 @@ User Input: {user_input}
 FEATURE_NAME: {FEATURE_NAME}
 FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
+
+## Domain-Specific Skill References
+
+{skill_references}
 ```
 
 **Variables:**
@@ -123,8 +133,9 @@ TASKS_FILE: {TASKS_FILE}
 - `{FEATURE_NAME}` — Feature identifier from git branch
 - `{FEATURE_DIR}` — Path to feature spec directory
 - `{TASKS_FILE}` — Path to tasks.md
+- `{skill_references}` — Domain-specific skill references resolved by the coordinator (see `stage-4-quality-review.md` Section 4.1a). **Fallback:** `"No domain-specific skills available — review against codebase conventions only."`
 
-**Agent behavior:** The developer agent reads the changed files (extracted from tasks.md file paths), reviews code through its assigned lens, and produces a structured list of findings using the specified output format.
+**Agent behavior:** The developer agent reads the changed files (extracted from tasks.md file paths), reviews code through its assigned lens, and produces a structured list of findings using the specified output format. When skill references are provided, the agent consults them for domain-specific anti-patterns and best practices relevant to its focus area.
 
 ---
 
@@ -210,6 +221,10 @@ User Input: {user_input}
 FEATURE_NAME: {FEATURE_NAME}
 FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
+
+## Documentation Skill References
+
+{skill_references}
 ```
 
 **Variables:**
@@ -217,5 +232,6 @@ TASKS_FILE: {TASKS_FILE}
 - `{FEATURE_NAME}` — Feature identifier from git branch
 - `{FEATURE_DIR}` — Path to feature spec directory
 - `{TASKS_FILE}` — Path to tasks.md
+- `{skill_references}` — Documentation-oriented skill references resolved by the coordinator (see `stage-5-documentation.md` Section 5.1a). Contains diagram generation and domain documentation skills. **Fallback:** `"No documentation skills available — produce prose documentation without diagrams."`
 
-**Agent behavior:** The tech-writer agent reads all context files from FEATURE_DIR, reviews the implemented code, and creates/updates project documentation including API guides, usage examples, architecture updates, module READMEs, and lessons learned. Produces a documentation update summary.
+**Agent behavior:** The tech-writer agent reads all context files from FEATURE_DIR, reviews the implemented code, and creates/updates project documentation including API guides, usage examples, architecture updates, module READMEs, and lessons learned. When diagram skills are provided, the agent uses Mermaid.js syntax to create architecture, sequence, and ERD diagrams inline. Produces a documentation update summary.

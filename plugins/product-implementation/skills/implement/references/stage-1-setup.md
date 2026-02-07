@@ -11,7 +11,8 @@ artifacts_read:
   - "analysis/task-test-traceability.md (if exists)"
 artifacts_written: []
 agents: []
-additional_references: []
+additional_references:
+  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
 ---
 
 # Stage 1: Setup & Context Loading
@@ -117,21 +118,47 @@ Extract and store:
 
 **Structural checks** (warn if missing, do not halt):
 - **Overview section**: Verify tasks.md contains a top-level overview or summary section. If missing, warn: "tasks.md has no overview section — phase context may be limited."
-- **Test ID references**: If `test_cases_available` is true, scan task descriptions for test ID patterns (`TC-*`). If no test IDs are found in tasks.md but test-cases/ exists, warn: "tasks.md does not reference test IDs from test-cases/ — traceability may be incomplete."
+- **Test ID references**: If `test_cases_available` is true, scan task descriptions for test ID patterns (configured in `config/implementation-config.yaml` under `handoff.test_cases.test_id_patterns`; defaults: `E2E-*`, `INT-*`, `UT-*`, `UAT-*`). If no test IDs are found in tasks.md but test-cases/ exists, warn: "tasks.md does not reference test IDs from test-cases/ — traceability may be incomplete."
 - **Test ID cross-validation**: If both tasks.md test IDs and test-cases/ specs are present, verify that referenced test IDs have corresponding spec files. Log any orphaned references.
 
-## 1.6 Lock Acquisition
+## 1.6 Domain Detection
+
+Detect technology domains present in the feature to enable conditional skill injection by downstream coordinators. This step uses artifacts ALREADY loaded in Sections 1.4-1.5 — no additional file reads.
+
+### Detection Procedure
+
+1. **Scan task file paths** in `tasks.md`: extract all file path fragments from task descriptions (e.g., `src/routes/auth.ts`, `app/build.gradle.kts`)
+2. **Scan plan.md content**: check tech stack, architecture decisions, and file structure sections
+3. **Match against domain indicators** defined in `config/implementation-config.yaml` under `dev_skills.domain_mapping`
+
+For each domain in the mapping, check if ANY of its `indicators` appear (case-sensitive) in the combined text of task file paths + plan.md content. If a match is found, add the domain key to `detected_domains`.
+
+### Output
+
+Store the result as `flags.detected_domains` in the Stage 1 summary (see Section 1.10). Example:
+
+```yaml
+detected_domains: ["kotlin", "compose", "android", "api"]
+```
+
+If `dev_skills.enabled` is `false` in config, set `detected_domains: []` and skip detection.
+
+### Cost
+
+Zero additional file reads. Zero additional agent dispatches. Pure text matching against already-loaded content.
+
+## 1.7 Lock Acquisition
 
 Before initializing or resuming state, acquire the execution lock:
 
-1. If state file does not exist → no lock to check, proceed to initialization (Section 1.7)
+1. If state file does not exist → no lock to check, proceed to initialization (Section 1.8)
 2. If state file exists, read `lock` field:
    - If `lock.acquired: false` → acquire lock (set `lock.acquired: true`, `lock.acquired_at: "{ISO_TIMESTAMP}"`, `lock.session_id: "{unique_id}"`)
    - If `lock.acquired: true` → check `lock.acquired_at` against the stale timeout in `config/implementation-config.yaml` (default: 60 minutes):
      - If older than the configured timeout → treat as stale, override with new lock, log warning: "Overriding stale lock from {timestamp}"
      - If within the configured timeout → halt with guidance: "Another implementation session is active (started {timestamp}). Wait for it to complete or manually release the lock in `.implementation-state.local.md`."
 
-## 1.7 State Initialization
+## 1.8 State Initialization
 
 **Template:** `$CLAUDE_PLUGIN_ROOT/templates/implementation-state-template.local.md`
 
@@ -151,7 +178,7 @@ mkdir -p {FEATURE_DIR}/.stage-summaries
 
 ### Resume Implementation
 
-If `.implementation-state.local.md` already exists (and lock was acquired in 1.6):
+If `.implementation-state.local.md` already exists (and lock was acquired in 1.7):
 
 1. Read state file
 2. If `version: 1` → run v1-to-v2 migration (see `orchestrator-loop.md`)
@@ -167,7 +194,7 @@ If `.implementation-state.local.md` already exists (and lock was acquired in 1.6
    ```
 7. Continue from the determined resume point
 
-## 1.8 User Input Handling
+## 1.9 User Input Handling
 
 If user provided arguments (non-empty `$ARGUMENTS`):
 - Parse for specific phase/task preferences (e.g., "start from Phase 3", "only US1")
@@ -176,7 +203,7 @@ If user provided arguments (non-empty `$ARGUMENTS`):
 - Apply these as filters/overrides to the execution plan
 - Store in state file under `user_decisions`
 
-## 1.9 Write Stage 1 Summary
+## 1.10 Write Stage 1 Summary
 
 After completing all setup steps, write the summary to `{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`:
 
@@ -196,6 +223,7 @@ summary: |
 flags:
   block_reason: null
   test_cases_available: {true/false}
+detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from Section 1.5c
 ---
 ## Context for Next Stage
 
@@ -206,6 +234,7 @@ flags:
 - Total tasks: {M}
 - Phases remaining: {list}
 - Resume from: {phase_name or "beginning"}
+- Detected domains: {list, e.g., ["kotlin", "compose", "api"] or [] if detection disabled}
 
 ## Planning Artifacts Summary
 
@@ -254,6 +283,7 @@ For each loaded optional/expected file, provide a 1-line summary of its key cont
 - [{timestamp}] Context loaded: {N} phases, {M} tasks
 - [{timestamp}] Expected file warnings: {list or "none"}
 - [{timestamp}] Test cases: {discovered N specs / not available}
+- [{timestamp}] Domain detection: {detected_domains list or "disabled"}
 - [{timestamp}] Lock acquired
 - [{timestamp}] State initialized / resumed from Stage {S}
 ```

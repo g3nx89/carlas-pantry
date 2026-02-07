@@ -160,17 +160,35 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `docs/` | Feature documentation, API guides, architecture updates (Stage 5) |
 | Module `README.md` files | Updated READMEs in folders affected by implementation (Stage 5) |
 
+## Dev-Skills Integration
+
+When the `dev-skills` plugin is installed alongside `product-implementation`, agents receive conditional, domain-specific skill references that enhance implementation quality. This integration is:
+
+- **Zero-cost when disabled** — if `dev_skills.enabled: false` in config or plugin not installed, all skill injection is silently skipped
+- **Orchestrator-transparent** — the orchestrator never reads or references dev-skills; all resolution happens inside coordinator subagents
+- **Capped** — at most `max_skills_per_dispatch` skills (default: 3) are injected per agent dispatch to avoid context bloat
+
+**Domain detection** runs in Stage 1 (Section 1.5c) by scanning task file paths and plan.md for technology indicators. The `detected_domains` list flows through the Stage 1 summary to all downstream coordinators.
+
+**Injection points:**
+- Stage 2 coordinators inject skills into developer agent prompts (implementation patterns)
+- Stage 4 coordinators add conditional review dimensions (e.g., accessibility) and inject skills into reviewer prompts
+- Stage 5 coordinators inject diagram and documentation skills into tech-writer prompts
+
+Configuration: `config/implementation-config.yaml` under `dev_skills`.
+
 ## Reference Map
 
 | File | When to Read | Content |
 |------|-------------|---------|
 | `references/orchestrator-loop.md` | Workflow start (always) | Dispatch loop, crash recovery, state migration |
-| `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, lock, state init |
-| `references/stage-2-execution.md` | Stage 2 (coordinator) | Phase loop, task parsing, error handling |
+| `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, lock, state init, domain detection |
+| `references/stage-2-execution.md` | Stage 2 (coordinator) | Skill resolution, phase loop, task parsing, error handling |
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage |
-| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Review dimensions, finding consolidation, user interaction |
-| `references/stage-5-documentation.md` | Stage 5 (coordinator) | Completion re-check, tech-writer dispatch, lock release |
-| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates |
+| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Skill resolution, review dimensions (base + conditional), finding consolidation |
+| `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
+| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates (with `{skill_references}` variable) |
+| `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
 
 ## Error Handling
 

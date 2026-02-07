@@ -21,6 +21,8 @@ agents:
   - "product-implementation:tech-writer"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
+  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
+  - ".stage-summaries/stage-1-summary.md (for detected_domains)"
 ---
 
 # Stage 5: Feature Documentation
@@ -62,6 +64,33 @@ Before documenting, verify that the implementation is complete enough to documen
 2. Note incomplete tasks for the tech-writer agent to document as known limitations
 3. Proceed to Section 5.2
 
+## 5.1a Skill Reference Resolution for Documentation
+
+Before dispatching the tech-writer, resolve documentation-oriented skill references.
+
+### Procedure
+
+1. Read `detected_domains` from the Stage 1 summary YAML frontmatter
+2. Read `dev_skills` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+3. If `dev_skills.enabled` is `false`, set `skill_references` to fallback text and skip to Section 5.2
+
+4. **Resolve documentation skills:**
+   - Start with `dev_skills.documentation_skills.always` (e.g., `mermaid-diagrams`)
+   - For each entry in `dev_skills.documentation_skills.conditional`, check if ANY of its `domains` appear in `detected_domains` — if matched, add its skills
+   - Deduplicate and cap at `max_skills_per_dispatch`
+
+5. **Format `skill_references`** as:
+
+```markdown
+The following dev-skills provide diagram and documentation patterns. Use Mermaid.js syntax
+for inline diagrams. Read skill SKILL.md on-demand for syntax reference and best practices.
+
+{for each skill:}
+- **{skill_name}**: `$PLUGINS_DIR/{plugin_path}/skills/{skill_name}/SKILL.md` — {purpose}
+```
+
+**Fallback:** `"No documentation skills available — produce prose documentation without diagrams."`
+
 ## 5.2 Documentation Update
 
 Launch `tech-writer` agent to create and update project documentation based on the implementation.
@@ -72,7 +101,7 @@ Launch `tech-writer` agent to create and update project documentation based on t
 Task(subagent_type="product-implementation:tech-writer")
 ```
 
-Use the documentation prompt template from `agent-prompts.md` (Section: Documentation Update Prompt).
+Use the documentation prompt template from `agent-prompts.md` (Section: Documentation Update Prompt). Prefill `{skill_references}` with the value resolved in Section 5.1a.
 
 ### Documentation Scope
 

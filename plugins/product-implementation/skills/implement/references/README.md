@@ -13,6 +13,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `stage-4-quality-review.md` | Debugging quality review, finding consolidation, or review strategy selection |
 | `stage-5-documentation.md` | Debugging documentation generation, tech-writer dispatch, or lock release |
 | `agent-prompts.md` | Modifying agent prompt templates or adding new prompt types |
+| `skill-resolution.md` | Understanding domain-specific skill resolution algorithm used by Stages 2, 4, 5 |
 
 ## By Task
 
@@ -33,7 +34,7 @@ Quick guide to when to read each reference file during skill development or debu
 
 ### Working on State Management
 1. Read `orchestrator-loop.md` for v1-to-v2 migration
-2. Read `stage-1-setup.md` Section 1.7 for state initialization
+2. Read `stage-1-setup.md` Section 1.8 for state initialization
 3. Check `$CLAUDE_PLUGIN_ROOT/templates/implementation-state-template.local.md` for schema
 
 ## File Sizes
@@ -41,12 +42,13 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | 195 | Dispatch loop, crash recovery, lock release, state migration |
-| `stage-1-setup.md` | 257 | Inline setup instructions with summary template |
-| `stage-2-execution.md` | 166 | Phase loop and execution rules |
+| `stage-1-setup.md` | 289 | Inline setup instructions, domain detection, summary template |
+| `stage-2-execution.md` | 213 | Skill resolution, phase loop, execution rules |
 | `stage-3-validation.md` | 123 | Validation checks and report format |
-| `stage-4-quality-review.md` | 159 | Review dimensions, consolidation, user decision |
-| `stage-5-documentation.md` | 182 | Tech-writer dispatch, lock release |
-| `agent-prompts.md` | 221 | All 6 agent prompt templates |
+| `stage-4-quality-review.md` | 207 | Skill resolution, review dimensions (base + conditional), consolidation |
+| `stage-5-documentation.md` | 211 | Skill resolution for docs, tech-writer dispatch, lock release |
+| `agent-prompts.md` | 237 | All 6 agent prompt templates with `{skill_references}` variable |
+| `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
 
 ## Cross-References
 
@@ -58,3 +60,7 @@ Quick guide to when to read each reference file during skill development or debu
 - `stage-5-documentation.md` → uses `agent-prompts.md` Incomplete Task Fix + Documentation Update Prompts
 - `agent-prompts.md` → referenced by all coordinator stages
 - All stages read `config/implementation-config.yaml` for severity levels and lock timeout
+- Stages 1, 2, 4, 5 read `config/implementation-config.yaml` `dev_skills` section for domain-to-skill mapping
+- `stage-1-setup.md` writes `detected_domains` to Stage 1 summary; consumed by Stages 2, 4, 5 coordinators
+- `skill-resolution.md` → shared algorithm referenced by `stage-2-execution.md`, `stage-4-quality-review.md`, `stage-5-documentation.md`
+- Dev-skills integration is orchestrator-transparent: only coordinators read/resolve skill references

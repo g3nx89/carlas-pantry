@@ -32,6 +32,52 @@ additional_references:
 > Read the Stage 1 summary first to obtain FEATURE_NAME, FEATURE_DIR, TASKS_FILE,
 > and the list of phases to execute.
 
+## 2.0 Skill Reference Resolution
+
+Before entering the phase loop, resolve domain-specific skill references for developer agent prompts. This step runs ONCE per Stage 2 dispatch, not per phase.
+
+### Procedure
+
+1. Read `detected_domains` from the Stage 1 summary YAML frontmatter
+2. If `detected_domains` is empty or not present, set `skill_references` to the fallback text: `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`  and skip to Section 2.1
+3. Read `dev_skills` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+4. If `dev_skills.enabled` is `false`, use fallback text and skip to Section 2.1
+5. Build the skill reference list:
+
+   a. Start with `always_include` skills (e.g., `clean-code`)
+   b. For each domain in `detected_domains`, look up `domain_mapping[domain].skills` and add them
+   c. Deduplicate
+   d. Cap at `max_skills_per_dispatch` (default: 3). If more skills matched, keep `always_include` first, then prioritize by order of appearance in `detected_domains`
+
+6. Format `skill_references` as:
+
+```markdown
+The following dev-skills are relevant to this implementation domain. Consult their SKILL.md
+for patterns, anti-patterns, and decision trees. Read on-demand — do NOT read all upfront.
+Codebase conventions (CLAUDE.md, constitution.md) always take precedence over skill guidance.
+
+{for each skill:}
+- **{skill_name}**: `$PLUGINS_DIR/{plugin_path}/skills/{skill_name}/SKILL.md` — {reason or domain}
+```
+
+Where `$PLUGINS_DIR` resolves to the plugins installation directory and `{plugin_path}` comes from `dev_skills.plugin_path` in config.
+
+### Example Output
+
+```markdown
+The following dev-skills are relevant to this implementation domain. Consult their SKILL.md
+for patterns, anti-patterns, and decision trees. Read on-demand — do NOT read all upfront.
+Codebase conventions (CLAUDE.md, constitution.md) always take precedence over skill guidance.
+
+- **clean-code**: `$PLUGINS_DIR/dev-skills/skills/clean-code/SKILL.md` — Universal code quality patterns
+- **kotlin-expert**: `$PLUGINS_DIR/dev-skills/skills/kotlin-expert/SKILL.md` — Kotlin domain patterns
+- **api-patterns**: `$PLUGINS_DIR/dev-skills/skills/api-patterns/SKILL.md` — API design patterns
+```
+
+### Context Budget
+
+This resolution adds ~5-10 lines to the agent prompt. The agent reads skill files on-demand only when encountering relevant implementation decisions — it does NOT preload all skills into context.
+
 ## 2.1 Phase Loop
 
 For each phase in `tasks.md` (in order), perform these steps:
@@ -63,6 +109,7 @@ Task(subagent_type="product-implementation:developer")
 - `{test_specs_summary}` — From Stage 1 summary "Test Specifications" section. If section not present, use fallback: `"No test specifications available — proceed with standard TDD approach."`
 - `{test_cases_dir}` — If Stage 1 summary has `test_cases_available: true`, set to `{FEATURE_DIR}/test-cases/`. Otherwise set to `"Not available"`.
 - `{traceability_file}` — If `analysis/task-test-traceability.md` was loaded per Stage 1 summary, set to `{FEATURE_DIR}/analysis/task-test-traceability.md`. Otherwise set to `"Not available"`.
+- `{skill_references}` — Resolved in Section 2.0 above. Same value reused for all phases within this Stage 2 dispatch.
 
 ### Step 3: Verify Phase Completion
 

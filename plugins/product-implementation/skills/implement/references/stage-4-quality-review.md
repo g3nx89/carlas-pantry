@@ -16,12 +16,44 @@ agents:
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
   - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
+  - ".stage-summaries/stage-1-summary.md (for detected_domains)"
 ---
 
 # Stage 4: Quality Review
 
 > **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
 > Read the prior stage summaries to understand what was implemented and validated.
+
+## 4.1a Skill Reference Resolution for Review
+
+Before selecting the review strategy, resolve domain-specific skill references and conditional review dimensions.
+
+### Procedure
+
+1. Read `detected_domains` from the Stage 1 summary YAML frontmatter
+2. Read `dev_skills` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+3. If `dev_skills.enabled` is `false` or `detected_domains` is empty, set `skill_references` to fallback text and `conditional_reviewers` to empty. Skip to Section 4.1.
+
+4. **Resolve skill references** for review agents (same algorithm as Stage 2, Section 2.0):
+   - Start with `always_include`, add domain-matched skills, deduplicate, cap at `max_skills_per_dispatch`
+   - Format as skill reference block
+
+5. **Resolve conditional reviewers** from `dev_skills.conditional_review`:
+   - For each entry, check if ANY of its `domains` appear in `detected_domains`
+   - If matched, add its `focus` as an additional review dimension and note its `skill` for the reviewer prompt
+   - Each conditional reviewer is launched as an additional `developer` agent alongside the base 3
+
+### Output
+
+- `skill_references`: formatted block for all review agent prompts
+- `conditional_reviewers`: list of `{focus, skill}` pairs for additional reviewer dispatches
+
+### Impact on Agent Count
+
+Base count: 3 (from `config/implementation-config.yaml` `quality_review.agent_count`)
+With conditionals: 3 + len(conditional_reviewers)
+
+Example: For a web frontend project, `detected_domains: ["web_frontend"]` matches two conditional entries → 5 total reviewers (3 base + accessibility + web guidelines).
 
 ## 4.1 Review Strategy Selection
 
@@ -30,15 +62,15 @@ Check if `/code-review:review-local-changes` command is available by attempting 
 - **If available**: Use it for the review (preferred — integrates with existing review infrastructure). Normalize the output to match the finding format in Section 4.3 before consolidation.
 - **If not available**: Launch 3 parallel `developer` agents, each focusing on a different quality dimension (see `config/implementation-config.yaml` for focus areas)
 
-## 4.2 Three-Agent Review (Fallback)
+## 4.2 Multi-Agent Review (Fallback)
 
-Launch 3 `developer` agents in parallel using the review prompt template from `agent-prompts.md` (Section: Quality Review Prompt).
+Launch `developer` agents in parallel using the review prompt template from `agent-prompts.md` (Section: Quality Review Prompt).
 
 ```
-Task(subagent_type="product-implementation:developer")  # x3, parallel
+Task(subagent_type="product-implementation:developer")  # x3+ parallel
 ```
 
-### Review Dimensions
+### Base Review Dimensions
 
 | Agent | Focus Area | What to Look For |
 |-------|------------|-------------------|
@@ -46,13 +78,29 @@ Task(subagent_type="product-implementation:developer")  # x3, parallel
 | Reviewer 2 | **Bugs / Functional Correctness** | Logic errors, edge cases missed, race conditions, null/undefined handling, error propagation, off-by-one errors |
 | Reviewer 3 | **Project Conventions / Abstractions** | Pattern violations, inconsistent style, wrong abstractions, missing types, convention drift from CLAUDE.md/constitution.md |
 
+### Conditional Review Dimensions
+
+If `conditional_reviewers` was populated in Section 4.1a, launch additional `developer` agents — one per conditional entry — using the same review prompt template but with:
+- `{focus_area}` set to the conditional entry's `focus` value
+- `{skill_references}` including the conditional entry's `skill` path (the reviewer should consult this skill for domain-specific review criteria)
+
+Example conditional reviewers:
+
+| Agent | Focus Area | Triggered By | Skill Reference |
+|-------|------------|-------------|-----------------|
+| Reviewer 4 | **Accessibility / WCAG 2.1 AA** | `web_frontend`, `compose`, `android` in `detected_domains` | `accessibility-auditor` |
+| Reviewer 5 | **Web Best Practices / Performance** | `web_frontend` in `detected_domains` | `web-design-guidelines` |
+
+All conditional reviewers run in parallel with the base 3.
+
 ### Review Scope
 
 Each reviewer agent should:
 1. Read the list of files changed during implementation (from tasks.md file paths)
 2. Read each changed file
 3. Compare against existing codebase patterns
-4. Produce findings in structured format
+4. If skill references are provided, consult them for domain-specific review criteria
+5. Produce findings in structured format
 
 ## 4.3 Finding Consolidation
 

@@ -41,6 +41,67 @@ handoff:
     subdirectories: ["e2e", "integration", "unit", "uat"]
     test_id_patterns: ["E2E-*", "INT-*", "UT-*", "UAT-*"]
 
+# Dev-skills integration (conditional skill injection)
+# Coordinators read detected_domains from Stage 1 summary and resolve applicable skills.
+# The orchestrator never reads or references these values — only coordinators do.
+dev_skills:
+  enabled: true
+  max_skills_per_dispatch: 3  # Cap on DOMAIN skills (always_include is exempt from this cap)
+  plugin_path: "dev-skills"   # Sibling plugin name — resolved as $CLAUDE_PLUGIN_ROOT/../dev-skills
+  always_include:             # These are ALWAYS injected, exempt from max_skills_per_dispatch
+    - skill: "clean-code"
+      reason: "Universal code quality patterns (SOLID, naming, guard clauses)"
+  domain_mapping:
+    kotlin:
+      indicators: [".kt", "Kotlin", "KMP", "kotlin"]
+      skills: ["kotlin-expert"]
+    compose:
+      indicators: ["Composable", "Compose", "@Composable", "Material3", "LazyColumn"]
+      skills: ["compose-expert"]
+    android:
+      indicators: ["AndroidManifest", "Activity", "ViewModel", "Intent", "android"]
+      skills: ["android-expert"]
+    kotlin_async:
+      indicators: ["callbackFlow", "supervisorScope", "StateFlow", "SharedFlow", "suspend fun"]
+      skills: ["kotlin-coroutines"]
+    web_frontend:
+      indicators: [".tsx", ".jsx", ".vue", ".svelte", "React", "Next.js", "CSS", "HTML"]
+      skills: ["frontend-design"]
+    api:
+      indicators: ["endpoint", "route", "controller", "REST", "GraphQL", "handler", "/api/"]
+      skills: ["api-patterns"]
+    database:
+      indicators: ["schema", "migration", "model", "entity", "table", "Prisma", "Drizzle", "SQL"]
+      skills: ["database-schema-designer"]
+    gradle:
+      indicators: ["build.gradle", "settings.gradle", "version catalog", "Gradle"]
+      skills: ["gradle-expert"]
+  # Validation skill injection (Stage 3)
+  # Injected into completion validation prompt when test-heavy features are detected
+  validation_skills:
+    conditional:
+      - domains: ["web_frontend", "api", "database"]
+        skills: ["qa-test-planner"]
+  # Conditional quality review dimensions (Stage 4)
+  # Added to the base focus_areas when detected_domains match
+  max_conditional_reviewers: 2  # Cap on additional reviewer agents beyond base agent_count
+  conditional_review:
+    - domains: ["web_frontend", "compose", "android"]
+      focus: "accessibility compliance, WCAG 2.1 AA, keyboard navigation, ARIA attributes, touch targets"
+      skill: "accessibility-auditor"
+    - domains: ["web_frontend"]
+      focus: "responsive design, performance metrics, web interface best practices"
+      skill: "web-design-guidelines"
+  # Documentation skill injection (Stage 5)
+  # Always injected for tech-writer when documentation stage runs
+  documentation_skills:
+    always: ["mermaid-diagrams"]
+    conditional:
+      - domains: ["api"]
+        skills: ["api-patterns"]
+      - domains: ["database"]
+        skills: ["database-schema-designer"]
+
 # Branch format
 branch:
   pattern: "feature/<number-padded-to-3-digits>-<kebab-case-title>"

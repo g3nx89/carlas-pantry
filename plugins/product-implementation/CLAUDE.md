@@ -19,7 +19,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 | 1 | Setup & Context Loading | Inline | None (orchestrator) |
 | 2 | Phase-by-Phase Execution | Coordinator | developer (per phase) |
 | 3 | Completion Validation | Coordinator | developer |
-| 4 | Quality Review | Coordinator | 3x developer (parallel) |
+| 4 | Quality Review | Coordinator | 3x+ developer (parallel, conditionally extended) |
 | 5 | Feature Documentation | Coordinator | developer + tech-writer |
 
 ### Agent Assignments
@@ -62,3 +62,34 @@ The implement skill expects these files in the feature directory (produced by pr
 - Agent prompt templates in `agent-prompts.md` must list variables explicitly per prompt — do not use "Same as X Prompt" shorthand, as coordinators fill only what's listed and omissions cause silent failures
 - Stage 1 summary is the context bus for all later stages: Planning Artifacts Summary table + Context File Summaries + Test Specifications block. When adding new planning artifacts, add them to Stage 1's discovery and summary, not to individual coordinator stages
 - After bulk reference file edits, update `references/README.md` line counts — stale counts mislead developers about file complexity
+- After inserting a new numbered section in any stage file, grep all reference files for the old section numbers and update — cross-file section references (e.g., "Section 1.7") break silently when sections are renumbered
+- When adding a new reference file: register in `references/README.md` (3 tables: usage, file sizes, cross-references) AND `SKILL.md` Reference Map — this wiring step is the most common omission when sessions exhaust context
+
+## Dev-Skills Integration
+
+When the `dev-skills` plugin is installed alongside `product-implementation`, agents receive conditional domain-specific skill references that enhance implementation quality with patterns, anti-patterns, and decision trees.
+
+### Architecture (Orchestrator-Transparent)
+
+The orchestrator NEVER reads or references dev-skills. All skill resolution happens inside coordinator subagents:
+
+1. **Stage 1** (inline) detects technology domains from task file paths and plan.md content → writes `detected_domains` to summary
+2. **Stage 2** coordinator reads `detected_domains`, resolves applicable skills from `config/implementation-config.yaml` `dev_skills` section, and populates `{skill_references}` in developer agent prompts
+3. **Stage 4** coordinator adds conditional review dimensions (e.g., accessibility for UI projects) and injects skill references into reviewer prompts
+4. **Stage 5** coordinator injects diagram and documentation skills into tech-writer prompts
+
+### Key Constraints
+
+- **Max 3 skills per dispatch** (configurable via `dev_skills.max_skills_per_dispatch`) — prevents context bloat
+- **On-demand reading** — agents read skill SKILL.md files only when encountering relevant decisions, not upfront
+- **Codebase conventions take precedence** — CLAUDE.md and constitution.md override skill guidance
+- **Graceful degradation** — if dev-skills not installed, all injection is silently skipped (fallback text used)
+- **Config-driven** — domain-to-skill mapping lives in `config/implementation-config.yaml`, not in prose
+
+### Domain Detection Indicators
+
+Domain indicators (file extensions, framework keywords) are defined in `config/implementation-config.yaml` under `dev_skills.domain_mapping`. Currently supported: `kotlin`, `compose`, `android`, `kotlin_async`, `web_frontend`, `api`, `database`, `gradle`.
+
+### Conditional Quality Reviewers
+
+Stage 4 can launch additional reviewer agents beyond the base 3 when `detected_domains` match entries in `dev_skills.conditional_review`. Example: `web_frontend` triggers an accessibility reviewer using `accessibility-auditor` skill.
