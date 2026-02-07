@@ -16,6 +16,19 @@ User Input: {user_input}
 FEATURE_NAME: {FEATURE_NAME}
 FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
+
+## Planning Context
+
+{context_summary}
+
+## Test Specifications
+
+{test_specs_summary}
+
+Test cases directory: {test_cases_dir}
+Task-test traceability: {traceability_file}
+
+When test-case specs are available, read the relevant spec file BEFORE writing tests to align with the planned test strategy. If a test ID is referenced in a task, locate its spec in test-cases/ and implement accordingly.
 ```
 
 **Variables:**
@@ -24,8 +37,12 @@ TASKS_FILE: {TASKS_FILE}
 - `{FEATURE_NAME}` — Feature identifier from git branch
 - `{FEATURE_DIR}` — Path to feature spec directory
 - `{TASKS_FILE}` — Path to tasks.md
+- `{context_summary}` — Context File Summaries section from Stage 1 summary. Provides 1-line descriptions of each loaded planning artifact so the agent has immediate context without re-reading full files. **Fallback if unavailable:** `"No context summary available — read planning artifacts from FEATURE_DIR as needed."`
+- `{test_specs_summary}` — Test Specifications section from Stage 1 summary. Lists available test-case specs by level with counts. **Fallback if unavailable:** `"No test specifications available — proceed with standard TDD approach."`
+- `{test_cases_dir}` — Path to test-cases/ directory, or `"Not available"` if the directory does not exist
+- `{traceability_file}` — Path to `analysis/task-test-traceability.md`, or `"Not available"` if the file does not exist
 
-**Agent behavior:** The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion.
+**Agent behavior:** The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy.
 
 ---
 
@@ -39,6 +56,7 @@ Used in Stage 3 after all phases complete.
    - Check that implemented features match the original specification
    - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
+   - If test-case specs are available, cross-validate test IDs against implemented tests
    - Report final status with summary of completed work
 
 User Input: {user_input}
@@ -46,11 +64,22 @@ User Input: {user_input}
 FEATURE_NAME: {FEATURE_NAME}
 FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
+
+Test cases directory: {test_cases_dir}
+Task-test traceability: {traceability_file}
+
+If test-case specs are available in test_cases_dir, verify that test IDs referenced in tasks.md have corresponding implemented test files. Report any gaps in the validation report.
 ```
 
-**Variables:** Same as Phase Implementation Prompt.
+**Variables:**
+- `{user_input}` — Original user arguments, or empty string if none
+- `{FEATURE_NAME}` — Feature identifier from git branch
+- `{FEATURE_DIR}` — Path to feature spec directory
+- `{TASKS_FILE}` — Path to tasks.md
+- `{test_cases_dir}` — Path to test-cases/ directory, or `"Not available"` if the directory does not exist
+- `{traceability_file}` — Path to `analysis/task-test-traceability.md`, or `"Not available"` if the file does not exist
 
-**Agent behavior:** The developer agent reads tasks.md, verifies every task is `[X]`, runs the test suite, and cross-references implementation against plan.md and spec.md. Produces a validation report.
+**Agent behavior:** The developer agent reads tasks.md, verifies every task is `[X]`, runs the test suite, and cross-references implementation against plan.md and spec.md. When test-case specs are available, also validates test ID traceability. Produces a validation report.
 
 ---
 
@@ -90,7 +119,10 @@ TASKS_FILE: {TASKS_FILE}
   - `"simplicity, DRY principles, and code elegance"`
   - `"bugs, functional correctness, and edge case handling"`
   - `"project conventions, abstractions, and pattern adherence"`
-- Other variables: Same as Phase Implementation Prompt.
+- `{user_input}` — Original user arguments, or empty string if none
+- `{FEATURE_NAME}` — Feature identifier from git branch
+- `{FEATURE_DIR}` — Path to feature spec directory
+- `{TASKS_FILE}` — Path to tasks.md
 
 **Agent behavior:** The developer agent reads the changed files (extracted from tasks.md file paths), reviews code through its assigned lens, and produces a structured list of findings using the specified output format.
 
@@ -122,7 +154,10 @@ TASKS_FILE: {TASKS_FILE}
   - Description
   - File path and line number
   - Recommended fix
-- Other variables: Same as Phase Implementation Prompt.
+- `{user_input}` — Original user arguments, or empty string if none
+- `{FEATURE_NAME}` — Feature identifier from git branch
+- `{FEATURE_DIR}` — Path to feature spec directory
+- `{TASKS_FILE}` — Path to tasks.md
 
 **Agent behavior:** The developer agent reads each referenced file, applies targeted fixes for each listed finding, runs tests to verify no regressions, and reports what was fixed with file:line references.
 
@@ -154,7 +189,10 @@ TASKS_FILE: {TASKS_FILE}
   - Description
   - File path
   - Current status (not started / partially done)
-- Other variables: Same as Phase Implementation Prompt.
+- `{user_input}` — Original user arguments, or empty string if none
+- `{FEATURE_NAME}` — Feature identifier from git branch
+- `{FEATURE_DIR}` — Path to feature spec directory
+- `{TASKS_FILE}` — Path to tasks.md
 
 **Agent behavior:** The developer agent reads tasks.md, identifies the listed incomplete tasks, implements them following the Tasks.md Execution Workflow, marks each `[X]` on completion, and runs tests to verify correctness.
 
@@ -174,6 +212,10 @@ FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
 ```
 
-**Variables:** Same as Phase Implementation Prompt.
+**Variables:**
+- `{user_input}` — Original user arguments, or empty string if none
+- `{FEATURE_NAME}` — Feature identifier from git branch
+- `{FEATURE_DIR}` — Path to feature spec directory
+- `{TASKS_FILE}` — Path to tasks.md
 
 **Agent behavior:** The tech-writer agent reads all context files from FEATURE_DIR, reviews the implemented code, and creates/updates project documentation including API guides, usage examples, architecture updates, module READMEs, and lessons learned. Produces a documentation update summary.

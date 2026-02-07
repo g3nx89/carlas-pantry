@@ -29,6 +29,18 @@ severity:
     description: "Style preference, minor optimization opportunity"
     example: "Variable naming inconsistency"
 
+# Handoff artifact tiers (Stage 1 file classification)
+# Required files halt if missing. Expected files warn if missing. Optional files are silent.
+handoff:
+  expected_files:
+    - file: "design.md"
+      warning: "design.md not found — developer agents will rely on plan.md only for architecture context"
+    - file: "test-plan.md"
+      warning: "test-plan.md not found — TDD will proceed without a V-Model test strategy document"
+  test_cases:
+    subdirectories: ["e2e", "integration", "unit", "uat"]
+    test_id_patterns: ["E2E-*", "INT-*", "UT-*", "UAT-*"]
+
 # Branch format
 branch:
   pattern: "feature/<number-padded-to-3-digits>-<kebab-case-title>"

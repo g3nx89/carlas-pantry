@@ -573,7 +573,7 @@ const example = () => {
 
 ## Feature Implementation Documentation Workflow
 
-1. **Load context**: Read all available files from FEATURE_DIR (spec.md, plan.md, tasks.md, data-model.md, contracts.md, research.md)
+1. **Load context**: Read all available files from FEATURE_DIR (spec.md, plan.md, tasks.md, data-model.md, contract.md, research.md)
 
 2. **Review implementation**:
    - Identify all files modified during implementation

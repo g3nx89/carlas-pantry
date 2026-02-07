@@ -41,12 +41,12 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | 195 | Dispatch loop, crash recovery, lock release, state migration |
-| `stage-1-setup.md` | 174 | Inline setup instructions with summary template |
-| `stage-2-execution.md` | 160 | Phase loop and execution rules |
-| `stage-3-validation.md` | 117 | Validation checks and report format |
+| `stage-1-setup.md` | 257 | Inline setup instructions with summary template |
+| `stage-2-execution.md` | 166 | Phase loop and execution rules |
+| `stage-3-validation.md` | 123 | Validation checks and report format |
 | `stage-4-quality-review.md` | 159 | Review dimensions, consolidation, user decision |
 | `stage-5-documentation.md` | 182 | Tech-writer dispatch, lock release |
-| `agent-prompts.md` | 179 | All 6 agent prompt templates |
+| `agent-prompts.md` | 221 | All 6 agent prompt templates |
 
 ## Cross-References
 

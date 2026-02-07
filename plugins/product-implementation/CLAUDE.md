@@ -42,7 +42,10 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 The implement skill expects these files in the feature directory (produced by product-planning):
 - `tasks.md` (required) — phased task list with acceptance criteria
 - `plan.md` (required) — implementation plan
-- `spec.md`, `design.md`, `data-model.md`, `contracts.md`, `research.md`, `test-plan.md` (optional)
+- `design.md`, `test-plan.md` (expected — warns if missing, does not halt)
+- `spec.md`, `data-model.md`, `contract.md`, `research.md` (optional)
+- `test-cases/` (optional) — test specifications by level (e2e, integration, unit, uat)
+- `analysis/task-test-traceability.md` (optional) — task-to-test-case mapping
 
 ### Legacy Commands
 
@@ -54,3 +57,8 @@ The implement skill expects these files in the feature directory (produced by pr
 - Severity definitions (critical/high/medium/low) are canonical in the config file; SKILL.md references them but does not redefine
 - State file is versioned (currently v2); any schema changes must include migration logic in `orchestrator-loop.md`
 - The 3 quality reviewers in Stage 4 have distinct focus areas defined in config; do not merge or change their specializations without updating the config
+- Cross-plugin naming: product-planning produces `contract.md` (singular), `test-cases/uat/` (not `visual/`), and test IDs like `E2E-*`, `INT-*`, `UT-*`, `UAT-*` (no `TC-` prefix) — always verify against the source plugin before adding new artifact references
+- Handoff contract values (expected files, test-case subdirectories, test ID patterns) are externalized in `config/implementation-config.yaml` under `handoff` — update config, not prose, when planning outputs change
+- Agent prompt templates in `agent-prompts.md` must list variables explicitly per prompt — do not use "Same as X Prompt" shorthand, as coordinators fill only what's listed and omissions cause silent failures
+- Stage 1 summary is the context bus for all later stages: Planning Artifacts Summary table + Context File Summaries + Test Specifications block. When adding new planning artifacts, add them to Stage 1's discovery and summary, not to individual coordinator stages
+- After bulk reference file edits, update `references/README.md` line counts — stale counts mislead developers about file complexity

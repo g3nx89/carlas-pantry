@@ -7,6 +7,8 @@ prior_summaries: []
 artifacts_read:
   - "tasks.md"
   - "plan.md"
+  - "test-cases/ (if exists)"
+  - "analysis/task-test-traceability.md (if exists)"
 artifacts_written: []
 agents: []
 additional_references: []
@@ -51,11 +53,43 @@ Read these if they exist. They provide additional implementation context.
 | File | Purpose |
 |------|---------|
 | `{FEATURE_DIR}/data-model.md` | Entity definitions and relationships |
-| `{FEATURE_DIR}/contracts.md` | API specifications and test requirements |
+| `{FEATURE_DIR}/contract.md` | API specifications and test requirements |
 | `{FEATURE_DIR}/research.md` | Technical decisions and constraints |
 | `{FEATURE_DIR}/spec.md` | Feature specification and user stories |
 | `{FEATURE_DIR}/design.md` | Architecture design document |
 | `{FEATURE_DIR}/test-plan.md` | V-Model test strategy |
+| `{FEATURE_DIR}/test-cases/` | Test specifications by level (e2e, integration, unit, uat) |
+| `{FEATURE_DIR}/analysis/task-test-traceability.md` | Mapping of tasks to test cases and acceptance criteria |
+
+## 1.3a Expected Files
+
+These files are not strictly required (implementation can proceed without them), but their absence usually indicates the planning phase was incomplete. **Emit a warning** for each missing expected file so the user is aware.
+
+The expected file list and warning messages are defined in `config/implementation-config.yaml` under `handoff.expected_files`. Current defaults:
+
+| File | Warning If Missing |
+|------|-------------------|
+| `{FEATURE_DIR}/design.md` | "design.md not found — developer agents will rely on plan.md only for architecture context" |
+| `{FEATURE_DIR}/test-plan.md` | "test-plan.md not found — TDD will proceed without a V-Model test strategy document" |
+
+Log each warning in the Stage 1 summary. Do NOT halt execution for missing expected files.
+
+## 1.3b Test Cases Discovery
+
+Scan for pre-generated test specifications from the planning phase:
+
+1. Check if `{FEATURE_DIR}/test-cases/` directory exists
+2. If it exists:
+   - List subdirectories (expected subdirectories and test ID patterns are defined in `config/implementation-config.yaml` under `handoff.test_cases`; defaults: `e2e/`, `integration/`, `unit/`, `uat/`)
+   - Count `.md` spec files per level
+   - Extract test IDs from spec files (default patterns: `E2E-*`, `INT-*`, `UT-*`, `UAT-*`)
+   - Cross-reference test IDs against `test-plan.md` (if available) to verify alignment
+   - Store results as `test_cases_available: true` with per-level counts
+3. If it does not exist:
+   - Set `test_cases_available: false`
+   - All test-case-dependent sections in later stages will be skipped
+
+**Output variable:** `test_cases_summary` — included in Stage 1 summary for consumption by later stages.
 
 ## 1.4 Context Loading Procedure
 
@@ -80,6 +114,11 @@ Extract and store:
 - Which tasks are already marked `[X]` (for resume scenarios)
 
 **Validation:** If tasks.md exists but contains zero phases (empty or malformed), halt with guidance: "tasks.md has no parseable phases. Verify the file was generated correctly by `/product-planning:tasks`."
+
+**Structural checks** (warn if missing, do not halt):
+- **Overview section**: Verify tasks.md contains a top-level overview or summary section. If missing, warn: "tasks.md has no overview section — phase context may be limited."
+- **Test ID references**: If `test_cases_available` is true, scan task descriptions for test ID patterns (`TC-*`). If no test IDs are found in tasks.md but test-cases/ exists, warn: "tasks.md does not reference test IDs from test-cases/ — traceability may be incomplete."
+- **Test ID cross-validation**: If both tasks.md test IDs and test-cases/ specs are present, verify that referenced test IDs have corresponding spec files. Log any orphaned references.
 
 ## 1.6 Lock Acquisition
 
@@ -151,9 +190,12 @@ artifacts_written: []
 summary: |
   Loaded context for {FEATURE_NAME}. Found {N} phases with {M} tasks.
   Required files: tasks.md, plan.md. Optional files loaded: {list}.
+  Expected files missing: {list or "none"}.
+  Test cases: {available with N specs / not available}.
   {Resume status if applicable}.
 flags:
   block_reason: null
+  test_cases_available: {true/false}
 ---
 ## Context for Next Stage
 
@@ -165,10 +207,53 @@ flags:
 - Phases remaining: {list}
 - Resume from: {phase_name or "beginning"}
 
+## Planning Artifacts Summary
+
+| File | Status | Key Content |
+|------|--------|-------------|
+| `tasks.md` | Required — loaded | {N} phases, {M} tasks |
+| `plan.md` | Required — loaded | Tech stack: {stack}, {N} files planned |
+| `design.md` | {Loaded / Missing (expected)} | {1-line summary or "N/A"} |
+| `test-plan.md` | {Loaded / Missing (expected)} | {1-line summary or "N/A"} |
+| `spec.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
+| `contract.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
+| `data-model.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
+| `research.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
+| `test-cases/` | {Available ({N} specs) / Not found} | {Level breakdown or "N/A"} |
+| `analysis/task-test-traceability.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
+
+## Context File Summaries
+
+For each loaded optional/expected file, provide a 1-line summary of its key content to give downstream coordinators and agents quick context without re-reading full files:
+
+- **spec.md**: {1-line summary, e.g., "3 user stories covering registration, login, and password reset"}
+- **design.md**: {1-line summary, e.g., "Clean architecture with 4 layers, PostgreSQL + Redis stack"}
+- **contract.md**: {1-line summary, e.g., "5 REST endpoints, JWT auth, OpenAPI 3.0 format"}
+- **data-model.md**: {1-line summary, e.g., "4 entities: User, Session, Token, AuditLog with relations"}
+- **research.md**: {1-line summary, e.g., "Chose bcrypt over argon2 for password hashing, Redis for sessions"}
+- **test-plan.md**: {1-line summary, e.g., "V-Model strategy: 12 e2e, 25 integration, 40 unit tests planned"}
+- *(Omit lines for files that were not found)*
+
+## Test Specifications
+
+*(This section is only present if `test_cases_available: true`)*
+
+- **Test cases directory**: `{FEATURE_DIR}/test-cases/`
+- **Specs by level**:
+  - E2E: {count} specs
+  - Integration: {count} specs
+  - Unit: {count} specs
+  - UAT: {count} specs
+- **Total test IDs discovered**: {count}
+- **Traceability file**: {Loaded / Not found} (`analysis/task-test-traceability.md`)
+- **Cross-validation**: {All test IDs in tasks.md have matching specs / {N} orphaned references}
+
 ## Stage Log
 
 - [{timestamp}] Branch parsed: {branch_name}
 - [{timestamp}] Context loaded: {N} phases, {M} tasks
+- [{timestamp}] Expected file warnings: {list or "none"}
+- [{timestamp}] Test cases: {discovered N specs / not available}
 - [{timestamp}] Lock acquired
 - [{timestamp}] State initialized / resumed from Stage {S}
 ```

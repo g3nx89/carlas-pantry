@@ -10,6 +10,8 @@ artifacts_read:
   - "tasks.md"
   - "plan.md"
   - "spec.md"
+  - "test-cases/ (if test_cases_available)"
+  - "analysis/task-test-traceability.md (if exists)"
 artifacts_written:
   - ".implementation-state.local.md (updated stage)"
 agents:
@@ -36,6 +38,8 @@ Task(subagent_type="product-implementation:developer")
 - `{FEATURE_DIR}` — From Stage 1 summary
 - `{TASKS_FILE}` — From Stage 1 summary
 - `{user_input}` — Original user arguments (if any)
+- `{test_cases_dir}` — If Stage 1 summary has `test_cases_available: true`, set to `{FEATURE_DIR}/test-cases/`. Otherwise set to `"Not available"`.
+- `{traceability_file}` — If `analysis/task-test-traceability.md` was loaded per Stage 1 summary, set to `{FEATURE_DIR}/analysis/task-test-traceability.md`. Otherwise set to `"Not available"`.
 
 ## 3.2 Validation Checks
 
@@ -46,6 +50,7 @@ The validation agent verifies:
 3. **Test coverage**: All tests pass, coverage meets project requirements
 4. **Plan adherence**: Implementation follows the technical plan (architecture, patterns, file structure)
 5. **Integration integrity**: All components integrate correctly
+6. **Test ID traceability** *(conditional — only if Stage 1 summary has `test_cases_available: true`)*: Verify that test IDs referenced in tasks.md have both (a) corresponding test-case spec files in `test-cases/` and (b) implemented test files in the codebase. Report any test IDs that are specified but not implemented, or implemented but not specified.
 
 ## 3.3 Validation Report
 
@@ -57,6 +62,7 @@ Agent produces a summary:
 Tasks: {completed}/{total} (100%)
 Tests: {passing}/{total} (100% pass rate)
 Spec Coverage: {covered ACs}/{total ACs}
+Test ID Traceability: {all traced / N gaps} (if test_cases_available)
 
 ### Issues Found
 - [severity] Description — file:line

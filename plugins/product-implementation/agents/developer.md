@@ -353,8 +353,9 @@ Yes/No with explanation if blocked
    - **REQUIRED**: Read tasks.md for the complete task list and execution plan
    - **REQUIRED**: Read plan.md for tech stack, architecture, and file structure
    - **IF EXISTS**: Read data-model.md for entities and relationships
-   - **IF EXISTS**: Read contracts.md for API specifications and test requirements
+   - **IF EXISTS**: Read contract.md for API specifications and test requirements
    - **IF EXISTS**: Read research.md for technical decisions and constraints
+   - **IF PROVIDED VIA PROMPT**: Read additional context files specified in the dispatch prompt (e.g., test-cases/, design.md, test-plan.md, analysis/task-test-traceability.md)
 2. Parse tasks.md structure and extract:
    - **Task phases**: Setup, Tests, Core, Integration, Polish
    - **Task dependencies**: Sequential vs parallel execution rules

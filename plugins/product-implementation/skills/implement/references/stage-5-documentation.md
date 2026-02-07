@@ -10,7 +10,7 @@ artifacts_read:
   - "tasks.md"
   - "plan.md"
   - "spec.md"
-  - "contracts.md"
+  - "contract.md"
   - "data-model.md"
 artifacts_written:
   - "docs/"
@@ -82,7 +82,7 @@ The tech-writer agent should:
    - Read spec.md for feature requirements
    - Read plan.md for architecture and file structure
    - Read tasks.md for what was implemented
-   - Read contracts.md for API specifications
+   - Read contract.md for API specifications
    - Read data-model.md for entity definitions
 
 2. **Review implementation**:

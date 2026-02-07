@@ -11,9 +11,11 @@ artifacts_read:
   - "spec.md"
   - "design.md"
   - "data-model.md"
-  - "contracts.md"
+  - "contract.md"
   - "research.md"
   - "test-plan.md"
+  - "test-cases/ (if exists)"
+  - "analysis/task-test-traceability.md (if exists)"
 artifacts_written:
   - "tasks.md (updated with [X] marks)"
   - ".implementation-state.local.md (updated phases)"
@@ -57,6 +59,10 @@ Task(subagent_type="product-implementation:developer")
 - `{FEATURE_NAME}` — From Stage 1 summary
 - `{FEATURE_DIR}` — From Stage 1 summary
 - `{TASKS_FILE}` — From Stage 1 summary
+- `{context_summary}` — From Stage 1 summary "Context File Summaries" section. If section not present, use fallback: `"No context summary available — read planning artifacts from FEATURE_DIR as needed."`
+- `{test_specs_summary}` — From Stage 1 summary "Test Specifications" section. If section not present, use fallback: `"No test specifications available — proceed with standard TDD approach."`
+- `{test_cases_dir}` — If Stage 1 summary has `test_cases_available: true`, set to `{FEATURE_DIR}/test-cases/`. Otherwise set to `"Not available"`.
+- `{traceability_file}` — If `analysis/task-test-traceability.md` was loaded per Stage 1 summary, set to `{FEATURE_DIR}/analysis/task-test-traceability.md`. Otherwise set to `"Not available"`.
 
 ### Step 3: Verify Phase Completion
 
