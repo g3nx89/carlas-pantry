@@ -89,6 +89,8 @@ claude plugins enable plugin-name
 - [ ] All reference files listed in skill's Reference Map table
 - [ ] No project-specific hardcoded content in generic skills
 - [ ] Canonical definitions (Priority, Severity) live in SKILL.md, not duplicated in references
+- [ ] Cross-plugin artifact names match the producer's actual output (grep to verify)
+- [ ] Agent prompt templates list all variables explicitly (no "Same as X" shortcuts)
 
 ### Git Workflow for Multi-Plugin Commits
 
@@ -135,6 +137,21 @@ For skills that track execution progress across stages or sessions:
 - **Lock protocol**: acquire at start, release at completion; define stale timeout in config (e.g., 60 min)
 - **Immutable user decisions**: once a user decision is recorded (e.g., review outcome), never overwrite — only append new decisions
 - **Checkpoint-based resume**: use `current_stage` + `stage_summaries` to determine entry point on re-invocation
+
+### Cross-Plugin Artifact Contracts
+
+When one plugin consumes artifacts produced by another (e.g., product-implementation consuming product-planning outputs):
+- **Verify naming at the source**: grep the producer plugin's config/templates for exact file names, subdirectory names, and ID patterns before hardcoding them in the consumer — naming drift (e.g., `contracts.md` vs `contract.md`, `visual/` vs `uat/`) causes silent mismatches
+- **Externalize handoff contracts to config**: put expected file names, subdirectory lists, and ID patterns in `config/{plugin}-config.yaml` so they're auditable and changeable without editing reference prose
+- **Three-tier validation for handoff files**: Required (halt if missing) → Expected (warn if missing, continue) → Optional (silent if missing) — avoids blocking execution for non-critical artifacts while surfacing incomplete planning
+- **Summary-as-context-bus**: when a bootstrapping stage loads many artifacts, compile a structured summary (table + 1-line-per-file) and pass it to all downstream stages — avoids each coordinator re-discovering and re-reading the same files
+
+### Agent Prompt Variable Discipline
+
+When defining prompt templates used by coordinators to dispatch agents:
+- **Explicit variable lists per prompt** — never use "Same as X Prompt" shortcuts; each prompt template must list its own variables with types and sourcing instructions, because coordinators fill only what's explicitly listed
+- **Fallback defaults for optional variables** — every variable that may not be available (e.g., from a conditional artifact) must specify fallback text (e.g., `"Not available"`) so the agent prompt is always well-formed
+- **Cross-validate variable lists against agent behavior** — if a prompt instructs the agent to do something conditional (e.g., "cross-validate test IDs"), verify the variables needed for that behavior are in the variable list
 
 ### Instruction File Integrity
 
