@@ -86,11 +86,13 @@ claude plugins enable plugin-name
 - [ ] Templates have glossaries for non-technical users
 - [ ] Agents specify model and mode availability in frontmatter
 - [ ] Cross-references between skills point to existing skill directories
-- [ ] All reference files listed in skill's Reference Map table
+- [ ] All reference files listed in skill's Reference Map table AND `references/README.md` (usage table, file sizes, cross-references)
 - [ ] No project-specific hardcoded content in generic skills
 - [ ] Canonical definitions (Priority, Severity) live in SKILL.md, not duplicated in references
 - [ ] Cross-plugin artifact names match the producer's actual output (grep to verify)
 - [ ] Agent prompt templates list all variables explicitly (no "Same as X" shortcuts)
+- [ ] External content injection features define token budgets in config (per-source, per-phase, per-agent)
+- [ ] Agent awareness hints added to all agents that may receive optional injected content
 
 ### Git Workflow for Multi-Plugin Commits
 
@@ -121,6 +123,31 @@ Proven pattern across product-planning and product-implementation for multi-stag
 - **Crash recovery**: if coordinator produces no summary, orchestrator reconstructs minimal summary from artifact state
 - **Inline exception**: Stage 1 (lightweight setup) runs inline to avoid dispatch overhead; subsequent stages are delegated
 - **Trade-off**: each coordinator dispatch adds 5-15s latency (~20-60s cumulative for 4 stages), accepted for context reduction and fault isolation
+
+### Subagent-Delegated Context Injection
+
+When a coordinator needs external content (plugin skills, MCP responses, large files) but loading it directly would bloat coordinator context:
+- **Pattern**: Dispatch a throwaway `Task(general-purpose)` subagent to read/process the source material and write a condensed output file (<3K tokens). Coordinator reads only the small output file, never the raw source
+- **Evidence**: Used in 3 contexts — clink CoVe self-critique (isolates ST chain), dev-skills loading (isolates 5-15K skill files), and summary-as-context-bus (isolates multi-artifact discovery)
+- **Token savings**: ~70% reduction vs inline loading (measured: 5-15K raw → 1-3K condensed)
+- **Rule**: Define max token budgets per source, per phase, and per agent in config — hardcoded limits in prose are not auditable
+- **Anti-pattern**: Loading raw external content directly into coordinator or orchestrator context — causes context pollution and reduces reasoning quality on the primary task
+
+### Cross-Plugin Feature Parity
+
+When adding a capability that spans multiple plugins (e.g., dev-skills integration across product-planning and product-implementation):
+- **Design independently per plugin** — each plugin's implementation must respect its own architectural constraints (coordinator-delegated in planning vs orchestrator-transparent in implementation)
+- **Grep sibling plugins** for shared concepts before finalizing design — naming, config keys, and domain mappings should align even if implementation differs
+- **Config structure parity** — use similar YAML key names and structures across plugins for the same feature (e.g., `dev_skills_integration` vs `dev_skills`) to reduce cognitive load
+- **Evidence**: dev-skills integration required different detection timing (Phase 1 vs Stage 1), different loading mechanisms (subagent file vs inline prompt variable), and different budget constraints per plugin
+
+### Agent Awareness Hints
+
+When adding external content injection (skill references, MCP context, cross-plugin artifacts) that agents may optionally receive:
+- **Pattern**: Add a lightweight 5-10 line "Skill Awareness" or "Context Awareness" section to affected agent files, telling agents what optional sections may appear in their prompt and how to use them
+- **Format**: "Your prompt may include a `## Domain Reference (from {source})` section. When present: [2-3 usage bullets]. If absent, proceed normally."
+- **Rule**: Never hard-depend on injected content — agents must function identically when the optional section is absent
+- **Evidence**: 6 agents in product-planning (software-architect, simplicity-reviewer, qa-strategist, security-analyst, flow-analyzer, tech-lead) use this pattern for dev-skills awareness
 
 ### Skill Optimization Patterns
 
@@ -163,3 +190,5 @@ Rules for phase/stage instruction files read by coordinator subagents:
 - **DRY for repeated patterns**: When 3+ phase files share the same multi-step workflow (e.g., MCP dispatch + retry + synthesis), extract to a shared parameterized reference file instead of duplicating pseudocode
 - **Explicit mode guards per step**: Every optional step needs its own mode check (`IF analysis_mode in {X, Y}`), even if the parent phase restricts modes in frontmatter
 - **YAML range values**: Never use `3-5` for numeric ranges in YAML (parses as string) — use structured `min/max` instead
+- **Section renumbering cascade**: When inserting a new numbered section (e.g., Section 1.6), all subsequent section numbers shift. After any section insert, grep ALL reference files for the old section numbers (e.g., `Section 1.7`, `Section 1.8`) and update them — cross-file references break silently
+- **New reference file wiring**: When adding a new file to `references/`, register it in 3 places: (1) `references/README.md` file usage table + file sizes table + cross-references, (2) `SKILL.md` Reference Map table, (3) any stage files that should cross-reference the shared pattern. Missing wiring is the most common incomplete-task artifact when sessions exhaust context
