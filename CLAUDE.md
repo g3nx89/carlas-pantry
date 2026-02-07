@@ -135,3 +135,14 @@ For skills that track execution progress across stages or sessions:
 - **Lock protocol**: acquire at start, release at completion; define stale timeout in config (e.g., 60 min)
 - **Immutable user decisions**: once a user decision is recorded (e.g., review outcome), never overwrite — only append new decisions
 - **Checkpoint-based resume**: use `current_stage` + `stage_summaries` to determine entry point on re-invocation
+
+### Instruction File Integrity
+
+Rules for phase/stage instruction files read by coordinator subagents:
+
+- **Step ordering**: Physical order in the file MUST match logical execution order — coordinators read top-to-bottom regardless of step numbers
+- **Artifacts completeness**: Frontmatter `artifacts_written` must list ALL outputs including conditional ones — crash recovery depends on this
+- **Config-to-implementation alignment**: Every config value promising runtime behavior (retries, timeouts, circuit breakers) must have corresponding implementation in a workflow file — "dead config" misleads users
+- **DRY for repeated patterns**: When 3+ phase files share the same multi-step workflow (e.g., MCP dispatch + retry + synthesis), extract to a shared parameterized reference file instead of duplicating pseudocode
+- **Explicit mode guards per step**: Every optional step needs its own mode check (`IF analysis_mode in {X, Y}`), even if the parent phase restricts modes in frontmatter
+- **YAML range values**: Never use `3-5` for numeric ranges in YAML (parses as string) — use structured `min/max` instead

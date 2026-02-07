@@ -25,6 +25,7 @@ allowed-tools:
   - mcp__pal__consensus
   - mcp__pal__listmodels
   - mcp__pal__challenge
+  - mcp__pal__clink
   # Research MCP - Context7 (library documentation)
   - mcp__context7__resolve-library-id
   - mcp__context7__query-docs
@@ -57,16 +58,18 @@ Transform feature specifications into actionable implementation plans with integ
 
 ## Analysis Modes
 
-| Mode | Description | MCP Required | Est. Cost |
-|------|-------------|--------------|-----------|
-| **Complete** | MPA + ThinkDeep (9) + ST + Consensus + Full Test Plan | Yes | $0.80-1.50 |
-| **Advanced** | MPA + ThinkDeep (6) + Test Plan | Yes | $0.45-0.75 |
-| **Standard** | MPA only + Basic Test Plan | No | $0.15-0.30 |
-| **Rapid** | Single agent + Minimal Test Plan | No | $0.05-0.12 |
+| Mode | Description | MCP Required | Base Cost | With Clink |
+|------|-------------|--------------|-----------|------------|
+| **Complete** | MPA + ThinkDeep (9) + ST + Consensus + Full Test Plan | Yes | $0.80-1.50 | $1.10-2.00 |
+| **Advanced** | MPA + ThinkDeep (6) + Test Plan | Yes | $0.45-0.75 | $0.55-0.90 |
+| **Standard** | MPA only + Basic Test Plan | No | $0.15-0.30 | N/A |
+| **Rapid** | Single agent + Minimal Test Plan | No | $0.05-0.12 | N/A |
 
-Costs are base estimates without ST enhancements. See `config/planning-config.yaml` blessed profiles for full costs with ST enabled.
+Costs are base estimates without ST or clink enhancements. See `config/planning-config.yaml` blessed profiles for full costs with all enhancements enabled.
 
-Graceful degradation: If PAL unavailable, fall back to Standard/Rapid modes.
+**Clink Dual-CLI MPA** (Complete/Advanced): When `clink_custom_roles` is enabled and CLI tools are installed, phases 5, 6, 6b, 7, and 9 run supplemental analysis via Gemini + Codex in parallel, then synthesize and self-critique findings. This adds ~5-7 min total latency but provides broader coverage.
+
+Graceful degradation: If PAL unavailable, fall back to Standard/Rapid modes. If clink/CLIs unavailable, skip clink steps (standard agents still run).
 
 ## Workflow Phases
 
@@ -120,18 +123,18 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for ~78% o
 
 ## Phase Dispatch Table
 
-| Phase | Delegation | File | Prior Summaries | User Interaction | Checkpoint |
-|-------|-----------|------|-----------------|------------------|------------|
-| 1 | Inline | `phase-1-setup.md` | — | Mode selection | SETUP |
-| 2 | Coordinator | `phase-2-research.md` | phase-1 | Gate failure only | RESEARCH |
-| 3 | Conditional | `phase-3-clarification.md` | phase-2 | Questions (all) | CLARIFICATION |
-| 4 | Coordinator | `phase-4-architecture.md` | phase-2, phase-3 | Select option | ARCHITECTURE |
-| 5 | Coordinator | `phase-5-thinkdeep.md` | phase-4 | Review findings | THINKDEEP |
-| 6 | Coordinator | `phase-6-validation.md` | phase-4, phase-5 | If YELLOW/RED | VALIDATION |
-| 6b | Coordinator | `phase-6b-expert-review.md` | phase-6 | Blocking security | EXPERT_REVIEW |
-| 7 | Coordinator | `phase-7-test-strategy.md` | phase-4, phase-5, phase-6 | — | TEST_STRATEGY |
-| 8 | Coordinator | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | TEST_COVERAGE_VALIDATION |
-| 9 | Coordinator | `phase-9-completion.md` | phase-7, phase-8 | Clarify tasks | COMPLETION |
+| Phase | Delegation | File | Prior Summaries | User Interaction | Clink | Checkpoint |
+|-------|-----------|------|-----------------|------------------|-------|------------|
+| 1 | Inline | `phase-1-setup.md` | — | Mode selection | Detect | SETUP |
+| 2 | Coordinator | `phase-2-research.md` | phase-1 | Gate failure only | — | RESEARCH |
+| 3 | Conditional | `phase-3-clarification.md` | phase-2 | Questions (all) | — | CLARIFICATION |
+| 4 | Coordinator | `phase-4-architecture.md` | phase-2, phase-3 | Select option | — | ARCHITECTURE |
+| 5 | Coordinator | `phase-5-thinkdeep.md` | phase-4 | Review findings | deepthinker | THINKDEEP |
+| 6 | Coordinator | `phase-6-validation.md` | phase-4, phase-5 | If YELLOW/RED | planreviewer | VALIDATION |
+| 6b | Coordinator | `phase-6b-expert-review.md` | phase-6 | Blocking security | securityauditor | EXPERT_REVIEW |
+| 7 | Coordinator | `phase-7-test-strategy.md` | phase-4, phase-5, phase-6 | — | teststrategist | TEST_STRATEGY |
+| 8 | Coordinator | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | — | TEST_COVERAGE_VALIDATION |
+| 9 | Coordinator | `phase-9-completion.md` | phase-7, phase-8 | Clarify tasks | taskauditor | COMPLETION |
 
 All phase files are in `$CLAUDE_PLUGIN_ROOT/skills/plan/references/`.
 
@@ -226,6 +229,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `references/tot-workflow.md` — Hybrid ToT-MPA workflow (S5)
 - `references/debate-protocol.md` — Multi-round debate validation (S6)
 - `references/research-mcp-patterns.md` — Research MCP server usage guide
+- `references/clink-dispatch-pattern.md` — Canonical clink dual-CLI dispatch pattern (retry, synthesis, self-critique)
 
 ### Sequential Thinking Reference
 - `$CLAUDE_PLUGIN_ROOT/templates/sequential-thinking-templates.md`

@@ -8,6 +8,7 @@ Plugin for feature planning, task decomposition, and **integrated test strategy 
 - **Multi-Perspective Analysis (MPA)** - Parallel agents with different focuses
 - **PAL ThinkDeep** - External model insights (performance, maintainability, security)
 - **PAL Consensus** - Multi-model validation with scoring rubric
+- **PAL Clink (Dual-CLI MPA)** - Gemini + Codex in parallel for context-isolated analysis
 - **Sequential Thinking** - Structured reasoning templates
 - **Research MCP Integration** - Context7/Ref/Tavily for authoritative documentation lookup
 - **V-Model Test Planning** - Comprehensive test strategy aligned with development phases (integrated)
@@ -648,4 +649,101 @@ When adding new ST template groups:
 
 ---
 
-*Last updated: 2026-02-06 - Added post-refactoring cross-reference validation checklist*
+### Clink Integration Patterns
+
+#### Dual-CLI MPA Pattern
+- **Pattern**: Run Gemini + Codex clink in parallel for each analysis role, then synthesize
+- **Rationale**: Gemini (1M context) excels at broad exploration; Codex excels at code-level precision
+- **Implementation**: Each clink step has 4 sub-steps: dispatch (parallel) -> synthesis -> self-critique (Task subagent) -> write report
+- **Self-critique isolation**: CoVe verification runs in a separate `Task(general-purpose)` subagent to avoid coordinator context pollution
+- **Modes**: Complete and Advanced only
+
+#### Clink Role Design
+- **5 roles**: deepthinker, planreviewer, teststrategist, securityauditor, taskauditor
+- **10 prompt files**: Each role has both `gemini_{role}.txt` and `codex_{role}.txt`
+- **EXPLORE directives**: Every role MUST include filesystem exploration instructions (clink's unique capability)
+- **No researcher**: Removed — duplicates Research MCP (Context7/Ref/Tavily)
+- **No reconciliator**: Absorbed into teststrategist review protocol
+
+#### Template-to-Runtime Deployment
+- **Source of truth**: `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/`
+- **Runtime location**: `PROJECT_ROOT/conf/cli_clients/`
+- **Deployment**: Phase 1 auto-copies if missing or version marker mismatch
+- **Version tracking**: `clink_role_version: 1.0.0` in README.md
+
+#### Clink Anti-Patterns
+
+| Anti-Pattern | Problem | Solution |
+|--------------|---------|----------|
+| Clink replaces ThinkDeep | Gemini CLI lacks PAL MCP access; cannot run ThinkDeep matrix | Clink SUPPLEMENTS ThinkDeep (runs after Step 5.5) |
+| Running clink in Standard/Rapid modes | Added latency not justified for simple features | Restrict to Complete/Advanced modes |
+| Self-critique inline in coordinator | Pollutes coordinator context with ST CoVe chain | Use Task subagent for self-critique |
+| Single-CLI without degradation notice | User doesn't know analysis is reduced | Log degradation and set state.clink.mode |
+| Role prompts without EXPLORE directives | Clink agents reason from prompt alone, miss codebase evidence | Every role MUST include filesystem exploration instructions |
+| Deploying roles to wrong directory | Clink reads from project conf/ not plugin templates/ | Auto-deploy in Phase 1 with version check |
+| Clink without runtime availability check | Fails silently if CLI not installed | Step 1.5b checks clink + CLI availability before any use |
+
+#### Synthesis Categorization
+- **Convergent** (both CLIs agree): HIGH confidence, merge directly
+- **Divergent** (CLIs disagree): FLAG for user decision or use higher severity
+- **Unique** (one CLI only): VERIFY against existing findings before accepting
+
+#### Shared Dispatch Pattern (DRY)
+- **Rule**: When multiple phases use the same multi-step workflow (e.g., clink dual-CLI dispatch), extract to a shared parameterized reference file
+- **Implementation**: `skills/plan/references/clink-dispatch-pattern.md` — single canonical 4-step pattern with parameter table per phase
+- **Anti-pattern**: Duplicating 50+ line pseudocode blocks across 5 phase files — causes drift when retry logic or synthesis rules change
+- **Phase references**: Each phase file includes a parameter table and `Follow the Clink Dual-CLI Dispatch Pattern from...` instead of inline pseudocode
+
+---
+
+### Phase File Authoring Rules
+
+#### Step Ordering Discipline
+- **Rule**: Physical order of steps in a phase file MUST match logical execution order
+- **Why**: Coordinators read instruction files top-to-bottom; a step numbered 5.6 placed between 5.4 and 5.5 will execute before 5.5
+- **Check**: After inserting a new step, verify the step above and below in the file match the intended predecessor/successor
+- **Example caught**: Clink deepthinker (Step 5.6) was placed before user presentation (Step 5.5) — user would never see ThinkDeep findings before clink consumed them
+
+#### Explicit Mode Guards Per Step
+- **Rule**: Every optional step must have its own `IF analysis_mode in {X, Y}:` guard, even if the parent phase already restricts modes
+- **Why**: Phase-level mode restrictions document eligibility, but step-level guards provide the actual runtime protection
+- **Anti-pattern**: Relying solely on phase frontmatter `modes: [complete, advanced]` without per-step guards — breaks if a step is later moved to a different phase
+
+#### Artifacts Written Completeness
+- **Rule**: Phase frontmatter `artifacts_written` must list ALL files the phase creates, including conditional ones
+- **Why**: Crash recovery uses `artifacts_written` to reconstruct state — missing entries mean the orchestrator can't detect partial completion
+- **Format**: Use comments for conditional artifacts: `- "analysis/clink-report.md"  # conditional: clink enabled`
+
+### Configuration Integrity
+
+#### Config-to-Implementation Alignment
+- **Rule**: Every config value that promises runtime behavior (retry counts, circuit breaker thresholds, timeouts) MUST have corresponding implementation in a workflow or reference file
+- **Check**: After adding config entries, grep for the key name across phase files to verify it's consumed
+- **Anti-pattern**: Declaring `retry.max_retries: 1` and `circuit_breaker.threshold: 2` in config without any phase file implementing the retry or circuit breaker loop — "dead config" that misleads users
+
+#### YAML Range Values
+- **Rule**: Never use dash notation for numeric ranges in YAML (e.g., `verification_questions: 3-5`)
+- **Why**: YAML parses `3-5` as the string `"3-5"`, not a range — downstream code expecting a number will fail silently
+- **Format**: Use structured `min/max` instead: `verification_questions: { min: 3, max: 5 }`
+
+### External Prompt Authoring (Clink Roles)
+
+#### MCP Availability Conditionals
+- **Rule**: Clink role prompt files (.txt) must include conditional availability notes for any MCP tools referenced
+- **Why**: Gemini and Codex CLI environments don't have Claude's MCP servers — ST MCP, PAL MCP are unavailable
+- **Format**: "The ST protocol below requires `mcp__sequential-thinking__sequentialthinking`. If unavailable, skip ST templates and provide equivalent analysis inline."
+
+#### Security Trade-off Documentation
+- **Rule**: CLI auto-approval flags (`--yolo`, `--dangerously-bypass-approvals-and-sandbox`) must have a documented security trade-off note in the role template README
+- **Content**: What the flag enables, what protections it removes, when it's acceptable (CI-only, sandboxed environments)
+
+### Cost and Documentation Maintenance
+
+#### Cost Table Updates
+- **Rule**: When adding a cost-impacting feature (new MCP integration, additional agents, clink roles), update the cost table in SKILL.md
+- **Format**: Add a column for the new cost factor showing per-mode impact
+- **Example**: Clink integration added "With Clink" column: $1.10-2.00 (Complete), $0.55-0.90 (Advanced), N/A (Standard/Rapid)
+
+---
+
+*Last updated: 2026-02-07 - Added critique-derived learnings: step ordering, config alignment, DRY dispatch, YAML typing, MCP conditionals*

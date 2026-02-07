@@ -1,0 +1,12 @@
+{
+  "name": "gemini",
+  "command": "gemini",
+  "additional_args": ["--yolo"],
+  "roles": {
+    "deepthinker": { "prompt_path": "gemini_deepthinker.txt" },
+    "planreviewer": { "prompt_path": "gemini_planreviewer.txt" },
+    "teststrategist": { "prompt_path": "gemini_teststrategist.txt" },
+    "securityauditor": { "prompt_path": "gemini_securityauditor.txt" },
+    "taskauditor": { "prompt_path": "gemini_taskauditor.txt" }
+  }
+}

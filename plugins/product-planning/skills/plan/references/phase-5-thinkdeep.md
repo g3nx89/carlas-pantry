@@ -10,13 +10,18 @@ artifacts_read:
   - "design.md"
 artifacts_written:
   - "analysis/thinkdeep-insights.md"
+  - "analysis/clink-deepthinker-report.md"  # conditional: clink enabled
 agents: []
 mcp_tools:
   - "mcp__pal__thinkdeep"
   - "mcp__pal__listmodels"
-feature_flags: []
+  - "mcp__pal__clink"
+feature_flags:
+  - "clink_context_isolation"
+  - "clink_custom_roles"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/thinkdeep-prompts.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
 ---
 
 # Phase 5: PAL ThinkDeep Analysis
@@ -159,3 +164,21 @@ Set `status: needs-user-input` in your summary with:
 On re-dispatch, read `{FEATURE_DIR}/.phase-summaries/phase-5-user-input.md` for the selection.
 
 **Checkpoint: THINKDEEP**
+
+## Step 5.6: Clink Deepthinker Supplement
+
+**Purpose:** Supplement ThinkDeep matrix with broad codebase exploration (Gemini) and code-level coupling analysis (Codex) via clink. Runs AFTER user reviews ThinkDeep findings.
+
+Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md` with these parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| ROLE | `deepthinker` |
+| PHASE_STEP | `5.6` |
+| MODE_CHECK | `analysis_mode in {complete, advanced}` |
+| GEMINI_PROMPT | `Supplement ThinkDeep analysis for feature: {FEATURE_NAME}. Architecture: {FEATURE_DIR}/design.md. ThinkDeep findings so far: {FEATURE_DIR}/analysis/thinkdeep-insights.md. Focus: Broad architecture exploration, tech stack validation, pattern conflicts.` |
+| CODEX_PROMPT | `Supplement ThinkDeep analysis for feature: {FEATURE_NAME}. Architecture: {FEATURE_DIR}/design.md. ThinkDeep findings so far: {FEATURE_DIR}/analysis/thinkdeep-insights.md. Focus: Import chain analysis, coupling assessment, code-level complexity.` |
+| FILE_PATHS | `["{FEATURE_DIR}/design.md", "{FEATURE_DIR}/analysis/thinkdeep-insights.md"]` |
+| REPORT_FILE | `analysis/clink-deepthinker-report.md` |
+| PREFERRED_SINGLE_CLI | `gemini` |
+| POST_WRITE | `APPEND clink supplement section to {FEATURE_DIR}/analysis/thinkdeep-insights.md` |

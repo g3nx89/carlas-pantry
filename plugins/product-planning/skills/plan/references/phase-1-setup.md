@@ -10,8 +10,11 @@ artifacts_written: []
 agents: []
 mcp_tools:
   - "mcp__pal__listmodels"
+  - "mcp__pal__clink"
   - "mcp__sequential-thinking__sequentialthinking"
-feature_flags: []
+feature_flags:
+  - "clink_context_isolation"
+  - "clink_custom_roles"
 additional_references: []
 ---
 
@@ -90,6 +93,60 @@ IF research MCP unavailable:
   SET state.research_mcp_available = false
 ELSE:
   SET state.research_mcp_available = true
+```
+
+## Step 1.5b: Clink Capability Detection
+
+```
+IF feature_flags.clink_context_isolation.enabled:
+
+  1. CHECK clink MCP tool accessible:
+     clink_available = CHECK mcp__pal__clink is callable
+
+  2. IF clink_available:
+     # Check which CLIs are installed
+     gemini_available = CHECK "gemini" CLI responds
+     codex_available = CHECK "codex" CLI responds
+
+     # Determine clink mode
+     IF gemini_available AND codex_available:
+       clink_mode = "dual"
+     ELSE IF gemini_available:
+       clink_mode = "single_gemini"
+       LOG: "Codex CLI not available — clink will use single-CLI mode (Gemini only)"
+     ELSE IF codex_available:
+       clink_mode = "single_codex"
+       LOG: "Gemini CLI not available — clink will use single-CLI mode (Codex only)"
+     ELSE:
+       clink_mode = "disabled"
+       LOG: "No CLIs available for clink — skipping clink integration"
+
+  3. IF clink_mode != "disabled" AND feature_flags.clink_custom_roles.enabled:
+     # Auto-deploy role templates to project
+     SOURCE = "$CLAUDE_PLUGIN_ROOT/templates/clink-roles/"
+     TARGET = "PROJECT_ROOT/conf/cli_clients/"
+
+     # Check version marker
+     IF TARGET does not exist OR TARGET version marker != SOURCE version marker:
+       COPY all .txt and .json files from SOURCE to TARGET
+       LOG: "Deployed clink role templates (version 1.0.0)"
+       roles_deployed = true
+     ELSE:
+       LOG: "Clink role templates already deployed and up to date"
+       roles_deployed = true
+
+  4. UPDATE state:
+     clink:
+       available: {clink_available}
+       capabilities:
+         gemini: {gemini_available}
+         codex: {codex_available}
+       roles_deployed: {roles_deployed}
+       mode: {clink_mode}
+
+ELSE:
+  SET state.clink.available = false
+  SET state.clink.mode = "disabled"
 ```
 
 ## Step 1.6: Analysis Mode Selection

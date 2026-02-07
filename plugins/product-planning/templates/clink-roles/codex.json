@@ -1,0 +1,12 @@
+{
+  "name": "codex",
+  "command": "codex",
+  "additional_args": ["--dangerously-bypass-approvals-and-sandbox"],
+  "roles": {
+    "deepthinker": { "prompt_path": "codex_deepthinker.txt" },
+    "planreviewer": { "prompt_path": "codex_planreviewer.txt" },
+    "teststrategist": { "prompt_path": "codex_teststrategist.txt" },
+    "securityauditor": { "prompt_path": "codex_securityauditor.txt" },
+    "taskauditor": { "prompt_path": "codex_taskauditor.txt" }
+  }
+}

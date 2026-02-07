@@ -19,6 +19,7 @@ artifacts_written:
   - "test-cases/integration/"
   - "test-cases/e2e/"
   - "test-cases/uat/"
+  - "analysis/clink-testreview-report.md"  # conditional: clink enabled
 agents:
   - "product-planning:qa-strategist"
   - "product-planning:qa-security"
@@ -26,6 +27,7 @@ agents:
   - "product-planning:phase-gate-judge"
 mcp_tools:
   - "mcp__sequential-thinking__sequentialthinking"
+  - "mcp__pal__clink"
   - "mcp__context7__query-docs"
   - "mcp__Ref__ref_search_documentation"
   - "mcp__tavily__tavily_search"
@@ -34,9 +36,12 @@ feature_flags:
   - "st_redteam_analysis"
   - "st_tao_loops"
   - "s3_judge_gates"
+  - "clink_context_isolation"
+  - "clink_custom_roles"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/v-model-methodology.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
 ---
 
 # Phase 7: Test Strategy (V-Model)
@@ -367,6 +372,24 @@ After all QA agents complete AND reconciliation is done:
 3. **Prioritize** - Use convergent findings (all agents agree) as highest priority
 4. **Flag conflicts** - Note where agents disagree for human decision
 5. **Verify reconciliation** - All ThinkDeep insights have test coverage
+
+## Step 7.3.5: Clink Test Strategy Review
+
+**Purpose:** Review and validate QA agent outputs using clink dual-CLI. Gemini discovers test infrastructure and framework patterns; Codex verifies test code quality and patterns. Also absorbs ThinkDeep reconciliation duties.
+
+Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md` with these parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| ROLE | `teststrategist` |
+| PHASE_STEP | `7.3.5` |
+| MODE_CHECK | `analysis_mode == "complete"` |
+| GEMINI_PROMPT | `Review test strategy for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. ThinkDeep insights: {FEATURE_DIR}/analysis/thinkdeep-insights.md (if exists). Focus: Test infrastructure discovery, framework compatibility, coverage gaps, ThinkDeep-to-test reconciliation.` |
+| CODEX_PROMPT | `Review test code quality for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. Focus: Existing test patterns, assertion quality, mock patterns, test isolation.` |
+| FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/analysis/thinkdeep-insights.md", "{FEATURE_DIR}/analysis/test-strategy-general.md"]` |
+| REPORT_FILE | `analysis/clink-testreview-report.md` |
+| PREFERRED_SINGLE_CLI | `gemini` |
+| POST_WRITE | `Update test-plan.md with coverage gap additions (Gemini), pattern alignment recommendations (Codex), and ThinkDeep reconciliation report` |
 
 ## Step 7.4: Generate UAT Scripts
 

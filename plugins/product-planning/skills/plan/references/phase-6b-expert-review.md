@@ -11,13 +11,18 @@ artifacts_read:
   - "plan.md"
 artifacts_written:
   - "analysis/expert-review.md"
+  - "analysis/clink-security-report.md"  # conditional: clink enabled
 agents:
   - "product-planning:security-analyst"
   - "product-planning:simplicity-reviewer"
-mcp_tools: []
+mcp_tools:
+  - "mcp__pal__clink"
 feature_flags:
   - "a4_expert_review"
-additional_references: []
+  - "clink_context_isolation"
+  - "clink_custom_roles"
+additional_references:
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
 ---
 
 # Phase 6b: Expert Review (A4)
@@ -75,11 +80,34 @@ Task(
 )
 ```
 
+## Step 6b.1b: Clink Security Audit (Supplement)
+
+**Purpose:** Supplement standard security review with clink dual-CLI security analysis. Standard agents STILL run in parallel — clink adds breadth.
+
+Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md` with these parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| ROLE | `securityauditor` |
+| PHASE_STEP | `6b.1b` |
+| MODE_CHECK | `analysis_mode in {complete, advanced}` |
+| GEMINI_PROMPT | `Architectural security and supply chain review for feature: {FEATURE_NAME}. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Supply chain security, trust boundaries, compliance patterns.` |
+| CODEX_PROMPT | `OWASP code-level security audit for feature: {FEATURE_NAME}. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Injection points, hardcoded secrets, auth implementation flaws.` |
+| FILE_PATHS | `["{FEATURE_DIR}/design.md", "{FEATURE_DIR}/plan.md"]` |
+| REPORT_FILE | `analysis/clink-security-report.md` |
+| PREFERRED_SINGLE_CLI | `codex` |
+| POST_WRITE | `Merge clink security findings with standard agent findings in Step 6b.2` |
+
 ## Step 6b.2: Consolidate Findings
 
 ```
 security_findings = parse security-analyst output
 simplicity_findings = parse simplicity-reviewer output
+
+# Merge clink security findings if available
+IF {FEATURE_DIR}/analysis/clink-security-report.md exists:
+  clink_security = parse clink-security-report.md
+  MERGE clink_security into security_findings (deduplicate by finding description)
 ```
 
 ## Step 6b.3: Handle Blocking Findings

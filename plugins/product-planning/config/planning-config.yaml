@@ -150,6 +150,24 @@ feature_flags:
     requires_mcp: true
     cost_impact: "+4 ST calls per task breakdown (~15% Phase 9 increase)"
 
+  # Clink Integration
+  clink_context_isolation:
+    enabled: true
+    description: "Use clink for context-isolated CLI agent analysis"
+    rollback: "Set false to use inline agents only"
+    modes: [complete, advanced]
+    requires_mcp: true
+    cost_impact: "Marginal increase; ~30KB coordinator context savings"
+
+  clink_custom_roles:
+    enabled: true
+    description: "Use specialized clink roles with filesystem exploration directives"
+    rollback: "Set false to skip clink roles"
+    modes: [complete, advanced]
+    requires: [clink_context_isolation]
+    requires_mcp: true
+    cost_impact: "~$0.15-0.30 additional; ~5-10 min latency for all roles"
+
   # Context Improvements
   a1_flow_analysis:
     enabled: true
@@ -963,8 +981,11 @@ blessed_profiles:
       s3_judge_gates: true
       s4_adaptive_strategy: true
       a4_expert_review: true
+      # Clink integration
+      clink_context_isolation: true
+      clink_custom_roles: true
       # Complete-only flags: false
-    expected_cost: "$0.45-0.75"
+    expected_cost: "$0.55-0.90"
     use_case: "Important features, risky changes, cross-cutting concerns"
 
   complete_default:
@@ -985,7 +1006,7 @@ blessed_profiles:
       # All complete-only flags: true
       s5_tot_architecture: true
       s6_multi_judge_debate: true
-      # NEW: Sequential Thinking enhancements (complete mode)
+      # Sequential Thinking enhancements (complete mode)
       st_fork_join_architecture: true
       st_revision_reconciliation: true
       st_redteam_analysis: true
@@ -994,7 +1015,10 @@ blessed_profiles:
       st_agent_invocation: true
       st_checkpoint: true
       st_task_decomposition: true
-    expected_cost: "$0.95-1.80"  # Updated to reflect all ST enhancements
+      # Clink integration
+      clink_context_isolation: true
+      clink_custom_roles: true
+    expected_cost: "$1.10-2.00"  # Updated to reflect ST + clink enhancements
     use_case: "Critical features, security-sensitive, high business impact"
 
   advanced_with_st:
@@ -1019,10 +1043,13 @@ blessed_profiles:
       st_agent_invocation: true
       st_checkpoint: true
       st_task_decomposition: true
+      # Clink integration
+      clink_context_isolation: true
+      clink_custom_roles: true
       # Complete-only flags: false
       st_fork_join_architecture: false
       st_dynamic_extension: false
-    expected_cost: "$0.60-0.95"  # Updated to reflect checkpoint + task decomposition
+    expected_cost: "$0.70-1.10"  # Updated to reflect ST + clink enhancements
     use_case: "Important features requiring ST-enhanced analysis"
 
   # Validation helper for CI
@@ -1184,3 +1211,110 @@ research_mcp:
     context7_unavailable: "ref"
     ref_unavailable: "tavily with include_domains filter"
     all_unavailable: "proceed with internal knowledge, mark DEGRADED"
+
+# =============================================================================
+# CLINK INTEGRATION
+# =============================================================================
+# Configuration for PAL clink (CLI-to-CLI bridge) with custom roles
+# See PROPOSAL-clink-integration.md for detailed documentation
+
+clink_integration:
+  # Auto-setup configuration
+  auto_setup:
+    source_dir: "$CLAUDE_PLUGIN_ROOT/templates/clink-roles/"
+    target_dir: "PROJECT_ROOT/conf/cli_clients/"
+    version_marker: "clink_role_version: 1.0.0"
+
+  # Available CLIs and their capabilities
+  clis:
+    gemini:
+      context_size: "1M tokens"
+      capabilities: [web_search, sequential_thinking, broad_exploration]
+      auto_approval_flag: "--yolo"
+      best_for: "Broad codebase analysis, tech stack validation, pattern discovery"
+
+    codex:
+      context_size: "128K tokens"
+      capabilities: [code_analysis, import_tracing, vulnerability_detection]
+      auto_approval_flag: "--dangerously-bypass-approvals-and-sandbox"
+      best_for: "Import chains, coupling analysis, code-level security, file path verification"
+
+  # Dual-CLI MPA pattern
+  dual_cli:
+    enabled: true
+    synthesis_strategy: "convergent_divergent_unique"
+    # Convergent (both agree) -> HIGH confidence
+    # Divergent (disagree) -> FLAG for user decision
+    # Unique (one only) -> VERIFY against existing findings
+
+  # Self-critique configuration
+  self_critique:
+    method: "st_cove_subagent"
+    description: "Chain-of-Verification via Task(general-purpose) subagent"
+    verification_questions:
+      min: 3
+      max: 5
+    rationale: "Runs in separate context to avoid coordinator pollution"
+
+  # Custom roles (5 roles x 2 CLIs = 10 prompt files)
+  roles:
+    deepthinker:
+      gemini_focus: "Broad architecture exploration, tech stack, pattern conflicts"
+      codex_focus: "Import chain analysis, coupling assessment, complexity hotspots"
+      phases: [5]
+      modes: [complete, advanced]
+
+    planreviewer:
+      gemini_focus: "Strategic risks, scope assessment, Red Team/Blue Team"
+      codex_focus: "Technical feasibility, code structure support, dependency compatibility"
+      phases: [6]
+      modes: [complete, advanced]
+
+    teststrategist:
+      gemini_focus: "Test infra discovery, framework patterns, coverage gaps, ThinkDeep reconciliation"
+      codex_focus: "Test code patterns, assertion quality, mock patterns, test isolation"
+      phases: [7]
+      modes: [complete]
+
+    securityauditor:
+      gemini_focus: "Supply chain security, architectural attack surface, compliance"
+      codex_focus: "OWASP code-level vulnerabilities, injection points, hardcoded secrets"
+      phases: [6b]
+      modes: [complete, advanced]
+
+    taskauditor:
+      gemini_focus: "Requirements mapping, missing infrastructure, scope coverage"
+      codex_focus: "File path verification, dependency ordering, code structure alignment"
+      phases: [9]
+      modes: [complete, advanced]
+
+  # Retry and circuit breaker
+  retry:
+    max_retries: 1
+    circuit_breaker_threshold: 2  # After 2 consecutive failures, skip clink for session
+
+  # Timeout configuration
+  timeout:
+    default_seconds: 120
+    per_role:
+      deepthinker: 180   # Broad exploration needs more time
+      planreviewer: 120
+      teststrategist: 150
+      securityauditor: 150
+      taskauditor: 120
+
+  # Latency estimates (per-role, includes both CLIs + synthesis + self-critique)
+  latency:
+    deepthinker: "60-90s"
+    planreviewer: "45-75s"
+    teststrategist: "60-90s"
+    securityauditor: "60-90s"
+    taskauditor: "45-60s"
+    total_cumulative: "~5-7 min for all roles"
+
+  # Fallback behavior
+  fallback:
+    if_clink_unavailable: "skip_clink_steps"
+    if_one_cli_missing: "single_cli_mode"
+    if_both_missing: "skip_clink_steps"
+    log_fallback: true

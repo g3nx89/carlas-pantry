@@ -29,6 +29,30 @@ Quick guide to when to read each reference file during skill development or debu
 | `validation-rubric.md` | Understanding Phase 6 plan validation scoring |
 | `coverage-validation-rubric.md` | Understanding Phase 8 test coverage validation |
 | `v-model-methodology.md` | Understanding test level mapping and V-Model alignment |
+| `clink-dispatch-pattern.md` | Canonical clink dual-CLI dispatch pattern (referenced by all clink phase steps) |
+
+## Working with Clink Integration
+
+Clink roles are defined as templates in `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/` and auto-deployed to projects at runtime (Phase 1).
+
+### Dual-CLI MPA Pattern
+Each clink role runs BOTH Gemini and Codex in parallel. The coordinator synthesizes findings as convergent/divergent/unique, then runs self-critique via a Task subagent with ST Chain-of-Verification.
+
+### Key Files
+- `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/README.md` — Role index and deployment docs
+- `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/*.txt` — 10 role prompt files (5 roles x 2 CLIs)
+- `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/*.json` — CLI client configurations
+- `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` `clink_integration:` section — All config
+
+### Clink-Enhanced Phases
+| Phase | Role | Step | Report |
+|-------|------|------|--------|
+| 1 | — | Step 1.5b: Detection + deployment | State only |
+| 5 | deepthinker | Step 5.6: Supplement ThinkDeep | `clink-deepthinker-report.md` |
+| 6 | planreviewer | Step 6.0a: Pre-validation review | `clink-planreview-report.md` |
+| 6b | securityauditor | Step 6b.1b: Security supplement | `clink-security-report.md` |
+| 7 | teststrategist | Step 7.3.5: Test review | `clink-testreview-report.md` |
+| 9 | taskauditor | Step 9.5b: Task audit | `clink-taskaudit-report.md` |
 
 ## By Task
 
@@ -71,10 +95,14 @@ Quick guide to when to read each reference file during skill development or debu
 | `tot-workflow.md` | ~344 | Tree-of-Thoughts process |
 | `debate-protocol.md` | ~425 | Multi-round debate structure |
 | Others | <100 | Focused reference content |
+| `clink-dispatch-pattern.md` | ~120 | Canonical clink dual-CLI dispatch pattern |
+| `$PLUGIN/templates/clink-roles/*.txt` | ~80-120 | Clink role prompts (10 files) |
+| `$PLUGIN/templates/clink-roles/README.md` | ~100 | Clink role index and patterns |
 
 ## Cross-References
 
 - `phase-workflows.md` references most other files
+- `clink-dispatch-pattern.md` used by Phase 5, 6, 6b, 7, 9 clink steps
 - `research-mcp-patterns.md` used by `researcher` agent and Phase 2/4/7 workflows
 - `judge-gate-rubrics.md` used by `phase-gate-judge` agent
 - `self-critique-template.md` used by all agents
