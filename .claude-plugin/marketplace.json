@@ -93,6 +93,25 @@
       ],
       "category": "development",
       "license": "MIT"
+    },
+    {
+      "name": "product-implementation",
+      "source": "./plugins/product-implementation",
+      "description": "Execute implementation plans produced by product-planning, orchestrating TDD cycles, code generation, and verification against the plan",
+      "version": "1.0.0",
+      "author": {
+        "name": "Alessandro Fato"
+      },
+      "keywords": [
+        "implementation",
+        "tdd",
+        "code-generation",
+        "plan-execution",
+        "verification",
+        "product-development"
+      ],
+      "category": "product-development",
+      "license": "MIT"
     }
   ]
 }
