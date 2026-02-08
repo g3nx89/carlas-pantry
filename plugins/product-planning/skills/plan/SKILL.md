@@ -1,5 +1,5 @@
 ---
-name: Feature Planning
+name: feature-planning
 description: This skill should be used when the user asks to "plan a feature", "create an implementation plan", "design the architecture", "break down a feature into tasks", "decompose a specification", "plan development", "plan tests", or needs multi-perspective analysis for feature implementation. Provides 9-phase workflow with MPA agents, PAL ThinkDeep validation, V-Model test planning, and consensus scoring.
 version: 3.0.0
 allowed-tools:
