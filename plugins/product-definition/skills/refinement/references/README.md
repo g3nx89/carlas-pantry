@@ -20,16 +20,16 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `orchestrator-loop.md` | ~270 | Dispatch loop, iteration, crash recovery, state migration |
-| `stage-1-setup.md` | ~270 | Inline setup: init, workspace, mode selection |
-| `stage-2-research.md` | ~155 | Research coordinator: agenda + synthesis |
-| `stage-3-analysis-questions.md` | ~340 | Analysis + question generation (largest) |
-| `stage-4-response-analysis.md` | ~215 | Response parsing + gap analysis |
-| `stage-5-validation-generation.md` | ~200 | Validation + PRD generation |
-| `stage-6-completion.md` | ~105 | Completion: report, lock release |
+| `orchestrator-loop.md` | ~350 | Dispatch loop, iteration, compaction, crash recovery, state migration |
+| `stage-1-setup.md` | ~300 | Inline setup: init, workspace, mode selection |
+| `stage-2-research.md` | ~185 | Research coordinator: agenda + synthesis |
+| `stage-3-analysis-questions.md` | ~400 | Analysis + question generation (largest) |
+| `stage-4-response-analysis.md` | ~270 | Response parsing + gap analysis |
+| `stage-5-validation-generation.md` | ~260 | Validation + PRD generation |
+| `stage-6-completion.md` | ~125 | Completion: report, lock release |
 | `checkpoint-protocol.md` | ~50 | State update patterns |
 | `error-handling.md` | ~110 | Error recovery procedures |
-| `config-reference.md` | ~265 | Template vars, PAL patterns, scoring |
+| `config-reference.md` | ~215 | PAL parameter reference, scoring thresholds |
 | `option-generation-reference.md` | ~300 | Question/option format specification |
 
 ## Cross-References
@@ -54,3 +54,22 @@
 - Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/requirements-*.md`
 - Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/research-discovery-*.md`
 - Stage files reference templates at `$CLAUDE_PLUGIN_ROOT/templates/`
+
+## Step Numbering Convention
+
+- **Stages 1, 2, 4, 5, 6**: Use flat numbering `Step N.M` (e.g., `Step 4.1`, `Step 4.2`)
+- **Stage 3**: Uses sub-part numbering `Step 3A.M` / `Step 3B.M` because the stage has two distinct phases:
+  - Part A: ThinkDeep analysis (steps `3A.1`, `3A.2`, `3A.3`)
+  - Part B: MPA question generation (steps `3B.1` through `3B.5`)
+
+## Structural Patterns
+
+All stage files (stages 1-6) follow this structure:
+1. YAML frontmatter with `stage` name and `artifacts_written` list
+2. **CRITICAL RULES** section at top (attention-favored position)
+3. Numbered steps for execution
+4. Summary Contract (YAML template)
+5. **Self-Verification** checklist (mandatory before writing summary)
+6. **CRITICAL RULES REMINDER** at bottom (attention-favored position)
+
+**Max-rules guidance:** Keep CRITICAL RULES sections to **5-7 rules maximum** per stage file. More than 7 rules dilutes the attention benefit of the bookend pattern.

@@ -37,7 +37,19 @@ FOR each stage in dispatch order [1, 2, 3, 4, 5, 6]:
 
 ## Coordinator Dispatch
 
-For stages 2-6, dispatch a coordinator subagent:
+For stages 2-6, dispatch a coordinator subagent using the **per-stage dispatch profile** from config (`token_budgets.stage_dispatch_profiles`). Each stage loads ONLY the shared references it needs.
+
+### Stage Dispatch Profiles
+
+| Stage | Shared Refs | Config YAML | Extra Refs |
+|-------|-------------|-------------|------------|
+| 2 (Research) | checkpoint-protocol, error-handling | No | — |
+| 3 (Analysis) | checkpoint-protocol, error-handling | Yes | option-generation-reference |
+| 4 (Response) | checkpoint-protocol, error-handling | Yes | — |
+| 5 (Validation) | checkpoint-protocol, error-handling | Yes | — |
+| 6 (Completion) | checkpoint-protocol | No | — |
+
+### Dispatch Template
 
 ```
 Task(subagent_type="general-purpose", prompt="""
@@ -53,15 +65,27 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{STAGE_FILE}
 - Current round: {ROUND_NUMBER}
 - PAL available: {PAL_AVAILABLE}
 - Sequential Thinking available: {ST_AVAILABLE}
-- Config: @$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml
+- Entry type: {ENTRY_TYPE}  # "first_entry" or "re_entry_after_user_input"
+
+## Shared References (load ONLY those listed for this stage)
+{IF stage needs checkpoint-protocol:}
 - Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/checkpoint-protocol.md
+{IF stage needs error-handling:}
 - Error handling: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/error-handling.md
+{IF stage needs config YAML:}
+- Config: @$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml
+{IF stage has extra refs:}
+- {extra_ref}: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{extra_ref}
 
 ## Prior Stage Summaries
-{CONTENTS OF requirements/.stage-summaries/stage-*-summary.md}
+{IF current_round <= compaction.rounds_before_compaction:}
+  {CONTENTS OF requirements/.stage-summaries/stage-*-summary.md}
+{ELSE:}
+  {CONTENTS OF requirements/.stage-summaries/rounds-digest.md}
+  {CONTENTS OF current round stage summaries only}
 
-## State File
-{CONTENTS OF requirements/.requirements-state.local.md}
+## State File (frontmatter only — omit workflow log for context efficiency)
+{YAML FRONTMATTER OF requirements/.requirements-state.local.md}
 
 ## CRITICAL RULES
 - You MUST NOT interact with users directly. If you need user input,
@@ -70,8 +94,18 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{STAGE_FILE}
 - You MUST write a summary file at requirements/.stage-summaries/stage-{N}-summary.md
   with YAML frontmatter following the summary contract in SKILL.md.
 - You MUST update the state file after completing your work.
+- You MUST run self-verification checks listed at the end of your stage file
+  BEFORE writing your summary.
 """)
 ```
+
+### ENTRY_TYPE Variable
+
+Set `ENTRY_TYPE` based on orchestrator state:
+- `"re_entry_after_user_input"` — when `waiting_for_user` was true and user has returned
+- `"first_entry"` — all other cases
+
+This eliminates ambiguity for Stage 4 (present questions vs parse answers) and Stage 2 (research agenda vs synthesis).
 
 ---
 
@@ -181,6 +215,27 @@ rounds:
     analysis_mode: "standard"
     ...
 ```
+
+### Prior Round Compaction
+
+From config: `token_budgets.compaction.*`
+
+```
+IF current_round > compaction.rounds_before_compaction (default: 3):
+    GENERATE rounds digest:
+        READ all stage summaries from rounds 1 to (current_round - 1)
+        SYNTHESIZE into structured digest:
+            - Per-round: round_number, analysis_mode, questions_count, key_decisions
+            - Cumulative: total_questions, total_gaps_found, modes_used
+            - Key decisions: list of user_decisions across all prior rounds
+        WRITE to: requirements/.stage-summaries/rounds-digest.md
+        LIMIT: config -> token_budgets.compaction.digest_max_lines (default: 100)
+
+    In coordinator dispatch, use digest + current round summaries
+    instead of all individual stage summaries
+```
+
+**Why:** Without compaction, accumulated summaries grow linearly (~150 lines per round). By round 5, prior summaries alone consume ~750 lines of coordinator context. Compaction keeps this under 100 lines regardless of round count.
 
 ### Circuit Breaker
 

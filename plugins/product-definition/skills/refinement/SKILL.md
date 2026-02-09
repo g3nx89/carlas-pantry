@@ -1,5 +1,5 @@
 ---
-name: refinement
+name: feature-refinement
 description: Transform rough product drafts into finalized PRDs through iterative Q&A
 version: 1.0.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking"]
@@ -58,7 +58,7 @@ Guided PRD generation through iterative clarification with offline file-based Q&
 |---------|------|---------|
 | Max rounds | `limits.max_rounds` | 100 |
 | Max questions total | `limits.max_questions_total` | **No limit** |
-| Min completion rate | `limits.min_completion_rate` | **100%** |
+| Min completion rate | `scoring.completion.required` | **100%** |
 | PRD readiness GREEN | `scoring.prd_readiness.ready` | See config |
 | PRD readiness YELLOW | `scoring.prd_readiness.conditional` | See config |
 | Research discovery | `research_discovery.enabled` | true |
@@ -184,6 +184,34 @@ flags:
 {What the next coordinator needs to know}
 ```
 
+### Example (filled Stage 3 summary)
+
+```yaml
+---
+stage: "analysis-questions"
+stage_number: 3
+status: completed
+checkpoint: ANALYSIS_QUESTIONS
+artifacts_written:
+  - requirements/analysis/thinkdeep-insights.md
+  - requirements/analysis/questions-product-strategy.md
+  - requirements/analysis/questions-user-experience.md
+  - requirements/analysis/questions-business-ops.md
+  - requirements/working/QUESTIONS-001.md
+summary: "Generated 14 questions across 3 perspectives with ThinkDeep insights from 27 calls"
+flags:
+  round_number: 1
+  questions_count: 14
+  analysis_mode: "complete"
+  thinkdeep_calls: 27
+---
+
+## Context for Next Stage
+Round 1 generated 14 questions covering all 10 PRD sections. ThinkDeep convergent
+insight: all 3 models flagged revenue model uncertainty as CRITICAL priority.
+3 CRITICAL questions, 5 HIGH, 6 MEDIUM. User must fill QUESTIONS-001.md.
+```
+
 ---
 
 ## State Management
@@ -249,7 +277,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `references/stage-6-completion.md` | Completion instructions | Dispatching Stage 6 |
 | `references/checkpoint-protocol.md` | State update patterns | Any checkpoint |
 | `references/error-handling.md` | Error recovery, degradation | Any error condition |
-| `references/config-reference.md` | Template vars, PAL patterns | PAL tool usage |
+| `references/config-reference.md` | PAL parameter reference, scoring thresholds | PAL tool usage |
 | `references/option-generation-reference.md` | Question/option format | Stage 3 question gen |
 
 ---

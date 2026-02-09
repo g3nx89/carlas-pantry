@@ -48,116 +48,53 @@
 
 ---
 
-## PAL Tool Best Practices
+## PAL Tool Quick Reference
 
-> **IMPORTANT:** ThinkDeep and Consensus share the same multi-step workflow parameters (`step`, `step_number`, `total_steps`, `next_step_required`, `findings`, `relevant_files`, `continuation_id`). The key difference is model selection.
+> **IMPORTANT:** Authoritative PAL call syntax lives in each stage file (stage-3 for ThinkDeep, stages 4-5 for Consensus). This section is a parameter reference only — do NOT duplicate call patterns here.
 
-### Tool Comparison
+### Shared Parameters (ThinkDeep & Consensus)
 
-| Aspect | ThinkDeep | Consensus |
-|--------|-----------|-----------|
-| **Purpose** | Extend YOUR analysis with deeper reasoning | Get multi-model perspectives on a decision |
-| **Main param** | `step` (your analysis/questions) | `step` (your analysis/questions) |
-| **Files param** | `relevant_files` | `relevant_files` |
-| **Multi-step?** | Yes (`step_number`, `total_steps`) | Yes (`step_number`, `total_steps`) — steps = N models + synthesis |
-| **Context params** | `findings`, `problem_context`, `hypothesis` | `findings` |
-| **Model selection** | Single `model` param | `models` array with stances |
-| **Unique params** | `confidence`, `use_assistant_model`, `focus_areas`, `problem_context` | `models[].stance`, `models[].stance_prompt` |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `step` | string | Yes | Your current analysis — NOT just a title. Include findings and specific questions |
+| `step_number` | integer | Yes | Current step in multi-step chain |
+| `total_steps` | integer | Yes | ThinkDeep: 3 per chain. Consensus: number of models + 1 (synthesis) |
+| `next_step_required` | boolean | Yes | True until final step |
+| `findings` | string | Yes | Summary of discoveries — MUST NOT be empty |
+| `relevant_files` | array | No | Context files — MUST use ABSOLUTE paths |
+| `continuation_id` | string | No | Thread ID from previous step — required on steps 2+ |
 
-### ThinkDeep Framing (Stage 3)
+### ThinkDeep-Only Parameters
 
-```
-mcp__pal__thinkdeep(
-  step: """
-I'm analyzing [TOPIC] for {PRODUCT_NAME}.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `model` | string | Single model ID (e.g., `gpt-5.2`) |
+| `thinking_mode` | string | Set to `"high"` for deep analysis |
+| `confidence` | string | `"exploring"` → `"low"` → `"high"` across steps |
+| `focus_areas` | array | e.g., `["competitive_analysis", "market_positioning"]` |
+| `problem_context` | string | MUST include "This is BUSINESS/PRD ANALYSIS, not code analysis" |
+| `hypothesis` | string | Your current hypothesis to test |
 
-MY CURRENT ANALYSIS:
-[Your actual findings - 5-10 bullet points]
+### Consensus-Only Parameters
 
-MY INITIAL THINKING:
-- [Your hypothesis 1]
-- [Your hypothesis 2]
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `models` | array | List of `{model, stance, stance_prompt}` objects |
+| `models[].stance` | string | `"neutral"`, `"for"`, or `"against"` |
+| `models[].stance_prompt` | string | Instructions for model's perspective |
 
-EXTEND MY ANALYSIS:
-1. [Specific question for model]
-2. [Another question]
-""",
-  findings: "[Summary of discoveries - NOT empty]",
-  problem_context: """
-IMPORTANT: This is a BUSINESS/PRD ANALYSIS, not code analysis.
-No source code exists yet - this is the requirements gathering phase.
-""",
-  relevant_files: ["/absolute/path/file.md"],
-  model: "gemini-3-pro-preview",
-  thinking_mode: "high"
-)
-```
-
-### Consensus Framing (Stages 4, 5)
-
-Consensus uses the **same multi-step workflow** as ThinkDeep. The `total_steps` = number of models + 1 (synthesis step). Each step uses `continuation_id` from the previous step.
-
-```
-# Step 1: YOUR independent analysis (sets up the debate)
-mcp__pal__consensus(
-  step: """
-[CONTEXT - what you're evaluating]
-
-MY CURRENT ANALYSIS:
-[Your findings and assessment]
-
-QUESTIONS FOR CONSENSUS:
-1. [Question 1]
-2. [Question 2]
-
-DELIVERABLE:
-[What you want synthesized]
-""",
-  step_number: 1,
-  total_steps: 4,           # 3 models + 1 synthesis
-  next_step_required: true,
-  findings: "[Summary of your analysis — NOT empty]",
-  models: [
-    {"model": "gemini-3-pro-preview", "stance": "neutral", "stance_prompt": "..."},
-    {"model": "gpt-5.2", "stance": "for", "stance_prompt": "..."},
-    {"model": "x-ai/grok-4", "stance": "against", "stance_prompt": "..."}
-  ],
-  relevant_files: ["/absolute/path/file.md"]
-)
-
-# Steps 2-3: Process each model response (use continuation_id from step 1)
-mcp__pal__consensus(
-  step: "Notes on model response (private — not shared with other models)",
-  step_number: 2,
-  total_steps: 4,
-  next_step_required: true,
-  findings: "Model X argues...",
-  continuation_id: "<from_step_1>"
-)
-
-# Step 4: Final synthesis
-mcp__pal__consensus(
-  step: "Final synthesis of all perspectives",
-  step_number: 4,
-  total_steps: 4,
-  next_step_required: false,
-  findings: "Consensus: [summary of outcome]",
-  continuation_id: "<from_previous>"
-)
-```
-
-### Common Mistakes
+### Common Mistakes (CRITICAL — review before every PAL call)
 
 | Mistake | Impact | Fix |
 |---------|--------|-----|
-| Using `prompt` for Consensus | Wrong parameter name | Use `step` (same as ThinkDeep) |
-| Using `files` for Consensus | Wrong parameter name | Use `relevant_files` (same as ThinkDeep) |
-| Treating Consensus as single-call | Skips model processing steps | Use multi-step: step 1 = your analysis, steps 2-N = model responses, final = synthesis |
-| Missing `continuation_id` on steps 2+ | Loses debate context between steps | Pass continuation_id from each previous step |
-| Setting `next_step_required: false` too early | Skips remaining model perspectives | Only set false on the final synthesis step |
-| Empty `findings` in ThinkDeep | Model has no context | Populate with discoveries |
-| No PRD disclaimer | Model requests source files | Add "This is BUSINESS/PRD ANALYSIS" |
-| Relative file paths | Tool error | Use absolute paths |
+| Using `prompt` instead of `step` | Wrong parameter name | Both tools use `step` |
+| Using `files` instead of `relevant_files` | Wrong parameter name | Both tools use `relevant_files` |
+| Treating Consensus as single-call | Skips model processing | Multi-step: step 1 = your analysis, steps 2-N = models, final = synthesis |
+| Missing `continuation_id` on steps 2+ | Loses context between steps | Pass continuation_id from each previous step |
+| Setting `next_step_required: false` too early | Skips remaining models | Only set false on final synthesis step |
+| Empty `findings` | Model has no context | Populate with discoveries — NEVER empty |
+| No PRD disclaimer in `problem_context` | Model requests source files | Add "This is BUSINESS/PRD ANALYSIS" |
+| Relative file paths | Tool error | MUST use absolute paths |
 
 ---
 
@@ -180,30 +117,13 @@ mcp__pal__consensus(
 
 ### Parameter Reference
 
-Consensus shares multi-step workflow parameters with ThinkDeep (see `shared-parameters.md`):
+Consensus shares multi-step workflow parameters with ThinkDeep (see "PAL Tool Quick Reference" section above):
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `step` | string | Yes | Current step description — your analysis, model notes, or synthesis |
-| `step_number` | integer | Yes | Current step (1 = your analysis, 2+ = model responses, last = synthesis) |
-| `total_steps` | integer | Yes | Number of models + 1 (for synthesis step) |
-| `next_step_required` | boolean | Yes | True until final synthesis step |
-| `findings` | string | Yes | Step 1: your analysis; Steps 2+: model response summary |
-| `models` | array | Yes* | List of model configs with stance and stance_prompt (*optional in PAL API, but required for meaningful consensus in this workflow) |
-| `continuation_id` | string | No | Thread ID from previous step (required on steps 2+) |
-| `relevant_files` | array | No | Context files (ABSOLUTE paths) |
-| `images` | array | No | Visual references (ABSOLUTE paths) |
-
-### Common Mistakes
-
-| Wrong | Correct | Notes |
-|-------|---------|-------|
-| `prompt` | `step` | Consensus uses `step`, same as ThinkDeep |
-| `files` | `relevant_files` | Consensus uses `relevant_files`, same as ThinkDeep |
-| Omitting `step_number`/`total_steps` | Include them | Consensus IS a multi-step tool |
-| Missing `continuation_id` on step 2+ | Pass from previous step | Required to maintain debate context |
-| Wrong stance config (all same stance) | Use diverse stances | Use for/against/neutral for genuine debate |
-| `total_steps` = number of models | models + 1 | Must include the final synthesis step |
+**Consensus-specific rules:**
+- `total_steps` = number of models + 1 (for synthesis step)
+- Step 1 = YOUR independent analysis; Steps 2-N = model responses; Final step = synthesis
+- Use diverse stances (`for`/`against`/`neutral`) for genuine debate
+- `models` array is required for meaningful consensus in this workflow
 
 ### Usage by Stage
 

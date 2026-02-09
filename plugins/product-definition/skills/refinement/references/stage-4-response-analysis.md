@@ -10,11 +10,19 @@ artifacts_written:
 > On first entry, it presents the questions file and exits for offline response.
 > On re-entry (after user fills answers), it parses and analyzes responses.
 
+## CRITICAL RULES (must follow — failure-prevention)
+
+1. **ENTRY_TYPE determines behavior**: If `ENTRY_TYPE` context variable is `"re_entry_after_user_input"`, skip directly to Step 4.3. If `"first_entry"`, start at Step 4.2. NEVER confuse entry points.
+2. **100% completion REQUIRED**: All questions MUST be answered. Do NOT proceed to gap analysis with unanswered questions.
+3. **Consensus requires minimum 2 models**: If < 2 PAL models available, FAIL and notify user — do NOT attempt Consensus.
+4. **next_action MUST be set**: Summary MUST include `flags.next_action` with one of: `loop_questions`, `loop_research`, `proceed`.
+
 ## Step 4.1: Determine Entry Point
 
-Check state:
-- If `waiting_for_user: true` AND `pause_stage: 4` -> Re-entry (Step 4.3)
-- Otherwise -> First entry (Step 4.2)
+Check the `ENTRY_TYPE` context variable provided by the orchestrator:
+- If `ENTRY_TYPE: "re_entry_after_user_input"` -> Re-entry (Step 4.3)
+- If `ENTRY_TYPE: "first_entry"` -> First entry (Step 4.2)
+- **Fallback** (if ENTRY_TYPE not provided): Check state — if `waiting_for_user: true` AND `pause_stage: 4` -> Re-entry, otherwise -> First entry
 
 ## Step 4.2: Present Questions and Pause (First Entry)
 
@@ -57,7 +65,7 @@ Read the QUESTIONS file and validate structure:
 
 ```bash
 test -f "requirements/working/QUESTIONS-{NNN}.md" || echo "ERROR: File not found"
-QUESTION_COUNT=$(grep -c "^### Q-[0-9]" "requirements/working/QUESTIONS-{NNN}.md")
+QUESTION_COUNT=$(grep -c "^## Q-[0-9]" "requirements/working/QUESTIONS-{NNN}.md")
 SELECTION_COUNT=$(grep -c "\- \[x\]" "requirements/working/QUESTIONS-{NNN}.md")
 
 if [ "$SELECTION_COUNT" -lt "$QUESTION_COUNT" ]; then
@@ -65,14 +73,14 @@ if [ "$SELECTION_COUNT" -lt "$QUESTION_COUNT" ]; then
 fi
 ```
 
-Validation checks:
-1. File exists
-2. Frontmatter present with metadata
-3. Each Q-XXX has question text and 3+ checkbox options
-4. At least one `[x]` selection per question
+**MANDATORY validation checks (ALL must pass):**
+1. File MUST exist
+2. Frontmatter MUST be present with metadata
+3. Each Q-XXX MUST have question text and 3+ checkbox options
+4. Each question MUST have at least one `[x]` selection
 5. No corrupted checkbox patterns
 
-**On validation failure:** Report issues, set `status: needs-user-input` with `pause_type: interactive` asking user to fix.
+**On validation failure:** Report issues, set `status: needs-user-input` with `pause_type: interactive` asking user to fix. Do NOT proceed with partial data.
 
 ## Step 4.4: Parse Responses
 
@@ -135,9 +143,11 @@ DELIVERABLE:
 (1) Confirmed gaps, (2) Contradictions, (3) Sections ready for PRD.
 """,
   step_number: 1,
-  total_steps: 4,           # 3 models + 1 synthesis
+  total_steps: 4,           # 3 models + 1 synthesis (adjust to 3 if grok-4 unavailable)
   next_step_required: true,
   findings: "Round {N} collected {TOTAL} answers. Summary: {brief section-by-section status}",
+  # NOTE: If x-ai/grok-4 is unavailable (optional: true in config), remove it from
+  # the models array and set total_steps = 3 (2 models + 1 synthesis).
   models: [
     {"model": "gemini-3-pro-preview", "stance": "neutral", "stance_prompt": "Objective assessment of consistency and completeness."},
     {"model": "gpt-5.2", "stance": "for", "stance_prompt": "Look for ways the PRD CAN proceed. Advocate for readiness."},
@@ -242,3 +252,19 @@ flags:
   block_reason: null | "{reason}"
 ---
 ```
+
+## Self-Verification (MANDATORY before writing summary)
+
+BEFORE writing the summary file, verify:
+1. If re-entry: all questions have `[x]` selections (100% completion)
+2. `flags.next_action` is set to one of the three valid values — NEVER null on completed status
+3. If PAL Consensus ran: `requirements/analysis/response-validation-round-{N}.md` exists
+4. State file was updated with `current_stage: 4`
+5. Summary YAML frontmatter has no placeholder values
+
+## CRITICAL RULES REMINDER
+
+- ENTRY_TYPE determines first-entry vs re-entry — never confuse the two
+- 100% completion required — do not proceed with unanswered questions
+- Consensus requires minimum 2 models
+- next_action MUST always be set in summary flags

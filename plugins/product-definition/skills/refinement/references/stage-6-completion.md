@@ -8,6 +8,12 @@ artifacts_written:
 
 > This stage finalizes the workflow: lock release, completion report, and next steps.
 
+## CRITICAL RULES (must follow — failure-prevention)
+
+1. **Lock MUST be released**: Remove `requirements/.requirements-lock` before completing. A stale lock blocks future workflow invocations.
+2. **Completion report MUST have no placeholder values**: All `{N}`, `{M}`, `{S}` must be populated from state and summaries.
+3. **State MUST be finalized**: Set `current_stage: 6` and `stage_status: "completed"` with timestamp.
+
 ## Step 6.1: Generate Completion Report
 
 Create `requirements/completion-report.md`:
@@ -101,3 +107,17 @@ flags:
   validation_score: {S}
 ---
 ```
+
+## Self-Verification (MANDATORY before writing summary)
+
+BEFORE writing the summary file, verify:
+1. `requirements/completion-report.md` exists and has populated metrics (no `{N}` placeholders)
+2. Lock file has been removed (`requirements/.requirements-lock` does NOT exist)
+3. State file has `current_stage: 6` and `stage_status: "completed"`
+4. Summary YAML frontmatter has no placeholder values
+
+## CRITICAL RULES REMINDER
+
+- Lock MUST be released — stale locks block future invocations
+- Completion report MUST have no placeholder values
+- State MUST be finalized with stage 6 and "completed" status

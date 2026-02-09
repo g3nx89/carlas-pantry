@@ -10,6 +10,12 @@ artifacts_written:
 
 > This stage runs inline in the orchestrator — no coordinator dispatch.
 
+## CRITICAL RULES (must follow — failure-prevention)
+
+1. **Pre-flight validation MUST pass**: If ANY required agent or config file is MISSING, ABORT immediately. Do NOT proceed with partial setup.
+2. **Lock staleness threshold**: Only remove locks older than `state.lock_staleness_hours` (default: 2 hours). NEVER remove fresh locks without user confirmation.
+3. **User decisions are IMMUTABLE**: If resuming, NEVER re-ask mode selection recorded in `user_decisions`.
+
 ## Step 1.1: MCP Availability Check
 
 Before proceeding, check which MCP tools are available:
@@ -35,12 +41,20 @@ CHECK Sequential Thinking:
 Validate all required components exist:
 
 ```bash
-# Check required agents (relative to plugin root)
+# Check required agents — requirements workflow
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-product-strategy.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-user-experience.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-business-ops.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-question-synthesis.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-prd-generator.md" || echo "MISSING"
+
+# Check required agents — research discovery (used in Stage 2)
+test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-business.md" || echo "MISSING"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-ux.md" || echo "MISSING"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-technical.md" || echo "MISSING"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/research-question-synthesis.md" || echo "MISSING"
+
+# Check required config
 test -f "$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml" || echo "MISSING"
 ```
 
@@ -266,3 +280,18 @@ flags:
   round_number: 1
 ---
 ```
+
+## Self-Verification (MANDATORY before writing summary)
+
+BEFORE writing the summary file, verify:
+1. `requirements/.requirements-state.local.md` exists with `schema_version: 2`
+2. `requirements/.requirements-lock` exists with timestamp
+3. All workspace directories created (`working/`, `research/`, `analysis/`, `.stage-summaries/`)
+4. `analysis_mode` is one of: `complete`, `advanced`, `standard`, `rapid`
+5. Summary YAML frontmatter has no placeholder values
+
+## CRITICAL RULES REMINDER
+
+- Pre-flight validation MUST pass before proceeding
+- Lock staleness threshold from config — never remove fresh locks without confirmation
+- Resumed user decisions are IMMUTABLE

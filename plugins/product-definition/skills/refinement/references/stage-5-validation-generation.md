@@ -9,6 +9,14 @@ artifacts_written:
 
 > This stage validates PRD readiness and generates/extends the PRD.
 
+## CRITICAL RULES (must follow — failure-prevention)
+
+1. **RED validation = NO PRD generation**: If validation score < `conditional` threshold, set `flags.next_action: "loop_questions"` and STOP. Do NOT generate PRD.
+2. **Technical content MUST be filtered**: PRD MUST NOT contain any forbidden technical keywords. Scan and remove BEFORE finalizing.
+3. **EXTEND mode preserves existing sections**: NEVER overwrite complete sections in existing PRD. Only add/update incomplete sections.
+4. **Consensus requires minimum 2 models**: If < 2 PAL models available after failures, FAIL and notify user.
+5. **All file paths MUST be absolute** in PAL `relevant_files` parameter.
+
 ## Step 5.1: Validation Level Selection
 
 Set `status: needs-user-input` with `pause_type: interactive`:
@@ -76,9 +84,11 @@ Final PRD readiness score (0-20) with per-dimension scores.
 Recommendation: READY (>=16), CONDITIONAL (12-15), or NOT READY (<12).
 """,
   step_number: 1,
-  total_steps: 4,           # 3 models + 1 synthesis
+  total_steps: 4,           # 3 models + 1 synthesis (adjust to 3 if grok-4 unavailable)
   next_step_required: true,
   findings: "Initial assessment: {N}/{TOTAL} questions answered. Gaps: {list}. Contradictions: {list}.",
+  # NOTE: If x-ai/grok-4 is unavailable (optional: true in config), remove it from
+  # the models array and set total_steps = 3 (2 models + 1 synthesis).
   models: [
     {"model": "gemini-3-pro-preview", "stance": "neutral", "stance_prompt": "Objective assessment of readiness against all 7 dimensions."},
     {"model": "gpt-5.2", "stance": "for", "stance_prompt": "Advocate for proceeding where reasonable. Score generously where evidence supports."},
@@ -131,8 +141,6 @@ Perform internal evaluation using the same 7 dimensions. Score 1-4 each.
 Proceed to Step 5.4 with warning: "PRD generated without validation gate"
 
 ## Step 5.3: Process Validation Result
-
-**Thresholds:** From config -> `scoring.prd_readiness.*`
 
 **Thresholds from config -> `scoring.prd_readiness.*`:**
 
@@ -233,3 +241,20 @@ flags:
   next_action: null | "loop_questions"
 ---
 ```
+
+## Self-Verification (MANDATORY before writing summary)
+
+BEFORE writing the summary file, verify:
+1. If validation passed: `requirements/PRD.md` exists and is non-empty
+2. If validation passed: `requirements/decision-log.md` exists
+3. PRD does NOT contain any forbidden technical keywords (run scan)
+4. If RED validation: PRD was NOT generated and `flags.next_action` = `"loop_questions"`
+5. State file was updated with `current_stage: 5`
+6. Summary YAML frontmatter has no placeholder values
+
+## CRITICAL RULES REMINDER
+
+- RED validation = NO PRD generation — loop back to Stage 3
+- Technical content MUST be filtered from PRD
+- EXTEND mode preserves existing complete sections
+- Consensus requires minimum 2 models

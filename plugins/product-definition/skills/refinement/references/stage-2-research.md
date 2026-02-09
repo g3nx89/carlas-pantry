@@ -9,9 +9,22 @@ artifacts_written:
 
 > This stage is OPTIONAL. It generates research questions for offline user investigation.
 
-## Step 2.1: Research Skip Check
+## CRITICAL RULES (must follow — failure-prevention)
 
-**If resuming and user_decisions.research_decision_round_N exists:**
+1. **Research is OPTIONAL**: NEVER block the workflow if user skips research. Set `status: completed` and proceed.
+2. **User decisions are IMMUTABLE**: If `user_decisions.research_decision_round_N` exists, do NOT re-ask. Respect the prior decision.
+3. **Exit pause MUST set state correctly**: When pausing for offline research, `waiting_for_user: true` and `pause_stage: 2` MUST be set in state — otherwise resume routing breaks.
+
+## Step 2.1: Determine Entry Point
+
+Check the `ENTRY_TYPE` context variable provided by the orchestrator:
+- If `ENTRY_TYPE: "re_entry_after_user_input"` -> User returning from offline research. Jump to Step 2.2 (check for reports).
+- If `ENTRY_TYPE: "first_entry"` -> New entry. Check user_decisions below.
+- **Fallback** (if ENTRY_TYPE not provided): Check state — if `waiting_for_user: true` AND `pause_stage: 2` -> Re-entry, otherwise -> First entry.
+
+### Research Skip Check
+
+**If user_decisions.research_decision_round_N exists:**
 - `conduct_research` -> Check for reports (Step 2.2)
 - `skip_with_context` -> Set status: completed, proceed
 - `skip_entirely` -> Set status: completed, proceed
@@ -154,3 +167,18 @@ flags:
   round_number: {N}
 ---
 ```
+
+## Self-Verification (MANDATORY before writing summary)
+
+BEFORE writing the summary file, verify:
+1. If research agenda generated: `requirements/research/RESEARCH-AGENDA.md` exists
+2. If synthesis ran: `requirements/research/research-synthesis.md` exists
+3. User decision recorded in state: `user_decisions.research_decision_round_{N}`
+4. State file was updated
+5. Summary YAML frontmatter has no placeholder values
+
+## CRITICAL RULES REMINDER
+
+- Research is OPTIONAL — never block workflow if skipped
+- User decisions are IMMUTABLE — never re-ask
+- Exit pause MUST set waiting_for_user and pause_stage correctly

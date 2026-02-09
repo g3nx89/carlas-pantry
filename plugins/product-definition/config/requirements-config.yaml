@@ -250,9 +250,7 @@ pal:
           stance_prompt: "Challenge PRD completeness. Find what's missing."
           optional: true
 
-      thresholds:
-        ready: 16
-        conditional: 12
+      # Thresholds: see scoring.prd_readiness (single source of truth)
 
       dimensions:
         - name: "product_definition"
@@ -409,20 +407,56 @@ prd:
 # =============================================================================
 
 token_budgets:
-  # Per-coordinator dispatch (includes stage reference + context)
+  # NOTE: These budgets are design targets for authors editing reference files and
+  # constructing coordinator prompts. They are NOT runtime-enforced — no programmatic
+  # truncation layer exists in markdown-based prompt systems. Treat as audit thresholds.
+
+  # Per-coordinator dispatch (includes stage reference + shared references + context)
   coordinator_prompt_max: 8000
+
+  # Per-stage dispatch profiles: which shared references each coordinator needs
+  # Orchestrator MUST only load listed references for each stage
+  stage_dispatch_profiles:
+    stage_2:
+      shared_refs: ["checkpoint-protocol.md", "error-handling.md"]
+      config_yaml: false  # Only needs research_discovery section — stage file has it inline
+    stage_3:
+      shared_refs: ["checkpoint-protocol.md", "error-handling.md"]
+      config_yaml: true   # Needs PAL config, scoring thresholds
+      extra_refs: ["option-generation-reference.md"]
+    stage_4:
+      shared_refs: ["checkpoint-protocol.md", "error-handling.md"]
+      config_yaml: true   # Needs PAL Consensus config, completion thresholds
+    stage_5:
+      shared_refs: ["checkpoint-protocol.md", "error-handling.md"]
+      config_yaml: true   # Needs PAL Consensus config, readiness thresholds
+    stage_6:
+      shared_refs: ["checkpoint-protocol.md"]
+      config_yaml: false  # Completion only — no PAL, no error recovery needed
+
   # Per-source content limits when injecting into coordinator context
   per_source:
     draft_content: 3000
     research_synthesis: 2000
     thinkdeep_insights: 3000
-    stage_summary: 1000
+    stage_summary: 1000        # Per individual summary
+    stage_summaries_total: 3000 # All prior summaries combined
     state_file: 1500
+
   # Per-agent limits for MPA agents
   per_agent:
     mpa_question_output: 5000
     synthesis_output: 4000
     prd_generator_output: 10000
+
+  # Compaction triggers for multi-round workflows
+  compaction:
+    # After this many rounds, compress prior round summaries into a digest
+    rounds_before_compaction: 3
+    # Digest replaces individual stage summaries for prior rounds
+    digest_file: "requirements/.stage-summaries/rounds-digest.md"
+    # Maximum lines for the compacted digest
+    digest_max_lines: 100
 
 # =============================================================================
 # GIT INTEGRATION
@@ -463,7 +497,7 @@ limits:
   # NO LIMIT on questions - generate ALL necessary for complete PRD
   max_questions_total: null      # No artificial limit
   max_questions_per_round: null  # No artificial limit per round
-  min_completion_rate: 1.00      # 100% questions MUST be answered (no skipping)
+  # Completion rate: see scoring.completion (single source of truth)
   lock_staleness_hours: 2
 
 # =============================================================================

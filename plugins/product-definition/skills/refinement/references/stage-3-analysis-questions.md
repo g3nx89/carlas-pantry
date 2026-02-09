@@ -12,6 +12,14 @@ artifacts_written:
 
 > This stage executes ThinkDeep analysis (if mode requires) then launches MPA agents for question generation.
 
+## CRITICAL RULES (must follow — failure-prevention)
+
+1. **CONTINUATION IDs ARE PER-CHAIN**: Each perspective×model combination gets its OWN `continuation_id` thread. NEVER share continuation_ids across different perspective×model combinations.
+2. **ThinkDeep MUST complete before MPA agents**: MPA agents use ThinkDeep insights to inform option generation. Do NOT launch MPA agents until all ThinkDeep calls finish.
+3. **PROBLEM_CONTEXT is MANDATORY**: Every ThinkDeep call MUST include `problem_context` with "This is BUSINESS/PRD ANALYSIS, not code analysis." Without it, models request source files that don't exist.
+4. **FINDINGS must NEVER be empty**: Every ThinkDeep call MUST have non-empty `findings`. Empty findings = model has no context = hallucinated analysis.
+5. **ABSOLUTE paths only**: All `relevant_files` MUST use absolute paths. Relative paths cause tool errors.
+
 ## Part A: Deep Analysis (ThinkDeep)
 
 ### Step 3A.1: Mode Check
@@ -32,7 +40,7 @@ IF ANALYSIS_MODE in {complete, advanced}:
 **CRITICAL:** ThinkDeep MUST complete before Part B. Insights inform option generation.
 
 **ThinkDeep Framing Best Practices:**
-See `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/config-reference.md` -> "PAL Tool Best Practices"
+See `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/config-reference.md` -> "PAL Tool Quick Reference"
 
 Key points:
 - `step`: Your current analysis and specific questions to extend (NOT just a title)
@@ -109,7 +117,7 @@ IF any step fails for model:
   -> Skip remaining steps for this model×perspective combination
 ```
 
-**NOTE:** Each perspective×model combination gets its own 3-step chain with its own `continuation_id` thread. Different perspective×model combinations do NOT share continuation_ids.
+**CRITICAL:** Each perspective×model combination gets its own 3-step chain with its own `continuation_id` thread. Different perspective×model combinations MUST NOT share continuation_ids — doing so corrupts the analysis context.
 
 #### PROBLEM_CONTEXT_TEMPLATE (use for ALL perspectives)
 
@@ -375,3 +383,19 @@ flags:
   thinkdeep_calls: {27|18|0}
 ---
 ```
+
+## Self-Verification (MANDATORY before writing summary)
+
+BEFORE writing the summary file, verify:
+1. `requirements/working/QUESTIONS-{NNN}.md` exists and contains at least 5 questions
+2. Each question has 3+ options with pros/cons
+3. If ThinkDeep ran: `requirements/analysis/thinkdeep-insights.md` exists
+4. State file was updated with `current_stage: 3`
+5. Summary YAML frontmatter has no placeholder values (no `{N}` literals)
+
+## CRITICAL RULES REMINDER
+
+- Continuation IDs are PER-CHAIN — never shared across perspective×model combinations
+- ThinkDeep MUST complete before MPA agents launch
+- PROBLEM_CONTEXT and FINDINGS must NEVER be empty
+- All file paths MUST be absolute
