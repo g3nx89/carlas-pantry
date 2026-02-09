@@ -125,6 +125,8 @@ Every dispatch variable MUST have a defined fallback to prevent malformed coordi
 | `ANALYSIS_MODE` | `"standard"` | Safest mode — no MCP dependency |
 | `PRD_MODE` | `"NEW"` | Default to new PRD creation |
 
+**Precedence rule:** State file values always override defaults. Apply defaults only when the variable has no value in state AND was not explicitly set by a prior stage.
+
 **Rule:** If a variable is not set by the orchestrator at dispatch time, substitute the default from this table. Never pass `null` or empty strings for required variables.
 
 ---
@@ -216,6 +218,8 @@ IF flags.validation_decision in ["READY", "CONDITIONAL"]:
 
     QUALITY CHECKS:
     1. Section completeness: all required sections are present and non-empty
+       EXCEPTION: "Executive Summary" is a synthesis section generated last —
+       exclude it from this check (its absence is not a quality issue)
     2. Technical filter: quick grep for top 5 forbidden keywords
        (API, backend, database, architecture, implementation)
     3. Decision traceability: requirements/decision-log.md exists and is non-empty
@@ -276,17 +280,22 @@ IF flags.validation_decision == "NOT_READY":
     - Questions answered: {completion_rate}%
 
     ### Why It Wasn't Enough
-    - Validation score: {score}/20 (needed >= {conditional_threshold})
-    - Weakest dimensions: {lowest 2-3 scoring dimensions from Stage 5}
-    - Gaps identified: {gap list from Stage 4 summary}
+    - Validation score: {Stage5.flags.validation_score}/20 (needed >= {conditional_threshold})
+    - Weakest dimensions: {Stage5.flags.weak_dimensions}
+    - Per-dimension scores: {Stage5.flags.dimension_scores}
+    - Gaps identified: {Stage4.flags.gap_descriptions}
     - Persistent gaps (appeared in previous rounds too): {cross-round gap intersection}
 
     ### What To Do Differently
-    - Focus question generation on these weak dimensions: {weak_dimensions}
+    - Focus question generation on these weak dimensions: {Stage5.flags.weak_dimensions}
     - These sub-problems remain unresolved: {unresolved from decomposition}
-    - Avoid re-asking well-answered areas: {strong dimensions from Stage 5}
+    - Avoid re-asking well-answered areas: {Stage5.flags.strong_dimensions}
     - Consider deeper options for: {areas where user chose "Other" or gave vague answers}
     """
+
+    PERSIST REFLECTION_CONTEXT to: requirements/.stage-summaries/reflection-round-{N}.md
+    (Enables crash recovery — if orchestrator crashes after generating reflection but
+     before dispatching Stage 3, the reflection is recovered from this file on re-invocation)
 
     Notify user: "PRD not ready. Score: {score}/20. Generating more questions with reflection on gaps."
     Ask user for analysis mode for new round (via AskUserQuestion)
@@ -372,7 +381,12 @@ ON REINVOCATION:
         CLEAR waiting_for_user
         DISPATCH stage coordinator (it will detect the user's input)
     ELSE IF current_stage < 6 AND phase_status != "completed":
-        RESUME from current_stage
+        # Check for persisted reflection context (crash recovery for RED loop)
+        IF current_stage == 3 AND file exists requirements/.stage-summaries/reflection-round-{current_round}.md:
+            LOAD REFLECTION_CONTEXT from that file
+            DISPATCH Stage 3 with REFLECTION_CONTEXT
+        ELSE:
+            RESUME from current_stage
     ELSE:
         START fresh (Stage 1)
 ```

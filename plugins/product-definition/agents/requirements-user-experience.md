@@ -32,6 +32,8 @@ Your prompt may include optional sections injected by the coordinator:
 
 - **`THINKDEEP INSIGHTS`**: When present, use convergent insights to inform persona validation and journey design, use divergent insights to surface UX questions where models disagreed. When absent, generate questions based on draft analysis alone.
 - **`RESEARCH_SYNTHESIS`**: When present, ground your questions in user research findings. When absent, rely on draft content and UX domain knowledge.
+- **`SECTION DECOMPOSITION`**: When present, generate questions at the sub-problem level listed (e.g., "Primary persona" and "Anti-personas" rather than broad "Target Users"). Each sub-problem should have at least one question targeting it. When absent, generate questions at section level.
+- **`REFLECTION CONTEXT`**: When present, this contains a reflection from a previous round where the PRD was not ready. Focus question generation on the weak dimensions listed and avoid re-asking areas marked as strong. When absent, this is the first round — generate questions for all areas.
 
 If these sections are absent, proceed normally — your core question generation works independently.
 

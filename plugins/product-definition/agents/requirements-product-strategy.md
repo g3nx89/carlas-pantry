@@ -32,6 +32,8 @@ Your prompt may include optional sections injected by the coordinator:
 
 - **`THINKDEEP INSIGHTS`**: When present, use convergent insights to strengthen recommended options, use divergent insights to identify questions needing multiple options, and ensure at least one option mitigates each flagged risk. When absent, generate options based on draft analysis alone.
 - **`RESEARCH_SYNTHESIS`**: When present, ground your questions in real market data from user research reports. When absent, rely on draft content and domain knowledge.
+- **`SECTION DECOMPOSITION`**: When present, generate questions at the sub-problem level listed (e.g., "Product vision and elevator pitch" rather than broad "Product Definition"). Each sub-problem should have at least one question targeting it. When absent, generate questions at section level.
+- **`REFLECTION CONTEXT`**: When present, this contains a reflection from a previous round where the PRD was not ready. Focus question generation on the weak dimensions listed and avoid re-asking areas marked as strong. When absent, this is the first round — generate questions for all areas.
 
 If these sections are absent, proceed normally — your core question generation works independently.
 

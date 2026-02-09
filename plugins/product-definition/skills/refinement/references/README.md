@@ -20,12 +20,12 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `orchestrator-loop.md` | ~450 | Dispatch loop, iteration, reflexion, quality gates, compaction, crash recovery, state migration |
+| `orchestrator-loop.md` | ~462 | Dispatch loop, variable defaults with precedence, quality gates, reflexion with persistence, compaction, crash recovery, state migration |
 | `stage-1-setup.md` | ~300 | Inline setup: init, workspace, mode selection |
 | `stage-2-research.md` | ~185 | Research coordinator: agenda + synthesis |
-| `stage-3-analysis-questions.md` | ~465 | Analysis + decomposition + question generation (largest) |
-| `stage-4-response-analysis.md` | ~270 | Response parsing + gap analysis |
-| `stage-5-validation-generation.md` | ~260 | Validation + PRD generation |
+| `stage-3-analysis-questions.md` | ~470 | Analysis + decomposition (8 sections) + question generation (largest) |
+| `stage-4-response-analysis.md` | ~274 | Response parsing + gap analysis + structured gap descriptions |
+| `stage-5-validation-generation.md` | ~272 | Validation + PRD generation + per-dimension scoring |
 | `stage-6-completion.md` | ~125 | Completion: report, lock release |
 | `checkpoint-protocol.md` | ~50 | State update patterns |
 | `error-handling.md` | ~110 | Error recovery procedures |
@@ -42,6 +42,13 @@
 - `stage-3-analysis-questions.md` references `config-reference.md` for ThinkDeep PAL patterns
 - `stage-4-response-analysis.md` references `config-reference.md` for Consensus PAL patterns
 - `stage-5-validation-generation.md` references `config-reference.md` for scoring thresholds
+
+### Stage Summary Data Flow (REFLECTION_CONTEXT)
+
+- `stage-4-response-analysis.md` summary `flags.gap_descriptions` -> consumed by `orchestrator-loop.md` REFLECTION_CONTEXT template
+- `stage-5-validation-generation.md` summary `flags.dimension_scores`, `flags.weak_dimensions`, `flags.strong_dimensions` -> consumed by `orchestrator-loop.md` REFLECTION_CONTEXT template
+- `orchestrator-loop.md` persists REFLECTION_CONTEXT to `requirements/.stage-summaries/reflection-round-{N}.md` for crash recovery
+- `orchestrator-loop.md` passes REFLECTION_CONTEXT to `stage-3-analysis-questions.md` coordinator, which passes it to MPA agents
 
 ### Orchestrator -> Stage Files
 

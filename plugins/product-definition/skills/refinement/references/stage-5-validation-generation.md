@@ -237,6 +237,18 @@ summary: "Validation score: {N}/20 ({DECISION}). PRD generated in {MODE} mode."
 flags:
   validation_score: {N}
   validation_decision: "READY" | "CONDITIONAL" | "NOT_READY"
+  dimension_scores:
+    product_definition: {1-4}
+    target_users: {1-4}
+    problem_validation: {1-4}
+    value_proposition: {1-4}
+    workflow_coverage: {1-4}
+    feature_inventory: {1-4}
+    no_technical_content: {1-4}
+  weak_dimensions:
+    - "{dimension with score <= 2}"
+  strong_dimensions:
+    - "{dimension with score >= 3}"
   prd_mode: "{NEW|EXTEND}"
   next_action: null | "loop_questions"
 ---

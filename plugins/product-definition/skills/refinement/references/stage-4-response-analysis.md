@@ -247,6 +247,10 @@ flags:
   round_number: {N}
   completion_rate: {rate}
   gaps_found: {N}
+  gap_descriptions:
+    - "{PRD section}: {what is missing or ambiguous}"
+  sections_ready:
+    - "{PRD section confirmed complete}"
   next_action: "loop_questions" | "loop_research" | "proceed"
   pause_type: null | "exit_cli" | "interactive"
   block_reason: null | "{reason}"

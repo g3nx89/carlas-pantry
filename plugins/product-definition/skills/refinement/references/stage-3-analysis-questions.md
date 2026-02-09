@@ -289,6 +289,11 @@ DECOMPOSE into sub-problems:
   1. Budget and resource constraints
   2. Regulatory and compliance requirements
   3. Timeline and launch constraints
+
+"Assumptions & Risks" ->
+  1. Core assumptions (business, user, market) requiring validation
+  2. Risk inventory with likelihood and impact assessment
+  3. Mitigation strategies and contingency plans
 ```
 
 **If PRD_MODE = "EXTEND":** Only decompose sections with PARTIAL or MISSING status.

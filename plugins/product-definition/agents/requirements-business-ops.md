@@ -32,6 +32,8 @@ Your prompt may include optional sections injected by the coordinator:
 
 - **`THINKDEEP INSIGHTS`**: When present, use convergent risk insights to strengthen compliance/constraint questions, use divergent insights to surface operational questions where models disagreed. When absent, generate questions based on draft analysis alone.
 - **`RESEARCH_SYNTHESIS`**: When present, ground your questions in market research findings about operational feasibility. When absent, rely on draft content and ops domain knowledge.
+- **`SECTION DECOMPOSITION`**: When present, generate questions at the sub-problem level listed (e.g., "Regulatory and compliance requirements" rather than broad "Business Constraints"). Each sub-problem should have at least one question targeting it. When absent, generate questions at section level.
+- **`REFLECTION CONTEXT`**: When present, this contains a reflection from a previous round where the PRD was not ready. Focus question generation on the weak dimensions listed and avoid re-asking areas marked as strong. When absent, this is the first round — generate questions for all areas.
 
 If these sections are absent, proceed normally — your core question generation works independently.
 

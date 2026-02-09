@@ -47,6 +47,7 @@
 | `.requirements-state.local.md` | Workflow state | (fixed name) |
 | `.requirements-lock` | Session lock | (fixed name) |
 | `stage-{N}-summary.md` | Stage summaries | `stage-3-summary.md` |
+| `reflection-round-{N}.md` | Persisted REFLECTION_CONTEXT for crash recovery | `reflection-round-2.md` |
 
 ---
 
