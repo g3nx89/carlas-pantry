@@ -30,7 +30,7 @@ Bypass Genymotion's player and start VMs headlessly through VirtualBox:
 
 ```bash
 VBoxManage startvm <VM-UUID> --type headless
-IP=$(VBoxManage guestproperty get <VM-UUID> androvm_ip_management | grep -oP '[\d]+\.[\d]+\.[\d]+\.[\d]+')
+IP=$(VBoxManage guestproperty get <VM-UUID> androvm_ip_management | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')
 adb connect ${IP}:5555
 ```
 
@@ -95,9 +95,14 @@ jobs:
           $GMTOOL --timeout 300 admin start "$DEVICE"
           $GMTOOL device -n "$DEVICE" adbconnect
           for i in $(seq 1 60); do
-            [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+            bc=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || echo "")
+            ba=$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || echo "")
+            if [ "$bc" = "1" ] && [ "$ba" = "stopped" ]; then
+              adb shell pm list packages 2>/dev/null | head -1 | grep -q "package:" && break
+            fi
             sleep 5
           done
+          adb shell input keyevent 82
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
@@ -136,9 +141,14 @@ android-test:
     - $GMTOOL device -n "$DEVICE" adbconnect
     - |
       for i in $(seq 1 60); do
-        [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+        bc=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || echo "")
+        ba=$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || echo "")
+        if [ "$bc" = "1" ] && [ "$ba" = "stopped" ]; then
+          adb shell pm list packages 2>/dev/null | head -1 | grep -q "package:" && break
+        fi
         sleep 5
       done
+      adb shell input keyevent 82
     - ./gradlew connectedDebugAndroidTest
   after_script:
     - $GMTOOL admin stop "ci-${CI_JOB_ID}" || true
@@ -177,13 +187,19 @@ trap cleanup EXIT
 "$GMTOOL" --timeout 300 admin start "$DEVICE"
 "$GMTOOL" device -n "$DEVICE" adbconnect
 
+adb wait-for-device
 elapsed=0
 while [ $elapsed -lt $BOOT_TIMEOUT ]; do
     bc=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || echo "")
-    [ "$bc" = "1" ] && break
+    ba=$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || echo "")
+    if [ "$bc" = "1" ] && [ "$ba" = "stopped" ]; then
+        # Verify package manager is ready (prevents INSTALL_FAILED race)
+        adb shell pm list packages 2>/dev/null | head -1 | grep -q "package:" && break
+    fi
     sleep 5; elapsed=$((elapsed + 5))
 done
 [ "$bc" != "1" ] && echo "ERROR: Boot timeout" && exit 1
+adb shell input keyevent 82
 
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
@@ -241,16 +257,21 @@ done
 # Collect serials in device order
 SERIALS=()
 for d in "${DEVICES[@]}"; do
-    IP=$("$GMTOOL" admin details "$d" 2>/dev/null | grep -oP '[\d]+\.[\d]+\.[\d]+\.[\d]+' | head -1)
+    IP=$("$GMTOOL" admin details "$d" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
     SERIALS+=("${IP}:5555")
 done
 
 # Wait for each device to boot (targeting by serial)
 for serial in "${SERIALS[@]}"; do
     for j in $(seq 1 60); do
-        [ "$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+        bc=$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || echo "")
+        ba=$(adb -s "$serial" shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || echo "")
+        if [ "$bc" = "1" ] && [ "$ba" = "stopped" ]; then
+            adb -s "$serial" shell pm list packages 2>/dev/null | head -1 | grep -q "package:" && break
+        fi
         sleep 5
     done
+    adb -s "$serial" shell input keyevent 82
 done
 
 for d in "${DEVICES[@]}"; do
@@ -268,6 +289,23 @@ done
 OVERALL=0
 for pid in "${PIDS[@]}"; do
     wait "$pid" || OVERALL=1
+done
+
+# Aggregate results from all shards
+echo "==> Shard results:"
+for i in "${!DEVICES[@]}"; do
+    if grep -q "BUILD SUCCESSFUL" "results-shard-${i}.log" 2>/dev/null; then
+        echo "  Shard $i: PASS"
+    else
+        echo "  Shard $i: FAIL"
+    fi
+done
+
+# Collect test reports from all devices
+mkdir -p ./aggregated-reports
+for d in "${DEVICES[@]}"; do
+    "$GMTOOL" device -n "$d" pull /sdcard/Android/data/ "./aggregated-reports/${d}/" 2>/dev/null || true
+    "$GMTOOL" device -n "$d" logcatdump "./aggregated-reports/logcat-${d}.txt" 2>/dev/null || true
 done
 exit $OVERALL
 ```
@@ -369,8 +407,9 @@ GPX route playback is GUI-only. Simulate via scripted sequential GPS commands:
 # Usage: ./drive_sim.sh <Device_IP> <Route.gpx>
 set -euo pipefail
 
-DEVICE_IP=$1
-GPX_FILE=$2
+DEVICE_IP=${1:?"Usage: $0 <Device_IP> <Route.gpx>"}
+GPX_FILE=${2:?"Usage: $0 <Device_IP> <Route.gpx>"}
+[ ! -f "$GPX_FILE" ] && echo "ERROR: GPX file not found: $GPX_FILE" && exit 1
 GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
 
 echo "Initializing GPS..."
@@ -400,9 +439,17 @@ Simulates a user entering a zone of poor connectivity and then recovering:
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEVICE_IP=${1:?Usage: $0 <Device_IP>}
+DEVICE_IP=${1:?"Usage: $0 <Device_IP>"}
 GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
 gsh() { "$GENYSHELL" -r "$DEVICE_IP" -c "$1"; }
+
+restore_network() {
+    echo "Restoring network to default state..."
+    gsh "network setstatus mobile enabled" 2>/dev/null || true
+    gsh "network setstatus wifi enabled" 2>/dev/null || true
+    gsh "network setsignalstrength wifi great" 2>/dev/null || true
+}
+trap restore_network EXIT
 
 # 1. Start with good WiFi
 gsh "network setstatus wifi enabled"
@@ -469,7 +516,9 @@ genyshell -r "$CLONE_IP" -c "android setdeviceid random"
 
 ## Extended Run Device Recycling
 
-Memory leaks are officially unfixable (documented by Genymotion: "Using Genymotion Desktop for a long period of time causes memory leaks which renders Genymotion extremely slow and unstable"). **Not suitable for running more than 1 device for over 12 hours.** For long-running test suites, restart devices periodically:
+> **Note:** For memory leak details and concurrent instance limits, see the main SKILL.md file.
+
+Memory leaks are an officially acknowledged, unfixable limitation. For long-running test suites, restart devices periodically:
 
 ```bash
 # After every N test suites, recycle the device
@@ -489,6 +538,36 @@ VBoxManage snapshot "VM-Name" restore "clean-state"
 ```
 
 Each snapshot consumes 2-8GB. Budget ~50-100GB for a snapshot library. Refresh baselines weekly as OS and app versions change.
+
+## Clone-Based Test Isolation
+
+Cloning provides a supported alternative to snapshots for reproducible test environments:
+
+```bash
+# 1. Create and configure a "golden master" device (install apps, GApps, ARM translation, etc.)
+gmtool admin create "Custom Phone" "Android 11.0" "golden-master" --nbcpu 2 --ram 2048
+gmtool --timeout 300 admin start "golden-master"
+# ... install apps, configure settings ...
+gmtool admin stop "golden-master"
+
+# 2. Before each test run, clone the golden master
+gmtool admin clone "golden-master" "test-run-$$"
+gmtool --timeout 300 admin start "test-run-$$"
+gmtool device -n "test-run-$$" adbconnect
+
+# 3. Randomize device identity if backend tracks devices
+genyshell -q -c "android setandroidid random"
+genyshell -q -c "android setdeviceid random"
+
+# 4. Run tests on the clone
+./gradlew connectedDebugAndroidTest
+
+# 5. Discard clone after tests (golden master remains untouched)
+gmtool admin stop "test-run-$$"
+gmtool admin delete "test-run-$$"
+```
+
+This avoids repetitive setup (app install, GApps flash, settings configuration) on each run while keeping full test isolation. Cloning is faster than creating from scratch because it reuses the existing disk image via differencing disks.
 
 ## Device Matrix Strategy
 

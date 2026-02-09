@@ -1,7 +1,7 @@
 ---
 name: genymotion-expert
 description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
-version: 1.1.0
+version: 1.2.0
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
@@ -56,7 +56,7 @@ Genymotion Desktop provides **three CLI tools** for terminal-driven Android auto
 | x86_64 | Not supported | Android 11+ |
 | x86 | Not supported | Android 5-10 |
 
-**Best practice**: Build APKs with x86/x86_64 ABI included. On Apple Silicon, arm64-v8a runs natively. Avoid ARM translation (libhoudini) — it is unsupported, incomplete, and fragile.
+**Best practice**: Build APKs with x86/x86_64 ABI included. On Apple Silicon, arm64-v8a runs natively. ARM translation (libhoudini) is unsupported and fragile — avoid unless absolutely necessary. If forced to use it: flash the version-matched ZIP *before* GApps, reboot, and verify with `adb shell getprop ro.product.cpu.abilist`. Missing x86 ABI causes `INSTALL_FAILED_NO_MATCHING_ABIS` — see `references/cli-reference.md` for the full installation procedure.
 
 ## Essential Workflows
 
@@ -73,12 +73,8 @@ gmtool --timeout 300 admin start "TestDevice"
 # Connect to ADB
 gmtool device -n "TestDevice" adbconnect
 
-# Wait for boot completion (use wait_for_boot function from Quick Reference below)
-elapsed=0
-while [ $elapsed -lt 120 ]; do
-  [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
-  sleep 5; elapsed=$((elapsed + 5))
-done
+# Wait for boot completion (see Boot Wait Pattern in Quick Reference below)
+wait_for_boot 120
 
 # Disable animations (critical for test stability)
 adb shell settings put global window_animation_scale 0
@@ -130,7 +126,7 @@ Compose UI tests behave identically on Genymotion — the semantics tree is arch
 
 ## Network Stack
 
-Genymotion uses NAT mode by default. The special address **`10.0.3.2`** reaches the host from inside the device (unlike AVD's `10.0.2.2`). Use `adb reverse tcp:8080 tcp:8080` so the device can reach host services via `localhost:8080`. Bridge mode (VM gets own LAN IP) is VirtualBox-only: `--network-mode bridge --bridged-if eth0`.
+Genymotion uses NAT mode by default. The special address **`10.0.3.2`** reaches the host from inside the device (unlike AVD's `10.0.2.2`). Use `adb reverse tcp:8080 tcp:8080` so the device can reach host services via `localhost:8080`. Bridge mode (VM gets own LAN IP) is VirtualBox-only: `--network-mode bridge --bridged-if eth0`. See `references/cli-reference.md` for port forwarding, proxy interception, and bridge mode ADB caveats.
 
 **VPN interference**: Host VPN can block routing to the `192.168.56.x` subnet. Split-tunneling or disabling VPN during tests may be required.
 
@@ -169,9 +165,11 @@ Genymotion Shell path differs slightly — see `references/cli-reference.md` for
 
 - **CI/CD pipelines** → Use AVD (`emulator -no-window`) or Genymotion SaaS (`gmsaas`)
 - **Budget-constrained** → Use free AVD (since Desktop 3.2.0, `list`/`start`/`stop` work without paid license, but `create`/`delete`/`install` still require Indie/Business)
-- **Parallel testing at scale** → Use Genymotion SaaS, Firebase Test Lab, or AVD
+- **Parallel testing at scale** → Use Genymotion SaaS, Firebase Test Lab, or AVD with Gradle Managed Devices
 - **SafetyNet/Play Integrity** → Physical devices only
 - **Accurate ARM behavior on x86 hosts** → AVD with ARM images or physical devices
+
+**Industry trend**: Since Google's Project Marble improvements (2018+), AVD reached performance parity with Genymotion. The community trend is migration from Genymotion Desktop to AVD for CI/CD, driven by AVD's headless mode, Docker support, and zero licensing cost. Genymotion SaaS remains competitive for managed cloud device farms.
 
 **Genymotion Desktop has no headless mode** — it requires GPU and a display. On Linux CI servers, use `xvfb-run` as a workaround (see `references/ci-and-recipes.md`). This is the fundamental constraint for CI/CD.
 
@@ -179,7 +177,7 @@ Genymotion Shell path differs slightly — see `references/cli-reference.md` for
 
 | Anti-Pattern | Correct Approach |
 |-------------|-----------------|
-| Running commands before boot completes | Always implement boot-wait loop checking `sys.boot_completed` AND `init.svc.bootanim == stopped` |
+| Running commands before boot completes | Always implement boot-wait loop checking `sys.boot_completed`, `init.svc.bootanim == stopped`, AND `pm list packages` readiness |
 | Using different ADB versions | Set `gmtool config --use_custom_sdk on --sdk_path "$ANDROID_HOME"` |
 | Leaving animations enabled during tests | Disable all three animation scales before test execution |
 | Using Quick Boot in CI | Use `--coldboot` for reproducibility; Quick Boot state can corrupt |
@@ -188,6 +186,7 @@ Genymotion Shell path differs slightly — see `references/cli-reference.md` for
 | Expecting headless operation | Genymotion Desktop requires GUI; use `xvfb-run` on Linux or SaaS/AVD for headless |
 | Not resetting sensor state between suites | Reset GPS, battery, network via Genymotion Shell between test runs |
 | Leaving Google Play auto-updates enabled in CI | Disable with `adb shell pm disable-user com.android.vending` |
+| Ignoring `INSTALL_FAILED_NO_MATCHING_ABIS` | APK lacks x86 ABI; rebuild with `abiFilters` including x86/x86_64 or install ARM translation |
 | Connecting to 127.0.0.1 | Use the host-only IP (192.168.56.x); Genymotion uses TCP/IP on host-only network |
 | Running gmtool as multiple OS users | Single-user limitation — only use GMTool for one OS user per machine |
 | Not handling CI license cleanup | Use `trap cleanup EXIT` to ensure `gmtool admin stop` runs on failure, preventing license lockouts |
@@ -252,7 +251,8 @@ wait_for_boot() {
         if [ "$bc" = "1" ] && [ "$ba" = "stopped" ]; then
             adb shell input keyevent 82  # Dismiss keyguard
             sleep 2
-            return 0
+            # Verify package manager is ready (prevents race on app install)
+            adb shell pm list packages 2>/dev/null | head -1 | grep -q "package:" && return 0
         fi
         sleep 5; elapsed=$((elapsed + 5))
     done

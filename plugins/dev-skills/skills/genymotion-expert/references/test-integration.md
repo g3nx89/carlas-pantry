@@ -77,7 +77,7 @@ adb shell am broadcast -a com.example.CUSTOM_ACTION
 adb shell screencap /sdcard/screen.png
 adb pull /sdcard/screen.png ./screenshots/
 
-# Screen recording (max 180s default, max 86400s)
+# Screen recording (hard limit: 180s per recording)
 adb shell screenrecord --time-limit 60 --size 720x1280 /sdcard/recording.mp4
 # Stop with Ctrl+C, then pull:
 adb pull /sdcard/recording.mp4
@@ -95,6 +95,32 @@ adb shell svc power stayon true
 # Or set a long timeout (30 minutes)
 adb shell settings put system screen_off_timeout 1800000
 ```
+
+### Split APK / App Bundle Installation
+
+For apps distributed as App Bundles (.aab), use `bundletool` to generate device-specific APKs:
+
+```bash
+# Generate APK set from bundle
+bundletool build-apks --bundle=app.aab --output=app.apks --local-testing
+
+# Install on connected Genymotion device
+bundletool install-apks --apks=app.apks
+
+# Or install multiple split APKs directly
+adb install-multiple base.apk config.xxhdpi.apk config.en.apk
+```
+
+### Verify Test Runner Availability
+
+Before running instrumentation tests, confirm the runner is installed:
+
+```bash
+adb shell pm list instrumentation
+# Expected: instrumentation:com.example.test/androidx.test.runner.AndroidJUnitRunner (target=com.example.app)
+```
+
+If the test runner is missing, the test APK was not installed correctly.
 
 ## ADB Instrumentation (Direct)
 
@@ -122,6 +148,29 @@ adb -s 192.168.56.101:5555 shell am instrument -w \
 adb shell am instrument -w -e size large \
   com.example.test/androidx.test.runner.AndroidJUnitRunner
 ```
+
+## Android Test Orchestrator
+
+The Android Test Orchestrator runs each test in its own `Instrumentation` instance, providing stronger test isolation (crashes in one test don't affect others). On Genymotion, it requires installing the Test Services APK alongside the test APK:
+
+```bash
+# Install orchestrator and test services
+adb install -r orchestrator.apk
+adb install -r test-services.apk
+
+# Or use Gradle (recommended):
+android {
+    defaultConfig {
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
+}
+# Then: ./gradlew connectedDebugAndroidTest
+```
+
+Orchestrator is useful on Genymotion when running large test suites where flaky tests might crash the process, since each test gets a fresh instance.
 
 ## Genymotion Java API (In-Test Sensor Control)
 
@@ -221,6 +270,37 @@ genymotion {
 
 **Important**: This plugin (v1.4, last published 2017) may have compatibility issues with modern AGP versions. For current projects, scripting with gmtool directly is more reliable. Gradle Managed Devices (first-party, modern) has largely absorbed this niche.
 
+## System Inspection Commands
+
+Useful for debugging test state, verifying sensor simulation, and diagnosing failures:
+
+```bash
+# Verify boot and system state
+adb shell getprop sys.boot_completed              # "1" when fully booted
+adb shell getprop init.svc.bootanim               # "stopped" when animation done
+adb shell getprop ro.product.cpu.abilist          # Supported ABIs
+adb shell getprop ro.build.version.sdk            # API level
+
+# Battery state (verify Genymotion Shell simulation worked)
+adb shell dumpsys battery
+
+# Memory usage per app (detect leaks during long test runs)
+adb shell dumpsys meminfo com.example.app
+
+# Current foreground activity (verify correct screen is shown)
+adb shell dumpsys activity | grep mCurrentFocus
+
+# Network connectivity state
+adb shell dumpsys connectivity | grep "NetworkAgentInfo"
+
+# UI interaction for debugging
+adb shell input tap 500 1000                      # Tap at coordinates
+adb shell input text "hello"                      # Type text
+adb shell input keyevent KEYCODE_HOME             # Press Home
+adb shell input keyevent 82                       # Menu / unlock
+adb shell input swipe 500 1500 500 300 300        # Swipe up
+```
+
 ## Logcat Strategies
 
 ```bash
@@ -232,7 +312,19 @@ adb logcat *:E                                      # Errors only
 adb logcat --pid=$(adb shell pidof com.example.app) # Filter by app PID
 ```
 
+## Test Distribution Tools
+
+For distributing tests across multiple Genymotion instances beyond basic Gradle sharding:
+
+- **Flank** (recommended): Google's open-source test runner that distributes tests across multiple devices in parallel. Works with Genymotion since it uses ADB. Supports automatic sharding, retry on failure, and JUnit XML aggregation.
+- **Spoon** (legacy): Square's test runner for multi-device distribution with HTML reports and screenshots per device. Works with Genymotion via standard ADB serials.
+- **Marathon**: Gradle plugin for parallel test execution with dynamic device allocation, test batching, and flakiness strategies.
+
+All these tools treat Genymotion instances as standard ADB devices — configure them with the Genymotion device serials (e.g., `192.168.56.101:5555`).
+
 ## Multi-Device Parallel Testing
+
+> **Note:** For a complete CI-ready parallel testing recipe with cleanup, result aggregation, and report collection, see `ci-and-recipes.md` Recipe 2.
 
 Each Genymotion device gets a unique IP on the host-only network (all on port 5555):
 
@@ -262,9 +354,14 @@ done < <(adb devices | grep "device$" | awk '{print $1}')
 
 for serial in "${SERIALS[@]}"; do
     for j in $(seq 1 60); do
-        [ "$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+        bc=$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || echo "")
+        ba=$(adb -s "$serial" shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || echo "")
+        if [ "$bc" = "1" ] && [ "$ba" = "stopped" ]; then
+            adb -s "$serial" shell pm list packages 2>/dev/null | head -1 | grep -q "package:" && break
+        fi
         sleep 5
     done
+    adb -s "$serial" shell input keyevent 82
 done
 
 # Run shards in parallel
@@ -282,7 +379,7 @@ Before running tests on Genymotion:
 
 1. **Disable animations** (all three scales set to 0)
 2. **Align ADB versions** (`gmtool config --use_custom_sdk on --sdk_path "$ANDROID_HOME"`)
-3. **Wait for boot completion** (check both `sys.boot_completed` AND `init.svc.bootanim`)
+3. **Wait for boot completion** (check `sys.boot_completed`, `init.svc.bootanim`, AND `pm list packages` readiness)
 4. **Build x86/x86_64 APKs** (avoid ARM translation)
 5. **Use `--coldboot`** in CI for reproducibility
 6. **Reset sensor state** between test suites via Genymotion Shell
@@ -291,6 +388,19 @@ Before running tests on Genymotion:
 9. **Clear logcat before test** to isolate relevant logs: `adb logcat -c`
 10. **Dismiss keyguard** after boot: `adb shell input keyevent 82`
 
+## Sensor State Persistence
+
+Genymotion Shell sensor values (GPS, battery, network) persist for the lifetime of the running VM. They survive app restarts but are reset on device reboot. Factory reset also clears them. Between test suites, explicitly reset sensor state:
+
+```bash
+GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
+"$GENYSHELL" -q -c "gps setstatus disabled"
+"$GENYSHELL" -q -c "battery setmode host"
+"$GENYSHELL" -q -c "network setstatus wifi enabled"
+"$GENYSHELL" -q -c "network setsignalstrength wifi great"
+"$GENYSHELL" -q -c "rotation setangle 0"
+```
+
 ## Unsimulatable Features
 
-Test these on physical devices only: Bluetooth, NFC, real camera hardware, fingerprint sensors (biometric widget is UI-only), thermal behavior, cellular radio, SafetyNet/Play Integrity attestation (detects emulator), Widevine L1 DRM.
+Test these on physical devices only: Bluetooth, NFC, real camera hardware, fingerprint sensors (biometric widget is UI-only), thermal behavior, cellular radio, SafetyNet/Play Integrity attestation (detects emulator — apps may refuse to run on uncertified devices), Widevine L1 DRM.

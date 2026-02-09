@@ -17,10 +17,10 @@ Complete command reference for both CLI tools.
 GMTool provides autocompletion for Bash and Zsh. Install Bash completion by sourcing the bundled script:
 ```bash
 # Bash (~/.bash_profile)
-. {GMTOOL_DIR}/bash/gmtool.bash
+. ${GMTOOL_DIR}/bash/gmtool.bash
 
 # Zsh (~/.zshrc, before compinit)
-fpath=({GMTOOL_DIR}/zsh $fpath)
+fpath=(${GMTOOL_DIR}/zsh $fpath)
 ```
 
 ### Global Options
@@ -68,7 +68,14 @@ gmtool admin create "<hwprofile>" "<osimage>" "<device_name>" [options]
 #   --bridged-if <name>          Bridge interface (VirtualBox only)
 #   --quickboot <on|off>         Quick Boot (QEMU only)
 #   --root-access <on|off>       Root access
-#   --sysprop <property>:<value> System property (MODEL, PRODUCT, MANUFACTURER, etc.)
+#   --sysprop <property>:<value> System property overrides (see below)
+
+# Available sysprop keys: MODEL, PRODUCT, MANUFACTURER, BOARD, BRAND, DEVICE, DISPLAY, SERIAL, TYPE, FINGERPRINT, TAGS
+
+# Example: mimic a Samsung Galaxy S21 for OEM-specific code path testing
+gmtool admin create "Custom Phone" "Android 12.0" "FakeSamsung" \
+  --sysprop MODEL:SM-G991B --sysprop BRAND:samsung --sysprop MANUFACTURER:samsung \
+  --sysprop DEVICE:o1q --width 1080 --height 2400 --density 420
 ```
 
 **Start, stop, manage:**
@@ -85,7 +92,7 @@ gmtool admin details "DeviceName"           # All properties, ADB serial, IP add
 
 `gmtool admin details` is the authoritative way to get a device's IP address for scripting:
 ```bash
-IP=$(gmtool admin details "DeviceName" 2>/dev/null | grep -oP '[\d]+\.[\d]+\.[\d]+\.[\d]+' | head -1)
+IP=$(gmtool admin details "DeviceName" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 ```
 
 **Direct player launch** (useful when `gmtool admin start` fails):
@@ -170,6 +177,59 @@ Bridge mode (VM gets own IP on physical network via DHCP) is only available with
 ```bash
 gmtool admin create ... --network-mode bridge --bridged-if eth0
 ```
+
+**Bridged mode ADB caveat**: In bridge mode, ADB may not auto-connect. You must manually `adb connect <VM_LAN_IP>:5555` after boot. The device's IP will be on the physical network (not 192.168.56.x).
+
+### Proxy and Traffic Interception
+
+For security testing or debugging network traffic (e.g., with Burp Suite or mitmproxy):
+
+```bash
+# Set HTTP proxy on the device (from host)
+adb shell settings put global http_proxy <host_ip>:<port>
+
+# Example: route traffic through proxy on host at 192.168.56.1:8080
+adb shell settings put global http_proxy 192.168.56.1:8080
+
+# Remove proxy
+adb shell settings put global http_proxy :0
+
+# Alternative: use adb reverse for localhost proxy
+adb reverse tcp:8080 tcp:8080
+# Then set device proxy to localhost:8080
+adb shell settings put global http_proxy localhost:8080
+```
+
+The `gmtool config --proxy*` options configure Genymotion's *own* network (for downloading images) — they do NOT affect traffic inside the VM.
+
+### ARM Translation Installation (When Unavoidable)
+
+ARM translation (libhoudini) is unsupported and fragile. **Prefer building x86/x86_64 APKs.** If you must run ARM-only third-party APKs:
+
+```bash
+# 1. Download the version-matched ZIP (e.g., Genymotion-ARM-Translation_for_11.0.zip)
+# Sources: community repos (m9rco, niizam on GitHub)
+
+# 2. Flash via gmtool (preferred):
+gmtool device -n "DeviceName" flash Genymotion-ARM-Translation_for_11.0.zip
+
+# 3. Or flash via adb:
+adb push Genymotion-ARM-Translation_for_11.0.zip /sdcard/Download/
+adb shell "/system/bin/flash-archive.sh /sdcard/Download/Genymotion-ARM-Translation_for_11.0.zip"
+adb reboot
+
+# 4. Verify installation:
+adb shell getprop ro.product.cpu.abilist
+# Expected: x86,armeabi-v7a,armeabi (arm64-v8a is NOT supported on x86 images)
+```
+
+**Critical rules:**
+- ARM translation ZIP version must exactly match the Android version
+- Install ARM translation *before* GApps (GApps detects available ABIs during install)
+- arm64-v8a (64-bit ARM) apps are NOT supported — only armeabi-v7a/armeabi
+- On Apple Silicon (M-series), use native arm64 images instead — no translation needed
+- `INSTALL_FAILED_NO_MATCHING_ABIS` means the APK lacks a compatible ABI — either install ARM translation or rebuild with x86 ABI
+- Genymotion warns: "ARM translation tools modify the Android image and may damage your virtual device permanently"
 
 ### Google Play Services (GApps)
 
