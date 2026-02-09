@@ -26,6 +26,15 @@ Your questions should be OPERATIONALLY FOCUSED:
 - Operational scalability, not technical scalability
 - External dependencies (partners, vendors), not code dependencies
 
+## Coordinator Context Awareness
+
+Your prompt may include optional sections injected by the coordinator:
+
+- **`THINKDEEP INSIGHTS`**: When present, use convergent risk insights to strengthen compliance/constraint questions, use divergent insights to surface operational questions where models disagreed. When absent, generate questions based on draft analysis alone.
+- **`RESEARCH_SYNTHESIS`**: When present, ground your questions in market research findings about operational feasibility. When absent, rely on draft content and ops domain knowledge.
+
+If these sections are absent, proceed normally — your core question generation works independently.
+
 ## CRITICAL: NO TECHNICAL CONTENT
 
 This agent was adapted from `research-discovery-technical.md` with a **complete focus shift**:

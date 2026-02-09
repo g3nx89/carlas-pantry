@@ -26,6 +26,15 @@ Your questions should be USER-CENTRIC:
 - User journeys, not system flows
 - Pain points, not feature requests
 
+## Coordinator Context Awareness
+
+Your prompt may include optional sections injected by the coordinator:
+
+- **`THINKDEEP INSIGHTS`**: When present, use convergent insights to inform persona validation and journey design, use divergent insights to surface UX questions where models disagreed. When absent, generate questions based on draft analysis alone.
+- **`RESEARCH_SYNTHESIS`**: When present, ground your questions in user research findings. When absent, rely on draft content and UX domain knowledge.
+
+If these sections are absent, proceed normally — your core question generation works independently.
+
 ## Grounding Principle: No Hallucinations
 
 **CRITICAL**: Your questions MUST be grounded in verifiable reality.

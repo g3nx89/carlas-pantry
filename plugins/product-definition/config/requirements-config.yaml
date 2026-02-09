@@ -2,10 +2,10 @@
 # Version: 1.0.0
 #
 # Plugin: product-definition
-# Command: /product-definition:requirements
+# Skill: refinement (migrated from /product-definition:requirements command)
 
-version: "1.0.0"
-last_updated: "2026-01-28"
+version: "2.0.0"
+last_updated: "2026-02-08"
 
 # =============================================================================
 # DIRECTORY STRUCTURE (User's working directory - NOT plugin directory)
@@ -29,7 +29,7 @@ state:
   file_name: ".requirements-state.local.md"
   lock_file_name: ".requirements-lock"
   lock_staleness_hours: 2
-  schema_version: 1
+  schema_version: 2
 
 # =============================================================================
 # ANALYSIS MODES (User Choice)
@@ -37,29 +37,31 @@ state:
 
 analysis_modes:
   complete:
-    description: "MPA + PAL ThinkDeep (3×3) + Sequential Thinking"
+    description: "MPA + PAL ThinkDeep (3×3×3) + Sequential Thinking"
     mpa_enabled: true
     mpa_agents: 3
     pal_thinkdeep_enabled: true
     pal_thinkdeep_perspectives: 3  # competitive, risk, contrarian
     pal_thinkdeep_models: 3        # gpt-5.2, gemini-3-pro-preview, grok-4
-    pal_thinkdeep_total_calls: 9   # 3 perspectives × 3 models
+    pal_thinkdeep_steps_per_call: 3  # multi-step: explore → deepen → synthesize
+    pal_thinkdeep_total_calls: 27  # 3 perspectives × 3 models × 3 steps
     sequential_thinking_enabled: true
     pal_consensus_enabled: true
-    estimated_cost_per_round: "$0.80-1.50"
+    estimated_cost_per_round: "$2.00-4.00"
     requires_mcp: true  # Degrades gracefully if unavailable
 
   advanced:
-    description: "MPA + PAL ThinkDeep (2×3)"
+    description: "MPA + PAL ThinkDeep (2×3×3)"
     mpa_enabled: true
     mpa_agents: 3
     pal_thinkdeep_enabled: true
     pal_thinkdeep_perspectives: 2  # competitive, risk (no contrarian)
     pal_thinkdeep_models: 3        # gpt-5.2, gemini-3-pro-preview, grok-4
-    pal_thinkdeep_total_calls: 6   # 2 perspectives × 3 models
+    pal_thinkdeep_steps_per_call: 3  # multi-step: explore → deepen → synthesize
+    pal_thinkdeep_total_calls: 18  # 2 perspectives × 3 models × 3 steps
     sequential_thinking_enabled: false
     pal_consensus_enabled: false
-    estimated_cost_per_round: "$0.50-0.80"
+    estimated_cost_per_round: "$1.20-2.50"
     requires_mcp: true  # Degrades gracefully if unavailable
 
   standard:
@@ -169,9 +171,9 @@ pal:
   thinkdeep:
     enabled: true
 
-    # 3×3 MATRIX: Each perspective runs on ALL 3 models = 9 total calls
+    # 3×3×3 MATRIX: Each perspective runs on ALL 3 models, each with 3 multi-step calls = 27 total
     # This maximizes insight diversity by combining different analytical angles
-    # with different model strengths/biases
+    # with different model strengths/biases, using progressive confidence (explore → deepen → synthesize)
 
     models:
       - id: "gpt-5.2"
@@ -180,7 +182,7 @@ pal:
       - id: "gemini-3-pro-preview"
         thinking_mode: "high"
         strength: "Broad knowledge, nuanced understanding"
-      - id: "openrouter/x-ai/grok-4"
+      - id: "x-ai/grok-4"
         thinking_mode: "high"
         optional: true  # Continue if unavailable
         strength: "Unconventional perspectives, assumption challenging"
@@ -213,9 +215,9 @@ pal:
           - What are we missing?
           - Why might this be the wrong approach?
 
-    # Total calls per analysis mode:
-    # - COMPLETE: 3 perspectives × 3 models = 9 calls
-    # - ADVANCED: 2 perspectives × 3 models = 6 calls (competitive + risk only)
+    # Total calls per analysis mode (3 multi-step calls per perspective×model):
+    # - COMPLETE: 3 perspectives × 3 models × 3 steps = 27 calls
+    # - ADVANCED: 2 perspectives × 3 models × 3 steps = 18 calls (competitive + risk only)
     # - STANDARD: 0 calls (PAL ThinkDeep disabled)
     # - RAPID: 0 calls (PAL ThinkDeep disabled)
 
@@ -223,36 +225,27 @@ pal:
     enabled: true
     min_models: 2
 
-    question_validation:
-      enabled: true
-      phase: "2"
-      models:
-        - model: "gemini-3-pro-preview"
-          stance: "neutral"
-        - model: "gpt-5.2"
-          stance: "for"
-
     response_validation:
       enabled: true
-      phase: "4"
+      stage: "4"  # Stage 4: Response & Gap Analysis
       models:
         - model: "gemini-3-pro-preview"
           stance: "neutral"
         - model: "gpt-5.2"
           stance: "for"
-        - model: "openrouter/x-ai/grok-4"
+        - model: "x-ai/grok-4"
           stance: "against"
           optional: true
 
     prd_readiness:
       enabled: true
-      phase: "5"
+      stage: "5"  # Stage 5: Validation & PRD Generation
       models:
         - model: "gemini-3-pro-preview"
           stance: "neutral"
         - model: "gpt-5.2"
           stance: "for"
-        - model: "openrouter/x-ai/grok-4"
+        - model: "x-ai/grok-4"
           stance: "against"
           stance_prompt: "Challenge PRD completeness. Find what's missing."
           optional: true
@@ -319,10 +312,8 @@ research_discovery:
       mandatory: false
       focus: "gap_resolution"
 
-    post_completion:
-      enabled: true
-      mandatory: false
-      focus: "assumption_validation"
+    # post_completion: removed in v2 — not implemented in lean orchestrator skill
+    # If needed, user can re-run the command with new draft content after completion
 
   templates:
     synthesis: "$CLAUDE_PLUGIN_ROOT/templates/research-synthesis-template.md"
@@ -414,6 +405,26 @@ prd:
       - "MongoDB"
 
 # =============================================================================
+# TOKEN BUDGETS
+# =============================================================================
+
+token_budgets:
+  # Per-coordinator dispatch (includes stage reference + context)
+  coordinator_prompt_max: 8000
+  # Per-source content limits when injecting into coordinator context
+  per_source:
+    draft_content: 3000
+    research_synthesis: 2000
+    thinkdeep_insights: 3000
+    stage_summary: 1000
+    state_file: 1500
+  # Per-agent limits for MPA agents
+  per_agent:
+    mpa_question_output: 5000
+    synthesis_output: 4000
+    prd_generator_output: 10000
+
+# =============================================================================
 # GIT INTEGRATION
 # =============================================================================
 
@@ -460,13 +471,13 @@ limits:
 # =============================================================================
 
 scoring:
-  # PRD Readiness (Phase 10)
+  # PRD Readiness (Stage 5: Validation)
   prd_readiness:
     ready: 16        # /20 - GREEN: Proceed to generation
     conditional: 12  # /20 - YELLOW: Proceed with warnings
     not_ready: 0     # /20 - RED: Gather more information (< conditional)
 
-  # Star Rating for Options (Appendix A.3)
+  # Star Rating for Options (see option-generation-reference.md)
   star_rating:
     5_stars: { min: 90, max: 100, label: "Recommended" }
     4_stars: { min: 75, max: 89, label: "Strong alternative" }
@@ -474,7 +485,7 @@ scoring:
     2_stars: { min: 40, max: 59, label: "Risky or niche" }
     1_star:  { min: 0,  max: 39, label: "Not recommended" }
 
-  # Completion Rate Thresholds (Phase 9)
+  # Completion Rate Thresholds (Stage 4: Response Analysis)
   completion:
     required: 1.00   # 100% - all questions must be answered
     warning: 0.80    # 80% - warn but allow proceed

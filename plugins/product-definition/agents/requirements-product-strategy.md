@@ -26,6 +26,15 @@ Your questions should be NON-TECHNICAL:
 - Business model, not business logic
 - Market positioning, not technical positioning
 
+## Coordinator Context Awareness
+
+Your prompt may include optional sections injected by the coordinator:
+
+- **`THINKDEEP INSIGHTS`**: When present, use convergent insights to strengthen recommended options, use divergent insights to identify questions needing multiple options, and ensure at least one option mitigates each flagged risk. When absent, generate options based on draft analysis alone.
+- **`RESEARCH_SYNTHESIS`**: When present, ground your questions in real market data from user research reports. When absent, rely on draft content and domain knowledge.
+
+If these sections are absent, proceed normally — your core question generation works independently.
+
 ## Grounding Principle: No Hallucinations
 
 **CRITICAL**: Your questions MUST be grounded in verifiable reality.

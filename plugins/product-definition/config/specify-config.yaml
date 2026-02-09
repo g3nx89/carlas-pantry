@@ -709,7 +709,7 @@ thinkdeep:
   # If unavailable, workflow continues with other models.
 
   additional_models:
-    - alias: "openrouter/x-ai/grok-4"
+    - alias: "x-ai/grok-4"
       provider: "openrouter"
       thinking_mode: "high"
       default_focus: "contrarian_analysis"
@@ -738,7 +738,7 @@ thinkdeep:
           - alias: "pro"
             thinking_mode: "high"
             focus: "alternative_interpretations"
-          - alias: "openrouter/x-ai/grok-4"
+          - alias: "x-ai/grok-4"
             provider: "openrouter"
             thinking_mode: "high"
             focus: "assumption_validation"
@@ -770,7 +770,7 @@ thinkdeep:
           - alias: "gpt5.2"
             thinking_mode: "high"
             focus: "user_experience"
-          - alias: "openrouter/x-ai/grok-4"
+          - alias: "x-ai/grok-4"
             provider: "openrouter"
             thinking_mode: "high"
             focus: "accessibility_i18n_contrarian"
@@ -791,7 +791,7 @@ thinkdeep:
       models:
         technical: "pro"
         business: "gpt5.2"
-        contrarian: "openrouter/x-ai/grok-4"  # Additional perspective for variety
+        contrarian: "x-ai/grok-4"  # Additional perspective for variety
       thinking_mode: "medium"
       max_additional_questions: null  # No limit on additional questions
       similarity_threshold: 0.85
@@ -821,7 +821,7 @@ thinkdeep:
           weights:
             "gpt5.2": 1.0
             "pro": 1.0
-            "openrouter/x-ai/grok-4": 1.2  # Slightly higher weight for contrarian
+            "x-ai/grok-4": 1.2  # Slightly higher weight for contrarian
             "flash": 0.5
 
   # ─────────────────────────────────────────────────────────────
@@ -913,7 +913,7 @@ pal_consensus:
       stance: "neutral"
     - model: "gpt-5.2"
       stance: "for"
-    - model: "openrouter/x-ai/grok-4"
+    - model: "x-ai/grok-4"
       stance: "against"
       stance_prompt: "Challenge every assumption. Find hidden risks. Be the devil's advocate."
 
@@ -925,7 +925,7 @@ pal_consensus:
       - model: "gpt-5.2"
         stance: "for"
         stance_prompt: "Advocate for the specification's strengths. Focus on what works."
-      - model: "openrouter/x-ai/grok-4"
+      - model: "x-ai/grok-4"
         stance: "against"
         stance_prompt: "Find every weakness. Challenge completeness. Be skeptical of claimed coverage."
     min_models_for_consensus: 2  # At least 2 models must respond
