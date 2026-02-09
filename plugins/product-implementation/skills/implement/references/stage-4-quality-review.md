@@ -175,7 +175,8 @@ If orchestrator provides a user-input file:
 3. After fixes, re-run a quick validation (tests pass, no regressions)
 4. **Test count cross-validation**: Compare the post-fix test count against `baseline_test_count` from the Stage 3 summary flags. If post-fix count < baseline, BLOCK: "Test count regression detected: {post_fix_count} < {baseline_test_count}. Fix agent may have broken or removed existing tests." The fix agent must resolve regressions before proceeding.
 5. **Write deferred findings**: Write remaining Medium + Low findings (those NOT addressed by the fix agent) to `{FEATURE_DIR}/review-findings.md`. This ensures lower-severity findings are tracked in a dedicated artifact even when the user chose "Fix now" for Critical + High issues only.
-6. Rewrite summary with `review_outcome: "fixed"`
+6. **Auto-commit review fixes**: Follow the Auto-Commit Dispatch Procedure in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/auto-commit-dispatch.md` with `template_key` = `review_fix`, `substitution_vars` = `{feature_name}` = FEATURE_NAME, `skip_target` = step 7, `summary_field` = `commit_sha`
+7. Rewrite summary with `review_outcome: "fixed"`
 
 ### On "Fix Later"
 
@@ -206,6 +207,7 @@ flags:
   block_reason: null  # or consolidated findings if needs-user-input
   review_outcome: "fixed"  # fixed | deferred | accepted
   test_count_post_fix: {N}  # Verified test count after fix agent (only present when review_outcome is "fixed")
+  commit_sha: null  # Auto-commit SHA after review fixes (null if disabled, skipped, or failed)
 ---
 ## Context for Next Stage
 

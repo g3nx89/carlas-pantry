@@ -13,6 +13,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `stage-4-quality-review.md` | Debugging quality review, finding consolidation, or review strategy selection |
 | `stage-5-documentation.md` | Debugging documentation generation, tech-writer dispatch, or lock release |
 | `agent-prompts.md` | Modifying agent prompt templates or adding new prompt types |
+| `auto-commit-dispatch.md` | Understanding shared auto-commit procedure, exclude pattern matching, or batch strategy |
 | `skill-resolution.md` | Understanding domain-specific skill resolution algorithm used by Stages 2, 4, 5 |
 
 ## By Task
@@ -43,11 +44,12 @@ Quick guide to when to read each reference file during skill development or debu
 |------|-------|---------|
 | `orchestrator-loop.md` | 195 | Dispatch loop, crash recovery, lock release, state migration |
 | `stage-1-setup.md` | 289 | Inline setup instructions, domain detection, summary template |
-| `stage-2-execution.md` | 217 | Skill resolution, phase loop, execution rules, test count extraction |
+| `stage-2-execution.md` | 236 | Skill resolution, phase loop, auto-commit per phase, batch strategy, execution rules, test count extraction |
 | `stage-3-validation.md` | 138 | Validation checks, constitution compliance, coverage delta, Stage 2 cross-validation, report format |
-| `stage-4-quality-review.md` | 220 | Skill resolution, review dimensions (base + conditional), severity reclassification, consolidation |
-| `stage-5-documentation.md` | 211 | Skill resolution for docs, tech-writer dispatch, lock release |
-| `agent-prompts.md` | 257 | All 6 agent prompt templates with `{skill_references}` variable, verified test count, severity escalation |
+| `stage-4-quality-review.md` | 222 | Skill resolution, review dimensions (base + conditional), severity reclassification, consolidation, auto-commit on fix |
+| `stage-5-documentation.md` | 223 | Skill resolution for docs, tech-writer dispatch, auto-commit documentation, lock release |
+| `agent-prompts.md` | 306 | All 7 agent prompt templates (6 agent + 1 auto-commit) with `{skill_references}` variable, verified test count, severity escalation |
+| `auto-commit-dispatch.md` | 61 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
 
 ## Cross-References
@@ -67,3 +69,5 @@ Quick guide to when to read each reference file during skill development or debu
 - Stages 2, 3, 4 propagate verified test counts via summary flags: `test_count_verified` (Stage 2) → `baseline_test_count` (Stage 3) → `test_count_post_fix` (Stage 4)
 - `config/implementation-config.yaml` `severity.escalation_triggers` → referenced by `agent-prompts.md` Quality Review Prompt and `stage-4-quality-review.md` Section 4.3 reclassification pass
 - `config/implementation-config.yaml` `test_coverage.thresholds` → referenced by `agent-prompts.md` Completion Validation Prompt and `stage-3-validation.md` Section 3.2/3.3
+- `auto-commit-dispatch.md` → shared procedure referenced by `stage-2-execution.md` Step 4.5, `stage-4-quality-review.md` Section 4.4 step 6, `stage-5-documentation.md` Section 5.3a
+- `config/implementation-config.yaml` `auto_commit` → referenced by `auto-commit-dispatch.md` procedure, `agent-prompts.md` Auto-Commit Prompt, and all 3 calling stage files via the shared procedure

@@ -159,6 +159,7 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `review-findings.md` | Quality review findings (created if findings exist and user chooses "fix now" or "fix later") |
 | `docs/` | Feature documentation, API guides, architecture updates (Stage 5) |
 | Module `README.md` files | Updated READMEs in folders affected by implementation (Stage 5) |
+| Git commits | Auto-commits at phase completion (Stage 2), review fix (Stage 4), and documentation (Stage 5). Controlled by `auto_commit` in config. |
 
 ## Dev-Skills Integration
 
@@ -187,7 +188,8 @@ Configuration: `config/implementation-config.yaml` under `dev_skills`.
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage |
 | `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Skill resolution, review dimensions (base + conditional), finding consolidation |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
-| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates (with `{skill_references}` variable) |
+| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates (with `{skill_references}` variable), including auto-commit prompt |
+| `references/auto-commit-dispatch.md` | Stages 2, 4, 5 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
 
 ## Error Handling
@@ -199,6 +201,7 @@ Configuration: `config/implementation-config.yaml` under `dev_skills`.
 - **Lock conflict** — Check timestamp; override if stale, otherwise halt with guidance
 - **Interrupted execution** — Resume from checkpoint via state file
 - **Coordinator crash** — See `orchestrator-loop.md` for crash recovery and summary reconstruction
+- **Auto-commit failure** — Warning only (no halt). Commit subagent failures are logged and skipped; changes remain on disk and will be included in subsequent commits
 
 ## Quick Start
 

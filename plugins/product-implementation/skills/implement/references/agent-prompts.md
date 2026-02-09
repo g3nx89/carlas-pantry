@@ -255,3 +255,52 @@ TASKS_FILE: {TASKS_FILE}
 - `{skill_references}` — Documentation-oriented skill references resolved by the coordinator (see `stage-5-documentation.md` Section 5.1a). Contains diagram generation and domain documentation skills. **Fallback:** `"No documentation skills available — produce prose documentation without diagrams."`
 
 **Agent behavior:** The tech-writer agent reads all context files from FEATURE_DIR, reviews the implemented code, and creates/updates project documentation including API guides, usage examples, architecture updates, module READMEs, and lessons learned. When diagram skills are provided, the agent uses Mermaid.js syntax to create architecture, sequence, and ERD diagrams inline. Produces a documentation update summary.
+
+---
+
+## Auto-Commit Prompt
+
+Used by Stages 2, 4, and 5 coordinators to commit milestone changes via a throwaway `Task(subagent_type="general-purpose")` subagent. This keeps git output out of coordinator context. Failure is always warn-and-continue.
+
+```markdown
+**Goal**: Create a git commit for implementation milestone changes.
+
+Commit message: {commit_message}
+
+## Instructions
+
+1. Run `git status` in the project root to see changed files
+2. Stage files individually using `git add <file>` for each changed file
+   - **EXCLUDE** files matching these patterns (do NOT stage them):
+     {exclude_patterns_formatted}
+   - Stage all modified, new, or deleted files that are part of the current feature implementation (feature spec directory: {FEATURE_DIR})
+   - Do NOT stage files clearly unrelated to the current feature (e.g., files in other feature spec directories)
+   - Never use `git add .` or `git add -A`
+3. If no files are staged after exclusions, report `commit_status: skipped` and stop
+4. Run `git commit` with the provided commit message
+5. Report the result
+
+## Safety Rules
+
+- NEVER run `git push`
+- NEVER use `--amend`
+- NEVER use `--force` or `--no-verify`
+- NEVER modify the git config
+- If the commit fails (e.g., pre-commit hook), report the error — do NOT retry
+
+## Output Format
+
+Report exactly these fields at the end of your response:
+
+    commit_status: {success|failed|skipped}
+    commit_sha: {sha or null}
+    files_committed: {count}
+    reason: {brief explanation}
+```
+
+**Variables:**
+- `{commit_message}` — Pre-built commit message from `auto_commit.message_templates` in config, with template variables (e.g., `{feature_name}`, `{phase_name}`) already substituted by the coordinator
+- `{FEATURE_DIR}` — Path to feature spec directory (used to scope staged files)
+- `{exclude_patterns_formatted}` — Bullet list of exclude patterns from `auto_commit.exclude_patterns` in config, formatted as: `- .implementation-state.local.md\n- .stage-summaries/`
+
+**Agent behavior:** The general-purpose subagent runs git commands to stage and commit changed files, excluding internal state files. It reports structured output that the coordinator logs. On any failure, the subagent reports the error without retrying — the coordinator treats all failures as non-blocking warnings.

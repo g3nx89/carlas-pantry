@@ -155,6 +155,17 @@ Feature: {FEATURE_NAME}
 Documentation complete / Documentation complete with noted gaps
 ```
 
+## 5.3a Auto-Commit Documentation
+
+After capturing the documentation summary, optionally commit the documentation changes. Follow the Auto-Commit Dispatch Procedure in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/auto-commit-dispatch.md` with:
+
+| Parameter | Value |
+|-----------|-------|
+| `template_key` | `documentation` |
+| `substitution_vars` | `{feature_name}` = FEATURE_NAME |
+| `skip_target` | Section 5.4 |
+| `summary_field` | `commit_sha` |
+
 ## 5.4 State Update and Lock Release
 
 After documentation completes:
@@ -189,6 +200,7 @@ summary: |
 flags:
   block_reason: null
   documentation_outcome: "completed"
+  commit_sha: null  # Auto-commit SHA after documentation (null if disabled, skipped, or failed)
 ---
 ## Context for Next Stage
 

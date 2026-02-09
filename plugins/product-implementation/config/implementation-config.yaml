@@ -122,3 +122,20 @@ dev_skills:
 branch:
   pattern: "feature/<number-padded-to-3-digits>-<kebab-case-title>"
   example: "feature/001-user-auth"
+
+# Auto-commit after stage milestones
+# Commits are delegated to a throwaway general-purpose subagent to keep coordinator context clean.
+# Failure is always warn-and-continue — a failed commit never blocks execution.
+auto_commit:
+  enabled: true  # Set to false to disable all auto-commits (opt-out)
+  stage2_strategy: per_phase  # per_phase: commit after each phase; batch: single commit after all phases complete
+  message_templates:
+    phase_complete: "feat({feature_name}): implement {phase_name}"
+    phase_batch: "feat({feature_name}): implement all phases"
+    review_fix: "fix({feature_name}): address quality review findings"
+    documentation: "docs({feature_name}): add feature documentation"
+  # Exclude patterns: substring-matched against the git-status-relative file path.
+  # Example: ".stage-summaries/" matches "specs/001-feature/.stage-summaries/stage-1-summary.md"
+  exclude_patterns:
+    - ".implementation-state.local.md"
+    - ".stage-summaries/"

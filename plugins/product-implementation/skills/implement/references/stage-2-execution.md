@@ -139,10 +139,27 @@ If verification fails:
    Phases remaining: {count}
    ```
 
+### Step 4.5: Auto-Commit Phase
+
+After updating progress, optionally commit the phase's changes.
+
+If `auto_commit.stage2_strategy` is `batch` in config, skip this step — a single commit runs after all phases complete (Step 5).
+
+Otherwise (`per_phase`, the default), follow the Auto-Commit Dispatch Procedure in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/auto-commit-dispatch.md` with:
+
+| Parameter | Value |
+|-----------|-------|
+| `template_key` | `phase_complete` |
+| `substitution_vars` | `{feature_name}` = FEATURE_NAME, `{phase_name}` = current phase name (raw from tasks.md, e.g., "Phase 1: Setup") |
+| `skip_target` | Step 5 |
+| `summary_field` | Append to `commits_made` array |
+
 ### Step 5: Repeat or Proceed
 
 - If more phases remain → return to Step 1 for next phase
-- If all phases complete → write Stage 2 summary and return to orchestrator
+- If all phases complete:
+  - If `auto_commit.stage2_strategy` is `batch` and `auto_commit.enabled` is `true`: follow the Auto-Commit Dispatch Procedure in `auto-commit-dispatch.md` with `template_key` = `phase_batch`, `substitution_vars` = `{feature_name}` = FEATURE_NAME, `skip_target` = Section 2.3, `summary_field` = `commits_made` (single-element array)
+  - Write Stage 2 summary and return to orchestrator
 
 ## 2.2 Execution Rules
 
@@ -199,6 +216,7 @@ summary: |
 flags:
   block_reason: null  # or description of error if needs-user-input
   test_count_verified: {N}  # Verified test count from last phase's developer agent final test run (null if agent did not report)
+  commits_made: ["sha1", "sha2"]  # Array: one SHA per phase (per_phase strategy) or single SHA (batch). Stages 4/5 use scalar commit_sha instead.
 ---
 ## Context for Next Stage
 
@@ -206,12 +224,13 @@ flags:
 - Tasks completed: {count}/{total}
 - Tests status: all passing / {N} failures
 - Verified test count: {N} (from last phase's developer agent report)
+- Commits: {count} auto-commits ({list of SHAs or "disabled"})
 - Files modified: {list of key files}
 - Errors encountered: {none / list}
 
 ## Stage Log
 
-- [{timestamp}] Phase 1: {phase_name} — {task_count} tasks completed
-- [{timestamp}] Phase 2: {phase_name} — {task_count} tasks completed
+- [{timestamp}] Phase 1: {phase_name} — {task_count} tasks completed — commit: {sha or skipped}
+- [{timestamp}] Phase 2: {phase_name} — {task_count} tasks completed — commit: {sha or skipped}
 - ...
 ```
