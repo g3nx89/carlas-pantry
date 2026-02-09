@@ -33,6 +33,17 @@ When test-case specs are available, read the relevant spec file BEFORE writing t
 ## Domain-Specific Skill References
 
 {skill_references}
+
+When skill references include a compose, UI framework, or frontend skill, you MUST consult the referenced skill for platform-specific anti-patterns BEFORE writing UI code. Composition-time side effects, incorrect sealed class handling, and similar framework-specific pitfalls are common sources of runtime bugs that reviewers will flag.
+
+## Final Step — Verified Test Count
+
+After completing all tasks in this phase, run the project's full test suite as your FINAL action. Report the result in this exact structured format at the end of your response:
+
+    test_count_verified: {N}
+    test_failures: {M}
+
+Where {N} is the total number of passing tests and {M} is the number of failing tests (should be 0). This count will be cross-validated across stages — do not estimate, run the actual tests and report the real count.
 ```
 
 **Variables:**
@@ -47,7 +58,7 @@ When test-case specs are available, read the relevant spec file BEFORE writing t
 - `{traceability_file}` — Path to `analysis/task-test-traceability.md`, or `"Not available"` if the file does not exist
 - `{skill_references}` — Domain-specific skill references resolved by the coordinator from `detected_domains` (see `stage-2-execution.md` Section 2.0). Contains skill paths and usage guidance. **Fallback if no skills apply or dev-skills not installed:** `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`
 
-**Agent behavior:** The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy. When skill references are provided, the agent reads the referenced SKILL.md files on-demand for domain-specific patterns and anti-patterns — skills are consulted, not followed blindly (codebase conventions take precedence).
+**Agent behavior:** The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy. When skill references are provided, the agent reads the referenced SKILL.md files on-demand for domain-specific patterns and anti-patterns — skills are consulted, not followed blindly (codebase conventions take precedence). The agent MUST run the full test suite as its final action and report `test_count_verified` and `test_failures` in the specified structured format.
 
 ---
 
@@ -62,6 +73,9 @@ Used in Stage 3 after all phases complete.
    - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
    - If test-case specs are available, cross-validate test IDs against implemented tests
+   - Verify constitution/architecture compliance: if the project has constitution.md or CLAUDE.md at the project root declaring architectural constraints (e.g., layering rules, dependency directions), verify that the implementation adheres to each declared constraint. Flag violations as High severity.
+   - Test coverage delta: count implemented automated tests by level (unit, integration, e2e). If test-plan.md is available, compare against planned targets and report delta as `{implemented}/{planned} {level} ({pct}%)`. Flag thresholds (from config): if unit tests < 80% of plan target, flag High; if any other level < 50% of plan target, flag Medium.
+   - Run the full test suite independently and report the verified count as `baseline_test_count: {N}` at the end of your validation report.
    - Report final status with summary of completed work
 
 User Input: {user_input}
@@ -84,7 +98,7 @@ If test-case specs are available in test_cases_dir, verify that test IDs referen
 - `{test_cases_dir}` — Path to test-cases/ directory, or `"Not available"` if the directory does not exist
 - `{traceability_file}` — Path to `analysis/task-test-traceability.md`, or `"Not available"` if the file does not exist
 
-**Agent behavior:** The developer agent reads tasks.md, verifies every task is `[X]`, runs the test suite, and cross-references implementation against plan.md and spec.md. When test-case specs are available, also validates test ID traceability. Produces a validation report.
+**Agent behavior:** The developer agent reads tasks.md, verifies every task is `[X]`, runs the test suite, and cross-references implementation against plan.md and spec.md. When test-case specs are available, also validates test ID traceability. Verifies constitution.md/CLAUDE.md compliance if those files declare architectural constraints. Computes test coverage deltas against test-plan.md targets when available. Independently runs the full test suite and reports `baseline_test_count` in the validation report.
 
 ---
 
@@ -109,7 +123,13 @@ Return findings as a markdown list, one per issue:
 
 - [{severity}] {description} — {file}:{line} — Recommendation: {fix}
 
-Severity levels: Critical (breaks functionality, security risk), High (likely bugs, significant quality issue), Medium (code smell, maintainability concern), Low (style preference, minor optimization)
+Severity levels:
+- **Critical**: Breaks functionality, security vulnerability, data loss risk
+- **High**: Likely bugs, significant code quality issue. ESCALATE a finding to High (not Medium) if ANY of these apply: user-visible data corruption, implicit ordering producing wrong results, UI state contradiction, singleton/shared-state leak across scopes, race condition with user-visible effect
+- **Medium**: Code smell, maintainability concern, minor pattern violation
+- **Low**: Style preference, minor optimization opportunity
+
+Apply escalation triggers BEFORE classifying — a finding that matches any High escalation trigger must never be classified as Medium.
 
 If no issues found for your focus area, state "No issues found" with a brief explanation of what you reviewed.
 

@@ -28,6 +28,14 @@ severity:
   low:
     description: "Style preference, minor optimization opportunity"
     example: "Variable naming inconsistency"
+  # Escalation triggers: if a Medium finding matches ANY of these, promote to High.
+  # Referenced by: agent-prompts.md (Quality Review Prompt), stage-4-quality-review.md (Section 4.3)
+  escalation_triggers:
+    - "User-visible data corruption or data loss"
+    - "Implicit ordering dependency that silently produces wrong results"
+    - "UI state contradiction (displayed state differs from actual state)"
+    - "Singleton or shared-state leak across scopes (e.g., state carried between logical sessions)"
+    - "Race condition with user-visible effect"
 
 # Handoff artifact tiers (Stage 1 file classification)
 # Required files halt if missing. Expected files warn if missing. Optional files are silent.
@@ -40,6 +48,14 @@ handoff:
   test_cases:
     subdirectories: ["e2e", "integration", "unit", "uat"]
     test_id_patterns: ["E2E-*", "INT-*", "UT-*", "UAT-*"]
+
+# Test coverage thresholds (Stage 3 validation)
+# When test-plan.md specifies planned test counts per level, Stage 3 compares actuals against these.
+# Referenced by: agent-prompts.md (Completion Validation Prompt), stage-3-validation.md (Section 3.2/3.3)
+test_coverage:
+  thresholds:
+    unit_minimum_pct: 80   # Below this → flag as High severity
+    other_minimum_pct: 50  # Below this (integration, e2e) → flag as Medium severity
 
 # Dev-skills integration (conditional skill injection)
 # Coordinators read detected_domains from Stage 1 summary and resolve applicable skills.

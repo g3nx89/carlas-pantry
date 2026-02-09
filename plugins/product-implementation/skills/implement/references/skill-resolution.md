@@ -14,7 +14,7 @@ Shared algorithm used by Stage 2, Stage 4, and Stage 5 coordinators to resolve d
 ## Algorithm
 
 ```
-1. Read `flags.detected_domains` from the Stage 1 summary YAML frontmatter
+1. Read `detected_domains` from the Stage 1 summary YAML frontmatter (top-level field, not nested under flags)
 2. If `detected_domains` is empty or not present → return {fallback_text}
 3. Read `dev_skills` section from $CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml
 4. If `dev_skills.enabled` is false → return {fallback_text}

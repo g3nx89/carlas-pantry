@@ -117,6 +117,8 @@ After agent returns, verify:
 1. All tasks in the phase are marked `[X]` in tasks.md
 2. No task was skipped or left incomplete
 3. Agent reported test results (all passing)
+4. Extract `test_count_verified` and `test_failures` from the agent's structured output (see `agent-prompts.md` Phase Implementation Prompt, "Final Step" section). If the agent did not report these values, log a warning: "Developer agent did not report verified test count — cross-validation will be limited."
+5. Record the phase-level `test_count_verified` value. The LAST phase's `test_count_verified` becomes the final verified count for all of Stage 2 (since each phase runs the full suite).
 
 If verification fails:
 - For sequential task failure: **Halt execution**. Report which task failed and why.
@@ -196,12 +198,14 @@ summary: |
   {Error details if halted}.
 flags:
   block_reason: null  # or description of error if needs-user-input
+  test_count_verified: {N}  # Verified test count from last phase's developer agent final test run (null if agent did not report)
 ---
 ## Context for Next Stage
 
 - Phases completed: {list}
 - Tasks completed: {count}/{total}
 - Tests status: all passing / {N} failures
+- Verified test count: {N} (from last phase's developer agent report)
 - Files modified: {list of key files}
 - Errors encountered: {none / list}
 

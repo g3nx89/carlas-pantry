@@ -135,7 +135,7 @@ For each domain in the mapping, check if ANY of its `indicators` appear (case-se
 
 ### Output
 
-Store the result as `flags.detected_domains` in the Stage 1 summary (see Section 1.10). Example:
+Store the result as `detected_domains` in the Stage 1 summary YAML frontmatter (top-level field, not under `flags`; see Section 1.10). Example:
 
 ```yaml
 detected_domains: ["kotlin", "compose", "android", "api"]
@@ -223,7 +223,7 @@ summary: |
 flags:
   block_reason: null
   test_cases_available: {true/false}
-detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from Section 1.5c
+detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from Section 1.6
 ---
 ## Context for Next Stage
 

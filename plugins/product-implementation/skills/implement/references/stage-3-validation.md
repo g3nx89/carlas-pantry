@@ -51,6 +51,10 @@ The validation agent verifies:
 4. **Plan adherence**: Implementation follows the technical plan (architecture, patterns, file structure)
 5. **Integration integrity**: All components integrate correctly
 6. **Test ID traceability** *(conditional — only if Stage 1 summary has `test_cases_available: true`)*: Verify that test IDs referenced in tasks.md have both (a) corresponding test-case spec files in `test-cases/` and (b) implemented test files in the codebase. Report any test IDs that are specified but not implemented, or implemented but not specified.
+7. **Constitution compliance** *(conditional — only if `constitution.md` or `CLAUDE.md` exists at the project root)*: Verify that the implementation adheres to architectural constraints declared in these files (e.g., layering rules, dependency directions, naming conventions). Flag violations as High severity — constitution documents are project contracts.
+8. **Test coverage delta** *(conditional — only if `test-plan.md` is available)*: Count implemented automated tests by level (unit, integration, e2e). Compare against planned targets from test-plan.md. Report delta as `{implemented}/{planned} {level} ({pct}%)`. Apply thresholds from `config/implementation-config.yaml` under `test_coverage.thresholds`: if unit tests < `unit_minimum_pct` (default 80%), flag High; if any other level < `other_minimum_pct` (default 50%), flag Medium.
+9. **Independent test count verification**: Run the full test suite independently (do not rely on Stage 2's count) and record the result as `baseline_test_count`. This becomes the reference for Stage 4 post-fix validation.
+10. **Stage 2 cross-validation** *(conditional — only if Stage 2 summary has `test_count_verified` in flags)*: Compare the independently verified `baseline_test_count` against Stage 2's `test_count_verified`. If the values differ, log a warning: "Test count discrepancy: Stage 2 reported {test_count_verified} but independent verification found {baseline_test_count}. Investigate possible agent reporting error." The `baseline_test_count` (independently verified) takes precedence.
 
 ## 3.3 Validation Report
 
@@ -63,6 +67,10 @@ Tasks: {completed}/{total} (100%)
 Tests: {passing}/{total} (100% pass rate)
 Spec Coverage: {covered ACs}/{total ACs}
 Test ID Traceability: {all traced / N gaps} (if test_cases_available)
+Test Coverage Delta: unit {implemented}/{planned} ({pct}%) | integration {implemented}/{planned} ({pct}%) | e2e {implemented}/{planned} ({pct}%) (if test-plan.md available)
+Coverage Flags: {list of flags, e.g., "Unit tests below 80% threshold (HIGH)" / "All levels above minimum"}
+Constitution Compliance: {compliant / N violations found (HIGH)}
+Baseline Test Count: {N} (independently verified)
 
 ### Issues Found
 - [severity] Description — file:line
@@ -108,12 +116,19 @@ summary: |
 flags:
   block_reason: null  # or full validation report if needs-user-input
   validation_outcome: "passed"  # passed | fixed | proceed_anyway | stopped
+  baseline_test_count: {N}    # Independently verified by running test suite in Stage 3
+  test_coverage_delta:        # Per-level coverage vs test-plan.md (null if test-plan.md unavailable)
+    unit: "{implemented}/{planned} ({pct}%)"
+    integration: "{implemented}/{planned} ({pct}%)"
+    e2e: "{implemented}/{planned} ({pct}%)"
 ---
 ## Context for Next Stage
 
 - Validation result: {PASS / PASS WITH NOTES / NEEDS ATTENTION}
 - Tasks: {N}/{M} (100%)
 - Tests: {all passing}
+- Baseline test count: {N} (independently verified)
+- Test coverage: {summary or "test-plan.md not available for comparison"}
 - Issues found: {count} ({severity breakdown})
 - User decision: {if applicable}
 

@@ -1,5 +1,5 @@
 ---
-name: Feature Implementation
+name: feature-implementation
 description: |
   This skill should be used when the user asks to "implement the feature", "execute the tasks",
   "run the implementation plan", "build the feature", "start coding", "document the feature",
@@ -156,7 +156,7 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `tasks.md` | Updated with `[X]` marks for all completed tasks |
 | `.implementation-state.local.md` | Execution state, stage tracking, and implementation log |
 | `.stage-summaries/` | Inter-stage coordinator summary files |
-| `review-findings.md` | Quality review findings (created only if user chooses "fix later") |
+| `review-findings.md` | Quality review findings (created if findings exist and user chooses "fix now" or "fix later") |
 | `docs/` | Feature documentation, API guides, architecture updates (Stage 5) |
 | Module `README.md` files | Updated READMEs in folders affected by implementation (Stage 5) |
 
@@ -168,7 +168,7 @@ When the `dev-skills` plugin is installed alongside `product-implementation`, ag
 - **Orchestrator-transparent** — the orchestrator never reads or references dev-skills; all resolution happens inside coordinator subagents
 - **Capped** — at most `max_skills_per_dispatch` skills (default: 3) are injected per agent dispatch to avoid context bloat
 
-**Domain detection** runs in Stage 1 (Section 1.5c) by scanning task file paths and plan.md for technology indicators. The `detected_domains` list flows through the Stage 1 summary to all downstream coordinators.
+**Domain detection** runs in Stage 1 (Section 1.6) by scanning task file paths and plan.md for technology indicators. The `detected_domains` list flows through the Stage 1 summary to all downstream coordinators.
 
 **Injection points:**
 - Stage 2 coordinators inject skills into developer agent prompts (implementation patterns)

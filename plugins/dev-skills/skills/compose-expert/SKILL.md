@@ -516,6 +516,72 @@ fun FeedList(items: List<Item>) {
 
 **Key principle**: Use `key` parameter for stable item identity
 
+## Common Anti-Patterns
+
+### Composition-Time Side Effects
+
+Never call navigation callbacks or other side effects directly in the composition body — they fire on EVERY recomposition.
+
+```kotlin
+// BAD — navigation callback fires on every recomposition
+@Composable
+fun Screen(uiState: UiState, onNavigate: (String) -> Unit) {
+    if (uiState is UiState.Ready) {
+        onNavigate(uiState.destination) // fires repeatedly!
+    }
+}
+
+// GOOD — use LaunchedEffect for one-shot side effects
+@Composable
+fun Screen(uiState: UiState, onNavigate: (String) -> Unit) {
+    LaunchedEffect(uiState) {
+        if (uiState is UiState.Ready) {
+            onNavigate(uiState.destination)
+        }
+    }
+}
+```
+
+**Rule**: Any callback that triggers navigation, network requests, or state mutations outside the composable MUST be wrapped in `LaunchedEffect` or triggered by user interaction (`onClick`, etc.).
+
+### Incorrect Sealed Class Casts
+
+Never cast a sealed class instance to an unrelated variant — it silently returns null and causes subtle bugs.
+
+```kotlin
+// BAD — casting to wrong variant inside a matched branch
+when (uiState) {
+    is UiState.Active -> {
+        // uiState is smart-cast to Active here — casting to Ready is always null
+        val ready = uiState as? UiState.Ready // ALWAYS null!
+        onAction(ready?.id ?: "") // silent empty string bug
+    }
+    else -> { /* unhandled states silently ignored */ }
+}
+
+// GOOD — exhaustive when on sealed class
+when (uiState) {
+    is UiState.Loading -> LoadingIndicator()
+    is UiState.Ready -> ReadyContent(uiState)
+    is UiState.Active -> ActiveContent(uiState)
+    is UiState.Error -> ErrorContent(uiState.message)
+}
+```
+
+### Non-Exhaustive When Branches
+
+- Always use `when` exhaustively on sealed classes/interfaces
+- Never use `else` as a catch-all in sealed class `when` — adding a new variant should produce a compile error, not silent wrong behavior
+- If forced to use `else`, throw `IllegalStateException` with the actual value:
+
+```kotlin
+when (uiState) {
+    is UiState.Loading -> { /* ... */ }
+    is UiState.Ready -> { /* ... */ }
+    else -> throw IllegalStateException("Unexpected state: $uiState")
+}
+```
+
 ## Bundled Resources
 
 - **references/shared-composables-catalog.md** - Complete catalog of shared UI components

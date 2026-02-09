@@ -9,7 +9,7 @@ prior_summaries:
 artifacts_read:
   - "tasks.md"
 artifacts_written:
-  - "review-findings.md (if user chooses fix-later)"
+  - "review-findings.md (if findings exist and user chooses fix-now or fix-later)"
   - ".implementation-state.local.md"
 agents:
   - "product-implementation:developer"
@@ -57,10 +57,10 @@ Example: For a web frontend project, `detected_domains: ["web_frontend"]` matche
 
 ## 4.1 Review Strategy Selection
 
-Check if `/code-review:review-local-changes` command is available by attempting to invoke it. If the command returns an error indicating it is not found or the skill is not installed, fall back to the three-agent review:
+Check if the Skill tool lists `code-review:review-local-changes` in its available skills. Query the available skills list explicitly — do NOT attempt a blind invocation to test availability.
 
-- **If available**: Use it for the review (preferred — integrates with existing review infrastructure). Normalize the output to match the finding format in Section 4.3 before consolidation.
-- **If not available**: Launch 3 parallel `developer` agents, each focusing on a different quality dimension (see `config/implementation-config.yaml` for focus areas)
+- **If `code-review:review-local-changes` is listed**: Invoke it for the review (preferred — integrates with existing review infrastructure). Normalize the output to match the finding format in Section 4.3 before consolidation.
+- **If not listed, or if invocation returns an error**: Fall back to the multi-agent review (Section 4.2). Launch 3+ parallel `developer` agents with focus areas from `config/implementation-config.yaml`.
 
 ## 4.2 Multi-Agent Review (Fallback)
 
@@ -116,6 +116,16 @@ Use the canonical severity levels defined in SKILL.md and `config/implementation
 - Keep the most detailed description
 - Note consensus when multiple reviewers flag the same issue (higher confidence)
 
+### Severity Reclassification Pass
+
+After deduplication, review each Medium-severity finding against the escalation triggers defined in `config/implementation-config.yaml` under `severity.escalation_triggers`. For each Medium finding:
+
+1. Check if the finding matches ANY escalation trigger (user-visible data corruption, implicit ordering, UI state contradiction, singleton state leak, race condition with user-visible effect)
+2. If a match is found, promote the finding from Medium to High
+3. Log each promotion: "Reclassified [M{N}] → [H{N+offset}]: matches escalation trigger '{trigger}'"
+
+This pass runs AFTER deduplication so that consensus-boosted findings are also checked. The escalation triggers are config-driven — update the config file to adjust the criteria, not this prose.
+
 ### Consolidation Output
 
 ```text
@@ -163,7 +173,9 @@ If orchestrator provides a user-input file:
 1. Launch a `developer` agent with the fix prompt template from `agent-prompts.md` (Section: Review Fix Prompt)
 2. Agent addresses Critical and High findings
 3. After fixes, re-run a quick validation (tests pass, no regressions)
-4. Rewrite summary with `review_outcome: "fixed"`
+4. **Test count cross-validation**: Compare the post-fix test count against `baseline_test_count` from the Stage 3 summary flags. If post-fix count < baseline, BLOCK: "Test count regression detected: {post_fix_count} < {baseline_test_count}. Fix agent may have broken or removed existing tests." The fix agent must resolve regressions before proceeding.
+5. **Write deferred findings**: Write remaining Medium + Low findings (those NOT addressed by the fix agent) to `{FEATURE_DIR}/review-findings.md`. This ensures lower-severity findings are tracked in a dedicated artifact even when the user chose "Fix now" for Critical + High issues only.
+6. Rewrite summary with `review_outcome: "fixed"`
 
 ### On "Fix Later"
 
@@ -185,7 +197,7 @@ stage_name: "Quality Review"
 checkpoint: "QUALITY_REVIEW"
 status: "completed"  # or "needs-user-input" initially
 artifacts_written:
-  - "review-findings.md"  # only if deferred
+  - "review-findings.md"  # if findings exist and outcome is fixed or deferred
   - ".implementation-state.local.md"
 summary: |
   Quality review {outcome}: {count} findings ({critical} critical, {high} high).
@@ -193,6 +205,7 @@ summary: |
 flags:
   block_reason: null  # or consolidated findings if needs-user-input
   review_outcome: "fixed"  # fixed | deferred | accepted
+  test_count_post_fix: {N}  # Verified test count after fix agent (only present when review_outcome is "fixed")
 ---
 ## Context for Next Stage
 
