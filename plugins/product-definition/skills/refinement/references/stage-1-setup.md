@@ -208,10 +208,10 @@ Use AskUserQuestion:
     "header": "Analysis",
     "multiSelect": false,
     "options": [
-      {"label": "Complete Analysis (MPA + PAL + ST) (Recommended)", "description": "3 MPA agents + 3 PAL perspectives + Sequential Thinking. Maximum depth, ~$0.50-1.00/round"},
-      {"label": "Advanced Analysis (MPA + PAL)", "description": "3 MPA agents + 2 PAL ThinkDeep perspectives. Good depth, ~$0.30-0.50/round"},
-      {"label": "Standard Analysis (MPA only)", "description": "3 MPA agents only. Solid coverage, ~$0.15-0.25/round"},
-      {"label": "Rapid Analysis (Single agent)", "description": "Single BA agent. Fast and minimal cost, ~$0.05-0.10/round"}
+      {"label": "Complete Analysis (MPA + PAL + ST) (Recommended)", "description": "3 MPA agents + 3 PAL perspectives + Sequential Thinking. Maximum depth, ~$0.50-1.00/round, ~15-30 min"},
+      {"label": "Advanced Analysis (MPA + PAL)", "description": "3 MPA agents + 2 PAL ThinkDeep perspectives. Good depth, ~$0.30-0.50/round, ~10-20 min"},
+      {"label": "Standard Analysis (MPA only)", "description": "3 MPA agents only. Solid coverage, ~$0.15-0.25/round, ~3-8 min"},
+      {"label": "Rapid Analysis (Single agent)", "description": "Single BA agent. Fast and minimal cost, ~$0.05-0.10/round, ~1-3 min"}
     ]
   }]
 }
@@ -225,8 +225,8 @@ Use AskUserQuestion:
     "header": "Analysis",
     "multiSelect": false,
     "options": [
-      {"label": "Standard Analysis (MPA only) (Recommended)", "description": "3 MPA agents. Solid coverage, ~$0.15-0.25/round"},
-      {"label": "Rapid Analysis (Single agent)", "description": "Single BA agent. Fast and minimal cost, ~$0.05-0.10/round"}
+      {"label": "Standard Analysis (MPA only) (Recommended)", "description": "3 MPA agents. Solid coverage, ~$0.15-0.25/round, ~3-8 min"},
+      {"label": "Rapid Analysis (Single agent)", "description": "Single BA agent. Fast and minimal cost, ~$0.05-0.10/round, ~1-3 min"}
     ]
   }]
 }

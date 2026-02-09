@@ -4,7 +4,8 @@
 
 | File | Read When... |
 |------|--------------|
-| `orchestrator-loop.md` | Start of orchestration — dispatch loop, variable defaults, quality gates, reflexion, iteration logic, crash recovery |
+| `orchestrator-loop.md` | Start of orchestration — dispatch loop, variable defaults, quality gates, reflexion, iteration logic |
+| `recovery-migration.md` | On crash or v1 state detected — crash recovery procedures, v1→v2 state migration |
 | `stage-1-setup.md` | Stage 1 inline execution — init, MCP check, workspace, mode selection |
 | `stage-2-research.md` | Dispatching Stage 2 — research agenda generation and synthesis |
 | `stage-3-analysis-questions.md` | Dispatching Stage 3 — ThinkDeep, section decomposition, MPA agents, question generation |
@@ -20,16 +21,17 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `orchestrator-loop.md` | ~462 | Dispatch loop, variable defaults with precedence, quality gates, reflexion with persistence, compaction, crash recovery, state migration |
+| `orchestrator-loop.md` | ~460 | Dispatch loop, variable defaults with precedence, quality gates, reflexion with persistence, compaction + digest template |
+| `recovery-migration.md` | ~65 | Crash recovery procedures, v1→v2 state migration (loaded on-demand) |
 | `stage-1-setup.md` | ~300 | Inline setup: init, workspace, mode selection |
 | `stage-2-research.md` | ~185 | Research coordinator: agenda + synthesis |
 | `stage-3-analysis-questions.md` | ~470 | Analysis + decomposition (8 sections) + question generation (largest) |
-| `stage-4-response-analysis.md` | ~274 | Response parsing + gap analysis + structured gap descriptions |
-| `stage-5-validation-generation.md` | ~272 | Validation + PRD generation + per-dimension scoring |
+| `stage-4-response-analysis.md` | ~304 | Response parsing + gap analysis + unanimity check + structured gap descriptions |
+| `stage-5-validation-generation.md` | ~314 | Validation + PRD generation + chain-of-thought scoring + unanimity check |
 | `stage-6-completion.md` | ~125 | Completion: report, lock release |
 | `checkpoint-protocol.md` | ~50 | State update patterns |
 | `error-handling.md` | ~110 | Error recovery procedures |
-| `config-reference.md` | ~215 | PAL parameter reference, scoring thresholds |
+| `config-reference.md` | ~220 | PAL parameter reference, scoring thresholds |
 | `option-generation-reference.md` | ~300 | Question/option format specification |
 
 ## Cross-References
@@ -53,7 +55,8 @@
 ### Orchestrator -> Stage Files
 
 - `orchestrator-loop.md` references all 6 stage files in dispatch order
-- `orchestrator-loop.md` references `checkpoint-protocol.md` for crash recovery
+- `orchestrator-loop.md` references `recovery-migration.md` for crash recovery and state migration
+- `orchestrator-loop.md` references `checkpoint-protocol.md` for state update patterns
 
 ### External References
 

@@ -202,6 +202,15 @@ QUALITY CHECKS:
 2. Option distinctness: spot-check 3 random questions — options should represent
    genuinely different approaches, not minor variations of the same idea
 3. Priority balance: at least 1 CRITICAL question exists; not all questions are MEDIUM
+4. ThinkDeep completion (if mode in {complete, advanced}):
+   READ flags.thinkdeep_completion_pct from Stage 3 summary
+   READ flags.thinkdeep_calls and flags.thinkdeep_expected from Stage 3 summary
+   READ minimum_pct from config -> scoring.thinkdeep_completion.minimum_pct
+   IF thinkdeep_completion_pct < minimum_pct:
+     WARN: "ThinkDeep analysis significantly degraded: {thinkdeep_calls}/{thinkdeep_expected}
+            calls succeeded ({thinkdeep_completion_pct}%). Question quality may be reduced
+            compared to full {ANALYSIS_MODE} mode. Consider re-running with Standard mode
+            if PAL issues persist."
 
 IF issues found:
     LOG quality_warnings in state file
@@ -328,12 +337,9 @@ From config: `token_budgets.compaction.*`
 
 ```
 IF current_round > compaction.rounds_before_compaction (default: 3):
-    GENERATE rounds digest:
+    GENERATE rounds digest using the template below:
         READ all stage summaries from rounds 1 to (current_round - 1)
-        SYNTHESIZE into structured digest:
-            - Per-round: round_number, analysis_mode, questions_count, key_decisions
-            - Cumulative: total_questions, total_gaps_found, modes_used
-            - Key decisions: list of user_decisions across all prior rounds
+        SYNTHESIZE into the Rounds-Digest Template format
         WRITE to: requirements/.stage-summaries/rounds-digest.md
         LIMIT: config -> token_budgets.compaction.digest_max_lines (default: 100)
 
@@ -342,6 +348,58 @@ IF current_round > compaction.rounds_before_compaction (default: 3):
 ```
 
 **Why:** Without compaction, accumulated summaries grow linearly (~150 lines per round). By round 5, prior summaries alone consume ~750 lines of coordinator context. Compaction keeps this under 100 lines regardless of round count.
+
+#### Rounds-Digest Template
+
+```yaml
+---
+digest_version: 1
+rounds_covered: [1, 2, 3]
+generated_at: "{ISO_TIMESTAMP}"
+total_questions_asked: {N}
+total_questions_answered: {N}
+modes_used: ["complete", "standard"]
+---
+```
+
+```markdown
+## Per-Round Summary
+
+| Round | Mode | Questions | Completion | Gaps Found | ThinkDeep % | Outcome |
+|-------|------|-----------|------------|------------|-------------|---------|
+| 1 | complete | 14 | 100% | 3 | 100% | loop_questions |
+| 2 | standard | 8 | 100% | 1 | N/A | proceed |
+| 3 | standard | 5 | 100% | 0 | N/A | RED (score 11/20) |
+
+## Cumulative User Decisions
+
+| Decision Key | Value | Round |
+|-------------|-------|-------|
+| analysis_mode_round_1 | complete | 1 |
+| analysis_mode_round_2 | standard | 2 |
+| gap_action_round_1 | loop_questions | 1 |
+
+## Persistent Gap Tracker
+
+Track gap IDs that persist across rounds (used by REFLECTION_CONTEXT):
+
+| Gap ID | Section | First Seen | Status | Resolved In |
+|--------|---------|------------|--------|-------------|
+| GAP-001 | Revenue Model | Round 1 | resolved | Round 2 |
+| GAP-002 | Target Users | Round 1 | open | — |
+| GAP-003 | Workflows | Round 2 | open | — |
+
+## Key Insights (1 line per round)
+
+- **Round 1**: Initial 14 questions; ThinkDeep flagged revenue model uncertainty as CRITICAL
+- **Round 2**: Follow-up 8 questions resolved revenue model; new gaps in workflows
+- **Round 3**: Validation RED (11/20) — weak on workflows and feature inventory
+```
+
+**Digest rules:**
+- Total MUST NOT exceed `config -> token_budgets.compaction.digest_max_lines` (default: 100 lines)
+- Persistent Gap Tracker MUST include gap IDs that survive compaction for cross-round reflection
+- Per-Round Summary includes ThinkDeep completion % to track degradation history
 
 ### Circuit Breaker
 
@@ -393,70 +451,16 @@ ON REINVOCATION:
 
 ---
 
-## Crash Recovery
+## Crash Recovery & State Migration
 
-If a coordinator produces no summary file (crash, timeout, context exhaustion):
+**Loaded on-demand.** Full procedures are in a separate reference file to keep the core dispatch loop lean.
 
-```
-IF summary file missing for stage N:
-    CHECK for artifacts that stage N should have written
-    (from artifacts_written in the stage reference frontmatter)
+**Load when:** A coordinator produces no summary file (crash recovery) OR state file has `schema_version: 1` (migration).
 
-    IF artifacts found:
-        RECONSTRUCT minimal summary:
-        ---
-        stage: "{stage_name}"
-        stage_number: {N}
-        status: completed
-        checkpoint: "{CHECKPOINT}"
-        artifacts_written: [{found artifacts}]
-        summary: "Reconstructed from artifacts (coordinator crashed)"
-        flags:
-          recovered: true
-        ---
+**Reference:** `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/recovery-migration.md`
 
-    IF no artifacts found:
-        MARK stage as failed
-        Notify user: "Stage {N} failed. No output produced."
-        Ask: "Retry stage?" or "Skip and continue?"
-```
+### Quick Summary (for dispatch loop inline checks)
 
----
+**Crash Recovery:** If summary file missing for stage N, check for artifacts. If found, reconstruct minimal summary with `flags.recovered: true`. If not found, ask user to retry or skip.
 
-## State Migration (v1 to v2)
-
-When resuming a workflow started under the command-era (schema_version: 1),
-migrate to skill-era (schema_version: 2):
-
-### Phase-to-Stage Mapping
-
-```
-v1 current_phase        -> v2 current_stage
-─────────────────────────────────────────────
-INITIALIZATION          -> 1
-WORKSPACE_INIT          -> 1
-ANALYSIS_MODE_SELECTION -> 1
-RESEARCH_DISCOVERY      -> 2
-RESEARCH_ANALYSIS       -> 2
-DEEP_ANALYSIS           -> 3
-QUESTION_GENERATION     -> 3
-USER_RESPONSE           -> 4
-RESPONSE_ANALYSIS       -> 4
-VALIDATION              -> 5
-PRD_GENERATION          -> 5
-COMPLETE                -> 6
-```
-
-### Migration Procedure
-
-```
-IF state.schema_version == 1 OR state.schema_version is missing:
-    MAP current_phase to current_stage (table above)
-    SET schema_version: 2
-    SET orchestrator.delegation_model: "lean_orchestrator"
-    PRESERVE all existing fields (user_decisions, rounds, phases)
-    ADD current_stage field
-    WRITE updated state file
-```
-
-All existing `user_decisions` and round data are preserved unchanged.
+**State Migration:** If `schema_version == 1`, map `current_phase` to `current_stage` using the phase-to-stage mapping table in the reference file, then set `schema_version: 2`.

@@ -251,6 +251,9 @@ This ensures questions target specific aspects rather than addressing broad sect
 
 **For each required PRD section from config -> `prd.sections`:**
 
+> **Excluded sections:** "Executive Summary" is a synthesis section generated from other sections — not decomposed.
+> "Screen Inventory" has `required: false` in config — only decomposed if explicitly requested.
+
 ```
 DECOMPOSE into sub-problems:
 
@@ -450,6 +453,8 @@ flags:
   questions_count: {N}
   analysis_mode: "{MODE}"
   thinkdeep_calls: {27|18|0}
+  thinkdeep_expected: {27|18|0}
+  thinkdeep_completion_pct: {0-100}
 ---
 ```
 

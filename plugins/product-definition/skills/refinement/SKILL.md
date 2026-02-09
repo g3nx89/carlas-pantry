@@ -178,6 +178,9 @@ summary: "{1-2 sentence description of what happened}"
 flags:
   round_number: {N}
   analysis_mode: "{mode}"
+  questions_count: {N}           # Stage 3 only
+  thinkdeep_calls: {N}           # Stage 3 only (0 if skipped)
+  thinkdeep_completion_pct: {N}  # Stage 3 only (actual/expected %)
   block_reason: null | "{reason}"
   pause_type: null | "exit_cli" | "interactive"
   next_action: null | "loop_questions" | "loop_research" | "proceed"
@@ -207,6 +210,7 @@ flags:
   questions_count: 14
   analysis_mode: "complete"
   thinkdeep_calls: 27
+  thinkdeep_completion_pct: 100
 ---
 
 ## Context for Next Stage
@@ -271,7 +275,8 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 
 | Reference | Purpose | Load When |
 |-----------|---------|-----------|
-| `references/orchestrator-loop.md` | Dispatch loop, variable defaults, quality gates, reflexion, iteration, recovery | Start of orchestration |
+| `references/orchestrator-loop.md` | Dispatch loop, variable defaults, quality gates, reflexion, iteration | Start of orchestration |
+| `references/recovery-migration.md` | Crash recovery procedures, v1→v2 state migration | On crash or v1 state detected |
 | `references/stage-1-setup.md` | Inline setup instructions | Stage 1 execution |
 | `references/stage-2-research.md` | Research coordinator instructions | Dispatching Stage 2 |
 | `references/stage-3-analysis-questions.md` | Analysis + question generation | Dispatching Stage 3 |
