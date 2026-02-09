@@ -1,7 +1,7 @@
 ---
 name: genymotion-expert
 description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
-version: 1.0.0
+version: 1.1.0
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
@@ -44,7 +44,9 @@ Genymotion Desktop provides **three CLI tools** for terminal-driven Android auto
 | macOS Apple Silicon | QEMU | Native arm64 Android images |
 | Windows | VirtualBox | QEMU experimental, requires Hyper-V |
 
-**Quick Boot** (QEMU only): saves VM state on shutdown, resumes in seconds. Use `--coldboot` to force full boot cycle when state is corrupted.
+**VirtualBox and Hyper-V are mutually exclusive on Windows.** VirtualBox crashes with Hyper-V enabled, but QEMU on Windows *requires* Hyper-V. This creates conflicts for developers also using WSL2 or Docker Desktop. Switch hypervisors with `gmtool config --hypervisor qemu|virtualbox`.
+
+**Quick Boot** (QEMU only): saves VM state on shutdown, resumes in seconds (~2-5s vs 30-90s cold boot). Disable per-device with `gmtool admin edit "DeviceName" --quickboot off`. Use `--coldboot` at start time to force full boot cycle when state is corrupted.
 
 ### ABI Support
 
@@ -126,6 +128,12 @@ adb shell am instrument -w \
 
 Compose UI tests behave identically on Genymotion — the semantics tree is architecture-independent. For in-test sensor control (GPS, battery from Kotlin test code), the Genymotion Java API is available — see `references/test-integration.md`.
 
+## Network Stack
+
+Genymotion uses NAT mode by default. The special address **`10.0.3.2`** reaches the host from inside the device (unlike AVD's `10.0.2.2`). Use `adb reverse tcp:8080 tcp:8080` so the device can reach host services via `localhost:8080`. Bridge mode (VM gets own LAN IP) is VirtualBox-only: `--network-mode bridge --bridged-if eth0`.
+
+**VPN interference**: Host VPN can block routing to the `192.168.56.x` subnet. Split-tunneling or disabling VPN during tests may be required.
+
 ## Critical Configuration
 
 ### ADB Version Alignment
@@ -155,29 +163,35 @@ Genymotion Shell path differs slightly — see `references/cli-reference.md` for
 - Local development on Apple Silicon (native arm64 Android images)
 - Rich sensor simulation via Genymotion Shell scripting
 - Teams already invested in Genymotion ecosystem
+- Quick prototyping with the device link feature (forward real phone sensors)
 
 ### When to Use Alternatives
 
 - **CI/CD pipelines** → Use AVD (`emulator -no-window`) or Genymotion SaaS (`gmsaas`)
-- **Budget-constrained** → Use free AVD
+- **Budget-constrained** → Use free AVD (since Desktop 3.2.0, `list`/`start`/`stop` work without paid license, but `create`/`delete`/`install` still require Indie/Business)
 - **Parallel testing at scale** → Use Genymotion SaaS, Firebase Test Lab, or AVD
 - **SafetyNet/Play Integrity** → Physical devices only
+- **Accurate ARM behavior on x86 hosts** → AVD with ARM images or physical devices
 
-**Genymotion Desktop has no headless mode** — it requires GPU and a display. This is the fundamental constraint for CI/CD.
+**Genymotion Desktop has no headless mode** — it requires GPU and a display. On Linux CI servers, use `xvfb-run` as a workaround (see `references/ci-and-recipes.md`). This is the fundamental constraint for CI/CD.
 
 ## Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
 |-------------|-----------------|
-| Running commands before boot completes | Always implement boot-wait loop checking `sys.boot_completed` |
+| Running commands before boot completes | Always implement boot-wait loop checking `sys.boot_completed` AND `init.svc.bootanim == stopped` |
 | Using different ADB versions | Set `gmtool config --use_custom_sdk on --sdk_path "$ANDROID_HOME"` |
 | Leaving animations enabled during tests | Disable all three animation scales before test execution |
 | Using Quick Boot in CI | Use `--coldboot` for reproducibility; Quick Boot state can corrupt |
 | Running 3+ instances simultaneously | Limit to 1-2 instances; memory leaks degrade performance rapidly |
 | Using ARM translation for testing | Build x86/x86_64 APKs; avoid libhoudini entirely |
-| Expecting headless operation | Genymotion Desktop requires GUI; use SaaS or AVD for headless |
+| Expecting headless operation | Genymotion Desktop requires GUI; use `xvfb-run` on Linux or SaaS/AVD for headless |
 | Not resetting sensor state between suites | Reset GPS, battery, network via Genymotion Shell between test runs |
 | Leaving Google Play auto-updates enabled in CI | Disable with `adb shell pm disable-user com.android.vending` |
+| Connecting to 127.0.0.1 | Use the host-only IP (192.168.56.x); Genymotion uses TCP/IP on host-only network |
+| Running gmtool as multiple OS users | Single-user limitation — only use GMTool for one OS user per machine |
+| Not handling CI license cleanup | Use `trap cleanup EXIT` to ensure `gmtool admin stop` runs on failure, preventing license lockouts |
+| Leaving screen timeout at default | Set `adb shell svc power stayon true` or increase timeout for long-running Appium/Maestro tests |
 
 ## Concurrent Instance Limits
 
@@ -187,7 +201,9 @@ Genymotion Shell path differs slightly — see `references/cli-reference.md` for
 | 16GB | 2-3 | 2GB RAM, 2 CPU cores each |
 | 32GB | 3-4 | 2-3GB RAM, 2 CPU cores each |
 
-Memory leaks are an officially acknowledged, unfixable limitation. Not suitable for running more than 1 device for over 12 hours.
+**Per-instance RAM usage**: 1.5-3GB depending on Android version and installed apps. Keep total vCPU count across all VMs at or below host physical core count; oversubscribing causes severe context switching.
+
+Memory leaks are an officially acknowledged, unfixable limitation. Not suitable for running more than 1 device for over 12 hours. For extended test suites, implement periodic device recycling (see `references/ci-and-recipes.md`).
 
 ## Reference Map
 
@@ -232,7 +248,12 @@ wait_for_boot() {
     adb wait-for-device
     while [ $elapsed -lt $timeout ]; do
         local bc=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || echo "")
-        [ "$bc" = "1" ] && return 0
+        local ba=$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || echo "")
+        if [ "$bc" = "1" ] && [ "$ba" = "stopped" ]; then
+            adb shell input keyevent 82  # Dismiss keyguard
+            sleep 2
+            return 0
+        fi
         sleep 5; elapsed=$((elapsed + 5))
     done
     return 1

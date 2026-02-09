@@ -12,6 +12,18 @@ Three workarounds exist:
 
 Requires bare-metal machine with GPU, X server, and Genymotion Desktop installed. Set `DISPLAY=:0` environment variable.
 
+On Linux without a physical display, use Xvfb (X Virtual Framebuffer) to provide a virtual display context:
+```bash
+# Start virtual display (add to CI setup)
+Xvfb :99 -screen 0 1024x768x24 &
+export DISPLAY=:99
+
+# Or use xvfb-run wrapper (auto-manages server lifecycle)
+xvfb-run --auto-servernum --server-args='-screen 0 1024x768x24' \
+  gmtool admin start "DeviceName"
+```
+This is unsupported by Genymotion but widely used in the community. Performance degrades with software rendering.
+
 ### 2. VBoxManage Headless (Community, Unsupported)
 
 Bypass Genymotion's player and start VMs headlessly through VirtualBox:
@@ -44,6 +56,17 @@ gmtool license validity   # Returns days remaining
 ```
 
 Store credentials as CI secrets. License is per-machine — ephemeral CI environments consume activations.
+
+**License lockout prevention**: CI jobs that crash without cleanup can leave licenses consumed. Always implement a trap:
+```bash
+cleanup() {
+    gmtool admin stop "$DEVICE" 2>/dev/null || true
+    gmtool admin delete "$DEVICE" 2>/dev/null || true
+}
+trap cleanup EXIT
+```
+
+**Single-user constraint**: "If you have different users on your machine, only use GMTool for one user." In multi-user CI environments, isolate to separate machines or containers per user.
 
 ## GitHub Actions
 
@@ -337,6 +360,83 @@ done
 "$GENYSHELL" -q -c "network setsignalstrength wifi great"
 ```
 
+### Recipe 5: GPX Route Playback
+
+GPX route playback is GUI-only. Simulate via scripted sequential GPS commands:
+
+```bash
+#!/usr/bin/env bash
+# Usage: ./drive_sim.sh <Device_IP> <Route.gpx>
+set -euo pipefail
+
+DEVICE_IP=$1
+GPX_FILE=$2
+GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
+
+echo "Initializing GPS..."
+"$GENYSHELL" -r "$DEVICE_IP" -c "gps setstatus enabled"
+
+# Parse standard GPX trkpt format: <trkpt lat="X" lon="Y">
+grep "<trkpt" "$GPX_FILE" | while IFS= read -r line; do
+    LAT=$(echo "$line" | sed -n 's/.*lat="\([^"]*\)".*/\1/p')
+    LON=$(echo "$line" | sed -n 's/.*lon="\([^"]*\)".*/\1/p')
+
+    if [ -n "$LAT" ] && [ -n "$LON" ]; then
+        echo "Moving to: $LAT, $LON"
+        "$GENYSHELL" -r "$DEVICE_IP" -c "gps setlatitude $LAT"
+        "$GENYSHELL" -r "$DEVICE_IP" -c "gps setlongitude $LON"
+        sleep 1  # Adjust based on GPX granularity
+    fi
+done
+
+echo "Route complete."
+```
+
+### Recipe 6: Network Flakiness Simulation (Progressive Degradation)
+
+Simulates a user entering a zone of poor connectivity and then recovering:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEVICE_IP=${1:?Usage: $0 <Device_IP>}
+GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
+gsh() { "$GENYSHELL" -r "$DEVICE_IP" -c "$1"; }
+
+# 1. Start with good WiFi
+gsh "network setstatus wifi enabled"
+gsh "network setsignalstrength wifi great"
+sleep 5
+
+# 2. Degrade to 3G
+echo "Degrading to 3G..."
+gsh "network setstatus wifi disabled"
+gsh "network setstatus mobile enabled"
+gsh "network setmobileprofile umts"
+gsh "network setsignalstrength mobile moderate"
+sleep 5
+
+# 3. Simulate high packet loss (tunnel/elevator)
+echo "Simulating packet loss..."
+gsh "network setsignalstrength mobile poor"
+sleep 5
+
+# 4. Complete connection drop
+echo "Dropping connection..."
+gsh "network setstatus mobile disabled"
+sleep 5
+
+# 5. Recovery
+echo "Restoring connection..."
+gsh "network setstatus mobile enabled"
+gsh "network setmobileprofile lte"
+gsh "network setsignalstrength mobile good"
+sleep 2
+gsh "network setstatus wifi enabled"
+gsh "network setsignalstrength wifi great"
+```
+
 ## ADB Recovery Pattern
 
 Connections can drop during ADB server restarts, network adapter reconfiguration, or VPN changes:
@@ -352,14 +452,30 @@ ensure_adb_connection() {
 }
 ```
 
+## VPN Interference
+
+Host VPN can block routing to the `192.168.56.x` host-only subnet. If ADB connections fail when VPN is active:
+- Configure VPN split-tunneling to exclude `192.168.56.0/24`
+- Or disable VPN during test execution
+- Bridge mode (VirtualBox only) may avoid this issue by placing the device on the physical network
+
+## Device Identity for Clones
+
+When cloning devices for parallel testing, clones share the same Android ID and Device ID. If your backend tracks device identity, randomize after cloning:
+```bash
+genyshell -r "$CLONE_IP" -c "android setandroidid random"
+genyshell -r "$CLONE_IP" -c "android setdeviceid random"
+```
+
 ## Extended Run Device Recycling
 
-Memory leaks are officially unfixable. For long-running test suites, restart devices periodically:
+Memory leaks are officially unfixable (documented by Genymotion: "Using Genymotion Desktop for a long period of time causes memory leaks which renders Genymotion extremely slow and unstable"). **Not suitable for running more than 1 device for over 12 hours.** For long-running test suites, restart devices periodically:
 
 ```bash
+# After every N test suites, recycle the device
 gmtool admin stop "$DEVICE"
 sleep 5
-gmtool admin start "$DEVICE"
+gmtool --timeout 300 admin start "$DEVICE"
 # Re-wait for boot...
 ```
 

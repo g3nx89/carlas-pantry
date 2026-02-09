@@ -12,11 +12,22 @@ Complete command reference for both CLI tools.
 | Linux | `$HOME/genymotion/gmtool` or `/opt/genymotion/gmtool` | `$HOME/genymotion/genymotion-shell` or `/opt/genymotion/genymotion-shell` |
 | Windows | `C:\Program Files\Genymobile\Genymotion\gmtool.exe` | `C:\Program Files\Genymobile\Genymotion\genyshell.exe` |
 
+### Shell Completion
+
+GMTool provides autocompletion for Bash and Zsh. Install Bash completion by sourcing the bundled script:
+```bash
+# Bash (~/.bash_profile)
+. {GMTOOL_DIR}/bash/gmtool.bash
+
+# Zsh (~/.zshrc, before compinit)
+fpath=({GMTOOL_DIR}/zsh $fpath)
+```
+
 ### Global Options
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--timeout <0-3600>` | `-t` | Timeout in seconds |
+| `--timeout <0-3600>` | `-t` | Timeout in seconds (essential for `admin start` on slow machines — default can cause premature failures) |
 | `--verbose` | `-v` | Verbose output |
 | `--help` | `-h` | Display help |
 
@@ -69,7 +80,17 @@ gmtool admin stopall                        # Stop ALL running devices
 gmtool admin list                           # All devices
 gmtool admin list --running                 # Running only
 gmtool admin list --off                     # Stopped only
-gmtool admin details "DeviceName"           # All properties, ADB serial, etc.
+gmtool admin details "DeviceName"           # All properties, ADB serial, IP address, etc.
+```
+
+`gmtool admin details` is the authoritative way to get a device's IP address for scripting:
+```bash
+IP=$(gmtool admin details "DeviceName" 2>/dev/null | grep -oP '[\d]+\.[\d]+\.[\d]+\.[\d]+' | head -1)
+```
+
+**Direct player launch** (useful when `gmtool admin start` fails):
+```bash
+player --vm-name "DeviceName"
 ```
 
 **Clone, edit, reset, delete:**
@@ -89,7 +110,7 @@ gmtool admin logzip -n "DeviceName" ~/Desktop/    # Specific device logs
 
 ### Device Interaction Commands
 
-All accept `-n <device_name>` or `--all` for all running devices. The `--start` flag auto-starts if not running.
+All accept `-n <device_name>` or `--all` for all running devices. If only one device is running, `-n` can be omitted. The `--start` flag auto-starts a stopped device before executing the command.
 
 ```bash
 gmtool device -n "DeviceName" adbconnect
@@ -125,6 +146,12 @@ gmtool config --proxy_password <password>
 gmtool config --trusted_hosts <host,...>
 gmtool config --shared_clipboard <on|off>
 gmtool config --hypervisor <virtualbox|qemu>
+```
+
+**Environment variables** that affect Genymotion behavior:
+```bash
+DISPLAY=:0                  # Required on Linux for GPU rendering
+QT_QUICK_BACKEND=software   # Reduce CPU usage of Genymotion's own UI
 ```
 
 ### Network and Port Forwarding
@@ -197,7 +224,7 @@ adb reboot
 | `-h` | Display help |
 | `-r <IP>` | Connect to device at specific IP |
 | `-c "<command>"` | Execute single command |
-| `-f <file>` | Execute commands from file |
+| `-f <file>` | Execute commands from file (supports `pause <seconds>` between commands) |
 
 ### Device Management
 
@@ -300,3 +327,23 @@ genymotion version
 genymotion license
 genymotion clearcache
 ```
+
+### Script File Execution
+
+For complex sensor scenarios, use a script file instead of multiple `-c` calls to reduce overhead:
+
+```bash
+# tunnel_scenario.gys
+gps setstatus enabled
+gps setlatitude 40.7128
+gps setlongitude -74.0060
+pause 2
+network setstatus wifi disabled
+network setstatus mobile disabled
+pause 5
+network setstatus mobile enabled
+gps setlatitude 40.7138
+gps setlongitude -74.0070
+```
+
+Execute with: `genyshell -f tunnel_scenario.gys` or target a specific device: `genyshell -r 192.168.56.101 -f tunnel_scenario.gys`
