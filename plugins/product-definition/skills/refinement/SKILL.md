@@ -1,7 +1,7 @@
 ---
 name: feature-refinement
 description: Transform rough product drafts into finalized PRDs through iterative Q&A
-version: 1.0.0
+version: 2.0.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking"]
 ---
 
@@ -47,6 +47,9 @@ Guided PRD generation through iterative clarification with offline file-based Q&
 21. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
 22. **Stage 1 runs inline** — all other stages are coordinator-delegated
 23. **Iteration loop owned by orchestrator** — coordinators report `flags.next_action`, orchestrator decides control flow
+24. **Reflexion on RED loops**: When Stage 5 validation is RED and loops back to Stage 3, orchestrator MUST generate REFLECTION_CONTEXT from Stage 4+5 summaries and pass it to the Stage 3 coordinator
+25. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty for required variables (see `orchestrator-loop.md` -> Variable Defaults)
+26. **Quality gates**: Orchestrator performs lightweight quality checks after Stage 3 (question coverage) and Stage 5 (PRD completeness) — non-blocking, notify user of issues
 
 ---
 
@@ -268,7 +271,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 
 | Reference | Purpose | Load When |
 |-----------|---------|-----------|
-| `references/orchestrator-loop.md` | Dispatch loop, iteration, recovery | Start of orchestration |
+| `references/orchestrator-loop.md` | Dispatch loop, variable defaults, quality gates, reflexion, iteration, recovery | Start of orchestration |
 | `references/stage-1-setup.md` | Inline setup instructions | Stage 1 execution |
 | `references/stage-2-research.md` | Research coordinator instructions | Dispatching Stage 2 |
 | `references/stage-3-analysis-questions.md` | Analysis + question generation | Dispatching Stage 3 |
@@ -284,9 +287,11 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 
 ## CRITICAL RULES (High Attention Zone — End)
 
-Rules 1-23 above MUST be followed. Key reminders:
+Rules 1-26 above MUST be followed. Key reminders:
 - Coordinators NEVER talk to users directly
 - Orchestrator owns the iteration loop
 - Stage 1 is inline, all others are coordinator-delegated
 - State file user_decisions are IMMUTABLE
 - No artificial question limits — generate ALL needed for complete PRD
+- RED validation loops MUST include REFLECTION_CONTEXT for Stage 3
+- Quality gates after Stage 3 and Stage 5 — non-blocking but user-notified

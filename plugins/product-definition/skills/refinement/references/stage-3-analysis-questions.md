@@ -244,7 +244,61 @@ When all 3 models agree on a risk, the question is CRITICAL priority.
 **If PRD_MODE = "EXTEND":** Focus on incomplete/missing sections only.
 **If PRD_MODE = "NEW":** Generate questions for all PRD sections.
 
-### Step 3B.2: MPA Agent Dispatch
+### Step 3B.2: Section Decomposition (Least-to-Most)
+
+Before launching MPA agents, decompose complex PRD sections into sub-problems.
+This ensures questions target specific aspects rather than addressing broad sections in one pass.
+
+**For each required PRD section from config -> `prd.sections`:**
+
+```
+DECOMPOSE into sub-problems:
+
+"Product Definition" ->
+  1. Product vision and elevator pitch
+  2. Is/Is Not boundaries (explicit scope)
+  3. Success metrics and measurable outcomes
+
+"Target Users" ->
+  1. Primary persona (demographics, goals, pain points)
+  2. Secondary personas
+  3. Anti-personas (who this is NOT for)
+
+"Problem Analysis" ->
+  1. Problem statement and evidence
+  2. Current alternatives and workarounds
+  3. Cost of inaction
+
+"Value Proposition" ->
+  1. Core value and differentiation
+  2. Competitive positioning
+  3. Unique selling points
+
+"Core Workflows" ->
+  1. Primary user journey (happy path)
+  2. Secondary journeys
+  3. Edge cases and error recovery flows
+  4. Cross-journey transitions
+
+"Feature Inventory" ->
+  1. MVP features (must-have for launch)
+  2. Post-MVP features (nice-to-have)
+  3. Explicit exclusions (will NOT do)
+
+"Business Constraints" ->
+  1. Budget and resource constraints
+  2. Regulatory and compliance requirements
+  3. Timeline and launch constraints
+```
+
+**If PRD_MODE = "EXTEND":** Only decompose sections with PARTIAL or MISSING status.
+
+**If REFLECTION_CONTEXT is provided (from iteration loop):**
+Prioritize sub-problems that map to weak dimensions identified in the reflection.
+
+Pass decomposition to MPA agents as `SECTION_DECOMPOSITION` in their prompt context.
+
+### Step 3B.3: MPA Agent Dispatch
 
 **If ANALYSIS_MODE in {complete, advanced, standard}:**
 
@@ -258,9 +312,19 @@ PRD_MODE: {NEW|EXTEND}
 RESEARCH_SYNTHESIS: {contents of research-synthesis.md if exists}
 
 ===============================================================
+SECTION DECOMPOSITION (generate questions at sub-problem level)
+===============================================================
+{SECTION_DECOMPOSITION from Step 3B.2}
+
+===============================================================
 THINKDEEP INSIGHTS (USE THESE TO INFORM YOUR OPTIONS)
 ===============================================================
 {contents of thinkdeep-insights.md if exists, otherwise 'No ThinkDeep insights available'}
+
+===============================================================
+REFLECTION CONTEXT (from previous round — if available)
+===============================================================
+{REFLECTION_CONTEXT if provided, otherwise 'First round — no prior reflection'}
 
 CRITICAL INSTRUCTIONS:
 1. Use ThinkDeep CONVERGENT insights to strengthen recommended options
@@ -292,7 +356,7 @@ Output to: requirements/analysis/questions-product-strategy.md
 **If ANALYSIS_MODE = standard (no ThinkDeep):**
 Launch 3 MPA agents WITHOUT ThinkDeep insights.
 
-### Step 3B.3: Question Synthesis
+### Step 3B.4: Question Synthesis
 
 **If ANALYSIS_MODE = complete AND ST_AVAILABLE = true:**
 Execute Sequential Thinking for structured synthesis (8 steps):
@@ -328,7 +392,7 @@ Output: requirements/working/QUESTIONS-{NNN}.md
 
 > **See `option-generation-reference.md`** for detailed option/scoring algorithms.
 
-### Step 3B.4: Sanity Check (Fail-Fast)
+### Step 3B.5: Sanity Check (Fail-Fast)
 
 Before completing, validate:
 1. At least 5 questions generated
@@ -342,7 +406,7 @@ Set `status: needs-user-input` with options:
 - Proceed anyway
 - Add manual questions
 
-### Step 3B.5: Update State (CHECKPOINT)
+### Step 3B.6: Update State (CHECKPOINT)
 
 ```yaml
 current_stage: 3

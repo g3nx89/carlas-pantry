@@ -28,6 +28,8 @@
 | `{STAGE_NAME}` | Current stage name | `ANALYSIS_QUESTIONS` |
 | `{REMAINING_COUNT}` | Remaining models after failure | `2` |
 | `{TOTAL}` | Total models configured | `3` |
+| `{REFLECTION_CONTEXT}` | Reflexion from previous RED round | (generated text or empty) |
+| `{SECTION_DECOMPOSITION}` | Least-to-Most section breakdown | (decomposition from Step 3B.2) |
 
 ---
 

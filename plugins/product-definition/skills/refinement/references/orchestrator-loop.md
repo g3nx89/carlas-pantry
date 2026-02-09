@@ -67,6 +67,10 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{STAGE_FILE}
 - Sequential Thinking available: {ST_AVAILABLE}
 - Entry type: {ENTRY_TYPE}  # "first_entry" or "re_entry_after_user_input"
 
+{IF REFLECTION_CONTEXT is non-empty (Stage 3 re-dispatch after RED validation):}
+## Reflection from Previous Round
+{REFLECTION_CONTEXT}
+
 ## Shared References (load ONLY those listed for this stage)
 {IF stage needs checkpoint-protocol:}
 - Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/checkpoint-protocol.md
@@ -106,6 +110,22 @@ Set `ENTRY_TYPE` based on orchestrator state:
 - `"first_entry"` — all other cases
 
 This eliminates ambiguity for Stage 4 (present questions vs parse answers) and Stage 2 (research agenda vs synthesis).
+
+### Variable Defaults
+
+Every dispatch variable MUST have a defined fallback to prevent malformed coordinator prompts:
+
+| Variable | Default | Rationale |
+|----------|---------|-----------|
+| `ENTRY_TYPE` | `"first_entry"` | Guards against orchestrator bugs; safe default |
+| `PAL_AVAILABLE` | `false` | Assume unavailable if Stage 1 didn't detect; prevents PAL calls that would fail |
+| `ST_AVAILABLE` | `false` | Assume unavailable; coordinators use internal reasoning as fallback |
+| `REFLECTION_CONTEXT` | `""` (empty) | First round or non-RED re-entry; Stage 3 checks presence before using |
+| `ROUND_NUMBER` | `1` | First invocation default |
+| `ANALYSIS_MODE` | `"standard"` | Safest mode — no MCP dependency |
+| `PRD_MODE` | `"NEW"` | Default to new PRD creation |
+
+**Rule:** If a variable is not set by the orchestrator at dispatch time, substitute the default from this table. Never pass `null` or empty strings for required variables.
 
 ---
 
@@ -164,6 +184,54 @@ Check `flags.pause_type`:
 
 ---
 
+## Quality Gate Protocol
+
+After stages that produce user-facing artifacts, the orchestrator performs a lightweight quality check
+on the coordinator's output. This supplements the coordinator's internal self-verification.
+
+### After Stage 3 (Questions Generated)
+
+```
+READ requirements/working/QUESTIONS-{NNN}.md
+
+QUALITY CHECKS:
+1. Section coverage: every required PRD section (from config -> prd.sections where required=true)
+   has at least 1 question targeting it
+2. Option distinctness: spot-check 3 random questions — options should represent
+   genuinely different approaches, not minor variations of the same idea
+3. Priority balance: at least 1 CRITICAL question exists; not all questions are MEDIUM
+
+IF issues found:
+    LOG quality_warnings in state file
+    ADD flags.quality_warnings to Stage 3 summary (append, don't overwrite)
+    NOTIFY user: "Quality note: {issue}. Questions are still usable."
+    (Do NOT block — proceed to Stage 4)
+```
+
+### After Stage 5 (PRD Generated)
+
+```
+IF flags.validation_decision in ["READY", "CONDITIONAL"]:
+    READ requirements/PRD.md
+
+    QUALITY CHECKS:
+    1. Section completeness: all required sections are present and non-empty
+    2. Technical filter: quick grep for top 5 forbidden keywords
+       (API, backend, database, architecture, implementation)
+    3. Decision traceability: requirements/decision-log.md exists and is non-empty
+
+    IF issues found:
+        LOG quality_warnings in state file
+        NOTIFY user before proceeding to Stage 6:
+            "Quality note: {issues}. Review PRD.md before finalizing."
+```
+
+**Design rationale:** These checks are non-blocking to avoid halting the workflow for minor issues.
+The user is notified and can address issues after completion. Critical issues (RED validation, missing PRD)
+are already caught by Stage 5's validation logic.
+
+---
+
 ## Iteration Loop Logic
 
 The iteration loop is between Stages 3, 4, and 5. The orchestrator controls it.
@@ -192,8 +260,37 @@ If Stage 5 validation result is RED (score < config -> `scoring.prd_readiness.co
 ```
 IF flags.validation_decision == "NOT_READY":
     INCREMENT state.current_round
-    Notify user: "PRD not ready. Score: {score}/20. Generating more questions."
-    DISPATCH Stage 3 (new round)
+
+    ## REFLEXION STEP — generate reflection before re-dispatching Stage 3
+    READ Stage 4 summary (gaps found, completion rate)
+    READ Stage 5 summary (validation score, weak dimensions)
+    READ prior round's Stage 3 summary (questions count, analysis mode)
+
+    GENERATE REFLECTION_CONTEXT:
+    """
+    ## Round {previous_round} Reflection
+
+    ### What We Tried
+    - Analysis mode: {previous_analysis_mode}
+    - Questions generated: {previous_questions_count}
+    - Questions answered: {completion_rate}%
+
+    ### Why It Wasn't Enough
+    - Validation score: {score}/20 (needed >= {conditional_threshold})
+    - Weakest dimensions: {lowest 2-3 scoring dimensions from Stage 5}
+    - Gaps identified: {gap list from Stage 4 summary}
+    - Persistent gaps (appeared in previous rounds too): {cross-round gap intersection}
+
+    ### What To Do Differently
+    - Focus question generation on these weak dimensions: {weak_dimensions}
+    - These sub-problems remain unresolved: {unresolved from decomposition}
+    - Avoid re-asking well-answered areas: {strong dimensions from Stage 5}
+    - Consider deeper options for: {areas where user chose "Other" or gave vague answers}
+    """
+
+    Notify user: "PRD not ready. Score: {score}/20. Generating more questions with reflection on gaps."
+    Ask user for analysis mode for new round (via AskUserQuestion)
+    DISPATCH Stage 3 (new round, with REFLECTION_CONTEXT in coordinator prompt)
 
 IF flags.validation_decision in ["READY", "CONDITIONAL"]:
     PRD was generated successfully

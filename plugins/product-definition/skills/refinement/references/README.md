@@ -4,10 +4,10 @@
 
 | File | Read When... |
 |------|--------------|
-| `orchestrator-loop.md` | Start of orchestration — dispatch loop, iteration logic, crash recovery |
+| `orchestrator-loop.md` | Start of orchestration — dispatch loop, variable defaults, quality gates, reflexion, iteration logic, crash recovery |
 | `stage-1-setup.md` | Stage 1 inline execution — init, MCP check, workspace, mode selection |
 | `stage-2-research.md` | Dispatching Stage 2 — research agenda generation and synthesis |
-| `stage-3-analysis-questions.md` | Dispatching Stage 3 — ThinkDeep, MPA agents, question generation |
+| `stage-3-analysis-questions.md` | Dispatching Stage 3 — ThinkDeep, section decomposition, MPA agents, question generation |
 | `stage-4-response-analysis.md` | Dispatching Stage 4 — response parsing, gap analysis, iteration decision |
 | `stage-5-validation-generation.md` | Dispatching Stage 5 — PRD readiness validation and generation |
 | `stage-6-completion.md` | Dispatching Stage 6 — completion report, lock release, next steps |
@@ -20,10 +20,10 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `orchestrator-loop.md` | ~350 | Dispatch loop, iteration, compaction, crash recovery, state migration |
+| `orchestrator-loop.md` | ~450 | Dispatch loop, iteration, reflexion, quality gates, compaction, crash recovery, state migration |
 | `stage-1-setup.md` | ~300 | Inline setup: init, workspace, mode selection |
 | `stage-2-research.md` | ~185 | Research coordinator: agenda + synthesis |
-| `stage-3-analysis-questions.md` | ~400 | Analysis + question generation (largest) |
+| `stage-3-analysis-questions.md` | ~465 | Analysis + decomposition + question generation (largest) |
 | `stage-4-response-analysis.md` | ~270 | Response parsing + gap analysis |
 | `stage-5-validation-generation.md` | ~260 | Validation + PRD generation |
 | `stage-6-completion.md` | ~125 | Completion: report, lock release |
@@ -60,7 +60,7 @@
 - **Stages 1, 2, 4, 5, 6**: Use flat numbering `Step N.M` (e.g., `Step 4.1`, `Step 4.2`)
 - **Stage 3**: Uses sub-part numbering `Step 3A.M` / `Step 3B.M` because the stage has two distinct phases:
   - Part A: ThinkDeep analysis (steps `3A.1`, `3A.2`, `3A.3`)
-  - Part B: MPA question generation (steps `3B.1` through `3B.5`)
+  - Part B: MPA question generation (steps `3B.1` through `3B.6`)
 
 ## Structural Patterns
 
