@@ -16,6 +16,7 @@
 | `error-handling.md` | Any error condition — PAL failures, graceful degradation, recovery |
 | `config-reference.md` | PAL tool usage — template variables, PAL patterns, scoring thresholds |
 | `option-generation-reference.md` | Stage 3 question gen — option format, scoring algorithm, merging logic |
+| `consensus-call-pattern.md` | Stages 4 and 5 consensus — shared model resolution, multi-step execution, unanimity check |
 
 ## File Sizes
 
@@ -26,13 +27,14 @@
 | `stage-1-setup.md` | ~300 | Inline setup: init, workspace, mode selection |
 | `stage-2-research.md` | ~185 | Research coordinator: agenda + synthesis |
 | `stage-3-analysis-questions.md` | ~470 | Analysis + decomposition (8 sections) + question generation (largest) |
-| `stage-4-response-analysis.md` | ~304 | Response parsing + gap analysis + unanimity check + structured gap descriptions |
-| `stage-5-validation-generation.md` | ~314 | Validation + PRD generation + chain-of-thought scoring + unanimity check |
+| `stage-4-response-analysis.md` | ~243 | Response parsing + gap analysis (consensus via shared pattern) |
+| `stage-5-validation-generation.md` | ~243 | Validation + PRD generation + chain-of-thought scoring (consensus via shared pattern) |
 | `stage-6-completion.md` | ~125 | Completion: report, lock release |
 | `checkpoint-protocol.md` | ~50 | State update patterns |
 | `error-handling.md` | ~110 | Error recovery procedures |
 | `config-reference.md` | ~220 | PAL parameter reference, scoring thresholds |
 | `option-generation-reference.md` | ~300 | Question/option format specification |
+| `consensus-call-pattern.md` | ~90 | Shared PAL Consensus call workflow (model resolution, execution, unanimity) |
 
 ## Cross-References
 
@@ -44,6 +46,8 @@
 - `stage-3-analysis-questions.md` references `config-reference.md` for ThinkDeep PAL patterns
 - `stage-4-response-analysis.md` references `config-reference.md` for Consensus PAL patterns
 - `stage-5-validation-generation.md` references `config-reference.md` for scoring thresholds
+- `stage-4-response-analysis.md` references `consensus-call-pattern.md` for PAL Consensus execution
+- `stage-5-validation-generation.md` references `consensus-call-pattern.md` for PAL Consensus execution
 
 ### Stage Summary Data Flow (REFLECTION_CONTEXT)
 

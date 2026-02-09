@@ -57,31 +57,22 @@ flags:
 
 Execute multi-step Consensus for PRD readiness validation.
 
-#### Resolve models BEFORE calling Consensus
+#### Consensus Execution
+
+**Follow shared pattern:** `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/consensus-call-pattern.md`
+
+**Stage 5 parameters for the shared pattern:**
+
+| Parameter | Value |
+|-----------|-------|
+| `{NEUTRAL_STANCE_PROMPT}` | "Objective assessment of readiness against all 7 dimensions." |
+| `{FOR_STANCE_PROMPT}` | "Advocate for proceeding where reasonable. Score generously where evidence supports." |
+| `{AGAINST_STANCE_PROMPT}` | "Challenge completeness. Find what's MISSING. Score strictly." |
+| `{RELEVANT_FILES}` | `"{ABSOLUTE_PATH}/requirements/working/QUESTIONS-001.md", "{ABSOLUTE_PATH}/requirements/working/QUESTIONS-002.md", "{ABSOLUTE_PATH}/requirements/working/draft-copy.md", "{ABSOLUTE_PATH}/requirements/research/research-synthesis.md"` |
+
+**Step 1 content (YOUR independent readiness analysis):**
 
 ```
-IF grok-4 is available (check config -> pal.thinkdeep.models where optional=true):
-  SET total_steps = 4  (3 models + 1 synthesis)
-  SET models = [
-    {"model": "gemini-3-pro-preview", "stance": "neutral", "stance_prompt": "Objective assessment of readiness against all 7 dimensions."},
-    {"model": "gpt-5.2", "stance": "for", "stance_prompt": "Advocate for proceeding where reasonable. Score generously where evidence supports."},
-    {"model": "x-ai/grok-4", "stance": "against", "stance_prompt": "Challenge completeness. Find what's MISSING. Score strictly."}
-  ]
-
-ELSE (grok-4 unavailable):
-  SET total_steps = 3  (2 models + 1 synthesis)
-  SET models = [
-    {"model": "gemini-3-pro-preview", "stance": "neutral", "stance_prompt": "Objective assessment of readiness against all 7 dimensions."},
-    {"model": "gpt-5.2", "stance": "for", "stance_prompt": "Advocate for proceeding where reasonable. Score generously where evidence supports."}
-  ]
-```
-
-#### Execute Consensus calls
-
-```
-# Step 1: YOUR independent readiness analysis
-mcp__pal__consensus(
-  step: """
 I need to evaluate if this PRD is ready for development handoff.
 
 CONTEXT: {N} question rounds, {TOTAL} questions answered.
@@ -110,75 +101,15 @@ MY INITIAL FINDINGS:
 DELIVERABLE:
 Final PRD readiness score (0-20) with per-dimension scores.
 Recommendation: READY (>=16), CONDITIONAL (12-15), or NOT READY (<12).
-""",
-  step_number: 1,
-  total_steps: {total_steps},    # resolved above
-  next_step_required: true,
-  findings: "Initial assessment: {N}/{TOTAL} questions answered. Gaps: {list}. Contradictions: {list}.",
-  models: {models},              # resolved above
-  relevant_files: [
-    "{ABSOLUTE_PATH}/requirements/working/QUESTIONS-001.md",
-    "{ABSOLUTE_PATH}/requirements/working/QUESTIONS-002.md",
-    "{ABSOLUTE_PATH}/requirements/working/draft-copy.md",
-    "{ABSOLUTE_PATH}/requirements/research/research-synthesis.md"
-  ]
-)
-# -> Save continuation_id from response
-
-# Step 2: Process first model's readiness assessment
-mcp__pal__consensus(
-  step: "Notes on gemini-3-pro-preview (neutral) readiness assessment",
-  step_number: 2,
-  total_steps: {total_steps},
-  next_step_required: true,
-  findings: "Gemini (neutral) scores: [per-dimension scores]. Recommendation: [READY/CONDITIONAL/NOT_READY]",
-  continuation_id: "<from_step_1>"
-)
-
-# Step 3 (if 3 models): Process second model's readiness assessment
-# (if 2 models: this step becomes the synthesis — set next_step_required: false)
-mcp__pal__consensus(
-  step: "Notes on gpt-5.2 (for) readiness assessment",
-  step_number: 3,
-  total_steps: {total_steps},
-  next_step_required: {total_steps > 3},
-  findings: "GPT-5.2 (for) scores: [per-dimension scores]. Recommendation: [READY/CONDITIONAL/NOT_READY]",
-  continuation_id: "<from_step_2>"
-)
-
-# Step 4 (only if 3 models): Final synthesis with aggregated scores
-IF total_steps == 4:
-  mcp__pal__consensus(
-    step: "Synthesize all model assessments into final readiness score and recommendation",
-    step_number: 4,
-    total_steps: 4,
-    next_step_required: false,
-    findings: "Final consensus: [aggregated score]/20. Recommendation: [READY/CONDITIONAL/NOT_READY]",
-    continuation_id: "<from_step_3>"
-  )
 ```
+
+**Step 1 findings:** `"Initial assessment: {N}/{TOTAL} questions answered. Gaps: {list}. Contradictions: {list}."`
 
 ### If Single model / Internal validation:
 Perform internal evaluation using the same 7 dimensions. Score 1-4 each.
 
 ### If Skip validation:
 Proceed to Step 5.4 with warning: "PRD generated without validation gate"
-
-### Unanimity Check (after synthesis)
-
-After the final Consensus synthesis step, check for sycophantic agreement:
-
-```
-IF all models recommend the SAME decision (all READY, or all CONDITIONAL, or all NOT_READY)
-  AND no model flagged any concerns or weak dimensions:
-    LOG unanimity_warning in state file
-    NOTIFY user:
-      "Unanimity warning: all models agree without dissent on {DECISION}.
-       Unanimous agreement on complex business questions may indicate
-       sycophantic convergence. Consider reviewing the per-dimension scores
-       for dimensions that might deserve lower scores."
-    (Non-blocking — proceed normally)
-```
 
 ## Step 5.3: Process Validation Result
 

@@ -198,12 +198,12 @@ Consensus shares multi-step workflow parameters with ThinkDeep (see "PAL Tool Qu
 
 ## Analysis Mode Summary
 
-| Mode | MPA Agents | ThinkDeep Calls | Sequential | Consensus | Est. Cost | Est. Duration |
-|------|------------|-----------------|------------|-----------|-----------|---------------|
-| complete | 3 | 27 (3×3×3) | Yes | Yes | $2.00-4.00 | ~15-30 min |
-| advanced | 3 | 18 (2×3×3) | No | No | $1.20-2.50 | ~10-20 min |
-| standard | 3 | 0 | No | No | $0.15-0.25 | ~3-8 min |
-| rapid | 1 | 0 | No | No | $0.05-0.10 | ~1-3 min |
+| Mode | MPA Agents | ThinkDeep Calls | Sequential | Consensus | Est. Cost/Round | Est. Duration/Round |
+|------|------------|-----------------|------------|-----------|-----------------|---------------------|
+| complete | 3 | 27 (3×3×3) | Yes | Yes | ~$0.50-1.00 | ~15-30 min |
+| advanced | 3 | 18 (2×3×3) | No | No | ~$0.30-0.50 | ~10-20 min |
+| standard | 3 | 0 | No | No | ~$0.15-0.25 | ~3-8 min |
+| rapid | 1 | 0 | No | No | ~$0.05-0.10 | ~1-3 min |
 
 ---
 

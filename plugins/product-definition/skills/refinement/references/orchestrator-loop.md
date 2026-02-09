@@ -45,8 +45,8 @@ For stages 2-6, dispatch a coordinator subagent using the **per-stage dispatch p
 |-------|-------------|-------------|------------|
 | 2 (Research) | checkpoint-protocol, error-handling | No | — |
 | 3 (Analysis) | checkpoint-protocol, error-handling | Yes | option-generation-reference |
-| 4 (Response) | checkpoint-protocol, error-handling | Yes | — |
-| 5 (Validation) | checkpoint-protocol, error-handling | Yes | — |
+| 4 (Response) | checkpoint-protocol, error-handling | Yes | consensus-call-pattern |
+| 5 (Validation) | checkpoint-protocol, error-handling | Yes | consensus-call-pattern |
 | 6 (Completion) | checkpoint-protocol | No | — |
 
 ### Dispatch Template

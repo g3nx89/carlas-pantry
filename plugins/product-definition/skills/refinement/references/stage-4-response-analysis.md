@@ -115,31 +115,22 @@ Execute Sequential Thinking for structured gap analysis (6 steps):
 
 Execute PAL Consensus to validate response consistency using multi-step workflow.
 
-#### Resolve models BEFORE calling Consensus
+#### Consensus Execution
+
+**Follow shared pattern:** `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/consensus-call-pattern.md`
+
+**Stage 4 parameters for the shared pattern:**
+
+| Parameter | Value |
+|-----------|-------|
+| `{NEUTRAL_STANCE_PROMPT}` | "Objective assessment of consistency and completeness." |
+| `{FOR_STANCE_PROMPT}` | "Look for ways the PRD CAN proceed. Advocate for readiness." |
+| `{AGAINST_STANCE_PROMPT}` | "Find contradictions, gaps, ambiguities. Be skeptical of completeness." |
+| `{RELEVANT_FILES}` | `"{ABSOLUTE_PATH}/requirements/working/QUESTIONS-{NNN}.md", "{ABSOLUTE_PATH}/requirements/working/draft-copy.md"` |
+
+**Step 1 content (YOUR independent analysis):**
 
 ```
-IF grok-4 is available (check config -> pal.thinkdeep.models where optional=true):
-  SET total_steps = 4  (3 models + 1 synthesis)
-  SET models = [
-    {"model": "gemini-3-pro-preview", "stance": "neutral", "stance_prompt": "Objective assessment of consistency and completeness."},
-    {"model": "gpt-5.2", "stance": "for", "stance_prompt": "Look for ways the PRD CAN proceed. Advocate for readiness."},
-    {"model": "x-ai/grok-4", "stance": "against", "stance_prompt": "Find contradictions, gaps, ambiguities. Be skeptical of completeness."}
-  ]
-
-ELSE (grok-4 unavailable):
-  SET total_steps = 3  (2 models + 1 synthesis)
-  SET models = [
-    {"model": "gemini-3-pro-preview", "stance": "neutral", "stance_prompt": "Objective assessment of consistency and completeness."},
-    {"model": "gpt-5.2", "stance": "for", "stance_prompt": "Look for ways the PRD CAN proceed. Advocate for readiness."}
-  ]
-```
-
-#### Execute Consensus calls
-
-```
-# Step 1: YOUR independent analysis (sets up the debate)
-mcp__pal__consensus(
-  step: """
 I need to validate user responses for internal consistency and identify remaining gaps.
 
 CONTEXT: Round {N} collected {TOTAL} answers.
@@ -162,61 +153,11 @@ QUESTIONS FOR CONSENSUS:
 
 DELIVERABLE:
 (1) Confirmed gaps, (2) Contradictions, (3) Sections ready for PRD.
-""",
-  step_number: 1,
-  total_steps: {total_steps},    # resolved above
-  next_step_required: true,
-  findings: "Round {N} collected {TOTAL} answers. Summary: {brief section-by-section status}",
-  models: {models},              # resolved above
-  relevant_files: ["{ABSOLUTE_PATH}/requirements/working/QUESTIONS-{NNN}.md", "{ABSOLUTE_PATH}/requirements/working/draft-copy.md"]
-)
-# -> Save continuation_id from response
-
-# Step 2: Process first model's response
-mcp__pal__consensus(
-  step: "Notes on gemini-3-pro-preview (neutral) response",
-  step_number: 2,
-  total_steps: {total_steps},
-  next_step_required: true,
-  findings: "Gemini (neutral) finds: [summary of model response]",
-  continuation_id: "<from_step_1>"
-)
-
-# Step 3 (if 3 models): Process second model's response
-# (if 2 models: this step becomes the synthesis — set next_step_required: false)
-mcp__pal__consensus(
-  step: "Notes on gpt-5.2 (for) response",
-  step_number: 3,
-  total_steps: {total_steps},
-  next_step_required: {total_steps > 3},
-  findings: "GPT-5.2 (for) argues: [summary of model response]",
-  continuation_id: "<from_step_2>"
-)
-
-# Step 4 (only if 3 models): Final synthesis
-IF total_steps == 4:
-  mcp__pal__consensus(
-    step: "Synthesize all model perspectives into final gap assessment",
-    step_number: 4,
-    total_steps: 4,
-    next_step_required: false,
-    findings: "Consensus assessment: [summary of convergence/divergence across all models]",
-    continuation_id: "<from_step_3>"
-  )
 ```
+
+**Step 1 findings:** `"Round {N} collected {TOTAL} answers. Summary: {brief section-by-section status}"`
 
 Output: `requirements/analysis/response-validation-round-{N}.md`
-
-#### Unanimity Check (after Consensus synthesis)
-
-```
-IF all models agree on gap assessment (all say "ready" or all say "gaps remain")
-  AND no model flagged contradictions or concerns:
-    LOG unanimity_warning in response-validation-round-{N}.md
-    ADD note: "Unanimity warning: all models converged without dissent.
-     Consider whether gaps may have been overlooked due to sycophantic agreement."
-    (Non-blocking — proceed normally)
-```
 
 ### If ANALYSIS_MODE in ["advanced", "standard", "rapid"] OR PAL unavailable:
 

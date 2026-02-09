@@ -219,6 +219,27 @@ insight: all 3 models flagged revenue model uncertainty as CRITICAL priority.
 3 CRITICAL questions, 5 HIGH, 6 MEDIUM. User must fill QUESTIONS-001.md.
 ```
 
+### Interactive Pause Schema
+
+When coordinators need user input, they encode the question in `flags` for the orchestrator to relay via `AskUserQuestion`:
+
+```yaml
+flags:
+  pause_type: "interactive" | "exit_cli"
+  block_reason: "{human-readable reason for pause}"
+  question_context:           # Present when pause_type = interactive
+    question: "{question text}"
+    header: "{short label, max 12 chars}"
+    options:
+      - label: "{option label}"
+        description: "{option description}"
+  next_action_map:            # Optional — maps option labels to next_action values
+    "{option label}": "loop_questions" | "loop_research" | "proceed"
+```
+
+- `exit_cli`: orchestrator updates state, displays `block_reason`, and TERMINATES (user works offline)
+- `interactive`: orchestrator reads `question_context`, calls `AskUserQuestion`, then re-dispatches the stage or maps the answer via `next_action_map`
+
 ---
 
 ## State Management
@@ -229,14 +250,53 @@ insight: all 3 models flagged revenue model uncertainty as CRITICAL priority.
 
 State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE.
 
-**Key fields:**
+**Top-level fields:**
 - `schema_version`: 2
 - `current_stage`: 1-6
 - `current_round`: N
 - `waiting_for_user`: true/false
+- `pause_stage`: N (set when `waiting_for_user: true`)
 - `analysis_mode`: complete/advanced/standard/rapid
 - `prd_mode`: NEW/EXTEND
-- `user_decisions`: immutable decision log
+- `mcp_availability`: `{pal_available: bool, st_available: bool}`
+- `user_decisions`: immutable decision log (keys like `analysis_mode_round_1`, `research_decision_round_1`)
+- `model_failures`: array of `{model, stage, operation, error, timestamp, action_taken}`
+
+**Nested structures (written by coordinators):**
+
+```yaml
+rounds:
+  - round_number: 1
+    analysis_mode: "complete"
+    questions_file: "working/QUESTIONS-001.md"
+    questions_count: 14
+    generated_at: "{timestamp}"
+    stage_3_completed: true
+    stage_4_completed: true
+
+phases:
+  research:
+    status: completed
+    reports_analyzed: 3
+    consensus_findings: 5
+    research_gaps: 2
+    st_used: true
+  response_analysis:
+    status: completed
+    round: 1
+    completion_rate: 100
+    gaps_found: 3
+  validation:
+    status: completed
+    mode: "pal_consensus"
+    score: 17
+    decision: "READY"
+  prd_generation:
+    status: completed
+    prd_mode: "NEW"
+    sections_generated: 10
+    sections_extended: 0
+```
 
 ---
 
@@ -287,6 +347,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `references/error-handling.md` | Error recovery, degradation | Any error condition |
 | `references/config-reference.md` | PAL parameter reference, scoring thresholds | PAL tool usage |
 | `references/option-generation-reference.md` | Question/option format | Stage 3 question gen |
+| `references/consensus-call-pattern.md` | Shared PAL Consensus call workflow | Stages 4 and 5 consensus |
 
 ---
 

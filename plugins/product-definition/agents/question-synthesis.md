@@ -1,6 +1,6 @@
 ---
 name: question-synthesis
-description: Synthesizes questions from multiple discovery perspectives, deduplicates, classifies, and prioritizes for presentation to users
+description: "[SUPERSEDED by requirements-question-synthesis — kept for legacy commands/requirements.md compatibility] Synthesizes questions from multiple discovery perspectives, deduplicates, classifies, and prioritizes for presentation to users"
 model: opus
 tools:
   - Read

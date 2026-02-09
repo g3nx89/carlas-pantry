@@ -70,10 +70,10 @@ find requirements/ -name ".requirements-lock" -type f 2>/dev/null
 1. Read lock file content (timestamp and info)
 2. Calculate lock age
 
-**If lock age > 2 hours (stale):**
+**If lock age > config `state.lock_staleness_hours` (default: 2h):**
 Remove lock file, continue.
 
-**If lock age <= 2 hours (active):**
+**If lock age <= config `state.lock_staleness_hours`:**
 Use AskUserQuestion directly (Stage 1 runs inline in the orchestrator):
 ```json
 {
