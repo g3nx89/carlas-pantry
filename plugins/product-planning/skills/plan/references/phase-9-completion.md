@@ -257,44 +257,36 @@ IF feature_flags.st_task_decomposition.enabled AND analysis_mode in {complete, a
 
   # T-TASK-1: DECOMPOSE - Establish level structure
   mcp__sequential-thinking__sequentialthinking({
-    thought: "DECOMPOSITION of {FEATURE_NAME}. LEVEL 0 (zero dependencies): [config, types, schemas, interfaces]. LEVEL 1 (depends on L0): [utilities, base models, test fixtures]. LEVEL 2+: [per user story subproblems]. DEPENDENCY CHAIN: L0 → L1 → L2 → Feature complete.",
+    thought: "DECOMPOSITION of {FEATURE_NAME}. LEVEL 0 (zero dependencies): [config, types, schemas, interfaces]. LEVEL 1 (depends on L0): [utilities, base models, test fixtures]. LEVEL 2+: [per user story subproblems]. DEPENDENCY CHAIN: L0 → L1 → L2 → Feature complete. HYPOTHESIS: Feature decomposes into {N} levels with {M} tasks. CONFIDENCE: medium.",
     thoughtNumber: 1,
     totalThoughts: 4,
-    nextThoughtNeeded: true,
-    hypothesis: "Feature decomposes into {N} levels with {M} tasks",
-    confidence: "medium"
+    nextThoughtNeeded: true
   })
 
   # T-TASK-2: SEQUENCE - Order within levels
   mcp__sequential-thinking__sequentialthinking({
-    thought: "SEQUENCING tasks. STRATEGY: {top-down|bottom-up|mixed} because {rationale}. LEVEL 0 ORDER: [...]. LEVEL 1 ORDER: [...]. PER-STORY ORDER: [...]. CRITICAL PATH: [...]. RISK-FIRST items: [...].",
+    thought: "SEQUENCING tasks. STRATEGY: {top-down|bottom-up|mixed} because {rationale}. LEVEL 0 ORDER: [...]. LEVEL 1 ORDER: [...]. PER-STORY ORDER: [...]. CRITICAL PATH: [...]. RISK-FIRST items: [...]. HYPOTHESIS: Optimal sequence minimizes blocking, critical path is {N} tasks. CONFIDENCE: high.",
     thoughtNumber: 2,
     totalThoughts: 4,
-    nextThoughtNeeded: true,
-    hypothesis: "Optimal sequence minimizes blocking, critical path is {N} tasks",
-    confidence: "high"
+    nextThoughtNeeded: true
   })
 
   # T-TASK-3: VALIDATE - Verify correctness
   mcp__sequential-thinking__sequentialthinking({
-    thought: "VALIDATION of task breakdown. CHECKLIST: [ ] All user stories covered? [ ] No circular dependencies? [ ] Each task depends only on earlier levels? [ ] Every task 1-2 days? [ ] TDD pattern respected (tests in DoD)? [ ] Test IDs mapped? ISSUES: [...]. FIXES: [...].",
+    thought: "VALIDATION of task breakdown. CHECKLIST: [ ] All user stories covered? [ ] No circular dependencies? [ ] Each task depends only on earlier levels? [ ] Every task 1-2 days? [ ] TDD pattern respected (tests in DoD)? [ ] Test IDs mapped? ISSUES: [...]. FIXES: [...]. HYPOTHESIS: Task breakdown valid after {N} fixes. CONFIDENCE: high.",
     thoughtNumber: 3,
     totalThoughts: 4,
     nextThoughtNeeded: true,
     isRevision: true,
-    revisesThought: 1,
-    hypothesis: "Task breakdown valid after {N} fixes",
-    confidence: "high"
+    revisesThought: 1
   })
 
   # T-TASK-4: FINALIZE - Produce deliverable
   mcp__sequential-thinking__sequentialthinking({
-    thought: "FINALIZATION. SUMMARY: {total} tasks across {levels} levels. HIGH-RISK requiring attention: [{task}: {context}]. PARALLEL PLAN: [{concurrent groups}]. MVP SCOPE: [{first deliverable}]. TDD READINESS: {count} tasks have test references.",
+    thought: "FINALIZATION. SUMMARY: {total} tasks across {levels} levels. HIGH-RISK requiring attention: [{task}: {context}]. PARALLEL PLAN: [{concurrent groups}]. MVP SCOPE: [{first deliverable}]. TDD READINESS: {count} tasks have test references. HYPOTHESIS: Task breakdown complete, ready for clarification review. CONFIDENCE: high.",
     thoughtNumber: 4,
     totalThoughts: 4,
-    nextThoughtNeeded: false,
-    hypothesis: "Task breakdown complete, ready for clarification review",
-    confidence: "high"
+    nextThoughtNeeded: false
   })
 ```
 

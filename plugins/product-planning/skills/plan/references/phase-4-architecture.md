@@ -291,48 +291,47 @@ ELSE:
 IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentialthinking available:
 
   # After architecture options are generated but BEFORE user selection
+  # Consolidated risk assessment: single 5-thought chain covering all options
+  # Uses RISK-C (Consolidated) naming to avoid collision with template IDs T11-T16
 
-  # For each architecture option, run abbreviated risk analysis
-  FOR each option IN [minimal, clean, pragmatic]:
-
-    # T11: Risk Identification (abbreviated for efficiency)
-    mcp__sequential-thinking__sequentialthinking({
-      thought: "RISK IDENTIFICATION for {option} approach. TECHNICAL RISKS: [complexity areas, unknowns, new patterns]. INTEGRATION RISKS: [API boundaries, data migration, external services]. SCHEDULE RISKS: [dependencies, learning curve]. SECURITY RISKS: [new attack surfaces, compliance gaps].",
-      thoughtNumber: 1,
-      totalThoughts: 3,
-      nextThoughtNeeded: true,
-      hypothesis: "Identified {N} risks for {option} approach",
-      confidence: "medium"
-    })
-
-    # T12: Risk Prioritization
-    mcp__sequential-thinking__sequentialthinking({
-      thought: "RISK PRIORITIZATION for {option}. HIGH-HIGH (Critical): [list]. HIGH-LOW or LOW-HIGH (Monitor): [list]. LOW-LOW (Accept): [list]. AGGREGATE RISK SCORE: {score}/10.",
-      thoughtNumber: 2,
-      totalThoughts: 3,
-      nextThoughtNeeded: true,
-      hypothesis: "{option} has {N} critical risks, aggregate score {score}",
-      confidence: "high"
-    })
-
-    # T13: Mitigation Preview
-    mcp__sequential-thinking__sequentialthinking({
-      thought: "MITIGATION PREVIEW for {option}. CRITICAL RISKS with mitigations: [risk → mitigation pairs]. MITIGATION EFFORT: {low|medium|high}. RESIDUAL RISK after mitigation: {low|medium|high}.",
-      thoughtNumber: 3,
-      totalThoughts: 3,
-      nextThoughtNeeded: false,
-      hypothesis: "Mitigations reduce {option} risk to acceptable level: {yes|no}",
-      confidence: "high"
-    })
-
-  # Checkpoint after risk assessment
+  # RISK-C1: Frame risk assessment across all options
   mcp__sequential-thinking__sequentialthinking({
-    thought: "CHECKPOINT: Risk assessment complete for all options. RISK RANKINGS: 1. {lowest_risk_option} (score: X), 2. {middle_option} (score: Y), 3. {highest_risk_option} (score: Z). RECOMMENDATION adjustment: {if risk changes recommendation}.",
+    thought: "RISK ASSESSMENT FRAME for all architecture options. OPTIONS: [minimal, clean, pragmatic]. RISK CATEGORIES: Technical (complexity, unknowns), Integration (API, migration, external), Schedule (dependencies, learning curve), Security (attack surfaces, compliance). Analyzing each option against all categories.",
     thoughtNumber: 1,
-    totalThoughts: 1,
-    nextThoughtNeeded: false,
-    hypothesis: "Risk analysis informs architecture recommendation",
-    confidence: "high"
+    totalThoughts: 5,
+    nextThoughtNeeded: true
+  })
+
+  # RISK-C2: Risk Identification per option
+  mcp__sequential-thinking__sequentialthinking({
+    thought: "RISK IDENTIFICATION across all options. MINIMAL: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. CLEAN: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. PRAGMATIC: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. TOTAL RISKS: minimal={N}, clean={M}, pragmatic={P}. HYPOTHESIS: {option} has highest risk count due to {reason}. CONFIDENCE: medium.",
+    thoughtNumber: 2,
+    totalThoughts: 5,
+    nextThoughtNeeded: true
+  })
+
+  # RISK-C3: Risk Prioritization per option
+  mcp__sequential-thinking__sequentialthinking({
+    thought: "RISK PRIORITIZATION using probability x impact. MINIMAL: Critical=[list], Monitor=[list], Accept=[list], SCORE={X}/10. CLEAN: Critical=[list], Monitor=[list], Accept=[list], SCORE={Y}/10. PRAGMATIC: Critical=[list], Monitor=[list], Accept=[list], SCORE={Z}/10. HYPOTHESIS: {option} has lowest risk score, critical risks concentrated in {area}. CONFIDENCE: high.",
+    thoughtNumber: 3,
+    totalThoughts: 5,
+    nextThoughtNeeded: true
+  })
+
+  # RISK-C4: Mitigation strategies for critical risks
+  mcp__sequential-thinking__sequentialthinking({
+    thought: "MITIGATION STRATEGIES for critical risks across options. MINIMAL: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. CLEAN: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. PRAGMATIC: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. HYPOTHESIS: Mitigations reduce critical count by {N}, {option} has lowest residual risk. CONFIDENCE: high.",
+    thoughtNumber: 4,
+    totalThoughts: 5,
+    nextThoughtNeeded: true
+  })
+
+  # RISK-C5: Cross-option comparison and recommendation
+  mcp__sequential-thinking__sequentialthinking({
+    thought: "RISK COMPARISON COMPLETE. RANKINGS: 1. {lowest_risk_option} (score: X/10, critical: N), 2. {middle_option} (score: Y/10, critical: M), 3. {highest_risk_option} (score: Z/10, critical: P). RECOMMENDATION ADJUSTMENT: {if risk changes recommendation from trade-off analysis}. HYPOTHESIS: Risk analysis informs architecture recommendation.",
+    thoughtNumber: 5,
+    totalThoughts: 5,
+    nextThoughtNeeded: false
   })
 
   # Include risk summary in architecture comparison table

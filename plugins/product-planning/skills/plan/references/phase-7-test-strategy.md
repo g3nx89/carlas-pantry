@@ -171,6 +171,8 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
 Execute Sequential Thinking for failure point analysis:
 
 ```
+IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentialthinking available:
+
 mcp__sequential-thinking__sequentialthinking(T-RISK-1: Failure Mode Identification)
 - Data failures: missing, malformed, stale, too large
 - Integration failures: dependencies unavailable, timeouts
@@ -292,14 +294,12 @@ IF {FEATURE_DIR}/analysis/thinkdeep-insights.md exists:
 
      # Invoke ST Revision to reconcile
      mcp__sequential-thinking__sequentialthinking({
-       thought: "REVISION of Risk Prioritization: ThinkDeep identified...",
+       thought: "REVISION of Risk Prioritization: ThinkDeep identified NEW/DIFFERENT insights. THINKDEEP: {findings}. ORIGINAL: {T-RISK-2_output}. CONFLICTS: [list]. RESOLUTION: Using higher severity. NEW RISKS: {additions}. HYPOTHESIS: Phase 5 insights update risk; {N} conflicts resolved. CONFIDENCE: high.",
        thoughtNumber: 2,
        totalThoughts: 3,
        nextThoughtNeeded: true,
        isRevision: true,
-       revisesThought: 2,  # References T-RISK-2
-       hypothesis: "Phase 5 insights update risk; {N} conflicts resolved",
-       confidence: "high"
+       revisesThought: 2
      })
 
      # Update test-plan.md with reconciliation section
@@ -353,31 +353,35 @@ ELSE:
 **Purpose:** Add adversarial perspective to risk analysis by thinking like an attacker.
 
 ```
-IF analysis_mode in {Complete, Advanced} AND feature_flags.st_redteam_analysis.enabled:
+IF analysis_mode in {complete, advanced} AND feature_flags.st_redteam_analysis.enabled:
 
   1. INVOKE Red Team branch:
      mcp__sequential-thinking__sequentialthinking({
-       thought: "BRANCH: Red Team. ATTACKER PERSPECTIVE: Entry points...",
+       thought: "BRANCH: Red Team. ATTACKER PERSPECTIVE: Entry points: {inputs}. Attack vectors: {injections, auth bypass, data exfiltration}. Impact: {breach, disruption, data loss}. OVERLOOKED: {what standard analysis missed}. HYPOTHESIS: Adversarial analysis reveals {N} additional vectors. CONFIDENCE: medium.",
        thoughtNumber: 2,
        totalThoughts: 4,
        nextThoughtNeeded: true,
-       branchFromThought: 1,  # Branches from T-RISK-1
-       branchId: "redteam",
-       hypothesis: "Adversarial analysis reveals {N} additional vectors",
-       confidence: "medium"
+       branchFromThought: 1,
+       branchId: "redteam"
      })
 
   2. SYNTHESIZE red team findings:
      mcp__sequential-thinking__sequentialthinking({
-       thought: "SYNTHESIS: Merging red team findings. NEW ATTACKS...",
+       thought: "SYNTHESIS: Merging red team findings back to main trunk. NEW ATTACKS: [list]. ADDITIONS TO TEST PLAN: {new security cases}. COVERAGE GAPS CLOSED: [what red team revealed]. HYPOTHESIS: Red team adds {N} new test cases. CONFIDENCE: high.",
        thoughtNumber: 3,
        totalThoughts: 4,
-       nextThoughtNeeded: true,
-       hypothesis: "Red team adds {N} new test cases",
-       confidence: "high"
+       nextThoughtNeeded: true
      })
 
-  3. ADD red team findings to test plan:
+  3. FINALIZE red team analysis:
+     mcp__sequential-thinking__sequentialthinking({
+       thought: "RED TEAM COMPLETE. TOTAL NEW VECTORS: {N}. TEST CASES ADDED: SEC-RT-{IDs}. RESIDUAL RISK: {assessment}. All red team findings integrated into main test plan. HYPOTHESIS: Red team analysis is complete with {N} vectors addressed. CONFIDENCE: high.",
+       thoughtNumber: 4,
+       totalThoughts: 4,
+       nextThoughtNeeded: false
+     })
+
+  4. ADD red team findings to test plan:
      - New attack vectors → Security test cases
      - Overlooked entry points → Additional E2E scenarios
      - Update coverage matrix with SEC-RT-XX IDs

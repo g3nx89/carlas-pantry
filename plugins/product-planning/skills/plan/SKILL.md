@@ -234,6 +234,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 
 ### Sequential Thinking Reference
 - `$CLAUDE_PLUGIN_ROOT/templates/sequential-thinking-templates.md`
+  - **Load selectively**: coordinators should load only the relevant template group per the `phase_mapping` in `config/planning-config.yaml`, NOT the entire file (~4K tokens). E.g., Phase 4 loads `architecture_design` + `architecture_fork_join` + `risk_assessment` + `agent_analysis` groups only.
 
 ### Configuration
 - `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` — All limits, thresholds, models

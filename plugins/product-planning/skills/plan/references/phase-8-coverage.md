@@ -14,7 +14,6 @@ artifacts_written:
 agents: []
 mcp_tools:
   - "mcp__pal__consensus"
-  - "mcp__sequential-thinking__sequentialthinking"
 feature_flags: []
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/coverage-validation-rubric.md"

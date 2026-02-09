@@ -312,7 +312,7 @@ analysis_modes:
     description: "MPA + ThinkDeep (reduced perspectives) + Test Plan"
     mpa_agents: 5  # code-explorer, software-architect, tech-lead + 2 QA agents
     pal_thinkdeep_total_calls: 6  # 2 perspectives × 3 models
-    sequential_thinking_enabled: false
+    sequential_thinking_enabled: true  # Enabled for ST features: risk, revision, redteam, TAO, checkpoint, task decomposition
     pal_consensus_enabled: true  # Test coverage validation only
     requires_mcp: true
     estimated_cost: "$0.45-0.75"
@@ -421,7 +421,7 @@ sequential_thinking:
     test_risk_revision: [T-RISK-REVISION]
 
     # NEW: Red team adversarial analysis (st_redteam_analysis)
-    test_risk_redteam: [T-RISK-REDTEAM, T-RISK-REDTEAM-SYNTHESIS]
+    test_risk_redteam: [T-RISK-REDTEAM, T-RISK-REDTEAM-SYNTHESIS, T-RISK-REDTEAM-FINALIZE]
 
     # NEW: TAO loop agent synthesis (st_tao_loops)
     agent_analysis: [T-AGENT-ANALYSIS, T-AGENT-SYNTHESIS, T-AGENT-VALIDATION]

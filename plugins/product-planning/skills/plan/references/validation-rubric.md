@@ -257,13 +257,7 @@ When validation score < 12:
 
 ## Internal Validation Fallback
 
-If PAL Consensus unavailable, use Sequential Thinking templates:
-
-```
-mcp__sequential-thinking__sequentialthinking(T14: Completeness Check)
-mcp__sequential-thinking__sequentialthinking(T15: Consistency Validation)
-mcp__sequential-thinking__sequentialthinking(T16: Feasibility Assessment)
-```
+If PAL Consensus unavailable, use the Sequential Thinking fallback defined in `phase-6-validation.md` Step 6.4 (templates T14-T16 from `sequential-thinking-templates.md` Group 5).
 
 Scoring for internal validation:
 - Apply same 5 dimensions

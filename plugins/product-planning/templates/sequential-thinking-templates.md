@@ -17,7 +17,7 @@ Templates are organized by planning phase and loaded on-demand during structured
 | Plan Validation | T14-T16 | 3 | Validating plan quality |
 | Test Risk Analysis | T-RISK-1 to T-RISK-3 | 3 | V-Model test planning (Phase 7) |
 | Revision | T-RISK-REVISION | 1 | Phase 7 reconciliation (when ThinkDeep contradicts) |
-| Red Team | T-RISK-REDTEAM series | 2 | Phase 7 Complete/Advanced (adversarial analysis) |
+| Red Team | T-RISK-REDTEAM series | 3 | Phase 7 Complete/Advanced (adversarial analysis) |
 | TAO Analysis | T-AGENT series | 3 | After MPA in Phases 2, 4, 7 (structured pause) |
 | Dynamic Extension | T-EXTENSION | 1 | When complexity exceeds initial estimates |
 | Checkpoint | T-CHECKPOINT | 1 | Every 5 thoughts (Rule of 5) |
@@ -31,12 +31,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 1/3: Understanding the feature request. What is being asked? EXPLICIT requirements: [list from spec]. IMPLICIT requirements: [list inferred]. SUCCESS looks like: [observable outcomes]. FAILURE looks like: [what to avoid].",
+  "thought": "Step 1/3: Understanding the feature request. What is being asked? EXPLICIT requirements: [list from spec]. IMPLICIT requirements: [list inferred]. SUCCESS looks like: [observable outcomes]. FAILURE looks like: [what to avoid]. HYPOTHESIS: The core feature is [X] with success criteria [Y]. CONFIDENCE: exploring.",
   "thoughtNumber": 1,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "The core feature is [X] with success criteria [Y]",
-  "confidence": "exploring"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -53,12 +51,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 2/3: Defining scope boundaries. IN SCOPE: [list of included items]. OUT OF SCOPE: [explicit exclusions]. ASSUMPTIONS: [list with rationale]. DEPENDENCIES: [external systems, teams, data].",
+  "thought": "Step 2/3: Defining scope boundaries. IN SCOPE: [list of included items]. OUT OF SCOPE: [explicit exclusions]. ASSUMPTIONS: [list with rationale]. DEPENDENCIES: [external systems, teams, data]. HYPOTHESIS: Scope is bounded by [constraints], depends on [dependencies]. CONFIDENCE: medium.",
   "thoughtNumber": 2,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Scope is bounded by [constraints], depends on [dependencies]",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -72,12 +68,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 3/3: Decomposing into sub-problems. Using Least-to-Most decomposition: ATOMIC problems (smallest, solvable independently): [list]. COMPOSITE problems (require combining solutions): [list]. EXECUTION ORDER: [sequence based on dependencies].",
+  "thought": "Step 3/3: Decomposing into sub-problems. Using Least-to-Most decomposition: ATOMIC problems (smallest, solvable independently): [list]. COMPOSITE problems (require combining solutions): [list]. EXECUTION ORDER: [sequence based on dependencies]. HYPOTHESIS: Feature decomposes into [N] atomic problems with [M] composition steps. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 3,
-  "nextThoughtNeeded": false,
-  "hypothesis": "Feature decomposes into [N] atomic problems with [M] composition steps",
-  "confidence": "high"
+  "nextThoughtNeeded": false
 }
 ```
 
@@ -96,12 +90,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 1/3: Identifying existing patterns in codebase. SIMILAR FEATURES: [list with file paths]. COMMON PATTERNS: [design patterns used]. CONVENTIONS: [naming, structure, style]. ANTI-PATTERNS to avoid: [list observed issues].",
+  "thought": "Step 1/3: Identifying existing patterns in codebase. SIMILAR FEATURES: [list with file paths]. COMMON PATTERNS: [design patterns used]. CONVENTIONS: [naming, structure, style]. ANTI-PATTERNS to avoid: [list observed issues]. HYPOTHESIS: Codebase follows [patterns], similar features at [locations]. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Codebase follows [patterns], similar features at [locations]",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -119,12 +111,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 2/3: Mapping integration points. ENTRY POINTS: [where feature will be triggered]. DATA FLOWS: [input → processing → output]. SHARED COMPONENTS: [reusable modules]. EXTERNAL APIS: [third-party integrations].",
+  "thought": "Step 2/3: Mapping integration points. ENTRY POINTS: [where feature will be triggered]. DATA FLOWS: [input → processing → output]. SHARED COMPONENTS: [reusable modules]. EXTERNAL APIS: [third-party integrations]. HYPOTHESIS: Feature integrates at [N] points, reuses [M] components. CONFIDENCE: medium.",
   "thoughtNumber": 2,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Feature integrates at [N] points, reuses [M] components",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -136,12 +126,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 3/3: Documenting technical constraints. TECHNOLOGY STACK: [required technologies]. PERFORMANCE REQUIREMENTS: [latency, throughput]. SECURITY REQUIREMENTS: [auth, data protection]. COMPATIBILITY: [browser, OS, API versions].",
+  "thought": "Step 3/3: Documenting technical constraints. TECHNOLOGY STACK: [required technologies]. PERFORMANCE REQUIREMENTS: [latency, throughput]. SECURITY REQUIREMENTS: [auth, data protection]. COMPATIBILITY: [browser, OS, API versions]. HYPOTHESIS: Key constraints: [list], most limiting factor is [X]. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 3,
-  "nextThoughtNeeded": false,
-  "hypothesis": "Key constraints: [list], most limiting factor is [X]",
-  "confidence": "high"
+  "nextThoughtNeeded": false
 }
 ```
 
@@ -155,12 +143,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 1/4: Generating architecture options. OPTION A (Minimal Change): [description] - Pros: [list], Cons: [list]. OPTION B (Clean Architecture): [description] - Pros: [list], Cons: [list]. OPTION C (Pragmatic Balance): [description] - Pros: [list], Cons: [list].",
+  "thought": "Step 1/4: Generating architecture options. OPTION A (Minimal Change): [description] - Pros: [list], Cons: [list]. OPTION B (Clean Architecture): [description] - Pros: [list], Cons: [list]. OPTION C (Pragmatic Balance): [description] - Pros: [list], Cons: [list]. HYPOTHESIS: Three viable options identified with different trade-offs. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 4,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Three viable options identified with different trade-offs",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -177,12 +163,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 2/4: Analyzing trade-offs across dimensions. DIMENSION: Complexity - A:[score], B:[score], C:[score]. DIMENSION: Maintainability - A:[score], B:[score], C:[score]. DIMENSION: Performance - A:[score], B:[score], C:[score]. DIMENSION: Time-to-Implement - A:[score], B:[score], C:[score].",
+  "thought": "Step 2/4: Analyzing trade-offs across dimensions. DIMENSION: Complexity - A:[score], B:[score], C:[score]. DIMENSION: Maintainability - A:[score], B:[score], C:[score]. DIMENSION: Performance - A:[score], B:[score], C:[score]. DIMENSION: Time-to-Implement - A:[score], B:[score], C:[score]. HYPOTHESIS: Option [X] wins on [dimensions], Option [Y] wins on [other dimensions]. CONFIDENCE: high.",
   "thoughtNumber": 2,
   "totalThoughts": 4,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Option [X] wins on [dimensions], Option [Y] wins on [other dimensions]",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -196,12 +180,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 3/4: Designing component structure for selected option. COMPONENTS: [list with responsibilities]. INTERFACES: [contracts between components]. DATA MODEL: [entities and relationships]. SEQUENCE: [interaction flow diagram description].",
+  "thought": "Step 3/4: Designing component structure for selected option. COMPONENTS: [list with responsibilities]. INTERFACES: [contracts between components]. DATA MODEL: [entities and relationships]. SEQUENCE: [interaction flow diagram description]. HYPOTHESIS: Design has [N] components with [M] interfaces, follows [pattern]. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 4,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Design has [N] components with [M] interfaces, follows [pattern]",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -219,12 +201,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 4/4: Mapping requirements to acceptance criteria. FR-1 maps to: Component [X], Test: Given [context] When [action] Then [outcome]. FR-2 maps to: Component [Y], Test: [similar]. NFRs addressed by: [architectural decisions].",
+  "thought": "Step 4/4: Mapping requirements to acceptance criteria. FR-1 maps to: Component [X], Test: Given [context] When [action] Then [outcome]. FR-2 maps to: Component [Y], Test: [similar]. NFRs addressed by: [architectural decisions]. HYPOTHESIS: All [N] requirements have acceptance criteria and component ownership. CONFIDENCE: high.",
   "thoughtNumber": 4,
   "totalThoughts": 4,
-  "nextThoughtNeeded": false,
-  "hypothesis": "All [N] requirements have acceptance criteria and component ownership",
-  "confidence": "high"
+  "nextThoughtNeeded": false
 }
 ```
 
@@ -238,12 +218,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 1/3: Identifying risks using categories. TECHNICAL RISKS: [unknown technologies, complexity]. INTEGRATION RISKS: [API changes, data migration]. SCHEDULE RISKS: [dependencies, unknowns]. SECURITY RISKS: [vulnerabilities, compliance].",
+  "thought": "Step 1/3: Identifying risks using categories. TECHNICAL RISKS: [unknown technologies, complexity]. INTEGRATION RISKS: [API changes, data migration]. SCHEDULE RISKS: [dependencies, unknowns]. SECURITY RISKS: [vulnerabilities, compliance]. HYPOTHESIS: Identified [N] risks across [M] categories. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Identified [N] risks across [M] categories",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -262,12 +240,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 2/3: Prioritizing risks using probability × impact matrix. HIGH-HIGH: [list] → CRITICAL. HIGH-LOW or LOW-HIGH: [list] → MONITOR. LOW-LOW: [list] → ACCEPT. Risk exposure score: [calculated total].",
+  "thought": "Step 2/3: Prioritizing risks using probability × impact matrix. HIGH-HIGH: [list] → CRITICAL. HIGH-LOW or LOW-HIGH: [list] → MONITOR. LOW-LOW: [list] → ACCEPT. Risk exposure score: [calculated total]. HYPOTHESIS: [N] critical risks require mitigation before proceeding. CONFIDENCE: high.",
   "thoughtNumber": 2,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "[N] critical risks require mitigation before proceeding",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -285,12 +261,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 3/3: Defining mitigation strategies. RISK-1: Mitigation: [action], Fallback: [if mitigation fails], Owner: [who]. RISK-2: Mitigation: [action], Fallback: [plan B], Owner: [who]. RESIDUAL RISKS (accepted): [list with justification].",
+  "thought": "Step 3/3: Defining mitigation strategies. RISK-1: Mitigation: [action], Fallback: [if mitigation fails], Owner: [who]. RISK-2: Mitigation: [action], Fallback: [plan B], Owner: [who]. RESIDUAL RISKS (accepted): [list with justification]. HYPOTHESIS: All critical risks have mitigations, [N] risks accepted with documentation. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 3,
-  "nextThoughtNeeded": false,
-  "hypothesis": "All critical risks have mitigations, [N] risks accepted with documentation",
-  "confidence": "high"
+  "nextThoughtNeeded": false
 }
 ```
 
@@ -310,12 +284,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 1/3: Verifying plan completeness against checklist. PROBLEM STATEMENT: [PASS/FAIL] - [evidence]. ARCHITECTURE DESIGN: [PASS/FAIL] - [evidence]. TASK BREAKDOWN: [PASS/FAIL] - [evidence]. RISK ASSESSMENT: [PASS/FAIL] - [evidence]. ACCEPTANCE CRITERIA: [PASS/FAIL] - [evidence].",
+  "thought": "Step 1/3: Verifying plan completeness against checklist. PROBLEM STATEMENT: [PASS/FAIL] - [evidence]. ARCHITECTURE DESIGN: [PASS/FAIL] - [evidence]. TASK BREAKDOWN: [PASS/FAIL] - [evidence]. RISK ASSESSMENT: [PASS/FAIL] - [evidence]. ACCEPTANCE CRITERIA: [PASS/FAIL] - [evidence]. HYPOTHESIS: Plan is [X]% complete, gaps in [areas]. CONFIDENCE: high.",
   "thoughtNumber": 1,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Plan is [X]% complete, gaps in [areas]",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -336,12 +308,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 2/3: Checking internal consistency. SPEC ↔ DESIGN alignment: [findings]. DESIGN ↔ TASKS alignment: [findings]. TASKS ↔ ACCEPTANCE alignment: [findings]. CONTRADICTIONS found: [list if any].",
+  "thought": "Step 2/3: Checking internal consistency. SPEC ↔ DESIGN alignment: [findings]. DESIGN ↔ TASKS alignment: [findings]. TASKS ↔ ACCEPTANCE alignment: [findings]. CONTRADICTIONS found: [list if any]. HYPOTHESIS: Plan is [consistent/inconsistent], issues: [list]. CONFIDENCE: high.",
   "thoughtNumber": 2,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Plan is [consistent/inconsistent], issues: [list]",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -358,12 +328,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 3/3: Assessing overall feasibility. TECHNICAL FEASIBILITY: [assessment with evidence]. SCHEDULE FEASIBILITY: [can it be done in time?]. RESOURCE FEASIBILITY: [skills, tools available?]. RECOMMENDATION: [PROCEED / REVISE / BLOCK] with reasoning.",
+  "thought": "Step 3/3: Assessing overall feasibility. TECHNICAL FEASIBILITY: [assessment with evidence]. SCHEDULE FEASIBILITY: [can it be done in time?]. RESOURCE FEASIBILITY: [skills, tools available?]. RECOMMENDATION: [PROCEED / REVISE / BLOCK] with reasoning. HYPOTHESIS: Plan is [feasible/needs revision], recommendation: [action]. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 3,
-  "nextThoughtNeeded": false,
-  "hypothesis": "Plan is [feasible/needs revision], recommendation: [action]",
-  "confidence": "high"
+  "nextThoughtNeeded": false
 }
 ```
 
@@ -385,12 +353,10 @@ These templates are used in Phase 7 (Test Strategy) for V-Model test planning.
 
 ```json
 {
-  "thought": "Step 1/3: Identifying all failure modes for this feature. DATA FAILURES: [missing data, malformed input, stale cache, data too large]. INTEGRATION FAILURES: [dependencies unavailable, timeouts, version mismatch, API changes]. STATE FAILURES: [race conditions, stale reads, lost updates, deadlocks]. USER FAILURES: [invalid input, misuse, unexpected navigation, permission issues]. INFRASTRUCTURE FAILURES: [network, disk, memory, CPU exhaustion].",
+  "thought": "Step 1/3: Identifying all failure modes for this feature. DATA FAILURES: [missing data, malformed input, stale cache, data too large]. INTEGRATION FAILURES: [dependencies unavailable, timeouts, version mismatch, API changes]. STATE FAILURES: [race conditions, stale reads, lost updates, deadlocks]. USER FAILURES: [invalid input, misuse, unexpected navigation, permission issues]. INFRASTRUCTURE FAILURES: [network, disk, memory, CPU exhaustion]. HYPOTHESIS: Identified [N] potential failure modes across [M] categories. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Identified [N] potential failure modes across [M] categories",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -411,12 +377,10 @@ These templates are used in Phase 7 (Test Strategy) for V-Model test planning.
 
 ```json
 {
-  "thought": "Step 2/3: Prioritizing failure modes for test coverage. CRITICAL (must have tests): [list failures that cause data loss, security breach, or complete feature breakage]. HIGH (should have tests): [list failures that block users with no workaround]. MEDIUM (good to have tests): [list failures with workarounds or degraded experience]. LOW (exploratory coverage): [list minor UX issues]. RECONCILIATION with Phase 5 security insights: [align or note differences].",
+  "thought": "Step 2/3: Prioritizing failure modes for test coverage. CRITICAL (must have tests): [list failures that cause data loss, security breach, or complete feature breakage]. HIGH (should have tests): [list failures that block users with no workaround]. MEDIUM (good to have tests): [list failures with workarounds or degraded experience]. LOW (exploratory coverage): [list minor UX issues]. RECONCILIATION with Phase 5 security insights: [align or note differences]. HYPOTHESIS: [N] critical risks require dedicated test coverage, [M] can be covered by exploratory testing. CONFIDENCE: high.",
   "thoughtNumber": 2,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "[N] critical risks require dedicated test coverage, [M] can be covered by exploratory testing",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -438,12 +402,10 @@ These templates are used in Phase 7 (Test Strategy) for V-Model test planning.
 
 ```json
 {
-  "thought": "Step 3/3: Mapping risks to specific test levels. CRITICAL RISK [R-01]: Mitigated by UT-[ids] (unit), INT-[ids] (integration), E2E-[ids] (end-to-end). HIGH RISK [R-02]: Mitigated by UT-[ids], E2E-[ids]. COVERAGE MATRIX: [risk_id → test_ids mapping]. GAPS IDENTIFIED: [risks without test coverage]. UAT MAPPING: [which risks map to acceptance criteria for user validation].",
+  "thought": "Step 3/3: Mapping risks to specific test levels. CRITICAL RISK [R-01]: Mitigated by UT-[ids] (unit), INT-[ids] (integration), E2E-[ids] (end-to-end). HIGH RISK [R-02]: Mitigated by UT-[ids], E2E-[ids]. COVERAGE MATRIX: [risk_id → test_ids mapping]. GAPS IDENTIFIED: [risks without test coverage]. UAT MAPPING: [which risks map to acceptance criteria for user validation]. HYPOTHESIS: All critical/high risks have test coverage, [N] gaps identified for remediation. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 3,
-  "nextThoughtNeeded": false,
-  "hypothesis": "All critical/high risks have test coverage, [N] gaps identified for remediation",
-  "confidence": "high"
+  "nextThoughtNeeded": false
 }
 ```
 
@@ -469,12 +431,10 @@ These templates use **branching** to explore multiple architecture approaches in
 
 ```json
 {
-  "thought": "Step 1/8: FRAME the architecture decision. PROBLEM: {feature_summary}. CONSTRAINTS: {patterns_found}. SUCCESS CRITERIA: {quality_dimensions}. BRANCHING into 3 exploration paths: minimal, clean, pragmatic.",
+  "thought": "Step 1/8: FRAME the architecture decision. PROBLEM: {feature_summary}. CONSTRAINTS: {patterns_found}. SUCCESS CRITERIA: {quality_dimensions}. BRANCHING into 3 exploration paths: minimal, clean, pragmatic. HYPOTHESIS: Three distinct approaches exist; exploration will reveal trade-offs. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 8,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Three distinct approaches exist; exploration will reveal trade-offs",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -492,14 +452,12 @@ These templates use **branching** to explore multiple architecture approaches in
 
 ```json
 {
-  "thought": "BRANCH: Minimal Change. APPROACH: Smallest footprint modification. COMPONENTS: [files to modify]. PROS: Low risk, fast. CONS: May accumulate tech debt. PROBABILITY: 0.85.",
+  "thought": "BRANCH: Minimal Change. APPROACH: Smallest footprint modification. COMPONENTS: [files to modify]. PROS: Low risk, fast. CONS: May accumulate tech debt. PROBABILITY: 0.85. HYPOTHESIS: Minimal approach viable if {conditions}. CONFIDENCE: high.",
   "thoughtNumber": 2,
   "totalThoughts": 8,
   "nextThoughtNeeded": true,
   "branchFromThought": 1,
-  "branchId": "minimal",
-  "hypothesis": "Minimal approach viable if {conditions}",
-  "confidence": "high"
+  "branchId": "minimal"
 }
 ```
 
@@ -515,14 +473,12 @@ These templates use **branching** to explore multiple architecture approaches in
 
 ```json
 {
-  "thought": "BRANCH: Clean Architecture. APPROACH: Separation of concerns, dependency injection. COMPONENTS: [new abstractions]. PROS: Maintainability, testability. CONS: Higher upfront cost. PROBABILITY: 0.70.",
+  "thought": "BRANCH: Clean Architecture. APPROACH: Separation of concerns, dependency injection. COMPONENTS: [new abstractions]. PROS: Maintainability, testability. CONS: Higher upfront cost. PROBABILITY: 0.70. HYPOTHESIS: Clean approach requires {scope} refactoring. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 8,
   "nextThoughtNeeded": true,
   "branchFromThought": 1,
-  "branchId": "clean",
-  "hypothesis": "Clean approach requires {scope} refactoring",
-  "confidence": "high"
+  "branchId": "clean"
 }
 ```
 
@@ -534,14 +490,12 @@ These templates use **branching** to explore multiple architecture approaches in
 
 ```json
 {
-  "thought": "BRANCH: Pragmatic Balance. APPROACH: Trade-off between clean and speed. COMPONENTS: [selective improvements]. PROBABILITY: 0.80.",
+  "thought": "BRANCH: Pragmatic Balance. APPROACH: Trade-off between clean and speed. COMPONENTS: [selective improvements]. PROBABILITY: 0.80. HYPOTHESIS: Pragmatic approach balances at {trade-off points}. CONFIDENCE: high.",
   "thoughtNumber": 4,
   "totalThoughts": 8,
   "nextThoughtNeeded": true,
   "branchFromThought": 1,
-  "branchId": "pragmatic",
-  "hypothesis": "Pragmatic approach balances at {trade-off points}",
-  "confidence": "high"
+  "branchId": "pragmatic"
 }
 ```
 
@@ -553,12 +507,10 @@ These templates use **branching** to explore multiple architecture approaches in
 
 ```json
 {
-  "thought": "SYNTHESIS: Comparing branches. SCORES: Minimal={M}/5, Clean={C}/5, Pragmatic={P}/5. WINNER: {selected}. RATIONALE: {why}. MERGED ELEMENTS: {best from each}.",
+  "thought": "SYNTHESIS: Comparing branches. SCORES: Minimal={M}/5, Clean={C}/5, Pragmatic={P}/5. WINNER: {selected}. RATIONALE: {why}. MERGED ELEMENTS: {best from each}. HYPOTHESIS: {selected} is optimal because {rationale}. CONFIDENCE: high.",
   "thoughtNumber": 5,
   "totalThoughts": 8,
-  "nextThoughtNeeded": true,
-  "hypothesis": "{selected} is optimal because {rationale}",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -571,6 +523,8 @@ These templates use **branching** to explore multiple architecture approaches in
 
 **Note:** After T8_SYNTHESIS, continue with standard T9_COMPONENT_DESIGN and T10_AC_MAPPING using the selected approach.
 
+**Checkpoint Rule:** The Fork-Join chain spans 8 thoughts (T7a through T10 continuation). Per the Rule of 5, insert a T-CHECKPOINT between T8_SYNTHESIS (thought 5) and T9 (thought 6) to consolidate branch findings before proceeding to component design.
+
 ---
 
 ## Group 8: Revision Templates
@@ -581,14 +535,12 @@ Revision templates allow updating earlier conclusions when new evidence emerges.
 
 ```json
 {
-  "thought": "REVISION of Risk Prioritization: ThinkDeep identified NEW/DIFFERENT insights. THINKDEEP: {findings}. ORIGINAL: {T-RISK-2_output}. CONFLICTS: [list]. RESOLUTION: Using higher severity. NEW RISKS: {additions}.",
+  "thought": "REVISION of Risk Prioritization: ThinkDeep identified NEW/DIFFERENT insights. THINKDEEP: {findings}. ORIGINAL: {T-RISK-2_output}. CONFLICTS: [list]. RESOLUTION: Using higher severity. NEW RISKS: {additions}. HYPOTHESIS: Phase 5 insights update risk; {N} conflicts resolved. CONFIDENCE: high.",
   "thoughtNumber": 2,
   "totalThoughts": 3,
   "nextThoughtNeeded": true,
   "isRevision": true,
-  "revisesThought": 2,
-  "hypothesis": "Phase 5 insights update risk; {N} conflicts resolved",
-  "confidence": "high"
+  "revisesThought": 2
 }
 ```
 
@@ -618,14 +570,12 @@ Red Team templates add an adversarial perspective to risk analysis. Use in Phase
 
 ```json
 {
-  "thought": "BRANCH: Red Team. ATTACKER PERSPECTIVE: Entry points: {inputs}. Attack vectors: {injections, auth bypass, data exfiltration}. Impact: {breach, disruption, data loss}. OVERLOOKED: {what standard analysis missed}.",
+  "thought": "BRANCH: Red Team. ATTACKER PERSPECTIVE: Entry points: {inputs}. Attack vectors: {injections, auth bypass, data exfiltration}. Impact: {breach, disruption, data loss}. OVERLOOKED: {what standard analysis missed}. HYPOTHESIS: Adversarial analysis reveals {N} additional vectors. CONFIDENCE: medium.",
   "thoughtNumber": 2,
   "totalThoughts": 4,
   "nextThoughtNeeded": true,
   "branchFromThought": 1,
-  "branchId": "redteam",
-  "hypothesis": "Adversarial analysis reveals {N} additional vectors",
-  "confidence": "medium"
+  "branchId": "redteam"
 }
 ```
 
@@ -643,12 +593,10 @@ Red Team templates add an adversarial perspective to risk analysis. Use in Phase
 
 ```json
 {
-  "thought": "SYNTHESIS: Merging red team findings. NEW ATTACKS: [list]. ADDITIONS TO TEST PLAN: {new security cases}. COVERAGE GAPS CLOSED: [what red team revealed].",
+  "thought": "SYNTHESIS: Merging red team findings. NEW ATTACKS: [list]. ADDITIONS TO TEST PLAN: {new security cases}. COVERAGE GAPS CLOSED: [what red team revealed]. HYPOTHESIS: Red team adds {N} new test cases. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 4,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Red team adds {N} new test cases",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -661,6 +609,23 @@ Red Team templates add an adversarial perspective to risk analysis. Use in Phase
 
 ---
 
+### T-RISK-REDTEAM-FINALIZE
+
+```json
+{
+  "thought": "RED TEAM COMPLETE. TOTAL NEW VECTORS: {N}. TEST CASES ADDED: SEC-RT-{IDs}. RESIDUAL RISK: {assessment}. All red team findings integrated into main test plan. HYPOTHESIS: Red team analysis is complete with {N} vectors addressed. CONFIDENCE: high.",
+  "thoughtNumber": 4,
+  "totalThoughts": 4,
+  "nextThoughtNeeded": false
+}
+```
+
+**Purpose:** Close the red team branch chain with a definitive termination. Summarizes all findings and confirms integration into the main test plan.
+
+**Termination Rule:** This MUST be the final thought in the red team chain. `nextThoughtNeeded: false` closes the branch properly.
+
+---
+
 ## Group 10: Agent Output Analysis (TAO Loop)
 
 TAO (Think-Analyze-Output) Loop templates provide structured pause points between MPA agent outputs and decisions. Prevents rushed synthesis and ensures all perspectives are properly considered.
@@ -669,12 +634,10 @@ TAO (Think-Analyze-Output) Loop templates provide structured pause points betwee
 
 ```json
 {
-  "thought": "ANALYSIS of MPA outputs. AGENTS: [{list}]. CONVERGENT (all agree): [{list}] - HIGH priority. DIVERGENT (disagree): [{list}] - FLAG for decision. GAPS: [{list}].",
+  "thought": "ANALYSIS of MPA outputs. AGENTS: [{list}]. CONVERGENT (all agree): [{list}] - HIGH priority. DIVERGENT (disagree): [{list}] - FLAG for decision. GAPS: [{list}]. HYPOTHESIS: MPA has {N} convergent, {M} divergent findings. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "MPA has {N} convergent, {M} divergent findings",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -691,12 +654,10 @@ TAO (Think-Analyze-Output) Loop templates provide structured pause points betwee
 
 ```json
 {
-  "thought": "SYNTHESIS strategy. CONVERGENT: Incorporate directly. DIVERGENT: Present options OR apply adaptive strategy. GAPS: Accept or research. DECISION: Proceeding with {strategy}.",
+  "thought": "SYNTHESIS strategy. CONVERGENT: Incorporate directly. DIVERGENT: Present options OR apply adaptive strategy. GAPS: Accept or research. DECISION: Proceeding with {strategy}. HYPOTHESIS: Synthesis strategy is {strategy}. CONFIDENCE: high.",
   "thoughtNumber": 2,
   "totalThoughts": 3,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Synthesis strategy is {strategy}",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -713,12 +674,10 @@ TAO (Think-Analyze-Output) Loop templates provide structured pause points betwee
 
 ```json
 {
-  "thought": "VALIDATION: [ ] All requirements addressed? [ ] Trade-offs documented? [ ] Risks identified? [ ] No unresolved conflicts? RESULT: {PASS/FAIL}.",
+  "thought": "VALIDATION: [ ] All requirements addressed? [ ] Trade-offs documented? [ ] Risks identified? [ ] No unresolved conflicts? RESULT: {PASS/FAIL}. HYPOTHESIS: Synthesis ready for next phase. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 3,
-  "nextThoughtNeeded": false,
-  "hypothesis": "Synthesis ready for next phase",
-  "confidence": "high"
+  "nextThoughtNeeded": false
 }
 ```
 
@@ -740,13 +699,11 @@ When complexity exceeds initial estimates, use `needsMoreThoughts` to extend the
 
 ```json
 {
-  "thought": "EXTENSION: Complexity exceeds initial estimate. REASON: {unexpected_complexity}. ADDING {N} more thoughts for: {additional_analysis_needed}.",
+  "thought": "EXTENSION: Complexity exceeds initial estimate. REASON: {unexpected_complexity}. ADDING {N} more thoughts for: {additional_analysis_needed}. HYPOTHESIS: Additional analysis needed for {reason}. CONFIDENCE: medium.",
   "thoughtNumber": 8,
   "totalThoughts": 10,
   "nextThoughtNeeded": true,
-  "needsMoreThoughts": true,
-  "hypothesis": "Additional analysis needed for {reason}",
-  "confidence": "medium"
+  "needsMoreThoughts": true
 }
 ```
 
@@ -779,7 +736,7 @@ The planning command loads templates when:
 Templates can be customized per invocation by:
 1. Replacing `[placeholders]` with actual values
 2. Adjusting `totalThoughts` if steps need expansion
-3. Setting appropriate `confidence` levels
+3. Embedding appropriate `HYPOTHESIS` and `CONFIDENCE` values at the end of the `thought` string
 
 ### MCP Invocation Pattern
 
@@ -787,14 +744,14 @@ For each template step, invoke Sequential Thinking:
 
 ```javascript
 mcp__sequential-thinking__sequentialthinking({
-  thought: "Step X/Y: {filled template content}",
+  thought: "Step X/Y: {filled template content}. HYPOTHESIS: {current hypothesis}. CONFIDENCE: {exploring|low|medium|high}.",
   thoughtNumber: X,
   totalThoughts: Y,
-  nextThoughtNeeded: X < Y,
-  hypothesis: "{current hypothesis}",
-  confidence: "{exploring|low|medium|high}"
+  nextThoughtNeeded: X < Y
 })
 ```
+
+**Note:** `hypothesis` and `confidence` are NOT separate ST parameters. Embed them at the end of the `thought` string (e.g., `"...analysis complete. HYPOTHESIS: {text}. CONFIDENCE: {level}."`). The ST server only accepts: `thought`, `thoughtNumber`, `totalThoughts`, `nextThoughtNeeded`, `isRevision`, `revisesThought`, `branchFromThought`, `branchId`, `needsMoreThoughts`.
 
 ### Checkpoint Integration
 
@@ -821,7 +778,7 @@ Key Outputs:
 | software-architect | T7-T10, T7a-T8 (Fork-Join), T11-T13, T-CHECKPOINT | Architecture design with risk assessment |
 | tech-lead | T1-T3, T-TASK series, T-CHECKPOINT | Problem decomposition and task breakdown |
 | orchestrator | T14-T16, T-AGENT series, T-CHECKPOINT | Validation and synthesis |
-| qa-strategist | T-RISK-1 to T-RISK-3, T-RISK-REVISION, T-RISK-REDTEAM series, T-CHECKPOINT | Test risk analysis (Phase 7) |
+| qa-strategist | T-RISK-1 to T-RISK-3, T-RISK-REVISION, T-RISK-REDTEAM series (3 templates), T-CHECKPOINT | Test risk analysis (Phase 7) |
 | qa-security | T-RISK-1, T-RISK-2, T-RISK-REDTEAM, T-CHECKPOINT | Security-focused test planning |
 | qa-performance | T-RISK-1, T-RISK-2, T-CHECKPOINT | Performance-focused test planning |
 
@@ -831,11 +788,11 @@ Key Outputs:
 
 | Template Group | Rapid | Standard | Advanced | Complete |
 |----------------|-------|----------|----------|----------|
-| Problem Decomposition (T1-T3) | ❌ | ❌ | ❌ | ✅ |
+| Problem Decomposition (T1-T3) | ❌ | ❌ | ✅ | ✅ |
 | Codebase Analysis (T4-T6) | ❌ | ❌ | ❌ | ✅ |
 | Architecture Design (T7-T10) | ❌ | ❌ | ❌ | ✅ |
 | Fork-Join (T7a-T8) | ❌ | ❌ | ❌ | ✅ |
-| Risk Assessment (T11-T13) | ❌ | ❌ | ❌ | ✅ |
+| Risk Assessment (T11-T13) | ❌ | ❌ | ✅ | ✅ |
 | Plan Validation (T14-T16) | ❌ | ❌ | ❌ | ✅ |
 | Test Risk Analysis (T-RISK-1 to T-RISK-3) | ❌ | ❌ | ✅ | ✅ |
 | Revision (T-RISK-REVISION) | ❌ | ❌ | ✅ | ✅ |
@@ -855,13 +812,11 @@ Checkpoint templates consolidate progress every 5 thoughts to prevent cognitive 
 
 ```json
 {
-  "thought": "CHECKPOINT at thought {N}. PROGRESS SUMMARY: [key findings so far]. HYPOTHESES STATUS: Confirmed: [list], Rejected: [list], Open: [list]. REMAINING INVESTIGATION: [open questions]. NEXT PLANNED STEP: [specific next action]. CONFIDENCE TREND: {increasing|stable|decreasing}. ESTIMATE CHECK: Current {totalThoughts} {adequate|needs extension}.",
+  "thought": "CHECKPOINT at thought {N}. PROGRESS SUMMARY: [key findings so far]. HYPOTHESES STATUS: Confirmed: [list], Rejected: [list], Open: [list]. REMAINING INVESTIGATION: [open questions]. NEXT PLANNED STEP: [specific next action]. CONFIDENCE TREND: {increasing|stable|decreasing}. ESTIMATE CHECK: Current {totalThoughts} {adequate|needs extension}. HYPOTHESIS: On track with {X}% progress, {Y} open items remain. CONFIDENCE: medium.",
   "thoughtNumber": 5,
   "totalThoughts": 10,
   "nextThoughtNeeded": true,
-  "needsMoreThoughts": false,
-  "hypothesis": "On track with {X}% progress, {Y} open items remain",
-  "confidence": "medium"
+  "needsMoreThoughts": false
 }
 ```
 
@@ -892,12 +847,10 @@ Task decomposition templates support Least-to-Most problem breakdown for tech-le
 
 ```json
 {
-  "thought": "DECOMPOSITION of {FEATURE_NAME}. LEVEL 0 (zero dependencies): [config, types, schemas, interfaces - list specific items]. LEVEL 1 (depends only on L0): [utilities, base models, test fixtures - list specific items]. LEVEL 2+ (per user story): [story-specific subproblems in dependency order]. DEPENDENCY CHAIN: L0 → L1 → L2 → ... → Complete feature. PARALLEL OPPORTUNITIES at each level: [tasks that can run concurrently].",
+  "thought": "DECOMPOSITION of {FEATURE_NAME}. LEVEL 0 (zero dependencies): [config, types, schemas, interfaces - list specific items]. LEVEL 1 (depends only on L0): [utilities, base models, test fixtures - list specific items]. LEVEL 2+ (per user story): [story-specific subproblems in dependency order]. DEPENDENCY CHAIN: L0 → L1 → L2 → ... → Complete feature. PARALLEL OPPORTUNITIES at each level: [tasks that can run concurrently]. HYPOTHESIS: Feature decomposes into {N} levels with {M} tasks, {P} parallel opportunities. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 4,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Feature decomposes into {N} levels with {M} tasks, {P} parallel opportunities",
-  "confidence": "medium"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -914,12 +867,10 @@ Task decomposition templates support Least-to-Most problem breakdown for tech-le
 
 ```json
 {
-  "thought": "SEQUENCING tasks within levels. IMPLEMENTATION STRATEGY: {top-down|bottom-up|mixed} because {rationale}. LEVEL 0 ORDER: [ordered list]. LEVEL 1 ORDER: [ordered list]. LEVEL 2+ ORDER (per story): [ordered list]. CRITICAL PATH: [tasks that determine minimum completion time]. RISK-FIRST items moved early: [high-risk tasks placed in early positions].",
+  "thought": "SEQUENCING tasks within levels. IMPLEMENTATION STRATEGY: {top-down|bottom-up|mixed} because {rationale}. LEVEL 0 ORDER: [ordered list]. LEVEL 1 ORDER: [ordered list]. LEVEL 2+ ORDER (per story): [ordered list]. CRITICAL PATH: [tasks that determine minimum completion time]. RISK-FIRST items moved early: [high-risk tasks placed in early positions]. HYPOTHESIS: Optimal sequence minimizes blocking, critical path is {N} tasks. CONFIDENCE: high.",
   "thoughtNumber": 2,
   "totalThoughts": 4,
-  "nextThoughtNeeded": true,
-  "hypothesis": "Optimal sequence minimizes blocking, critical path is {N} tasks",
-  "confidence": "high"
+  "nextThoughtNeeded": true
 }
 ```
 
@@ -937,14 +888,12 @@ Task decomposition templates support Least-to-Most problem breakdown for tech-le
 
 ```json
 {
-  "thought": "VALIDATION of task breakdown. CHECKING: [ ] All user stories have complete task coverage? [ ] No circular dependencies exist? [ ] Each task depends only on earlier levels? [ ] Every task completable in 1-2 days? [ ] TDD pattern respected (tests in DoD)? [ ] Critical path correctly identified? ISSUES FOUND: [list]. FIXES APPLIED: [list].",
+  "thought": "VALIDATION of task breakdown. CHECKING: [ ] All user stories have complete task coverage? [ ] No circular dependencies exist? [ ] Each task depends only on earlier levels? [ ] Every task completable in 1-2 days? [ ] TDD pattern respected (tests in DoD)? [ ] Critical path correctly identified? ISSUES FOUND: [list]. FIXES APPLIED: [list]. HYPOTHESIS: Task breakdown valid after {N} fixes applied. CONFIDENCE: high.",
   "thoughtNumber": 3,
   "totalThoughts": 4,
   "nextThoughtNeeded": true,
   "isRevision": true,
-  "revisesThought": 1,
-  "hypothesis": "Task breakdown valid after {N} fixes applied",
-  "confidence": "high"
+  "revisesThought": 1
 }
 ```
 
@@ -965,12 +914,10 @@ Task decomposition templates support Least-to-Most problem breakdown for tech-le
 
 ```json
 {
-  "thought": "FINALIZATION of task breakdown. SUMMARY: {total_tasks} tasks across {levels} levels. HIGH-RISK TASKS requiring attention: [list with context]. PARALLEL EXECUTION PLAN: [which tasks can run concurrently per level]. MVP SCOPE: [minimum tasks for first deliverable]. INCREMENTAL MILESTONES: [demonstrable progress points].",
+  "thought": "FINALIZATION of task breakdown. SUMMARY: {total_tasks} tasks across {levels} levels. HIGH-RISK TASKS requiring attention: [list with context]. PARALLEL EXECUTION PLAN: [which tasks can run concurrently per level]. MVP SCOPE: [minimum tasks for first deliverable]. INCREMENTAL MILESTONES: [demonstrable progress points]. HYPOTHESIS: Task breakdown complete and ready for sprint planning. CONFIDENCE: high.",
   "thoughtNumber": 4,
   "totalThoughts": 4,
-  "nextThoughtNeeded": false,
-  "hypothesis": "Task breakdown complete and ready for sprint planning",
-  "confidence": "high"
+  "nextThoughtNeeded": false
 }
 ```
 
@@ -1021,6 +968,7 @@ Set `nextThoughtNeeded: false` after T8_SYNTHESIS when ALL are true:
 - ✅ Comparative scores documented
 - ✅ Winner selected with explicit rationale
 - ✅ Best elements from other branches considered for merge
+- ✅ T-CHECKPOINT inserted after T8_SYNTHESIS (thought 5) before continuing to T9
 
 ### Risk Assessment (T11-T13) Termination
 
@@ -1072,5 +1020,5 @@ Each Sequential Thinking step should:
 1. **Be grounded** - Reference actual code/docs, not hallucinations
 2. **Be actionable** - Lead to concrete outputs
 3. **Build on previous** - Reference findings from earlier steps
-4. **Include confidence** - Honest assessment of certainty level
+4. **Include confidence** - Honest assessment of certainty level (embedded in `thought` string)
 5. **Document unknowns** - Explicitly mark areas needing clarification
