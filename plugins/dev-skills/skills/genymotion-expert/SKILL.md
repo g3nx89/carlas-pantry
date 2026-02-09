@@ -1,0 +1,240 @@
+---
+name: genymotion-expert
+description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
+version: 1.0.0
+allowed-tools: Read, Glob, Grep, Bash
+---
+
+# Genymotion Desktop Expert
+
+CLI-driven Android emulation and test automation with Genymotion Desktop. Covers GMTool device lifecycle, Genymotion Shell sensor simulation, and ADB integration for Kotlin/Jetpack Compose projects.
+
+## When to Use
+
+- Creating, starting, or managing Genymotion virtual devices via CLI
+- Running instrumented tests (Espresso, Compose UI, Maestro) against Genymotion
+- Simulating sensors: GPS, battery, network conditions, rotation, phone calls
+- Automating device setup for local development or self-hosted CI
+- Troubleshooting ADB connections, boot failures, or test flakiness on Genymotion
+- Choosing between Genymotion Desktop, AVD, or Genymotion SaaS
+
+## When NOT to Use
+
+- **Shared Compose UI patterns** → Use `compose-expert` skill
+- **Gradle build configuration** → Use `gradle-expert` skill
+- **Android navigation/permissions** → Use `android-expert` skill
+- **Kotlin coroutines/flows** → Use `kotlin-coroutines` skill
+
+## Architecture Overview
+
+Genymotion Desktop provides **three CLI tools** for terminal-driven Android automation:
+
+| Tool | Purpose | Key Use |
+|------|---------|---------|
+| **GMTool** (`gmtool`) | Device lifecycle management | Create, start, stop, delete devices; install APKs |
+| **Genymotion Shell** (`genyshell`) | Sensor simulation on running devices | GPS, battery, network, rotation, phone calls |
+| **ADB** | Standard Android Debug Bridge | App install, test execution, logcat, screen capture |
+
+### Hypervisor Layer
+
+| Platform | Default Hypervisor | Notes |
+|----------|-------------------|-------|
+| Linux | QEMU (KVM) | Bundled since v3.3.0 |
+| macOS Intel | QEMU (Hypervisor.framework) | VirtualBox deprecated |
+| macOS Apple Silicon | QEMU | Native arm64 Android images |
+| Windows | VirtualBox | QEMU experimental, requires Hyper-V |
+
+**Quick Boot** (QEMU only): saves VM state on shutdown, resumes in seconds. Use `--coldboot` to force full boot cycle when state is corrupted.
+
+### ABI Support
+
+| ABI | Mac M-series (ARM) | PC/Mac Intel (x86) |
+|-----|--------------------|--------------------|
+| arm64-v8a | Native | Not supported |
+| x86_64 | Not supported | Android 11+ |
+| x86 | Not supported | Android 5-10 |
+
+**Best practice**: Build APKs with x86/x86_64 ABI included. On Apple Silicon, arm64-v8a runs natively. Avoid ARM translation (libhoudini) — it is unsupported, incomplete, and fragile.
+
+## Essential Workflows
+
+### Device Lifecycle (GMTool)
+
+```bash
+# Create device
+gmtool admin create "Samsung Galaxy S10" "Android 11.0" "TestDevice" \
+  --nbcpu 4 --ram 4096
+
+# Start with timeout (essential on slow machines)
+gmtool --timeout 300 admin start "TestDevice"
+
+# Connect to ADB
+gmtool device -n "TestDevice" adbconnect
+
+# Wait for boot completion (use wait_for_boot function from Quick Reference below)
+elapsed=0
+while [ $elapsed -lt 120 ]; do
+  [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+  sleep 5; elapsed=$((elapsed + 5))
+done
+
+# Disable animations (critical for test stability)
+adb shell settings put global window_animation_scale 0
+adb shell settings put global transition_animation_scale 0
+adb shell settings put global animator_duration_scale 0
+```
+
+### Sensor Simulation (Genymotion Shell)
+
+Use `genyshell -q -c` for scripting (quiet mode suppresses banner):
+
+```bash
+# GPS
+genyshell -q -c "gps setstatus enabled"
+genyshell -q -c "gps setlatitude 48.8566"
+genyshell -q -c "gps setlongitude 2.3522"
+
+# Battery
+genyshell -q -c "battery setmode manual"
+genyshell -q -c "battery setlevel 15"
+genyshell -q -c "battery setstatus discharging"
+
+# Network (Android 8.0+)
+genyshell -q -c "network setstatus wifi enabled"
+genyshell -q -c "network setsignalstrength wifi good"
+
+# Rotation
+genyshell -q -c "rotation setangle 90"
+```
+
+Target a specific device by IP: `genyshell -r 192.168.56.101 -c "..."`.
+
+### Running Tests
+
+```bash
+# Gradle (standard)
+./gradlew connectedDebugAndroidTest
+
+# Specific test class
+./gradlew connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.example.ui.LoginTest
+
+# Via ADB instrumentation
+adb shell am instrument -w \
+  com.example.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Compose UI tests behave identically on Genymotion — the semantics tree is architecture-independent. For in-test sensor control (GPS, battery from Kotlin test code), the Genymotion Java API is available — see `references/test-integration.md`.
+
+## Critical Configuration
+
+### ADB Version Alignment
+
+**Always** configure Genymotion to use the same ADB as the Android SDK:
+
+```bash
+gmtool config --use_custom_sdk on --sdk_path "$ANDROID_HOME"
+```
+
+Mismatched ADB versions cause server restarts that disconnect all devices.
+
+### PATH Setup
+
+| OS | GMTool Location |
+|----|----------------|
+| macOS | `/Applications/Genymotion.app/Contents/MacOS/` |
+| Linux | `$HOME/genymotion/` or `/opt/genymotion/` |
+| Windows | `C:\Program Files\Genymobile\Genymotion\` |
+
+Genymotion Shell path differs slightly — see `references/cli-reference.md` for exact locations.
+
+## Decision Framework
+
+### When Genymotion Desktop is Right
+
+- Local development on Apple Silicon (native arm64 Android images)
+- Rich sensor simulation via Genymotion Shell scripting
+- Teams already invested in Genymotion ecosystem
+
+### When to Use Alternatives
+
+- **CI/CD pipelines** → Use AVD (`emulator -no-window`) or Genymotion SaaS (`gmsaas`)
+- **Budget-constrained** → Use free AVD
+- **Parallel testing at scale** → Use Genymotion SaaS, Firebase Test Lab, or AVD
+- **SafetyNet/Play Integrity** → Physical devices only
+
+**Genymotion Desktop has no headless mode** — it requires GPU and a display. This is the fundamental constraint for CI/CD.
+
+## Anti-Patterns
+
+| Anti-Pattern | Correct Approach |
+|-------------|-----------------|
+| Running commands before boot completes | Always implement boot-wait loop checking `sys.boot_completed` |
+| Using different ADB versions | Set `gmtool config --use_custom_sdk on --sdk_path "$ANDROID_HOME"` |
+| Leaving animations enabled during tests | Disable all three animation scales before test execution |
+| Using Quick Boot in CI | Use `--coldboot` for reproducibility; Quick Boot state can corrupt |
+| Running 3+ instances simultaneously | Limit to 1-2 instances; memory leaks degrade performance rapidly |
+| Using ARM translation for testing | Build x86/x86_64 APKs; avoid libhoudini entirely |
+| Expecting headless operation | Genymotion Desktop requires GUI; use SaaS or AVD for headless |
+| Not resetting sensor state between suites | Reset GPS, battery, network via Genymotion Shell between test runs |
+| Leaving Google Play auto-updates enabled in CI | Disable with `adb shell pm disable-user com.android.vending` |
+
+## Concurrent Instance Limits
+
+| Host RAM | Max Instances | Per-Instance Config |
+|----------|--------------|---------------------|
+| 8GB | 1 (possibly 2 lightweight) | 1-2GB RAM, 2 CPU cores |
+| 16GB | 2-3 | 2GB RAM, 2 CPU cores each |
+| 32GB | 3-4 | 2-3GB RAM, 2 CPU cores each |
+
+Memory leaks are an officially acknowledged, unfixable limitation. Not suitable for running more than 1 device for over 12 hours.
+
+## Reference Map
+
+| Topic | Reference File | When to Read |
+|-------|----------------|--------------|
+| GMTool and Genymotion Shell CLI | `references/cli-reference.md` | Looking up specific commands, options, error codes |
+| Test framework integration | `references/test-integration.md` | Setting up Espresso, Compose, Maestro, Appium, or sharded tests |
+| CI/CD patterns and workflow recipes | `references/ci-and-recipes.md` | Configuring CI pipelines or writing automation scripts |
+
+## Quick Reference
+
+### GMTool Essentials
+
+```bash
+gmtool admin list [--running|--off]       # List devices
+gmtool admin create <hw> <os> <name>      # Create device
+gmtool --timeout 300 admin start <name>   # Start device
+gmtool admin stop <name>                  # Stop device
+gmtool admin stopall                      # Stop all devices
+gmtool admin delete <name>               # Delete device
+gmtool device -n <name> adbconnect       # Connect to ADB
+gmtool device -n <name> install app.apk  # Install APK
+```
+
+### Genymotion Shell Essentials
+
+```bash
+genyshell -q -c "gps setlatitude <val>"         # GPS latitude (-90 to 90)
+genyshell -q -c "gps setlongitude <val>"        # GPS longitude (-180 to 180)
+genyshell -q -c "battery setlevel <0-100>"      # Battery level
+genyshell -q -c "battery setstatus <status>"    # charging|discharging|full
+genyshell -q -c "network setstatus wifi <on>"   # Network toggle
+genyshell -q -c "rotation setangle <deg>"       # 0, 90, 180, 270
+genyshell -r <IP> -c "<cmd>"                    # Target specific device
+```
+
+### Boot Wait Pattern
+
+```bash
+wait_for_boot() {
+    local timeout=${1:-120} elapsed=0
+    adb wait-for-device
+    while [ $elapsed -lt $timeout ]; do
+        local bc=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || echo "")
+        [ "$bc" = "1" ] && return 0
+        sleep 5; elapsed=$((elapsed + 5))
+    done
+    return 1
+}
+```
