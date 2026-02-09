@@ -90,6 +90,8 @@ gmtool admin list --off                     # Stopped only
 gmtool admin details "DeviceName"           # All properties, ADB serial, IP address, etc.
 ```
 
+After starting a device, always wait for boot completion before issuing commands — see `ci-and-recipes.md` for CI-ready boot-wait scripts and workflow recipes.
+
 `gmtool admin details` is the authoritative way to get a device's IP address for scripting:
 ```bash
 IP=$(gmtool admin details "DeviceName" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
@@ -130,6 +132,10 @@ gmtool device -n "DeviceName" logcatdump ~/logcat.txt
 gmtool device -n "DeviceName" logcatclear
 gmtool device --all logcatdump ~/logs/
 ```
+
+### VirtualBox Compatibility
+
+When using VirtualBox hypervisor, the installed VirtualBox version must be compatible with the Genymotion Desktop release. Version mismatches cause silent failures — devices fail to start with error code 4 but no clear error message. Check Genymotion's release notes for supported VirtualBox versions. On macOS and Linux, QEMU is now the preferred hypervisor (default since v3.3.0) and avoids this compatibility issue entirely.
 
 ### Configuration Options
 
@@ -179,6 +185,8 @@ gmtool admin create ... --network-mode bridge --bridged-if eth0
 ```
 
 **Bridged mode ADB caveat**: In bridge mode, ADB may not auto-connect. You must manually `adb connect <VM_LAN_IP>:5555` after boot. The device's IP will be on the physical network (not 192.168.56.x).
+
+**Security warning**: ADB over TCP (default on all Genymotion devices) provides no authentication or encryption. Any process on the same network can connect to port 5555 and execute arbitrary commands on the device. On shared networks, restrict access via host firewall rules on the host-only adapter. Never expose the host-only interface to untrusted networks. In bridged mode, the device is directly on the LAN — additional caution is required.
 
 ### Proxy and Traffic Interception
 

@@ -1,7 +1,7 @@
 ---
 name: genymotion-expert
 description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
-version: 1.2.0
+version: 1.3.0
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
@@ -41,12 +41,14 @@ Genymotion Desktop provides **three CLI tools** for terminal-driven Android auto
 |----------|-------------------|-------|
 | Linux | QEMU (KVM) | Bundled since v3.3.0 |
 | macOS Intel | QEMU (Hypervisor.framework) | VirtualBox deprecated |
-| macOS Apple Silicon | QEMU | Native arm64 Android images |
+| macOS Apple Silicon | QEMU | arm64 Android images; slower than Linux KVM |
 | Windows | VirtualBox | QEMU experimental, requires Hyper-V |
+
+**Apple Silicon caveat**: QEMU on M-series Macs lacks hardware-assisted nested virtualization (no KVM equivalent on macOS). Expect slower cold boots and higher CPU usage compared to Intel hosts or Linux KVM. Not all Android versions have arm64 images — verify with `gmtool admin osimages`. This support matured in v3.3+; earlier versions may have incomplete arm64 coverage.
 
 **VirtualBox and Hyper-V are mutually exclusive on Windows.** VirtualBox crashes with Hyper-V enabled, but QEMU on Windows *requires* Hyper-V. This creates conflicts for developers also using WSL2 or Docker Desktop. Switch hypervisors with `gmtool config --hypervisor qemu|virtualbox`.
 
-**Quick Boot** (QEMU only): saves VM state on shutdown, resumes in seconds (~2-5s vs 30-90s cold boot). Disable per-device with `gmtool admin edit "DeviceName" --quickboot off`. Use `--coldboot` at start time to force full boot cycle when state is corrupted.
+**Quick Boot** (QEMU only): saves VM state on shutdown, resumes in ~2-5s. Without Quick Boot, cold boot takes ~20-30s on modern hardware with GPU acceleration (longer on Apple Silicon or without GPU). GPU/3D acceleration is required for acceptable performance — software rendering (e.g., via Xvfb) degrades frame rates significantly. Disable per-device with `gmtool admin edit "DeviceName" --quickboot off`. Use `--coldboot` at start time to force full boot cycle when state is corrupted.
 
 ### ABI Support
 
@@ -130,6 +132,8 @@ Genymotion uses NAT mode by default. The special address **`10.0.3.2`** reaches 
 
 **VPN interference**: Host VPN can block routing to the `192.168.56.x` subnet. Split-tunneling or disabling VPN during tests may be required.
 
+**Security**: ADB over TCP (port 5555) is unauthenticated. On shared or untrusted networks, restrict the host-only adapter with firewall rules or use NAT mode exclusively. See `references/cli-reference.md` for bridged mode security implications.
+
 ## Critical Configuration
 
 ### ADB Version Alignment
@@ -191,6 +195,12 @@ Genymotion Shell path differs slightly — see `references/cli-reference.md` for
 | Running gmtool as multiple OS users | Single-user limitation — only use GMTool for one OS user per machine |
 | Not handling CI license cleanup | Use `trap cleanup EXIT` to ensure `gmtool admin stop` runs on failure, preventing license lockouts |
 | Leaving screen timeout at default | Set `adb shell svc power stayon true` or increase timeout for long-running Appium/Maestro tests |
+| Killing Genymotion process outside gmtool | Always use `gmtool admin stop`; force-killing leaves orphaned VMs and hypervisor locks |
+| Omitting `-n` with multiple running devices | GMTool errors or picks arbitrarily; always specify `-n <name>` when 2+ devices are running |
+| Wrong hypervisor for the platform | Apple Silicon requires QEMU; Windows with Hyper-V requires QEMU; Windows without Hyper-V uses VirtualBox |
+| Host sleep/shutdown with VMs running | Stop all VMs before sleep (`gmtool admin stopall`); abrupt power loss can corrupt VM disk state |
+| VirtualBox version mismatch | Use the VirtualBox version bundled with or documented for your Genymotion release; mismatches cause silent start failures (error code 4) |
+| Relying on deprecated `templates` command | Use `gmtool admin hwprofiles` and `gmtool admin osimages` instead |
 
 ## Concurrent Instance Limits
 
@@ -209,7 +219,7 @@ Memory leaks are an officially acknowledged, unfixable limitation. Not suitable 
 | Topic | Reference File | When to Read |
 |-------|----------------|--------------|
 | GMTool and Genymotion Shell CLI | `references/cli-reference.md` | Looking up specific commands, options, error codes |
-| Test framework integration | `references/test-integration.md` | Setting up Espresso, Compose, Maestro, Appium, or sharded tests |
+| Test framework integration and reliability | `references/test-integration.md` | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |
 | CI/CD patterns and workflow recipes | `references/ci-and-recipes.md` | Configuring CI pipelines or writing automation scripts |
 
 ## Quick Reference

@@ -162,6 +162,8 @@ android-test:
 
 ## Workflow Recipes
 
+> For the complete GMTool and Genymotion Shell command reference, see `cli-reference.md`.
+
 ### Recipe 1: Single Device Test Run
 
 ```bash
@@ -506,6 +508,16 @@ Host VPN can block routing to the `192.168.56.x` host-only subnet. If ADB connec
 - Or disable VPN during test execution
 - Bridge mode (VirtualBox only) may avoid this issue by placing the device on the physical network
 
+## Host System Stability
+
+Abrupt host sleep, shutdown, or power loss while VMs are running can corrupt the virtual disk image (VDI or QCOW2). Recovery and prevention:
+
+- **Quick Boot corruption**: Use `gmtool admin start "DeviceName" --coldboot` to bypass corrupt saved state
+- **Full disk corruption**: Delete and recreate the device from scratch; restore from clone if using the golden master pattern (see Clone-Based Test Isolation below)
+- **Prevention on macOS**: Use `caffeinate -i ./run-tests.sh` to prevent sleep during test execution
+- **Prevention on Linux**: Use `systemd-inhibit --what=sleep ./run-tests.sh` or ensure CI runners disable sleep
+- **Always stop VMs before host shutdown**: `gmtool admin stopall` in a shutdown hook or CI cleanup step
+
 ## Device Identity for Clones
 
 When cloning devices for parallel testing, clones share the same Android ID and Device ID. If your backend tracks device identity, randomize after cloning:
@@ -518,7 +530,7 @@ genyshell -r "$CLONE_IP" -c "android setdeviceid random"
 
 > **Note:** For memory leak details and concurrent instance limits, see the main SKILL.md file.
 
-Memory leaks are an officially acknowledged, unfixable limitation. For long-running test suites, restart devices periodically:
+For long-running test suites, restart devices periodically:
 
 ```bash
 # After every N test suites, recycle the device

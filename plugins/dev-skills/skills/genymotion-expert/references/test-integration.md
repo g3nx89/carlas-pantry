@@ -373,6 +373,52 @@ done
 wait
 ```
 
+## Reliability and Flakiness Patterns
+
+Common sources of test instability on Genymotion and their resolutions.
+
+### ADB Connection Drops
+
+**Symptom**: `error: device not found` or `error: closed` mid-test run.
+**Causes**: Host network adapter reconfiguration, VPN toggling, ADB server restart from version mismatch, host sleep/wake.
+**Fix**: Implement the ADB recovery pattern (see `ci-and-recipes.md`). In CI, wrap test execution with connection health checks. Align ADB versions to prevent server restarts.
+
+### VM Startup Failures
+
+**Symptom**: `gmtool admin start` returns error code 4 (virtualization engine does not respond) or error code 13.
+**Causes**: VirtualBox version mismatch (see `cli-reference.md` VirtualBox Compatibility section), hypervisor conflict (Hyper-V vs VirtualBox on Windows), insufficient host resources, corrupted Quick Boot state.
+**Fix**: Verify hypervisor compatibility. Try `--coldboot` to bypass corrupt state. Check host RAM/CPU availability. Ensure only one hypervisor type is active.
+
+### ARM Translation Crashes
+
+**Symptom**: App crashes on launch or during specific operations with SIGILL or SIGSEGV in logcat referencing libhoudini.
+**Causes**: libhoudini ARM translation cannot handle certain ARM instructions or advanced JIT code.
+**Fix**: Build x86/x86_64 APKs (the fundamental fix). If ARM-only third-party SDKs are involved, isolate testing of those SDK paths to physical devices. Never run ARM-translated code in performance-sensitive tests — crypto operations can be 10x slower under translation.
+
+### Memory Overuse and OOM
+
+**Symptom**: Host becomes unresponsive, tests timeout, device reboots mid-test.
+**Causes**: Running too many concurrent instances, host physical memory exhausted, Android process OOM inside the VM.
+**Fix**: Respect the concurrent instance limits in SKILL.md. Monitor host memory with `free -h` or Activity Monitor. For long-running suites, implement periodic device recycling (see `ci-and-recipes.md`).
+
+### Clock and Timezone Inconsistencies
+
+**Symptom**: Tests depending on time (token expiry, scheduled events, date formatting) fail intermittently.
+**Causes**: VM clock can drift from host, especially after suspend/resume or long-running sessions. Timezone may not match expectations.
+**Fix**: Sync time explicitly: `adb shell settings put global auto_time 1`. Set timezone: `adb shell setprop persist.sys.timezone "America/New_York"`. For time-travel testing (e.g., future dates), use `adb shell date` on rooted Genymotion images.
+
+### UI Rendering Differences
+
+**Symptom**: Screenshot comparison tests fail; layout looks different than on physical devices.
+**Causes**: Genymotion runs AOSP Android, not OEM skins. Samsung, Pixel, and other manufacturers apply different default fonts, spacing, status bar heights, and system UI. The VM GPU adapter may render gradients or shadows differently.
+**Fix**: Use semantic assertions (`onNodeWithText`, `onNodeWithContentDescription`) over pixel-based comparisons. Accept that Genymotion validates logic, not pixel-perfect OEM rendering. Use `--sysprop` to set device identity but understand this does not change the rendering engine.
+
+### Licensing Disruptions
+
+**Symptom**: Commands fail with error code 9 (license not activated) or 14 (requires Indie/Business) mid-pipeline.
+**Causes**: License server unreachable, maximum workstation activations consumed, ephemeral CI environments consuming activations without cleanup.
+**Fix**: Always implement cleanup traps (see `ci-and-recipes.md`). Monitor license validity: `gmtool license validity`. Since Desktop 3.2.0, `list`/`start`/`stop` work without license — design CI to tolerate license outages for basic operations.
+
 ## Test Stability Checklist
 
 Before running tests on Genymotion:
@@ -390,7 +436,7 @@ Before running tests on Genymotion:
 
 ## Sensor State Persistence
 
-Genymotion Shell sensor values (GPS, battery, network) persist for the lifetime of the running VM. They survive app restarts but are reset on device reboot. Factory reset also clears them. Between test suites, explicitly reset sensor state:
+Genymotion Shell sensor values (GPS, battery, network) persist for the lifetime of the running VM. They survive app restarts but are reset on device reboot. Factory reset also clears them. Between test suites, explicitly reset sensor state (see `cli-reference.md` for the full Genymotion Shell command reference):
 
 ```bash
 GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
@@ -403,4 +449,19 @@ GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
 
 ## Unsimulatable Features
 
-Test these on physical devices only: Bluetooth, NFC, real camera hardware, fingerprint sensors (biometric widget is UI-only), thermal behavior, cellular radio, SafetyNet/Play Integrity attestation (detects emulator — apps may refuse to run on uncertified devices), Widevine L1 DRM.
+Genymotion cannot simulate these hardware and platform features. Plan physical device testing or alternative strategies for each.
+
+| Feature | Why Not Simulatable | Testing Alternative |
+|---------|-------------------|---------------------|
+| Bluetooth | No virtual Bluetooth adapter in VM | Mock Bluetooth layer in app code; physical device for integration |
+| NFC | No virtual NFC controller | Mock NFC intents in instrumented tests; physical device for tap flows |
+| Real camera hardware | Virtual camera provides static image or host webcam feed only | Mock camera providers in tests; physical device for image quality |
+| Fingerprint / biometric | Biometric widget is UI-level only; does not exercise TEE or real biometric stack | Use `BiometricPrompt` test APIs with mock `CryptoObject`; physical device for end-to-end |
+| Thermal behavior | No thermal sensor simulation | Mock `PowerManager` and `ThermalStatus` callbacks |
+| Cellular radio (real) | Genymotion Shell simulates signal UI, not actual radio behavior | Sufficient for UI testing of degraded states; physical device for network stack |
+| SafetyNet / Play Integrity | Emulator is detected; attestation always fails | Physical device required; use `isTestDevice` flag during development |
+| Widevine L1 DRM | Emulator provides L3 at best | Physical device required for DRM-protected content playback |
+| Continuous accelerometer / gyroscope | No continuous motion simulation; rotation is discrete angles only | Use `rotation setangle` for orientation; mock `SensorManager` for continuous motion |
+| Barometer / proximity | Not exposed via Genymotion Shell | Mock at the Android API level in instrumented tests |
+
+**General rule**: If the feature requires hardware silicon not present in the VM (TEE, radio baseband, sensor fusion), it cannot be accurately simulated. Mock at the API boundary for unit/integration tests, and reserve physical devices for hardware-dependent acceptance tests.
