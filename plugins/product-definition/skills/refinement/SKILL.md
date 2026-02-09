@@ -1,8 +1,8 @@
 ---
 name: feature-refinement
 description: Transform rough product drafts into finalized PRDs through iterative Q&A
-version: 2.0.0
-allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking"]
+version: 2.1.0
+allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking", "mcp__tavily__tavily_search", "mcp__Ref__ref_search_documentation", "mcp__Ref__ref_read_url"]
 ---
 
 # Requirements Refinement Skill — Lean Orchestrator
@@ -39,17 +39,18 @@ Guided PRD generation through iterative clarification with offline file-based Q&
 17. **User Notification MANDATORY**: When ANY PAL model fails, ALWAYS notify user
 
 ### Graceful Degradation
-18. **MCP Availability Check**: Before using PAL/Sequential Thinking, check if tools are available
+18. **MCP Availability Check**: Before using PAL/Sequential Thinking/Research MCP, check if tools are available
 19. **Fallback Behavior**: If PAL unavailable, limit modes to Standard/Rapid only
 20. **If Sequential Thinking unavailable**: Use internal reasoning instead
+21. **If Research MCP unavailable**: Fall back to manual research flow in Stage 2
 
 ### Orchestrator Delegation Rules
-21. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
-22. **Stage 1 runs inline** — all other stages are coordinator-delegated
-23. **Iteration loop owned by orchestrator** — coordinators report `flags.next_action`, orchestrator decides control flow
-24. **Reflexion on RED loops**: When Stage 5 validation is RED and loops back to Stage 3, orchestrator MUST generate REFLECTION_CONTEXT from Stage 4+5 summaries and pass it to the Stage 3 coordinator
-25. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty for required variables (see `orchestrator-loop.md` -> Variable Defaults)
-26. **Quality gates**: Orchestrator performs lightweight quality checks after Stage 3 (question coverage) and Stage 5 (PRD completeness) — non-blocking, notify user of issues
+22. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
+23. **Stage 1 runs inline** — all other stages are coordinator-delegated
+24. **Iteration loop owned by orchestrator** — coordinators report `flags.next_action`, orchestrator decides control flow
+25. **Reflexion on RED loops**: When Stage 5 validation is RED and loops back to Stage 3, orchestrator MUST generate REFLECTION_CONTEXT from Stage 4+5 summaries and pass it to the Stage 3 coordinator
+26. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty for required variables (see `orchestrator-loop.md` -> Variable Defaults)
+27. **Quality gates**: Orchestrator performs lightweight quality checks after Stage 3 (question coverage) and Stage 5 (PRD completeness) — non-blocking, notify user of issues
 
 ---
 
@@ -258,7 +259,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 - `pause_stage`: N (set when `waiting_for_user: true`)
 - `analysis_mode`: complete/advanced/standard/rapid
 - `prd_mode`: NEW/EXTEND
-- `mcp_availability`: `{pal_available: bool, st_available: bool}`
+- `mcp_availability`: `{pal_available: bool, st_available: bool, research_mcp: {tavily: bool, ref: bool}}`
 - `user_decisions`: immutable decision log (keys like `analysis_mode_round_1`, `research_decision_round_1`)
 - `model_failures`: array of `{model, stage, operation, error, timestamp, action_taken}`
 
@@ -348,12 +349,13 @@ phases:
 | `references/config-reference.md` | PAL parameter reference, scoring thresholds | PAL tool usage |
 | `references/option-generation-reference.md` | Question/option format | Stage 3 question gen |
 | `references/consensus-call-pattern.md` | Shared PAL Consensus call workflow | Stages 4 and 5 consensus |
+| `references/research-mcp-reference.md` | Research MCP tool selection, query patterns, cost management | Dispatching Stage 2 with research MCP available |
 
 ---
 
 ## CRITICAL RULES (High Attention Zone — End)
 
-Rules 1-26 above MUST be followed. Key reminders:
+Rules 1-27 above MUST be followed. Key reminders:
 - Coordinators NEVER talk to users directly
 - Orchestrator owns the iteration loop
 - Stage 1 is inline, all others are coordinator-delegated

@@ -28,6 +28,10 @@ CHECK PAL tools:
 CHECK Sequential Thinking:
 - Try invoking mcp__sequential-thinking__sequentialthinking with a simple thought
 - If fails: ST_AVAILABLE = false
+
+CHECK Research MCP (for auto-research in Stage 2):
+- Check if mcp__tavily__tavily_search is available -> RESEARCH_MCP_TAVILY = true/false
+- Check if mcp__Ref__ref_search_documentation is available -> RESEARCH_MCP_REF = true/false
 ```
 
 **If PAL_AVAILABLE = false:**
@@ -35,6 +39,12 @@ CHECK Sequential Thinking:
 
 **If ST_AVAILABLE = false:**
 - Notify user: "Sequential Thinking unavailable. Using internal reasoning."
+
+**If RESEARCH_MCP_TAVILY = true:**
+- Notify user: "Tavily MCP available. Auto-research will be offered in Stage 2."
+
+**If RESEARCH_MCP_TAVILY = false AND RESEARCH_MCP_REF = false:**
+- (No notification needed — manual research flow is the default)
 
 ## Step 1.2: Pre-flight Validation (MUST PASS)
 
@@ -245,6 +255,8 @@ Set:
 - analysis_mode: "{ANALYSIS_MODE}"
 - mcp_availability.pal_available: {true|false}
 - mcp_availability.st_available: {true|false}
+- mcp_availability.research_mcp.tavily: {true|false}
+- mcp_availability.research_mcp.ref: {true|false}
 
 Record user decisions:
 ```yaml
@@ -277,6 +289,8 @@ flags:
   prd_mode: "{PRD_MODE}"
   pal_available: {true|false}
   st_available: {true|false}
+  research_mcp_tavily: {true|false}
+  research_mcp_ref: {true|false}
   round_number: 1
 ---
 ```

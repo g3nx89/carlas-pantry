@@ -100,6 +100,45 @@ When MCP tools are unavailable at startup (detected in Stage 1):
 - Replace ST calls with internal multi-step reasoning
 - Mark outputs as "Generated without Sequential Thinking"
 
+### Research MCP Unavailable
+- No notification needed — manual research is the default flow
+- Auto-research option is simply not presented in Stage 2 decision
+- All analysis modes remain available (research MCP is orthogonal to PAL/ST)
+
+---
+
+## Research MCP Failure Recovery (Stage 2)
+
+Research MCP failures are **non-blocking** — research is optional, and auto-research is a convenience enhancement.
+
+### Tavily Search Failure
+
+```
++-----------------------------------------------------------+
+| NOTE: RESEARCH MCP ISSUE                                   |
++-----------------------------------------------------------+
+| Tool:      tavily_search                                   |
+| Error:     {ERROR_MESSAGE}                                 |
+| Queries:   {COMPLETED}/{TOTAL} completed before failure    |
++-----------------------------------------------------------+
+```
+
+**Action:**
+1. Log failure to state: `model_failures.append({tool: "tavily_search", stage: 2, error: "...", timestamp: "..."})`
+2. If some queries completed: Use partial results, note incompleteness in synthesis
+3. If no queries completed: Fall back to manual research flow (offer agenda generation)
+4. **NEVER block the workflow** — research is optional
+
+### Ref Documentation Failure
+- **Action:** Log, skip tech documentation section, proceed with Tavily results only
+- **Non-critical:** Ref lookup is supplementary to market research
+- No user notification needed unless user explicitly chose tech doc lookup
+
+### Rate Limit / Credit Exhaustion
+- **Action:** Use results obtained so far
+- **Notify user:** "Auto-research partially completed ({N}/{M} queries). Proceeding with available results."
+- **Budget tracking:** Log `queries_used` vs `max_searches_per_round` in stage summary
+
 ---
 
 ## Critical Rules

@@ -4,7 +4,7 @@
 # Plugin: product-definition
 # Skill: refinement (migrated from /product-definition:requirements command)
 
-version: "2.0.0"
+version: "2.1.0"
 last_updated: "2026-02-08"
 
 # =============================================================================
@@ -320,6 +320,48 @@ research_discovery:
   templates:
     synthesis: "$CLAUDE_PLUGIN_ROOT/templates/research-synthesis-template.md"
     report: "$CLAUDE_PLUGIN_ROOT/templates/research-report-template.md"
+
+# =============================================================================
+# RESEARCH MCP INTEGRATION (Auto-research via Tavily/Ref)
+# =============================================================================
+
+research_mcp:
+  enabled: true  # Master toggle for auto-research capability
+
+  tavily:
+    search_depth: "basic"            # "basic" (1 credit) | "advanced" (2 credits)
+    max_results: 5                   # Results per query (more adds noise)
+    relevance_threshold: 0.5         # Filter results below this score
+    max_searches_per_round: 5        # Budget cap: max Tavily searches per research round
+    topic: "general"                 # "general" | "news" (use news for time-sensitive queries)
+
+  ref:
+    enabled: true                    # Use Ref for tech product doc lookup
+    tech_detection: true             # Auto-detect tech keywords in draft
+    tech_keywords:                   # Keywords that trigger Ref doc lookup
+      - "React"
+      - "Next.js"
+      - "Vue"
+      - "Angular"
+      - "Svelte"
+      - "Firebase"
+      - "Supabase"
+      - "Stripe"
+      - "Shopify"
+      - "Twilio"
+      - "AWS"
+      - "Vercel"
+      - "Cloudflare"
+
+  token_budgets:
+    auto_research_output: 3000       # Max tokens for condensed research-synthesis.md
+    per_query_input: 500             # Max tokens fed per individual search result
+
+  graceful_degradation:
+    fallback: "manual"               # Fall back to manual research if MCP unavailable
+    # If tavily unavailable: skip market research, offer manual agenda
+    # If ref unavailable: skip tech doc lookup, proceed with tavily results
+    # If both unavailable: existing Stage 2 manual flow (no change)
 
 # =============================================================================
 # PRD GENERATION

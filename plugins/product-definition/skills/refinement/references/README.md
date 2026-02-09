@@ -17,6 +17,7 @@
 | `config-reference.md` | PAL tool usage — template variables, PAL patterns, scoring thresholds |
 | `option-generation-reference.md` | Stage 3 question gen — option format, scoring algorithm, merging logic |
 | `consensus-call-pattern.md` | Stages 4 and 5 consensus — shared model resolution, multi-step execution, unanimity check |
+| `research-mcp-reference.md` | Dispatching Stage 2 with research MCP available — tool selection decision tree, query patterns, cost management, anti-patterns |
 
 ## File Sizes
 
@@ -25,7 +26,7 @@
 | `orchestrator-loop.md` | ~460 | Dispatch loop, variable defaults with precedence, quality gates, reflexion with persistence, compaction + digest template |
 | `recovery-migration.md` | ~65 | Crash recovery procedures, v1→v2 state migration (loaded on-demand) |
 | `stage-1-setup.md` | ~300 | Inline setup: init, workspace, mode selection |
-| `stage-2-research.md` | ~185 | Research coordinator: agenda + synthesis |
+| `stage-2-research.md` | ~335 | Research coordinator: agenda + auto-research + synthesis |
 | `stage-3-analysis-questions.md` | ~470 | Analysis + decomposition (8 sections) + question generation (largest) |
 | `stage-4-response-analysis.md` | ~243 | Response parsing + gap analysis (consensus via shared pattern) |
 | `stage-5-validation-generation.md` | ~243 | Validation + PRD generation + chain-of-thought scoring (consensus via shared pattern) |
@@ -35,6 +36,7 @@
 | `config-reference.md` | ~220 | PAL parameter reference, scoring thresholds |
 | `option-generation-reference.md` | ~300 | Question/option format specification |
 | `consensus-call-pattern.md` | ~90 | Shared PAL Consensus call workflow (model resolution, execution, unanimity) |
+| `research-mcp-reference.md` | ~200 | Research MCP decision tree, query patterns, anti-patterns, cost management |
 
 ## Cross-References
 
@@ -61,6 +63,12 @@
 - `orchestrator-loop.md` references all 6 stage files in dispatch order
 - `orchestrator-loop.md` references `recovery-migration.md` for crash recovery and state migration
 - `orchestrator-loop.md` references `checkpoint-protocol.md` for state update patterns
+
+### Research MCP References
+
+- `stage-2-research.md` references `research-mcp-reference.md` for auto-research execution patterns and query optimization
+- `research-mcp-reference.md` references `config/requirements-config.yaml` for Tavily parameter settings and token budgets
+- `error-handling.md` references research MCP failure recovery procedures used by `stage-2-research.md`
 
 ### External References
 

@@ -317,7 +317,7 @@ Task(subagent_type="requirements-product-strategy", prompt="
 FEATURE_DIR: requirements
 DRAFT_CONTENT: {contents of requirements/working/draft-copy.md}
 PRD_MODE: {NEW|EXTEND}
-RESEARCH_SYNTHESIS: {contents of research-synthesis.md if exists}
+RESEARCH_SYNTHESIS: {contents of research-synthesis.md if exists, otherwise 'No research synthesis available'}
 
 ===============================================================
 SECTION DECOMPOSITION (generate questions at sub-problem level)
@@ -339,7 +339,11 @@ CRITICAL INSTRUCTIONS:
 2. Use ThinkDeep DIVERGENT insights to identify questions needing multiple options
 3. When ThinkDeep flags a risk, ensure at least one option mitigates it
 4. When ThinkDeep identifies a market gap, ensure options address it
-5. Priority assignment:
+5. If RESEARCH_SYNTHESIS contains auto-research data (marked 'Method: MCP Auto-Research'):
+   a. Reference specific data points (market size, competitor names, pricing) in option pros/cons
+   b. Flag where ThinkDeep insights contradict auto-research findings
+   c. Include source URLs in question context so user can verify claims
+6. Priority assignment:
    - CRITICAL: Flagged by all 3 ThinkDeep perspectives
    - HIGH: Flagged by 2+ perspectives or model divergence
    - MEDIUM: Flagged by 1 perspective

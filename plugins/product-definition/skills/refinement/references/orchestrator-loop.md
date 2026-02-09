@@ -43,7 +43,7 @@ For stages 2-6, dispatch a coordinator subagent using the **per-stage dispatch p
 
 | Stage | Shared Refs | Config YAML | Extra Refs |
 |-------|-------------|-------------|------------|
-| 2 (Research) | checkpoint-protocol, error-handling | No | — |
+| 2 (Research) | checkpoint-protocol, error-handling | No | research-mcp-reference (if research MCP available) |
 | 3 (Analysis) | checkpoint-protocol, error-handling | Yes | option-generation-reference |
 | 4 (Response) | checkpoint-protocol, error-handling | Yes | consensus-call-pattern |
 | 5 (Validation) | checkpoint-protocol, error-handling | Yes | consensus-call-pattern |
@@ -66,6 +66,7 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{STAGE_FILE}
 - PAL available: {PAL_AVAILABLE}
 - Sequential Thinking available: {ST_AVAILABLE}
 - Entry type: {ENTRY_TYPE}  # "first_entry" or "re_entry_after_user_input"
+- Research MCP available: {RESEARCH_MCP_AVAILABLE}  # true if Tavily detected
 
 {IF REFLECTION_CONTEXT is non-empty (Stage 3 re-dispatch after RED validation):}
 ## Reflection from Previous Round
@@ -124,6 +125,7 @@ Every dispatch variable MUST have a defined fallback to prevent malformed coordi
 | `ROUND_NUMBER` | `1` | First invocation default |
 | `ANALYSIS_MODE` | `"standard"` | Safest mode — no MCP dependency |
 | `PRD_MODE` | `"NEW"` | Default to new PRD creation |
+| `RESEARCH_MCP_AVAILABLE` | `false` | Assume unavailable; Stage 2 falls back to manual research |
 
 **Precedence rule:** State file values always override defaults. Apply defaults only when the variable has no value in state AND was not explicitly set by a prior stage.
 

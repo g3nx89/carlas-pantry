@@ -98,6 +98,9 @@
 | Empty `findings` | Model has no context | Populate with discoveries — NEVER empty |
 | No PRD disclaimer in `problem_context` | Model requests source files | Add "This is BUSINESS/PRD ANALYSIS" |
 | Relative file paths | Tool error | MUST use absolute paths |
+| Using Tavily for library docs | Gets outdated tutorials, unofficial sources | Use Ref (`ref_search_documentation`) for tech docs |
+| Broad single-word Tavily queries | Shallow, irrelevant results | Use specific multi-word queries with year (see `research-mcp-reference.md`) |
+| Not filtering Tavily by relevance score | LLM processes junk content | Filter results with `score >= 0.5` before condensation |
 
 ---
 
@@ -215,6 +218,9 @@ Consensus shares multi-step workflow parameters with ThinkDeep (see "PAL Tool Qu
 | PAL unavailable | Standard, Rapid | No ThinkDeep, no Consensus |
 | ST unavailable | Complete*, Advanced, Standard, Rapid | Internal reasoning replaces ST |
 | Both unavailable | Standard, Rapid | Maximum degradation |
+| Research MCP unavailable | All modes (unchanged) | No auto-research; manual research flow only |
+| Research MCP + PAL unavailable | Standard, Rapid | No auto-research + no ThinkDeep/Consensus |
 
 *Complete mode with ST unavailable uses internal reasoning but maintains MPA + PAL
+*Research MCP availability is orthogonal to analysis modes — auto-research enhances any mode
 
