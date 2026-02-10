@@ -1,54 +1,50 @@
 # Product Definition Plugin
 
-A Claude Code plugin for transforming rough product drafts into finalized, non-technical PRDs through iterative file-based Q&A.
+A Claude Code plugin for the full product definition lifecycle: PRD generation, technical specification, and UX narrative creation from Figma mockups.
 
 ## Overview
 
-This plugin provides an intelligent requirements refinement workflow that:
+This plugin provides three interconnected workflows:
 
-- **Transforms** rough product ideas into structured PRD documents
-- **Uses file-based Q&A** for offline, asynchronous user responses
-- **Provides 3+ options** per question with pros, cons, and recommendations
-- **Supports 4 analysis modes** from rapid single-agent to full multi-model consensus
-- **Extends existing PRDs** when detected (EXTEND mode)
-- **Degrades gracefully** when MCP tools are unavailable
+- **Requirements** (`/requirements`) - Transform rough product ideas into structured PRD documents through iterative file-based Q&A with multi-perspective analysis
+- **Specify** (`/specify`) - Create detailed technical specifications with acceptance criteria, design briefs, and V-Model test strategies
+- **Narrate** (`/narrate`) - Generate UX/interaction narratives from Figma Desktop mockups, producing developer-ready handoff documents
+
+**Pipeline:** `requirements (PRD.md) → specify (spec.md) → narrate (UX-NARRATIVE.md)`
 
 ## Quick Start
 
 ```bash
-# 1. Place your draft in requirements/draft/
-# 2. Run the workflow
+# Requirements: place your draft in requirements/draft/, then:
 /product-definition:requirements
 
-# 3. Answer questions in requirements/working/QUESTIONS-001.md
-# 4. Re-run to continue
-/product-definition:requirements
+# Specification: after PRD is ready:
+/product-definition:specify
+
+# Design Narration: with Figma Desktop open:
+/product-definition:narrate
 ```
 
 ## Installation
+
+### From Marketplace
+
+```bash
+/plugin install product-definition@carlas-pantry
+```
 
 ### From Local Directory
 
 ```bash
 claude plugins add /path/to/product-definition
-```
-
-### Enable the Plugin
-
-```bash
 claude plugins enable product-definition
 ```
 
-## Command
+## Commands
 
 ### `/product-definition:requirements`
 
-The main command that orchestrates the entire PRD refinement workflow.
-
-**Usage:**
-```bash
-/product-definition:requirements
-```
+Orchestrates a 12-phase PRD refinement workflow.
 
 **Workflow:**
 1. **Initialization** - Detects draft, creates workspace
@@ -60,7 +56,7 @@ The main command that orchestrates the entire PRD refinement workflow.
 7. **PRD Validation** - Multi-model consensus on readiness
 8. **PRD Generation** - Creates finalized non-technical PRD
 
-## Analysis Modes
+**Analysis Modes:**
 
 | Mode | Description | MCP Required | Cost/Round |
 |------|-------------|--------------|------------|
@@ -69,11 +65,52 @@ The main command that orchestrates the entire PRD refinement workflow.
 | **Standard** | MPA (3 agents) only | No | $0.15-0.25 |
 | **Rapid** | Single agent | No | $0.05-0.10 |
 
-When MCP tools are unavailable, the plugin automatically limits available modes to Standard and Rapid.
+### `/product-definition:specify`
 
-## Directory Structure
+Creates detailed technical specifications from a completed PRD.
 
-The plugin creates and uses the following structure in your project:
+**Features:**
+- Acceptance criteria generation per feature
+- Design brief creation with Figma capture integration
+- V-Model test strategy (inner/outer loop classification)
+- Specification completeness checklists (general + mobile)
+
+### `/product-definition:narrate`
+
+Transforms Figma Desktop mockups into detailed UX/interaction narrative documents.
+
+**5-Stage Workflow:**
+
+| Stage | Name | Description |
+|-------|------|-------------|
+| 1 | Setup | Figma MCP check, optional context doc, state init/resume |
+| 2 | Screen Processing | Per-screen analysis with self-critique, Q&A, refinement loop |
+| 3 | Coherence Check | Cross-screen consistency, pattern extraction, mermaid diagrams |
+| 4 | Validation | MPA (3 agents) + PAL Consensus (multi-step with stance steering) + synthesis |
+| 5 | Output | Assemble UX-NARRATIVE.md from screens + patterns + validation |
+
+**Key features:**
+- One screen at a time, user-driven order
+- Self-critique rubric with 5 dimensions scores each screen
+- Stall detection prevents infinite refinement loops
+- Mutable decisions with full audit trail
+- PAL Consensus with stance steering (for/against/neutral) for validation
+- Graceful degradation when PAL or Figma MCP unavailable
+
+## Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `design-narration` | UX narrative generation from Figma mockups (v1.4.0) |
+| `feature-specify` | Technical specification generation (v1.0.0) |
+| `refinement` | PRD refinement orchestration |
+| `sadd-orchestrator` | Subagent-driven development patterns |
+| `specify-clarification` | Specification clarification workflows |
+| `specify-figma-capture` | Figma design capture for specifications |
+
+## Directory Structures
+
+### Requirements Workspace
 
 ```
 requirements/
@@ -83,120 +120,106 @@ requirements/
 │   ├── QUESTIONS-001.md
 │   └── QUESTIONS-002.md
 ├── research/                 # Optional research outputs
-│   ├── questions/
-│   └── reports/
 ├── PRD.md                    # Final output
 ├── decision-log.md           # Question → PRD traceability
-└── .requirements-state.local.md  # Workflow state (do not edit)
+└── .requirements-state.local.md
 ```
 
-## Draft Format
+### Design Narration Workspace
 
-Place your draft in `requirements/draft/` using this structure:
-
-```markdown
-# Product Draft: [Product Name]
-
-## Part 1: Essential Information
-**Product Name:** [Name]
-**One-liner:** [Single sentence describing the product]
-**Target User:** [Who is this for?]
-**Core Problem:** [What problem does it solve?]
-
-## Part 2: Product Definition
-**What this IS:**
-- [Core capability 1]
-- [Core capability 2]
-
-**What this is NOT:**
-- [Explicit exclusion 1]
-- [Explicit exclusion 2]
-
-## Part 3: Additional Details
-[Any other context, inspiration, constraints, etc.]
 ```
-
-## Answering Questions
-
-Questions are written to `requirements/working/QUESTIONS-NNN.md` with this format:
-
-```markdown
-### Q-001: Primary Target Audience
-
-**Question:** Who is the primary user persona for this product?
-
-**Multi-Perspective Analysis:**
-- Product Strategy: [insight]
-- User Experience: [insight]
-- Business Ops: [insight]
-
-| # | Answer | Pro | Con | Recommendation |
-|---|--------|-----|-----|----------------|
-| A | **Young professionals** | Large market | Price sensitive | Recommended |
-| B | Small business owners | Higher value | Smaller market | |
-| C | Enterprise teams | High revenue | Long sales cycle | |
-
-**Your choice:**
-- [x] A. Young professionals (Recommended)
-- [ ] B. Small business owners
-- [ ] C. Enterprise teams
-- [ ] D. Other: _________________
+design-narration/
+├── screens/                  # Per-screen narratives
+│   └── {nodeId}-{name}.md
+├── figma/                    # Figma context/screenshots
+├── validation/               # MPA + synthesis outputs
+│   ├── mpa-implementability.md
+│   ├── mpa-ux-completeness.md
+│   ├── mpa-edge-cases.md
+│   └── synthesis.md
+├── coherence-report.md       # Cross-screen consistency
+├── UX-NARRATIVE.md           # Final output
+└── .narration-state.local.md
 ```
-
-Mark your choice with `[x]` and re-run the workflow.
 
 ## MCP Dependencies
 
-This plugin optionally uses:
+| MCP Server | Used By | Purpose | Fallback |
+|------------|---------|---------|----------|
+| `figma-desktop` | `/narrate` | Screen metadata, screenshots, design context | **Required** for narration |
+| `pal` | `/requirements`, `/narrate` | Multi-model consensus, ThinkDeep analysis | Single-model analysis |
+| `sequential-thinking` | `/requirements` | Deep structured analysis | Standard reasoning |
 
-| MCP Server | Purpose | Fallback |
-|------------|---------|----------|
-| `sequential-thinking` | Deep structured analysis | Standard reasoning |
-| `pal` | Multi-model consensus | Single-model analysis |
-
-If these tools are unavailable:
-- Complete and Advanced modes become unavailable
-- Standard and Rapid modes continue to work
-- User is notified of degraded capability
+If PAL tools are unavailable:
+- `/requirements`: Complete and Advanced modes degrade to Standard
+- `/narrate`: Stage 4 validation runs MPA-only (PAL consensus skipped)
+- User is notified of degraded capability in both cases
 
 ## Plugin Components
 
-### Agents (11)
+### Agents (23)
 
-| Agent | Purpose | Model |
-|-------|---------|-------|
-| `requirements-product-strategy` | Product/market questions | sonnet |
-| `requirements-user-experience` | UX/persona questions | sonnet |
-| `requirements-business-ops` | Operations questions | sonnet |
-| `requirements-question-synthesis` | Merge & deduplicate | opus |
-| `requirements-prd-generator` | PRD document creation | opus |
-| `research-discovery-business` | Market research questions | sonnet |
-| `research-discovery-technical` | Viability research | sonnet |
-| `research-discovery-ux` | User research questions | sonnet |
-| `research-question-synthesis` | Research agenda synthesis | opus |
-| `question-classifier` | Route question types | haiku |
-| `question-synthesis` | Generic question synthesis | opus |
+| Agent | Command/Skill | Purpose | Model |
+|-------|--------------|---------|-------|
+| `requirements-product-strategy` | requirements | Product/market questions | sonnet |
+| `requirements-user-experience` | requirements | UX/persona questions | sonnet |
+| `requirements-business-ops` | requirements | Operations questions | sonnet |
+| `requirements-question-synthesis` | requirements | Merge & deduplicate | opus |
+| `requirements-prd-generator` | requirements | PRD document creation | opus |
+| `research-discovery-business` | requirements | Market research questions | sonnet |
+| `research-discovery-technical` | requirements | Viability research | sonnet |
+| `research-discovery-ux` | requirements | User research questions | sonnet |
+| `research-question-synthesis` | requirements | Research agenda synthesis | opus |
+| `question-classifier` | requirements | Route question types | haiku |
+| `question-synthesis` | requirements | Generic question synthesis | opus |
+| `business-analyst` | specify | Specification generation | sonnet |
+| `design-brief-generator` | specify | Design brief creation | sonnet |
+| `gap-analyzer` | specify | Specification gap analysis | sonnet |
+| `gate-judge` | specify | Quality gate evaluation | sonnet |
+| `qa-strategist` | specify | V-Model test strategy | sonnet |
+| `stakeholder-synthesis` | specify | Stakeholder input synthesis | opus |
+| `narration-screen-analyzer` | narrate | Per-screen narrative + self-critique | sonnet |
+| `narration-coherence-auditor` | narrate | Cross-screen consistency | sonnet |
+| `narration-developer-implementability` | narrate | MPA: implementability audit | sonnet |
+| `narration-ux-completeness` | narrate | MPA: journey/state coverage | sonnet |
+| `narration-edge-case-auditor` | narrate | MPA: unusual conditions | sonnet |
+| `narration-validation-synthesis` | narrate | Merge MPA + PAL, prioritize fixes | opus |
 
-### Templates (7)
+### Templates (16)
 
-- `draft-template.md` - User input format
-- `prd-template.md` - PRD output structure
-- `questions-template.md` - Question file format
-- `decision-log-template.md` - Traceability log
-- `research-synthesis-template.md` - Research findings
-- `research-report-template.md` - Individual reports
-- `.requirements-state-template.local.md` - Workflow state
+| Template | Purpose |
+|----------|---------|
+| `draft-template.md` | User input format for requirements |
+| `prd-template.md` | PRD output structure |
+| `questions-template.md` | Question file format |
+| `decision-log-template.md` | Traceability log |
+| `research-synthesis-template.md` | Research findings |
+| `research-report-template.md` | Individual reports |
+| `.requirements-state-template.local.md` | Requirements workflow state |
+| `spec-template.md` | Technical specification structure |
+| `spec-checklist.md` | Specification completeness checklist |
+| `spec-checklist-mobile.md` | Mobile-specific checklist |
+| `design-brief-template.md` | Design brief structure |
+| `design-feedback-template.md` | Design feedback format |
+| `figma_context-template.md` | Figma context capture |
+| `test-plan-template.md` | V-Model test plan |
+| `screen-narrative-template.md` | Per-screen narrative structure |
+| `ux-narrative-template.md` | Final UX narrative document |
 
 ## Configuration
 
-See `config/requirements-config.yaml` for full configuration options including:
+| Config File | Command/Skill |
+|-------------|--------------|
+| `config/requirements-config.yaml` | `/requirements` |
+| `config/specify-config.yaml` | `/specify` |
+| `config/narration-config.yaml` | `/narrate`, design-narration skill |
 
-- Analysis mode parameters
-- MPA agent settings
-- PAL ThinkDeep/Consensus configuration
-- Question generation rules
-- PRD validation thresholds
-- Git commit suggestions
+Key configuration areas:
+- Analysis mode parameters and MPA agent settings
+- PAL ThinkDeep/Consensus model aliases and stance steering
+- Question generation rules and PRD validation thresholds
+- Self-critique thresholds and stall detection parameters
+- Token budgets for context management
 
 ## EXTEND Mode
 
@@ -213,25 +236,35 @@ When the workflow detects an existing `PRD.md`:
 
 ### "Lock file exists" error
 ```bash
+# For requirements:
 rm requirements/.requirements-lock
+# For design narration:
+rm design-narration/.narration-lock
 ```
 
 ### State file corruption
 ```bash
+# For requirements:
 rm requirements/.requirements-state.local.md
-/product-definition:requirements  # Reinitializes
+# For design narration:
+rm design-narration/.narration-state.local.md
+# Then re-run the command to reinitialize
 ```
 
 ### MCP tools unavailable
-- Plugin automatically degrades to Standard/Rapid modes
-- User is notified of limitation
+- Plugin automatically degrades — PAL consensus skipped, modes limited
+- User is notified of degraded capability
 - No manual intervention required
+
+### Figma Desktop not detected
+- Ensure Figma Desktop is open with the design file
+- The Figma MCP plugin must be installed and running
+- `/narrate` requires Figma Desktop MCP — it cannot run without it
 
 ## Version
 
-- **Plugin Version:** 1.0.0
+- **Plugin Version:** 2.0.0
 - **Schema Version:** 1
-- **Based on:** `/sdd:00-requirements` from Context Engineering Kit
 
 ## License
 

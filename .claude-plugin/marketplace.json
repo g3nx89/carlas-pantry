@@ -13,8 +13,8 @@
     {
       "name": "product-definition",
       "source": "./plugins/product-definition",
-      "description": "Transform rough product drafts into finalized PRDs with multi-perspective analysis, Figma integration, PAL consensus validation, and V-Model test strategy generation",
-      "version": "1.3.0",
+      "description": "Transform rough product drafts into finalized PRDs, create detailed technical specifications, and generate UX/interaction narratives from Figma mockups — with multi-perspective analysis, PAL consensus validation, and V-Model test strategies",
+      "version": "2.0.0",
       "author": {
         "name": "Alessandro Fato"
       },
@@ -29,7 +29,10 @@
         "figma",
         "pal-consensus",
         "v-model",
-        "test-strategy"
+        "test-strategy",
+        "ux-narrative",
+        "design-narration",
+        "figma-narrative"
       ],
       "category": "product-development",
       "license": "MIT"
