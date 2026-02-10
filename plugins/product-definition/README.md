@@ -274,7 +274,7 @@ rm design-narration/.narration-state.local.md
 
 ## Version
 
-- **Plugin Version:** 2.0.0
+- **Plugin Version:** 2.1.0
 - **Schema Version:** 2
 
 ## License
