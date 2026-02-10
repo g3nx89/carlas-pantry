@@ -1,6 +1,11 @@
 ---
 name: narration-coherence-auditor
-description: Audits cross-screen consistency in UX narratives, extracts shared patterns, generates mermaid diagrams
+description: >-
+  Dispatched during Stage 3 of design-narration skill after all screens are narrated.
+  Invoked for: cross-screen consistency audit across 5 checks (naming, interaction,
+  navigation, state coverage, terminology), shared pattern extraction, and mermaid
+  diagram generation (navigation map, user journeys, state machines). Supports
+  digest-first mode for large screen sets (12+ screens per config).
 model: sonnet
 color: blue
 tools:
@@ -39,8 +44,8 @@ Your prompt may include optional injected sections:
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `{SCREENS_DIR}` | string | Directory containing all screen narrative files |
-| `{SCREEN_FILES}` | array | List of screen narrative file paths to audit |
+| `{SCREENS_DIR}` | string | Directory path relative to working directory containing all screen narrative files (e.g., `design-narration/screens/`). Use for Glob operations when listing files. |
+| `{SCREEN_FILES}` | string[] | Newline-separated list of file paths relative to working directory. Each path points to a screen narrative markdown file (e.g., `design-narration/screens/42-1-login-screen.md`). Read each file using this exact path. |
 | `{PATTERNS_ACCUMULATED}` | object | Previously identified patterns (empty on first run) |
 
 ## Consistency Checks

@@ -1,6 +1,11 @@
 ---
 name: narration-validation-synthesis
-description: Synthesizes MPA and PAL Consensus findings into actionable narrative improvements
+description: >-
+  Dispatched during Stage 4 of design-narration skill after MPA agents and PAL
+  Consensus complete. Merges and deduplicates findings from 3 MPA agents (developer-
+  implementability, ux-completeness, edge-case-auditor) plus optional PAL response.
+  Produces quality score (0-100) and ready/needs-revision recommendation. Final
+  quality gate before Stage 5 output assembly. Uses opus model for reasoning depth.
 model: opus
 color: blue
 tools:
@@ -66,6 +71,45 @@ Read all 3 MPA agent outputs and the PAL Consensus response. Build a unified fin
 3. Merge duplicates into a single finding, preserving the most detailed description and noting which agents flagged it
 4. Tag each finding with its source agents (e.g., `[implementability, edge-case]`)
 
+### Deduplication Calibration Examples
+
+**Duplicate (merge into single finding):**
+- Implementability: "Login screen — form validation behavior undefined for empty email field" (Blocking)
+- Edge-case: "Login screen — Data Extremes: empty email field submission behavior not documented" (Critical)
+- These describe the same gap (empty email validation). Merge with higher severity and tag both sources.
+
+**NOT duplicate (keep separate):**
+- Implementability: "Login screen — keyboard type not specified for email field" (Degraded)
+- Edge-case: "Login screen — Data Extremes: special characters (emoji) in email field not handled" (Important)
+- These describe different gaps about the same element. Keep as separate findings.
+
+### Partial MPA Input
+
+When fewer than 3 MPA outputs are available (due to agent failure):
+- Proceed with available outputs. Do NOT impute findings for the missing agent.
+- Note the missing perspective in the synthesis header: `"Based on {N}/3 MPA agents. Missing: {agent_name}."`
+- Append to the recommendation: `"(partial MPA — score may change with full validation)"`
+- Do NOT lower the quality score to compensate for missing input — score only what was evaluated.
+
+### Score Context — Agent Scales Differ
+
+MPA agents use different scoring systems. Do NOT compare raw scores across agents:
+
+| Agent | Scale | "Below threshold" meaning |
+|-------|-------|--------------------------|
+| developer-implementability | 1-5 per dimension | Score < 4 → generates implementation questions |
+| ux-completeness | 1-5 per journey | Score < 3 → undocumented journey |
+| edge-case-auditor | covered/total ratio per category | Coverage < 80% → gaps present |
+
+**Rule:** Use each agent's findings list (blockers, gaps, missing edge cases) as input for deduplication — not their numeric scores. Scores provide context within a single agent's output but are not comparable across agents.
+
+### Bias Check: Source Dominance
+
+After building the unified findings registry, verify that no single source agent contributes more than `validation.synthesis.source_dominance_max_pct`% of total findings (see config). If one agent dominates:
+- Re-examine whether its findings are genuinely distinct issues or whether the agent's exhaustive format (e.g., edge-case-auditor's 6-category grid) is producing low-value entries
+- Reclassify low-impact entries from the dominant agent as MINOR if they describe optional polish rather than real gaps
+- Note the dominance in the synthesis output header: `"Note: {agent_name} contributed {N}% of findings — re-examined for low-value entries."`
+
 ### Step 2: Prioritize by Impact
 
 Classify every deduplicated finding into one of three priority tiers:
@@ -73,6 +117,12 @@ Classify every deduplicated finding into one of three priority tiers:
 - **CRITICAL** — blocks implementation: a coding agent cannot build the screen without this information being resolved. Includes: missing interaction behaviors, undefined data sources, unspecified navigation targets, missing core error states
 - **IMPORTANT** — degrades UX quality: implementation is possible but the result will have gaps. Includes: missing edge case handling, incomplete accessibility documentation, undocumented empty states, inconsistent terminology
 - **MINOR** — optional polish: nice-to-have improvements that do not affect core functionality. Includes: additional edge case coverage, enhanced animation documentation, supplementary accessibility hints
+
+**Confidence integration:** MPA agents tag each finding with confidence (high/medium/low). Use confidence as follows:
+- When two findings are deduplicated, take the HIGHER confidence level
+- When a PAL consensus corroborates an MPA finding, elevate confidence by one tier (low → medium, medium → high)
+- When prioritizing findings within the SAME severity tier, sort by confidence (high first)
+- Do NOT use confidence to override severity — a low-confidence CRITICAL finding is still CRITICAL
 
 ### Step 3: Group by Screen
 
@@ -105,10 +155,12 @@ Calculate an overall quality score:
 - Subtract 1 per MINOR finding
 - Floor at 0
 
-Recommendation thresholds:
-- Score >= 80 and zero CRITICAL findings: **ready** — narratives can proceed to output
-- Score >= 60 or 1-2 CRITICAL findings: **needs-revision** — targeted fixes required, list specific screens
-- Score < 60 or 3+ CRITICAL findings: **needs-revision** — substantial rework required
+Recommendation thresholds (evaluate top-to-bottom, first match wins):
+
+1. Score >= 80 AND 0 CRITICAL findings → **ready** — narratives can proceed to output
+2. Score >= 60 AND 0 CRITICAL findings → **needs-revision** — targeted fixes for IMPORTANT/MINOR items, list specific screens
+3. Any CRITICAL findings (1+) → **needs-revision** — critical fixes required before output, list screens with CRITICAL findings
+4. Score < 60 AND 0 CRITICAL findings → **needs-revision** — substantial quality gaps across multiple dimensions
 
 ## Output Format
 

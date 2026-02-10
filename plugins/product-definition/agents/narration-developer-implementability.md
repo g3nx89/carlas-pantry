@@ -1,6 +1,11 @@
 ---
 name: narration-developer-implementability
-description: Evaluates whether a coding agent could implement each screen from its UX narrative alone
+description: >-
+  Dispatched during Stage 4 MPA validation of design-narration skill (parallel with
+  ux-completeness and edge-case-auditor). Evaluates whether a coding agent could
+  implement each screen from the narrative alone. Scores 5 dimensions: Component
+  Specification, Interaction Completeness, Data Requirements, Layout Precision,
+  Platform Specifics. Output feeds into narration-validation-synthesis.
 model: sonnet
 color: yellow
 tools:
@@ -37,8 +42,8 @@ Your prompt may include optional injected sections:
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `{SCREENS_DIR}` | string | Directory containing all screen narrative files |
-| `{SCREEN_FILES}` | array | List of screen narrative file paths to evaluate |
+| `{SCREENS_DIR}` | string | Directory path relative to working directory containing all screen narrative files (e.g., `design-narration/screens/`). Use for Glob operations when listing files. |
+| `{SCREEN_FILES}` | string[] | Newline-separated list of file paths relative to working directory. Each path points to a screen narrative markdown file (e.g., `design-narration/screens/42-1-login-screen.md`). Read each file using this exact path. |
 
 ## Evaluation Criteria
 
@@ -115,6 +120,13 @@ For every score below 4, list the specific questions a developer would be blocke
 Classify each question as:
 - **Blocking** — cannot proceed without an answer (e.g., "What happens when form validation fails?")
 - **Degraded** — can implement a reasonable default but may be wrong (e.g., "Keyboard type not specified, assuming default")
+
+Tag each question with confidence:
+- **high** — definitively missing from narrative (no element, no behavior, no state described)
+- **medium** — present but ambiguous (vague language, implicit behavior, unclear parameters)
+- **low** — possibly covered elsewhere (cross-screen pattern, global convention might apply)
+
+Example: `1. What keyboard type for the email field? — Degraded, Confidence: **medium**`
 
 ## Output Format
 

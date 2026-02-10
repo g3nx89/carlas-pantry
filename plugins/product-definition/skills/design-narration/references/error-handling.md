@@ -42,6 +42,18 @@ Append to the markdown body (below YAML frontmatter) of the state file:
 
 ---
 
+## Cross-Stage — Plugin Integrity
+
+These errors can occur in any stage when plugin reference files or config are needed.
+
+| Error | Severity | Action |
+|-------|----------|--------|
+| Plugin reference file unreadable (critique-rubric.md, screen-processing.md, etc.) | BLOCKING | STOP current stage. Report exact file path. Suggest: `claude plugins remove product-definition && claude plugins add <path>`. |
+| Config file missing or unparseable | FATAL | STOP workflow. Report parse error or missing file. |
+| Template file unreadable (ux-narrative-template.md, screen-narrative-template.md) | BLOCKING | STOP current stage. Report missing template path. Plugin reinstall required. |
+
+---
+
 ## Per-Stage Error Handling
 
 ### Stage 1 — Setup
@@ -57,6 +69,7 @@ Append to the markdown body (below YAML frontmatter) of the state file:
 
 | Error | Severity | Action |
 |-------|----------|--------|
+| Critique-rubric.md load failure in screen-analyzer | BLOCKING | STOP screen analysis. Do NOT proceed without self-critique — it drives all question generation. See Cross-Stage Plugin Integrity. |
 | Screen analyzer crash (no summary) | BLOCKING | Reconstruct minimal summary per recovery-protocol.md. Retry once. |
 | Figma selection unreadable | BLOCKING | AskUserQuestion: retry selection or skip screen. |
 | Screenshot capture failure | DEGRADED | Continue without screenshot. Note in narrative: "[Screenshot unavailable]". |

@@ -74,6 +74,31 @@ IF design-narration/.qa-digest.md exists:
         DELETE .qa-digest.md (will be regenerated on next compaction threshold)
 ```
 
+### Stage 2 Recovery: Partial Q&A State
+
+```
+FOR each screen WHERE status in ["questions_asked", "critiqued", "refined"]:
+    # Screen had Q&A in progress when session crashed
+    READ decisions_audit_trail entries WHERE screen == this screen
+    EXTRACT answered_question_ids from audit trail entries
+
+    READ summary file (screens/{nodeId}-{name}-summary.md)
+    EXTRACT questions list from summary
+
+    COMPUTE unanswered_questions = summary.questions WHERE id NOT IN answered_question_ids
+
+    IF unanswered_questions is empty:
+        # All questions were answered but refinement (2B) didn't run
+        SET screen.status = "questions_asked"
+        RESUME Stage 2 at 2B dispatch (refinement) with recorded answers from audit trail
+
+    IF unanswered_questions is non-empty:
+        # Partial Q&A — some answers already recorded
+        SET screen.status = "questions_asked"
+        RESUME Stage 2 Q&A mediation with ONLY unanswered_questions
+        NOTIFY user: "Recovered {ANSWERED_COUNT} prior answer(s) for '{SCREEN_NAME}'. Continuing with {REMAINING_COUNT} remaining question(s)."
+```
+
 ### Stage 3 Recovery: Incomplete Coherence
 
 ```

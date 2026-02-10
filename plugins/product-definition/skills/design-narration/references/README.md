@@ -19,15 +19,15 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `setup-protocol.md` | ~165 | Stage 1: Config validation (v1.3.0 keys), Figma check, context doc, lock (with race condition note), state init/resume, first screen selection |
+| `setup-protocol.md` | ~175 | Stage 1: Config validation (v1.4.0 keys + cross-key validations), Figma check, context doc, lock (with race condition note), state init/resume, first screen selection |
 | `screen-processing.md` | ~400 | Per-screen loop: analysis dispatch (with token budgets), Q&A mediation, stall detection, refinement (with variable sourcing), decision revision, sign-off, context management, session resume |
 | `coherence-protocol.md` | ~265 | Large screen set handling (digest-first), cross-screen auditor dispatch, inconsistency handling, mermaid diagrams (with validation checklist), pattern extraction |
-| `validation-protocol.md` | ~330 | MPA parallel dispatch (3 agents) with constraints and failure handling, post-MPA conflict verification, PAL Consensus, synthesis (with conflict table), validation gate |
+| `validation-protocol.md` | ~335 | MPA parallel dispatch (3 agents) with constraints and failure handling, post-MPA conflict verification, PAL Consensus (config-referenced models), synthesis (with randomized read order, conflict table), validation gate |
 | `critique-rubric.md` | ~280 | 5-dimension rubric, CoT reasoning protocol, calibration examples, failure modes, dimension-to-category mapping, self-consistency check |
-| `output-assembly.md` | ~115 | Stage 5: pre-validation gate (Required/Expected/Optional), compile patterns, order screens, append appendices, write output |
+| `output-assembly.md` | ~135 | Stage 5: completeness assessment (DRAFT/FINAL status), pre-validation gate (Required/Expected/Optional), compile patterns, order screens, append appendices, write output |
 | `state-schema.md` | ~190 | State file YAML schema, per-screen structure (with refinement_rounds, flag_reason), status transitions, decision audit trail, initialization template, schema migration stub |
-| `recovery-protocol.md` | ~160 | Crash detection per stage (including Stage 5), summary reconstruction, .qa-digest.md verification, state cleanup |
-| `error-handling.md` | ~140 | Error taxonomy (FATAL/BLOCKING/DEGRADED/WARNING), logging format, per-stage error tables (with v1.3.0 features), PAL failure format |
+| `recovery-protocol.md` | ~185 | Crash detection per stage (including Stage 5), partial Q&A recovery (v1.4.0), summary reconstruction, .qa-digest.md verification, state cleanup |
+| `error-handling.md` | ~143 | Error taxonomy (FATAL/BLOCKING/DEGRADED/WARNING), cross-stage plugin integrity errors, logging format, per-stage error tables (with v1.4.0 features), PAL failure format |
 | `checkpoint-protocol.md` | ~130 | State update sequence, lock refresh, decision append, conditional patterns update, integrity verification, checkpoint triggers |
 
 ## Cross-References

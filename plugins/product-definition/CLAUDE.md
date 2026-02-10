@@ -205,3 +205,31 @@ When adding new capability (like V-Model testing), update BOTH checklists:
 - `templates/spec-checklist-mobile.md` - Mobile-specific with platform nuances
 
 Add items in logical groups with clear headers. Verify item counts after changes.
+
+### Design Narration v1.4.0 Patterns
+
+Three patterns introduced in the design-narration skill (v1.4.0) that are reusable across other skills:
+
+#### N/A Applicability Assessment
+
+**Problem**: Edge case auditing applied all categories to every screen, generating false positives (e.g., flagging "Network: Offline state" on a static settings screen with no network calls).
+
+**Solution**: Add an Applicability Assessment table to the agent that maps each audit category to a condition (e.g., "Network → applies when screen loads/submits data"). Categories that don't apply get `N/A` instead of `0/0`, and N/A categories are excluded from coverage percentage denominators.
+
+**Benefit**: Eliminates noise findings that waste user time during revision rounds. Coverage percentages reflect genuine gaps rather than inapplicable categories.
+
+#### Bias Mitigation via Randomized Read Order
+
+**Problem**: When a synthesis agent reads MPA outputs in a fixed order, the first-read agent's framing anchors the synthesis — findings from agent #1 get elevated priority regardless of merit.
+
+**Solution**: Instruct the synthesis coordinator to read MPA outputs in a randomized order per invocation. Pair with a `source_dominance_max_pct` config threshold (default 60%) that triggers re-examination when one agent contributes a disproportionate share of findings.
+
+**Applied to**: `validation-protocol.md` Step 4.4 (synthesis dispatch) and `narration-validation-synthesis.md` (Source Dominance bias check).
+
+#### Confidence Tagging Pattern
+
+**Problem**: MPA agents produce findings at varying levels of certainty. A "possibly covered by a global handler" finding shouldn't carry the same weight as a "definitively missing — no mention anywhere" finding.
+
+**Solution**: Each MPA agent tags every finding with a confidence level (high/medium/low). The synthesis agent uses confidence for: (1) deduplication — merged findings take the higher confidence, (2) PAL elevation — PAL corroboration bumps confidence one tier, (3) intra-severity sorting — high-confidence findings surface first within each priority tier. Confidence never overrides severity — a low-confidence CRITICAL finding remains CRITICAL.
+
+**Applied to**: `narration-edge-case-auditor.md`, `narration-developer-implementability.md`, `narration-ux-completeness.md` (producers), and `narration-validation-synthesis.md` (consumer).

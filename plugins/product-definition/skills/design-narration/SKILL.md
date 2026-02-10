@@ -11,7 +11,7 @@ description: >-
   Produces UX-NARRATIVE.md with per-screen purpose, elements, behaviors,
   states, navigation, and animations — filling the gaps that static
   mockups cannot communicate.
-version: 1.3.0
+version: 1.4.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__pal__consensus"]
 ---
 

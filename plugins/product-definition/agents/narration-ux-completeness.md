@@ -1,6 +1,11 @@
 ---
 name: narration-ux-completeness
-description: Evaluates UX journey completeness across all screen narratives
+description: >-
+  Dispatched during Stage 4 MPA validation of design-narration skill (parallel with
+  developer-implementability and edge-case-auditor). Evaluates journey completeness
+  across all screen narratives — happy paths, error paths, empty states, onboarding
+  flows, and edge case states. Classifies gaps by severity. Output feeds into
+  narration-validation-synthesis.
 model: sonnet
 color: yellow
 tools:
@@ -37,8 +42,8 @@ Your prompt may include optional injected sections:
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `{SCREENS_DIR}` | string | Directory containing all screen narrative files |
-| `{SCREEN_FILES}` | array | List of screen narrative file paths to evaluate |
+| `{SCREENS_DIR}` | string | Directory path relative to working directory containing all screen narrative files (e.g., `design-narration/screens/`). Use for Glob operations when listing files. |
+| `{SCREEN_FILES}` | string[] | Newline-separated list of file paths relative to working directory. Each path points to a screen narrative markdown file (e.g., `design-narration/screens/42-1-login-screen.md`). Read each file using this exact path. |
 
 ## Evaluation Criteria
 
@@ -114,6 +119,11 @@ Severity classification:
 - **Critical** — core functionality that users expect to work (e.g., account recovery)
 - **Important** — secondary flows that affect retention (e.g., notification preferences)
 - **Nice-to-have** — enhancement flows that improve experience (e.g., sharing content)
+
+Tag each gap with confidence:
+- **high** — definitively missing (no screen, no state, no flow describes this journey step)
+- **medium** — present but ambiguous (vague navigation, implicit transition, unclear entry/exit)
+- **low** — possibly covered elsewhere (cross-screen pattern, shared component might handle this)
 
 ## Gap List
 

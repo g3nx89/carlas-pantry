@@ -1,6 +1,11 @@
 ---
 name: narration-screen-analyzer
-description: Analyzes Figma Desktop mockups to generate detailed UX/interaction narratives with self-critique
+description: >-
+  Dispatched during Stage 2 of design-narration skill to analyze a single Figma screen.
+  Invoked for: initial screen analysis (2A), refinement after user Q&A (2B),
+  re-analysis after decision revision. Captures all visible elements via Figma MCP,
+  generates UX narrative per screen template, runs 5-dimension self-critique using
+  critique-rubric.md, and produces targeted maieutic questions for gaps.
 model: sonnet
 color: green
 tools:
@@ -154,7 +159,7 @@ Map weak dimensions (scoring 1-2) to question categories. For each weak dimensio
 3. Provide 3-5 answer options with the first option marked as **Recommended**
 4. Include "Let's discuss this" as the last option for every question
 
-Batch questions for `AskUserQuestion` delivery — maximum 4 questions per batch. No limit on total questions across batches; generate as many as needed to cover all weak dimensions.
+Batch questions for `AskUserQuestion` delivery — maximum per batch is set by `maieutic_questions.max_per_batch` in config. No limit on total questions across batches; generate as many as needed to cover all weak dimensions.
 
 Format each question:
 

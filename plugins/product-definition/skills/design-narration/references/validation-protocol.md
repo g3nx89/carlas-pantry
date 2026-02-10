@@ -178,7 +178,7 @@ IF PAL_AVAILABLE:
         Rate overall readiness: READY / NEEDS_REVISION / NOT_READY
         List any specific gaps or ambiguities found.",
 
-        models: ["openai/chatgpt-5.2", "google/gemini-3-pro", "x-ai/grok-4"],
+        models: [per validation.pal_consensus.models in narration-config.yaml],
         format: "structured"
     )
 
@@ -205,7 +205,8 @@ You MUST write the synthesis report upon completion.
 
 Read and execute: @$CLAUDE_PLUGIN_ROOT/agents/narration-validation-synthesis.md
 
-## Input
+## Input — Read in randomized order
+Read the following MPA outputs in a RANDOM order (vary per invocation — do not always start with implementability):
 - MPA Implementability: design-narration/validation/mpa-implementability.md
 - MPA UX Completeness: design-narration/validation/mpa-ux-completeness.md
 - MPA Edge Cases: design-narration/validation/mpa-edge-cases.md

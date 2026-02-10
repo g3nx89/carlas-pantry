@@ -46,8 +46,18 @@ VALIDATE the following keys exist and have valid types:
 | coherence.max_screens_per_dispatch | integer | >= 2 |
 | validation.pal_consensus.minimum_models | integer | >= 1 |
 | session_resume.max_digest_lines | integer | >= 10 |
+| session_resume.per_screen_summary_max_lines | integer | >= 1 |
+| session_resume.screen_summarization_threshold | integer | >= 2 |
+| state.schema_version | integer | >= 1 |
+| coherence.per_screen_digest_lines | integer | >= 1 |
+| screen_narrative.target_lines | integer | >= 20 |
+| screen_narrative.max_lines | integer | > screen_narrative.target_lines |
 
-IF any key is missing or has an invalid value:
+CROSS-KEY VALIDATIONS (after individual key checks):
+- screen_narrative.max_lines > screen_narrative.target_lines (hard cap must exceed target)
+- self_critique.thresholds.good.min > self_critique.thresholds.acceptable.min (good must be stricter)
+
+IF any key is missing, has an invalid value, or a cross-key validation fails:
     STOP workflow.
     NOTIFY user: "Config validation failed: {key} is {missing|invalid}. Check narration-config.yaml."
 ```

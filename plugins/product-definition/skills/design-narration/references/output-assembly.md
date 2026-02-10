@@ -42,6 +42,31 @@ IF any EXPECTED input missing:
 
 ---
 
+## Step 5.0b: Completeness Assessment
+
+Determine the document status before assembly:
+
+```
+SET DOCUMENT_STATUS = "FINAL"  # default optimistic
+
+IF any screen in state has flagged_for_review == true:
+    SET DOCUMENT_STATUS = "DRAFT — {N} screen(s) flagged for review"
+
+IF coherence-report.md is missing AND screens_completed >= 2:
+    SET DOCUMENT_STATUS = "DRAFT — coherence check not completed"
+
+IF validation/synthesis.md is missing:
+    SET DOCUMENT_STATUS = "DRAFT — validation not completed"
+
+# FINAL only when all quality gates passed
+IF all screens signed_off AND coherence.status == "completed" AND validation.status == "completed":
+    SET DOCUMENT_STATUS = "FINAL"
+```
+
+Insert `{{DOCUMENT_STATUS}}` into the template header. Downstream consumers can check this field to distinguish complete narratives from partial ones.
+
+---
+
 ## Step 5.1: Compile Global Patterns
 
 From state file `patterns` section + coherence report:

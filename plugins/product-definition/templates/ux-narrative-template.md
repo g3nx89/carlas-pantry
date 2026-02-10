@@ -1,5 +1,6 @@
 # UX Narrative: {{PRODUCT_NAME}}
 
+**Status:** {{DOCUMENT_STATUS}}
 **Version:** {{VERSION}}
 **Generated:** {{DATE}}
 **Screens:** {{SCREEN_COUNT}}

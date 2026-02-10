@@ -284,7 +284,9 @@ After all questions resolved and critique score is satisfactory:
 
 ```
 PRESENT via AskUserQuestion:
-    question: "Screen '{SCREEN_NAME}' narrative complete.
+    question: "**Progress: {COMPLETED_COUNT} screen(s) completed.**
+
+    Screen '{SCREEN_NAME}' narrative complete.
     Score: {TOTAL}/20 (C:{C}, I:{I}, S:{S}, N:{N}, A:{A})
     Proceed?"
 
@@ -307,7 +309,9 @@ IF "Flag for review":
 
 ```
 PRESENT via AskUserQuestion:
-    question: "Select the next screen to analyze in Figma Desktop, then confirm.
+    question: "**{COMPLETED_COUNT} screen(s) completed so far.**
+
+    Select the next screen to analyze in Figma Desktop, then confirm.
     Or indicate that all screens are done."
 
     options:

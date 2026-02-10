@@ -1,7 +1,7 @@
 # Design Narration Configuration
 # Plugin: product-definition | Skill: design-narration
 
-version: "1.3.0"
+version: "1.4.0"
 last_updated: "2026-02-10"
 
 # =============================================================================
@@ -192,6 +192,8 @@ validation:
     enabled: true
     graceful_degradation: true  # Continue without PAL if MCP unavailable
     minimum_models: 2           # Proceed if at least 2 of 3 models respond
+    # Model identifiers are configurable placeholders. Update to match your PAL MCP
+    # configuration. The skill requires at minimum 2 functioning model endpoints.
     models:
       - "openai/chatgpt-5.2"
       - "google/gemini-3-pro"
@@ -199,6 +201,7 @@ validation:
   synthesis:
     agent: "narration-validation-synthesis"
     model: "opus"
+    source_dominance_max_pct: 60  # Max % of findings from a single MPA agent before bias check triggers
 
 # =============================================================================
 # MODEL ASSIGNMENTS
