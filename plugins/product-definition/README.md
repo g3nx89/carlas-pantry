@@ -105,7 +105,7 @@ Transforms Figma Desktop mockups into detailed UX/interaction narrative document
 
 | Skill | Purpose |
 |-------|---------|
-| `design-narration` | UX narrative generation from Figma mockups (v1.5.0) |
+| `design-narration` | UX narrative generation from Figma mockups (v1.6.0) |
 | `feature-specify` | Technical specification generation (v1.0.0) |
 | `refinement` | PRD refinement orchestration |
 | `sadd-orchestrator` | Subagent-driven development patterns |
@@ -164,7 +164,7 @@ If PAL tools are unavailable:
 
 ## Plugin Components
 
-### Agents (24)
+### Agents (25)
 
 | Agent | Command/Skill | Purpose | Model |
 |-------|--------------|---------|-------|
@@ -185,6 +185,7 @@ If PAL tools are unavailable:
 | `gate-judge` | specify | Quality gate evaluation | sonnet |
 | `qa-strategist` | specify | V-Model test strategy | sonnet |
 | `stakeholder-synthesis` | specify | Stakeholder input synthesis | opus |
+| `narration-figma-discovery` | narrate | Figma frame detection + batch page discovery with matching | haiku |
 | `narration-screen-analyzer` | narrate | Per-screen narrative + self-critique | sonnet |
 | `narration-question-consolidator` | narrate | Batch mode: cross-screen question dedup + conflict detection | sonnet |
 | `narration-coherence-auditor` | narrate | Cross-screen consistency | sonnet |
