@@ -1,8 +1,8 @@
 # Design Narration Configuration
 # Plugin: product-definition | Skill: design-narration
 
-version: "1.5.0"
-last_updated: "2026-02-10"
+version: "1.6.0"
+last_updated: "2026-02-11"
 
 # =============================================================================
 # DIRECTORY STRUCTURE (User's working directory - NOT plugin directory)
@@ -86,7 +86,7 @@ self_critique:
 # document AND selects a Figma page; system discovers all frames, analyzes them
 # sequentially, consolidates questions across screens, and pauses for offline answers.
 batch_mode:
-  enabled: true
+  # Note: batch mode is activated via --batch flag, not a config toggle
   screens_document: "screen-descriptions.md"     # Default filename in design-narration/ directory
   required_fields: ["name", "purpose", "elements", "navigation"]  # Fields that must be present per screen
   questions_soft_cap_per_cycle: 50                # Warn if consolidated questions exceed this; split into priority tiers
@@ -238,6 +238,8 @@ validation:
 # =============================================================================
 
 model_assignments:
+  haiku:
+    - "narration-figma-discovery"  # Figma frame detection and page discovery (mechanical extraction)
   sonnet:
     - "screen-analyzer"            # Per-screen narration generation
     - "coherence-auditor"          # Cross-screen consistency check

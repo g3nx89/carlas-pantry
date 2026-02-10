@@ -11,7 +11,7 @@ description: >-
   Produces UX-NARRATIVE.md with per-screen purpose, elements, behaviors,
   states, navigation, and animations — filling the gaps that static
   mockups cannot communicate.
-version: 1.5.0
+version: 1.6.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__pal__consensus"]
 ---
 
@@ -44,7 +44,10 @@ Transform Figma Desktop mockups into a detailed UX/interaction narrative documen
 $ARGUMENTS
 ```
 
-Consider user input before proceeding (if not empty).
+**Supported flags:**
+- `--batch` — Batch mode: process all screens from a Figma page in consolidated Q&A cycles
+- `--interactive` — Interactive mode: one screen at a time, user-driven order
+- No flag — Ask user to choose mode at startup (unless resuming, in which case use mode from state file)
 
 ---
 
@@ -111,11 +114,12 @@ Consider user input before proceeding (if not empty).
 
 Execute directly (no coordinator dispatch). Steps:
 
-1. **Figma MCP Check** — Verify `mcp__figma-desktop__get_metadata` available; STOP if not
-2. **Context Document** — Optionally collect PRD/brief; save to `design-narration/context-input.md`
-3. **Lock Acquisition** — Acquire `design-narration/.narration-lock`; handle stale locks
-4. **State Init or Resume** — Create new state (per `references/state-schema.md`) or resume with onboarding digest; run crash recovery if needed (per `references/recovery-protocol.md`)
-5. **First Screen Selection** — User selects screen in Figma; extract node_id via `get_metadata`
+1. **Config Validation** — Validate all required config keys exist with valid types
+2. **Figma MCP Check** — Verify `mcp__figma-desktop__get_metadata` available; STOP if not
+3. **Context Document** — Optionally collect PRD/brief; save to `design-narration/context-input.md`
+4. **Lock Acquisition** — Acquire `design-narration/.narration-lock`; handle stale locks
+5. **State Init or Resume** — Create new state (per `references/state-schema.md`) or resume with onboarding digest; run crash recovery if needed (per `references/recovery-protocol.md`)
+6. **Workflow Mode & Screen Setup** — Resolve mode from flags (`--batch`/`--interactive`), ask user if no flag, then run mode-specific screen setup
 
 ---
 
@@ -215,6 +219,7 @@ Key principles:
 
 | Agent | Stage | Model | Purpose |
 |-------|-------|-------|---------|
+| `narration-figma-discovery` | 1, 2 | haiku | Figma frame detection (interactive) and page discovery + matching (batch) |
 | `narration-screen-analyzer` | 2, 2-BATCH | sonnet | Per-screen narrative, self-critique, questions |
 | `narration-question-consolidator` | 2-BATCH | sonnet | Cross-screen question dedup, conflict detection, grouping |
 | `narration-coherence-auditor` | 3 | sonnet | Cross-screen consistency, mermaid diagrams |
