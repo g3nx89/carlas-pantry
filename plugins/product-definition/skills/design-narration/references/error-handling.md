@@ -109,19 +109,35 @@ These errors can occur in any stage when plugin reference files or config are ne
 
 ## PAL Failure Notification Format
 
-When a PAL model fails, the orchestrator logs:
+When a PAL model fails during the multi-step consensus workflow, the orchestrator logs:
 
 ```
 +-----------------------------------------------------------+
-| WARNING: PAL MODEL FAILURE                                 |
+| WARNING: PAL CONSENSUS STEP FAILURE                        |
 +-----------------------------------------------------------+
-| Model:     {MODEL_NAME}                                    |
+| Model:     {MODEL_ALIAS}                                   |
+| Stance:    {MODEL_STANCE}                                  |
 | Stage:     4 - Validation                                  |
-| Operation: consensus                                       |
+| Step:      {STEP_NUMBER} of {TOTAL_STEPS}                  |
+| Operation: consensus (multi-step)                          |
 | Error:     {ERROR_MESSAGE}                                 |
 |                                                            |
-| Remaining models: {COUNT} of {TOTAL}                       |
-| Minimum required: 2 (per validation.pal_consensus config)  |
+| Models responded: {RESPONDED} of {TOTAL_MODELS}            |
+| Minimum required: {MIN} (per validation.pal_consensus)     |
+| Continuation ID: {CONTINUATION_ID or "not yet assigned"}   |
++-----------------------------------------------------------+
+```
+
+When PAL is entirely unavailable (not just a single model failure):
+
+```
++-----------------------------------------------------------+
+| INFO: PAL CONSENSUS SKIPPED                                |
++-----------------------------------------------------------+
+| Stage:     4 - Validation                                  |
+| Reason:    PAL MCP tools unavailable                       |
+| Fallback:  MPA results only (no multi-model consensus)     |
+| Status:    validation.pal_status set to "skipped"          |
 +-----------------------------------------------------------+
 ```
 

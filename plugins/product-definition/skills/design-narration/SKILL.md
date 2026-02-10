@@ -152,7 +152,7 @@ Orchestrator presents each inconsistency to user for resolution. Updated screen 
    - `narration-ux-completeness`: All journeys and states covered?
    - `narration-edge-case-auditor`: Unusual conditions handled?
 
-2. **PAL Consensus** (models per `validation.pal_consensus.models` in config, graceful degradation if unavailable)
+2. **PAL Consensus** (multi-step workflow: analysis → model responses → synthesis; models with stance steering per `validation.pal_consensus.models` in config; graceful degradation if unavailable)
 
 3. **Synthesis**: `narration-validation-synthesis` merges findings
    - CRITICAL findings → presented to user via AskUserQuestion

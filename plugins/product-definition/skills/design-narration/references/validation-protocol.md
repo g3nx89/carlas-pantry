@@ -16,9 +16,10 @@ artifacts_written:
 ## CRITICAL RULES (must follow)
 
 1. **MPA agents run in parallel**: Dispatch all 3 via Task in a SINGLE message (parallel execution).
-2. **PAL Consensus requires minimum 2 models**: If fewer than 2 respond, mark as PARTIAL and notify user.
-3. **Graceful degradation**: If PAL unavailable, skip consensus (MPA results only). NOTIFY user.
-4. **User sees critical findings**: CRITICAL findings are presented via AskUserQuestion. IMPORTANT/MINOR are applied automatically.
+2. **PAL Consensus is multi-step**: Call sequentially (analysis → model responses → synthesis) with `continuation_id` chaining. NOT a single call.
+3. **PAL minimum 2 models with stance steering**: Models sourced from config with for/against/neutral stances. If fewer than 2 respond, mark as PARTIAL and notify user.
+4. **Graceful degradation**: If PAL unavailable, skip consensus (MPA results only). NOTIFY user.
+5. **User sees critical findings**: CRITICAL findings are presented via AskUserQuestion. IMPORTANT/MINOR are applied automatically.
 
 ---
 
@@ -162,29 +163,127 @@ IF conflict_flags is non-empty:
 
 ---
 
-## Step 4.2: PAL Consensus
+## Step 4.2: PAL Consensus (Multi-Step Workflow)
 
-After MPA agents complete, invoke PAL Consensus:
+After MPA agents complete, invoke PAL Consensus. The consensus tool is a **multi-step workflow** —
+it requires sequential calls (analysis → model responses → synthesis), NOT a single invocation.
+
+Models and stances are sourced from `validation.pal_consensus.models` in `narration-config.yaml`.
+Each config entry has a `model` field (PAL alias), a `stance` (for/against/neutral), and an optional `stance_prompt`.
 
 ```
+# PAL_AVAILABLE means: mcp__pal__consensus is callable AND
+#   validation.pal_consensus.enabled == true in narration-config.yaml
 IF PAL_AVAILABLE:
-    mcp__pal__consensus(
-        question: "Review the following UX narrative document for completeness and implementability.
-        Is this narrative sufficient for a coding agent to implement each screen
-        without additional questions?
 
-        [Include: list of screen names + per-screen critique scores + coherence check result]
+    # Collect absolute paths for screen narrative files
+    SET screen_files = [absolute paths to all files in design-narration/screens/]
 
-        Rate overall readiness: READY / NEEDS_REVISION / NOT_READY
-        List any specific gaps or ambiguities found.",
+    # Prepare context summary for the consensus prompt
+    SET context_summary = "
+        Screens: {LIST_OF_SCREEN_NAMES}
+        Per-screen critique scores: {SCORES_TABLE}
+        Coherence check result: {COHERENCE_STATUS}
+        MPA quality score: {MPA_QUALITY_SCORE}
+    "
 
-        models: [per validation.pal_consensus.models in narration-config.yaml],
-        format: "structured"
-    )
+    # Read models from config — each entry has model (PAL alias) + stance + optional stance_prompt
+    SET pal_models = validation.pal_consensus.models from narration-config.yaml
+    SET num_models = LENGTH(pal_models)
+    SET total_steps = num_models + 1  # 1 analysis + (N-1) intermediate model responses + 1 final synthesis
 
-    IF fewer than 2 models respond:
-        NOTIFY user: "PAL Consensus partial — only {N} model(s) responded."
+    # Build models array for the API — conditionally omit stance_prompt when null
+    SET models_array = []
+    FOR each entry in pal_models:
+        SET model_entry = {model: entry.model, stance: entry.stance}
+        IF entry.stance_prompt is not null:
+            model_entry.stance_prompt = entry.stance_prompt
+        APPEND model_entry to models_array
+
+    # ── Step 1: Orchestrator's independent analysis ──
+    TRY:
+        response_1 = mcp__pal__consensus(
+            step: "Evaluate UX narrative document readiness for developer handoff.
+                   Assess completeness, implementability, and ambiguity across all screens.
+                   " + context_summary,
+            step_number: 1,
+            total_steps: total_steps,
+            next_step_required: true,
+            findings: "MPA agents produced {N_MPA} outputs. Coherence: {COHERENCE_STATUS}.
+                       {SCREENS_COMPLETED} screens documented. Quality score: {SCORE}/100.",
+            models: models_array,
+            relevant_files: screen_files
+        )
+    CATCH:
+        # Step 1 failure means PAL is available but the call itself failed
+        LOG error per error-handling.md format (DEGRADED severity)
+        NOTIFY user: "PAL Consensus failed on initial analysis. Proceeding with MPA results only."
+        MARK validation.pal_status: "skipped"
+        SKIP to Step 4.3 (Synthesis)
+
+    STORE continuation_id FROM response_1
+    SET models_responded = 0
+
+    # ── Steps 2..N: Process each model response ──
+    # Note: step_number increments per call, but if a model fails, that step number
+    # is skipped. PAL tolerates non-contiguous step numbers within a continuation chain.
+    FOR i IN 2..num_models:
+        SET current_model = pal_models[i - 2]  # 0-indexed: step 2 = model[0], step 3 = model[1]
+        TRY:
+            response_i = mcp__pal__consensus(
+                step: "Process " + current_model.model + " (" + current_model.stance + ") response",
+                step_number: i,
+                total_steps: total_steps,
+                next_step_required: true,
+                findings: current_model.model + " (" + current_model.stance + ") finds: "
+                          + "{summary of model response from previous step}",
+                continuation_id: continuation_id
+            )
+            STORE continuation_id FROM response_i
+            INCREMENT models_responded
+        CATCH:
+            LOG error per error-handling.md format (DEGRADED severity, include step_number: i)
+            CONTINUE to next model
+
+    # ── Check minimum models threshold ──
+    IF models_responded < validation.pal_consensus.minimum_models:
+        NOTIFY user: "PAL Consensus partial — only {models_responded} model(s) responded
+                      (minimum: {minimum_models})."
         MARK validation.pal_status: "partial"
+        # Still run synthesis with available responses
+
+    # ── Final step: Synthesis (last model response + consensus synthesis) ──
+    TRY:
+        SET last_model = pal_models[num_models - 1]
+        final_response = mcp__pal__consensus(
+            step: "Process " + last_model.model + " (" + last_model.stance + ") response, "
+                  + "then synthesize all model perspectives into final readiness assessment. "
+                  + "Rate overall: READY / NEEDS_REVISION / NOT_READY. "
+                  + "List specific gaps or ambiguities found.",
+            step_number: total_steps,
+            total_steps: total_steps,
+            next_step_required: false,
+            findings: "Models responded: {models_responded}/{num_models}. "
+                      + last_model.model + " (" + last_model.stance + ") finds: "
+                      + "{summary of last model response}. "
+                      + "Synthesizing consensus on document readiness.",
+            continuation_id: continuation_id
+        )
+        INCREMENT models_responded  # Count the last model from synthesis step
+    CATCH:
+        LOG error per error-handling.md format (DEGRADED severity, step: synthesis)
+        # Synthesis failed — use partial results from intermediate steps
+        MARK validation.pal_status: "partial"
+
+    IF models_responded >= validation.pal_consensus.minimum_models:
+        MARK validation.pal_status: "completed"
+
+    STORE final_response for synthesis agent (Step 4.3)
+    STORE continuation_id for downstream reference
+
+ELSE IF mcp__pal__consensus is callable BUT validation.pal_consensus.enabled == false:
+    NOTIFY user: "PAL Consensus disabled via config. Validation based on MPA results only."
+    MARK validation.pal_status: "skipped"
 
 ELSE:
     NOTIFY user: "PAL tools unavailable. Validation based on MPA results only."
@@ -327,6 +426,7 @@ Before advancing to Stage 5:
 ## CRITICAL RULES REMINDER
 
 1. MPA agents run in parallel (single message, 3 Task calls)
-2. PAL Consensus minimum 2 models
-3. Graceful degradation if PAL unavailable
-4. Critical findings always go through user
+2. PAL Consensus is multi-step (analysis → model responses → synthesis) with continuation_id
+3. PAL minimum 2 models with stance steering (for/against/neutral from config)
+4. Graceful degradation if PAL unavailable
+5. Critical findings always go through user

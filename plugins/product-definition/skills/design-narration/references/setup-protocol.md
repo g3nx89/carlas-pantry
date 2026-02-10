@@ -44,7 +44,12 @@ VALIDATE the following keys exist and have valid types:
 | token_budgets.completed_screens_digest_max_lines | integer | >= 10 |
 | orchestrator_context.screens_before_compaction | integer | >= 2 |
 | coherence.max_screens_per_dispatch | integer | >= 2 |
+| validation.pal_consensus.enabled | boolean | true or false |
 | validation.pal_consensus.minimum_models | integer | >= 1 |
+| validation.pal_consensus.models[].model | string | non-empty, PAL model alias (run `listmodels` to verify) |
+| validation.pal_consensus.models[].stance | string | one of: for, against, neutral |
+| validation.pal_consensus.models[].stance_prompt | string or absent | optional, omit for neutral balanced evaluation |
+| validation.synthesis.source_dominance_max_pct | integer | 1-100 |
 | session_resume.max_digest_lines | integer | >= 10 |
 | session_resume.per_screen_summary_max_lines | integer | >= 1 |
 | session_resume.screen_summarization_threshold | integer | >= 2 |

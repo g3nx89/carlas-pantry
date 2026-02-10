@@ -19,15 +19,15 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `setup-protocol.md` | ~175 | Stage 1: Config validation (v1.4.0 keys + cross-key validations), Figma check, context doc, lock (with race condition note), state init/resume, first screen selection |
+| `setup-protocol.md` | ~183 | Stage 1: Config validation (v1.4.0 keys + cross-key validations), Figma check, context doc, lock (with race condition note), state init/resume, first screen selection |
 | `screen-processing.md` | ~400 | Per-screen loop: analysis dispatch (with token budgets), Q&A mediation, stall detection, refinement (with variable sourcing), decision revision, sign-off, context management, session resume |
 | `coherence-protocol.md` | ~265 | Large screen set handling (digest-first), cross-screen auditor dispatch, inconsistency handling, mermaid diagrams (with validation checklist), pattern extraction |
-| `validation-protocol.md` | ~335 | MPA parallel dispatch (3 agents) with constraints and failure handling, post-MPA conflict verification, PAL Consensus (config-referenced models), synthesis (with randomized read order, conflict table), validation gate |
+| `validation-protocol.md` | ~430 | MPA parallel dispatch (3 agents) with constraints and failure handling, post-MPA conflict verification, PAL Consensus multi-step workflow (config-referenced models with stance steering, continuation_id chaining), synthesis (with randomized read order, conflict table), validation gate |
 | `critique-rubric.md` | ~280 | 5-dimension rubric, CoT reasoning protocol, calibration examples, failure modes, dimension-to-category mapping, self-consistency check |
 | `output-assembly.md` | ~135 | Stage 5: completeness assessment (DRAFT/FINAL status), pre-validation gate (Required/Expected/Optional), compile patterns, order screens, append appendices, write output |
 | `state-schema.md` | ~190 | State file YAML schema, per-screen structure (with refinement_rounds, flag_reason), status transitions, decision audit trail, initialization template, schema migration stub |
 | `recovery-protocol.md` | ~185 | Crash detection per stage (including Stage 5), partial Q&A recovery (v1.4.0), summary reconstruction, .qa-digest.md verification, state cleanup |
-| `error-handling.md` | ~143 | Error taxonomy (FATAL/BLOCKING/DEGRADED/WARNING), cross-stage plugin integrity errors, logging format, per-stage error tables (with v1.4.0 features), PAL failure format |
+| `error-handling.md` | ~159 | Error taxonomy (FATAL/BLOCKING/DEGRADED/WARNING), cross-stage plugin integrity errors, logging format, per-stage error tables (with v1.4.0 features), PAL multi-step failure format + PAL-skipped format |
 | `checkpoint-protocol.md` | ~130 | State update sequence, lock refresh, decision append, conditional patterns update, integrity verification, checkpoint triggers |
 
 ## Cross-References
@@ -36,7 +36,7 @@
 
 - All reference files read thresholds and parameters from `$CLAUDE_PLUGIN_ROOT/config/narration-config.yaml`
 - `critique-rubric.md` dimensions map 1:1 with `narration-config.yaml` -> `self_critique.dimensions`
-- `validation-protocol.md` PAL models sourced from `narration-config.yaml` -> `validation.pal_consensus.models`
+- `validation-protocol.md` PAL model aliases and stances sourced from `narration-config.yaml` -> `validation.pal_consensus.models[].model`, `validation.pal_consensus.models[].stance`
 - `coherence-protocol.md` checks sourced from `narration-config.yaml` -> `coherence_checks`
 - `setup-protocol.md` lock timeout from `narration-config.yaml` -> `state.lock_stale_timeout_minutes`
 - `state-schema.md` schema version from `narration-config.yaml` -> `state.schema_version`

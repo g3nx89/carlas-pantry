@@ -189,15 +189,21 @@ validation:
         model: "sonnet"
 
   pal_consensus:
-    enabled: true
-    graceful_degradation: true  # Continue without PAL if MCP unavailable
-    minimum_models: 2           # Proceed if at least 2 of 3 models respond
-    # Model identifiers are configurable placeholders. Update to match your PAL MCP
-    # configuration. The skill requires at minimum 2 functioning model endpoints.
+    enabled: true              # Set to false to skip PAL consensus even when MCP is available
+    minimum_models: 2          # Proceed if at least 2 of 3 models respond
+    # Model entries use PAL aliases (not provider paths). Run `listmodels` in PAL
+    # to see available aliases. Each entry requires a stance for debate diversity.
+    # The skill requires at minimum 2 functioning model endpoints.
     models:
-      - "openai/chatgpt-5.2"
-      - "google/gemini-3-pro"
-      - "x-ai/grok-4"
+      - model: "gpt5.2"
+        stance: "for"
+        stance_prompt: "Argue the narrative IS sufficient for a coding agent to implement without questions"
+      - model: "pro"
+        stance: "against"
+        stance_prompt: "Identify specific gaps, ambiguities, or missing states that would block implementation"
+      - model: "grok-4"
+        stance: "neutral"
+        # stance_prompt omitted — neutral stance uses balanced evaluation with no steering
   synthesis:
     agent: "narration-validation-synthesis"
     model: "opus"
