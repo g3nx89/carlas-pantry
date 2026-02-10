@@ -18,11 +18,38 @@ artifacts_written:
 
 ---
 
+## Large Screen Set Handling
+
+When screen count exceeds `coherence.max_screens_per_dispatch` (from config) and `coherence.large_set_strategy` (from config) is `"digest-first"`, the auditor cannot process all full narrative files in a single context:
+
+```
+IF screen_count > coherence.max_screens_per_dispatch AND coherence.large_set_strategy == "digest-first":
+    # Digest-first strategy
+    COMPILE per-screen digest (coherence.per_screen_digest_lines per screen):
+        "{SCREEN_NAME} | Score: {TOTAL}/20 | Patterns: {top 3 patterns} | Nav: {entry→exit}"
+
+    DISPATCH coherence auditor with DIGEST instead of full screen files
+    INCLUDE instruction: "Read full narrative file ONLY for screens you flag for inconsistency"
+
+    # Auditor returns which screens need full-file comparison
+    FOR each flagged screen pair:
+        VERIFY auditor read the full files before finalizing the inconsistency finding
+
+ELSE:
+    DISPATCH with full screen files (standard path below)
+```
+
+---
+
 ## Dispatch Template
 
 ```
 Task(subagent_type="general-purpose", prompt="""
-Read and follow the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-coherence-auditor.md
+You are a coordinator for Design Narration, Stage 3 (Coherence Check).
+You MUST NOT interact with users directly. Write all output to files.
+You MUST write the coherence report upon completion.
+
+Read and execute the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-coherence-auditor.md
 
 ## Input
 - Screens directory: design-narration/screens/
@@ -74,7 +101,9 @@ Shared components table, interaction conventions table, naming patterns.
 
 #### Navigation Map
 
-```markdown
+<details>
+<summary>Navigation Map mermaid example (skip if familiar)</summary>
+
 ## Navigation Map
 
 ```mermaid
@@ -89,16 +118,20 @@ graph LR
     Search -->|"Tap item"| ProductDetail
     ProductDetail -->|"Add to Cart"| Cart
 ```
-```
+
+</details>
 
 #### User Journey Flows
 
-One mermaid diagram per key user task identified from navigation tables:
+One mermaid diagram per key user task identified from navigation tables.
 
-```markdown
+<details>
+<summary>User Journey mermaid examples (skip if familiar)</summary>
+
 ## User Journeys
 
 ### Purchase Flow
+
 ```mermaid
 graph TD
     Home -->|"Browse"| Search
@@ -109,22 +142,27 @@ graph TD
 ```
 
 ### Registration Flow
+
 ```mermaid
 graph TD
     Login -->|"Sign Up"| Registration
     Registration -->|"Submit"| Verification
     Verification -->|"Confirm"| Home
 ```
-```
+
+</details>
 
 #### State Machine Diagrams
 
-For screens with 4+ states:
+For screens with 4+ states.
 
-```markdown
+<details>
+<summary>State Machine mermaid example (skip if familiar)</summary>
+
 ## State Machines
 
 ### Product Detail Screen
+
 ```mermaid
 stateDiagram-v2
     [*] --> Loading
@@ -135,7 +173,20 @@ stateDiagram-v2
     AddingToCart --> Loaded: success
     AddingToCart --> Error: failure
 ```
-```
+
+</details>
+
+#### Mermaid Validation Checklist (MANDATORY)
+
+Before finalizing any mermaid diagram, verify:
+
+| Check | Rule |
+|-------|------|
+| Valid node IDs | No spaces or special characters in node identifiers (use `ProductDetail` not `Product Detail`) |
+| Quoted edge labels | All edge labels wrapped in double quotes (`\|"label"\|`) |
+| No orphan references | Every node referenced in an edge exists as a declared node |
+| Consistent naming | Node IDs match screen names used in narrative files |
+| Render test | Mentally trace the diagram — every path from entry reaches at least one exit |
 
 ---
 
@@ -151,7 +202,7 @@ IF inconsistencies_found == 0:
     ADVANCE to Stage 4
 
 IF inconsistencies_found > 0:
-    FOR each inconsistency (batch of up to 4 via AskUserQuestion):
+    FOR each inconsistency (batch of up to {maieutic_questions.max_per_batch} via AskUserQuestion):
         PRESENT:
             question: "[{CHECK_TYPE}] {ISSUE_DESCRIPTION}
             Screen A ({SCREEN_A}): {VALUE_A}
@@ -206,6 +257,8 @@ Before advancing to Stage 4:
 3. Updated screen files are consistent with user decisions
 4. Mermaid diagrams generated (at least navigation map)
 5. State file coherence section updated
+
+**Error handling:** For error classification and logging format, see `references/error-handling.md`.
 
 ## CRITICAL RULES REMINDER
 

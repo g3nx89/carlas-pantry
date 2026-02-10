@@ -1,9 +1,9 @@
 ---
 stage: validation
 artifacts_written:
-  - design-narration/validation/mpa-implementability.md
-  - design-narration/validation/mpa-ux-completeness.md
-  - design-narration/validation/mpa-edge-cases.md
+  - design-narration/validation/mpa-implementability.md (conditional — MPA agent may fail)
+  - design-narration/validation/mpa-ux-completeness.md (conditional — MPA agent may fail)
+  - design-narration/validation/mpa-edge-cases.md (conditional — MPA agent may fail)
   - design-narration/validation/synthesis.md
   - design-narration/.narration-state.local.md (updated)
 ---
@@ -29,12 +29,20 @@ Dispatch all 3 agents in a SINGLE message for parallel execution:
 ```
 # Agent 1: Developer Implementability
 Task(subagent_type="general-purpose", prompt="""
-Read and follow: @$CLAUDE_PLUGIN_ROOT/agents/narration-developer-implementability.md
+You are a coordinator for Design Narration, Stage 4 (Validation — Implementability).
+You MUST NOT interact with users directly. Write all output to files.
+
+Read and execute: @$CLAUDE_PLUGIN_ROOT/agents/narration-developer-implementability.md
 
 ## Input
 - Screens directory: design-narration/screens/
 - Screen files: {LIST_OF_SCREEN_FILES}
 - Figma directory: design-narration/figma/
+
+## Constraints
+- READ-ONLY evaluation: do NOT modify any screen narrative files
+- Write output ONLY to design-narration/validation/mpa-implementability.md
+- Do NOT create files outside design-narration/validation/
 
 ## Output
 Write to: design-narration/validation/mpa-implementability.md
@@ -42,12 +50,20 @@ Write to: design-narration/validation/mpa-implementability.md
 
 # Agent 2: UX Completeness
 Task(subagent_type="general-purpose", prompt="""
-Read and follow: @$CLAUDE_PLUGIN_ROOT/agents/narration-ux-completeness.md
+You are a coordinator for Design Narration, Stage 4 (Validation — UX Completeness).
+You MUST NOT interact with users directly. Write all output to files.
+
+Read and execute: @$CLAUDE_PLUGIN_ROOT/agents/narration-ux-completeness.md
 
 ## Input
 - Screens directory: design-narration/screens/
 - Screen files: {LIST_OF_SCREEN_FILES}
 - Coherence report: design-narration/coherence-report.md
+
+## Constraints
+- READ-ONLY evaluation: do NOT modify any screen narrative files
+- Write output ONLY to design-narration/validation/mpa-ux-completeness.md
+- Do NOT create files outside design-narration/validation/
 
 ## Output
 Write to: design-narration/validation/mpa-ux-completeness.md
@@ -55,15 +71,93 @@ Write to: design-narration/validation/mpa-ux-completeness.md
 
 # Agent 3: Edge Case Auditor
 Task(subagent_type="general-purpose", prompt="""
-Read and follow: @$CLAUDE_PLUGIN_ROOT/agents/narration-edge-case-auditor.md
+You are a coordinator for Design Narration, Stage 4 (Validation — Edge Cases).
+You MUST NOT interact with users directly. Write all output to files.
+
+Read and execute: @$CLAUDE_PLUGIN_ROOT/agents/narration-edge-case-auditor.md
 
 ## Input
 - Screens directory: design-narration/screens/
 - Screen files: {LIST_OF_SCREEN_FILES}
 
+## Constraints
+- READ-ONLY evaluation: do NOT modify any screen narrative files
+- Write output ONLY to design-narration/validation/mpa-edge-cases.md
+- Do NOT create files outside design-narration/validation/
+
 ## Output
 Write to: design-narration/validation/mpa-edge-cases.md
 """)
+```
+
+---
+
+## Step 4.1b: MPA Dispatch Failure Handling
+
+After dispatching the 3 MPA agents, check which outputs were produced:
+
+```
+CHECK existence of:
+  - design-narration/validation/mpa-implementability.md
+  - design-narration/validation/mpa-ux-completeness.md
+  - design-narration/validation/mpa-edge-cases.md
+
+COUNT successful outputs
+
+IF 3/3 outputs exist:
+    PROCEED to Step 4.2 (PAL Consensus)
+
+IF 2/3 outputs exist:
+    IDENTIFY missing agent
+    RETRY the failed agent ONCE (single Task dispatch)
+    IF retry succeeds: PROCEED to Step 4.2
+    IF retry fails:
+        NOTIFY user: "MPA agent '{agent_name}' failed after retry. Proceeding with 2/3 validation perspectives."
+        PROCEED to Step 4.2 with available outputs
+        MARK validation.mpa_status: "partial" in state
+
+IF 0-1/3 outputs exist:
+    RETRY ALL 3 agents (single message, parallel dispatch)
+    IF retry produces >= 2 outputs: PROCEED to Step 4.2
+    IF retry produces < 2 outputs:
+        PRESENT via AskUserQuestion:
+            question: "MPA validation largely failed ({N}/3 agents produced output).
+            Proceed with available results or skip validation?"
+            options:
+              - "Proceed with partial validation"
+              - "Skip validation entirely — generate output as-is"
+              - "Stop workflow"
+        HANDLE accordingly
+```
+
+---
+
+## Step 4.1c: Post-MPA Conflict Verification
+
+Before passing MPA outputs to synthesis, the orchestrator checks for inter-agent contradictions:
+
+```
+FOR each available MPA output file:
+    READ YAML frontmatter (status, screen-level verdicts, severity ratings)
+
+COMPARE across agents — ONLY flag conflicts on overlapping concerns:
+    # NOTE: Different verdicts across different evaluation criteria are EXPECTED
+    # (e.g., implementability pass + edge-case fail is normal multi-perspective output).
+    # Only flag conflicts when agents evaluate the SAME element or behavior differently.
+
+    FOR each screen mentioned by 2+ agents:
+        FOR each UI element or behavior referenced by 2+ agents on that screen:
+            IF agents give contradictory verdicts on the SAME element/behavior:
+                ADD to conflict_flags: { screen, element, agent_a_verdict, agent_b_verdict }
+            IF severity ratings diverge by 2+ levels for the SAME element/behavior:
+                ADD to conflict_flags: { screen, element, agent_a_severity, agent_b_severity }
+
+IF conflict_flags is non-empty:
+    INJECT into synthesis dispatch prompt:
+        "## MPA Conflicts Detected
+        The following inter-agent contradictions require explicit resolution in your synthesis:
+        {FORMATTED_CONFLICT_TABLE}
+        You MUST address each conflict with a reasoned resolution in the improvement plan."
 ```
 
 ---
@@ -105,13 +199,20 @@ Dispatch the synthesis agent:
 
 ```
 Task(subagent_type="general-purpose", prompt="""
-Read and follow: @$CLAUDE_PLUGIN_ROOT/agents/narration-validation-synthesis.md
+You are a coordinator for Design Narration, Stage 4 (Validation — Synthesis).
+You MUST NOT interact with users directly. Write all output to files.
+You MUST write the synthesis report upon completion.
+
+Read and execute: @$CLAUDE_PLUGIN_ROOT/agents/narration-validation-synthesis.md
 
 ## Input
 - MPA Implementability: design-narration/validation/mpa-implementability.md
 - MPA UX Completeness: design-narration/validation/mpa-ux-completeness.md
 - MPA Edge Cases: design-narration/validation/mpa-edge-cases.md
 - PAL Consensus: {PAL_RESPONSE or "PAL skipped"}
+
+## MPA Conflicts Detected
+{CONFLICT_TABLE or "No inter-agent conflicts detected."}
 
 ## Output
 Write to: design-narration/validation/synthesis.md
@@ -154,7 +255,7 @@ Followed by:
 READ synthesis.md
 
 IF critical_findings > 0:
-    FOR each critical finding (batch of up to 4):
+    FOR each critical finding (batch of up to {maieutic_questions.max_per_batch}):
         PRESENT via AskUserQuestion:
             question: "[CRITICAL] {FINDING_DESCRIPTION}
             Screen: {SCREEN_NAME}
@@ -219,6 +320,8 @@ Before advancing to Stage 5:
 3. All critical findings presented to user (none silently skipped)
 4. State file validation section updated
 5. PAL status recorded (completed/partial/skipped)
+
+**Error handling:** For error classification and logging format, see `references/error-handling.md`.
 
 ## CRITICAL RULES REMINDER
 

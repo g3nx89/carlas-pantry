@@ -1,6 +1,7 @@
 ---
 stage: recovery
-artifacts_written: []
+artifacts_written:
+  - design-narration/.narration-state.local.md (repaired)
 ---
 
 # Crash Recovery Protocol
@@ -39,6 +40,11 @@ IF current_stage == 4 AND validation.status != "completed":
       - design-narration/validation/mpa-ux-completeness.md
       - design-narration/validation/mpa-edge-cases.md
       - design-narration/validation/synthesis.md
+
+# Stage 5: Incomplete output assembly
+IF current_stage == 5:
+    CHECK: Does design-narration/UX-NARRATIVE.md exist?
+    CHECK: Is design-narration/.narration-lock still present?
 ```
 
 ---
@@ -61,6 +67,11 @@ IF screen narrative exists BUT no summary:
 IF no narrative AND no summary:
     SET screen.status = "pending" in state
     RESUME Stage 2 from dispatch 2A for this screen
+
+IF design-narration/.qa-digest.md exists:
+    VERIFY screens listed in digest match screens with status "signed_off" in state
+    IF mismatch (digest references screens not in state, or missing signed-off screens):
+        DELETE .qa-digest.md (will be regenerated on next compaction threshold)
 ```
 
 ### Stage 3 Recovery: Incomplete Coherence
@@ -92,6 +103,30 @@ IF synthesis.md exists but validation.status != "completed":
     IF invalid: RE-DISPATCH synthesis agent
 ```
 
+### Stage 5 Recovery: Incomplete Output Assembly
+
+```
+IF current_stage == 5:
+    CHECK: Does design-narration/UX-NARRATIVE.md exist?
+
+    IF UX-NARRATIVE.md missing:
+        # Assembly never started or crashed mid-write
+        SET current_stage = 5
+        RE-RUN output assembly (per references/output-assembly.md)
+
+    IF UX-NARRATIVE.md exists BUT lock file still present:
+        # Assembly completed writing but crashed before cleanup
+        READ UX-NARRATIVE.md
+        VERIFY: contains at least 1 screen narrative section AND validation summary
+        IF valid:
+            REMOVE lock file
+            UPDATE state: current_stage = 5, mark workflow complete
+            NOTIFY user: "Recovered: UX-NARRATIVE.md was already assembled. Cleaned up lock file."
+        IF invalid (empty or truncated):
+            DELETE incomplete UX-NARRATIVE.md
+            RE-RUN output assembly (per references/output-assembly.md)
+```
+
 ---
 
 ## State Cleanup
@@ -104,3 +139,20 @@ UPDATE state file:
     Remove any orphan screen entries with no artifacts
 NOTIFY user: "Recovered from interrupted session. Resuming from Stage {N}."
 ```
+
+---
+
+## Self-Verification
+
+After recovery completes:
+
+1. State file `current_stage` matches actual artifact state on disk
+2. No orphan screen entries (entries without corresponding files)
+3. Lock file still present (recovery does not release the lock)
+4. User notified of recovery action taken
+
+## CRITICAL RULES REMINDER
+
+1. Never discard completed work
+2. Reconstruct minimal summaries from artifact frontmatter
+3. Reset to last safe checkpoint

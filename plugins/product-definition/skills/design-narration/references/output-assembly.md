@@ -17,6 +17,31 @@ artifacts_written:
 
 ---
 
+## Step 5.0: Validate Required Inputs (MANDATORY CHECK)
+
+Before beginning assembly, verify all required inputs exist:
+
+```
+REQUIRED (halt if missing):
+  - design-narration/screens/ contains at least 1 signed-off narrative file
+  - design-narration/.narration-state.local.md exists with screens_completed >= 1
+
+EXPECTED (warn if missing, continue):
+  - design-narration/coherence-report.md (Stage 3 output)
+  - design-narration/validation/synthesis.md (Stage 4 output)
+
+OPTIONAL (silent if missing):
+  - design-narration/context-input.md
+
+IF any REQUIRED input missing:
+    STOP. NOTIFY user: "Cannot assemble UX-NARRATIVE.md: {missing_file}. Re-run earlier stages."
+
+IF any EXPECTED input missing:
+    NOTIFY user: "Assembling without {missing_file}. The corresponding section will note the gap."
+```
+
+---
+
 ## Step 5.1: Compile Global Patterns
 
 From state file `patterns` section + coherence report:
@@ -29,6 +54,11 @@ From state file `patterns` section + coherence report:
 ## Step 5.2: Assemble Per-Screen Narratives
 
 Read each screen narrative file from `design-narration/screens/`. Include in document order matching the navigation flow (from coherence report navigation map).
+
+**Inference marker cleanup:** During assembly, strip all `[Inferred]` markers from narrative text.
+These markers are used during self-critique to distinguish observations from assumptions but
+are not needed in the final output. The self-critique process ensures all inferences have been
+validated through user Q&A before reaching Stage 5.
 
 ## Step 5.3: Append Validation Summary
 
@@ -73,6 +103,8 @@ REMOVE design-narration/.narration-lock
 5. Decision revision log included (even if empty)
 6. Lock file removed
 7. State file updated: `current_stage: 5`, workflow complete
+
+**Error handling:** For error classification and logging format, see `references/error-handling.md`.
 
 ## CRITICAL RULES REMINDER
 

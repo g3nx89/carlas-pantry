@@ -4,6 +4,7 @@ artifacts_written:
   - design-narration/screens/{nodeId}-{name}.md
   - design-narration/figma/{nodeId}-{name}.png
   - design-narration/.narration-state.local.md (updated)
+  - design-narration/.qa-digest.md (conditional — created after screens_before_compaction threshold)
 ---
 
 # Screen Processing Loop (Stage 2)
@@ -11,12 +12,12 @@ artifacts_written:
 > Orchestrator reads this file to manage the per-screen analysis loop.
 > Each screen is processed by dispatching the `narration-screen-analyzer` agent.
 
-## CRITICAL RULES (must follow — failure-prevention)
+## CRITICAL RULES (must follow)
 
 1. **One screen at a time**: Process screens sequentially. Never dispatch multiple screen analyzers in parallel — user drives the order.
 2. **Coordinator NEVER interacts with users**: All questions return via summary; orchestrator mediates via AskUserQuestion.
-3. **Checkpoint after every screen**: Update state file with screen status, critique scores, and patterns BEFORE asking user to select next screen.
-4. **No question limits**: Continue question rounds until critique score reaches GOOD threshold (14+/20) or user signs off.
+3. **Checkpoint after every screen**: Update state file with screen status, critique scores, and patterns BEFORE asking user to select next screen. Follow the exact procedure in `references/checkpoint-protocol.md`.
+4. **No question limits**: Continue question rounds until critique score reaches GOOD threshold (per `self_critique.thresholds.good.min` in config) or user signs off.
 5. **Decision revisions require user confirmation**: Never silently update a prior screen's narrative.
 
 ---
@@ -25,7 +26,11 @@ artifacts_written:
 
 ```
 Task(subagent_type="general-purpose", prompt="""
-Read and follow the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-screen-analyzer.md
+You are a coordinator for Design Narration, Stage 2A (Analysis).
+You MUST NOT interact with users directly. Write all output to files.
+You MUST write a summary file upon completion (see Summary Contract below).
+
+Read and execute the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-screen-analyzer.md
 
 ## Context
 - Node ID: {NODE_ID}
@@ -55,13 +60,15 @@ No context document provided.
 
 ### Variable Sourcing
 
-| Variable | Source | Default |
-|----------|--------|---------|
-| NODE_ID | User selection in Figma (orchestrator reads from get_metadata) | Required |
-| SCREEN_NAME | From Figma frame name | Required |
-| PATTERNS_YAML | State file `patterns` section | `"No prior patterns"` |
-| QA_HISTORY_SUMMARY | Compiled from completed screen files (Q&A sections) | `"No prior Q&A"` |
-| COMPLETED_SCREENS_DIGEST | 1-line-per-screen table from completed narratives | `"First screen"` |
+| Variable | Source | Default | Max Lines |
+|----------|--------|---------|-----------|
+| NODE_ID | User selection in Figma (orchestrator reads from get_metadata) | Required | — |
+| SCREEN_NAME | From Figma frame name | Required | — |
+| PATTERNS_YAML | State file `patterns` section | `"No prior patterns yet"` | 40 (per `token_budgets.patterns_yaml_max_lines`) |
+| QA_HISTORY_SUMMARY | Compiled from completed screen files (Q&A sections) | `"No prior Q&A"` | 60 (per `token_budgets.qa_history_max_lines`) |
+| COMPLETED_SCREENS_DIGEST | 1-line-per-screen table from completed narratives | `"First screen — no prior screens completed"` | 50 (per `token_budgets.completed_screens_digest_max_lines`) |
+
+**Truncation:** When a variable exceeds its Max Lines budget, truncate oldest entries first, keeping the most recent screens. Append a note: `"[Truncated: {N} older entries omitted. See state file for full history.]"`
 
 ---
 
@@ -109,7 +116,7 @@ After receiving the 2A summary:
 ```
 READ summary file
 
-IF status == "completed" AND critique_scores.total >= 14:
+IF status == "completed" AND critique_scores.total >= self_critique.thresholds.good.min:
     SKIP questions, proceed to sign-off
 
 IF status == "error":
@@ -126,7 +133,7 @@ IF status == "error":
 
 IF questions is non-empty:
     WHILE questions remain:
-        BATCH = next 4 questions (AskUserQuestion limit)
+        BATCH = next {maieutic_questions.max_per_batch} questions
 
         FOR each question in BATCH:
             ADD "Let's discuss this" option if not present
@@ -154,7 +161,11 @@ IF questions is non-empty:
 
 ```
 Task(subagent_type="general-purpose", prompt="""
-Read and follow the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-screen-analyzer.md
+You are a coordinator for Design Narration, Stage 2B (Refinement).
+You MUST NOT interact with users directly. Write all output to files.
+You MUST write a summary file upon completion (see Summary Contract below).
+
+Read and execute the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-screen-analyzer.md
 
 ## Context
 - Node ID: {NODE_ID}
@@ -174,13 +185,67 @@ Read and follow the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-screen
 """)
 ```
 
+### Variable Sourcing — 2B Refinement
+
+| Variable | Source | Default | Max Lines |
+|----------|--------|---------|-----------|
+| NODE_ID | string — Figma node identifier from user's screen selection (same value used in 2A) | Required | — |
+| SCREEN_NAME | string — Figma frame name extracted via `get_metadata` (same value used in 2A) | Required | — |
+| NARRATIVE_FILE | From 2A summary `narrative_file` field | Required | — |
+| FORMATTED_USER_ANSWERS | Collected from AskUserQuestion responses, formatted as `Q: ... A: ...` | Required | — |
+| PATTERNS_YAML | State file `patterns` section (may have grown since 2A) | `"No prior patterns yet"` | 40 (per `token_budgets.patterns_yaml_max_lines`) |
+| UPDATED_QA_HISTORY | Prior Q&A + this screen's new answers appended | `"No prior Q&A"` | 60 (per `token_budgets.qa_history_max_lines`) |
+
+**Truncation:** Same rules as 2A Variable Sourcing — truncate oldest entries when exceeding Max Lines budget.
+
 The refinement coordinator:
 1. Reads existing narrative file
 2. Incorporates user answers into the relevant sections
 3. Re-runs self-critique
-4. If score still below GOOD threshold (14+/20): generates new questions for remaining weak dimensions
+4. If score still below GOOD threshold (per `self_critique.thresholds.good.min` in config): generates new questions for remaining weak dimensions
 5. Checks if any user answers contradict prior screen decisions → returns `decision_revisions`
 6. Writes updated summary with new scores
+
+---
+
+## Orchestrator: Stall Detection (After 2B Refinement)
+
+After each 2B refinement, check for stalled improvement:
+
+```
+READ new critique score from 2B summary
+INCREMENT round_count for this screen
+
+# Hard cap check
+IF round_count >= self_critique.stall_detection.max_rounds_hard_cap (from config):
+    PRESENT via AskUserQuestion:
+        question: "Screen '{SCREEN_NAME}' has reached {round_count} refinement rounds
+        (hard cap: {max_rounds_hard_cap}). Current score: {TOTAL}/20.
+        How would you like to proceed?"
+
+        options:
+          - "Sign off on current narrative (Recommended)"
+          - "Override: allow {self_critique.stall_detection.hard_cap_extension} more rounds"
+          - "Flag for review and move on"
+
+    HANDLE accordingly (sign-off / extend cap by hard_cap_extension from config / flag_for_review + advance)
+
+# Plateau detection
+IF score unchanged (improvement < self_critique.stall_detection.min_improvement)
+   for self_critique.stall_detection.plateau_rounds consecutive rounds:
+    PRESENT via AskUserQuestion:
+        question: "Score for '{SCREEN_NAME}' has plateaued at {TOTAL}/20
+        for {plateau_rounds} rounds. The remaining gaps may need direct user input."
+
+        options:
+          - "Sign off — this is good enough (Recommended)"
+          - "Keep trying — I'll provide more detail"
+          - "Flag for review and move on"
+
+    IF "Sign off": PROCEED to sign-off
+    IF "Keep trying": CONTINUE refinement (reset plateau counter)
+    IF "Flag for review": SET screen.flagged_for_review = true, advance to next screen
+```
 
 ---
 
@@ -276,18 +341,32 @@ MERGE into state.patterns (deduplicate)
 
 ---
 
-## Session Resume — Onboarding Context
+## Orchestrator Context Management
 
-When the skill is re-invoked and screens have been completed:
+The orchestrator accumulates Q&A mediation history across screens. To prevent context bloat:
 
 ```
-COMPILE onboarding digest:
-  1. Product name + context document summary (2-3 sentences)
-  2. Completed screens table: | # | Screen | Score | Key Patterns |
-  3. Accumulated patterns (YAML block)
-  4. Key decisions made (from audit trail, latest versions only)
-  5. Current screen status (if mid-processing)
+AFTER each screen sign-off:
+    IF screens_completed >= orchestrator_context.screens_before_compaction (from config):
+        COMPACT older screen Q&A into 1-line-per-screen digest:
+            "{SCREEN_NAME}: {TOTAL}/20, {N} questions, key patterns: {top 2-3 patterns}"
 
+        WRITE compacted digest to design-narration/.qa-digest.md
+        USE compacted digest (not raw history) for QA_HISTORY_SUMMARY in subsequent 2A dispatches
+
+    ELSE:
+        CONTINUE passing full Q&A history as QA_HISTORY_SUMMARY
+```
+
+This ensures the orchestrator's context stays bounded even when processing 15+ screens, while preserving the full history in the state file for crash recovery.
+
+---
+
+## Session Resume — Onboarding Context
+
+When the skill is re-invoked and screens have been completed, compile onboarding digest per the format defined in `references/setup-protocol.md` Step 1.4 (5-item structure: product context, screens table, patterns, decisions, current status).
+
+```
 PASS digest to next coordinator as COMPLETED_SCREENS_DIGEST
 ```
 
@@ -306,6 +385,8 @@ Before allowing the user to pick the next screen, verify:
 5. All user answers recorded in screen file
 6. Patterns section updated
 7. Decision audit trail consistent (no orphan revision references)
+
+**Error handling:** For error classification and logging format, see `references/error-handling.md`.
 
 ## CRITICAL RULES REMINDER
 

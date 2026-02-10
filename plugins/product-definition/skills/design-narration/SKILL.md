@@ -4,12 +4,14 @@ description: >-
   This skill should be used when the user asks to "narrate Figma screens",
   "create a UX narrative", "describe mockups for coding agents",
   "generate interaction descriptions from Figma", "design narration",
-  "create a UX-NARRATIVE document", or wants to transform Figma Desktop
+  "create a UX-NARRATIVE document", "document screen interactions",
+  "Figma to developer handoff", "UX documentation from Figma",
+  "describe screens for implementation", or wants to transform Figma Desktop
   mockups into a detailed UX/interaction description document.
   Produces UX-NARRATIVE.md with per-screen purpose, elements, behaviors,
   states, navigation, and animations — filling the gaps that static
   mockups cannot communicate.
-version: 1.0.0
+version: 1.3.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__pal__consensus"]
 ---
 
@@ -29,27 +31,10 @@ Transform Figma Desktop mockups into a detailed UX/interaction narrative documen
 1. **One screen at a time**: User selects each screen in Figma Desktop. Never batch-process screens or assume order.
 2. **Coordinator never talks to users**: Screen analyzer returns summary with questions; orchestrator mediates ALL user interaction via AskUserQuestion.
 3. **Checkpoint after every screen**: Update state file with screen status, critique scores, and patterns BEFORE asking user to select next screen.
-4. **No question limits**: Continue question rounds until critique score reaches GOOD threshold (14+/20) or user signs off.
+4. **No question limits**: Continue question rounds until critique score reaches GOOD threshold (per `self_critique.thresholds.good.min` in config) or user signs off.
 5. **Mutable decisions with audit trail**: Prior decisions CAN be revised if later analysis warrants it — but EVERY revision requires explicit user confirmation. Never silently change a prior answer.
 6. **Config reference**: All thresholds and parameters from `@$CLAUDE_PLUGIN_ROOT/config/narration-config.yaml`.
 7. **Figma Desktop MCP required**: Verify `mcp__figma-desktop__get_metadata` is available at startup. If unavailable, STOP and notify user.
-
----
-
-## Configuration Reference
-
-**Load configuration from:** `@$CLAUDE_PLUGIN_ROOT/config/narration-config.yaml`
-
-| Setting | Path | Default |
-|---------|------|---------|
-| Good score threshold | `self_critique.thresholds.good.min` | 14/20 |
-| Acceptable threshold | `self_critique.thresholds.acceptable.min` | 10/20 |
-| Max questions per batch | `maieutic_questions.max_per_batch` | 4 |
-| Question round limit | `self_critique.max_question_rounds_per_screen` | **No limit** |
-| Decisions mutable | `decisions.decisions_mutable` | true |
-| PAL models | `validation.pal_consensus.models` | 3 models |
-| PAL min models | `validation.pal_consensus.minimum_models` | 2 |
-| PAL degradation | `validation.pal_consensus.graceful_degradation` | true |
 
 ---
 
@@ -105,7 +90,7 @@ Consider user input before proceeding (if not empty).
 
 | Stage | Name | Delegation | Reference File | User Pause? |
 |-------|------|------------|---------------|-------------|
-| 1 | Setup | **Inline** | (below) | No |
+| 1 | Setup | **Inline** | `references/setup-protocol.md` | No |
 | 2 | Screen Processing | Coordinator (loop) | `references/screen-processing.md` | Yes (per screen) |
 | 3 | Coherence Check | Coordinator | `references/coherence-protocol.md` | Yes (inconsistencies) |
 | 4 | Validation | Coordinator | `references/validation-protocol.md` | Yes (critical findings) |
@@ -115,91 +100,15 @@ Consider user input before proceeding (if not empty).
 
 ## Stage 1 — Inline Setup
 
-Execute directly (no coordinator dispatch).
+**Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/setup-protocol.md`
 
-### Step 1.1: Figma Desktop MCP Check
+Execute directly (no coordinator dispatch). Steps:
 
-Verify `mcp__figma-desktop__get_metadata` is available. If unavailable:
-```
-NOTIFY user: "Figma Desktop MCP not detected. Ensure Figma Desktop is open with the Claude plugin active."
-STOP workflow.
-```
-
-### Step 1.2: Context Document (Optional)
-
-```
-PRESENT via AskUserQuestion:
-    question: "Provide a context document (PRD, functional description, product brief)?
-    This helps the analyzer understand screen purpose and domain vocabulary."
-
-    options:
-      - "Yes — I'll paste or reference a document"
-      - "No — proceed without context document"
-
-IF "Yes":
-    PROMPT for document content or file path
-    SAVE to design-narration/context-input.md
-```
-
-### Step 1.3: State Initialization or Resume
-
-#### Step 1.3.5: Lock Acquisition
-
-```
-LOCK_FILE = design-narration/.narration-lock
-IF lock file exists AND age < lock_stale_timeout_minutes (from config):
-    PRESENT via AskUserQuestion:
-        question: "Another narration session may be active. Override?"
-        options:
-          - "Yes — override and continue"
-          - "No — cancel"
-    IF "No": STOP workflow
-IF lock file exists AND age >= lock_stale_timeout_minutes:
-    NOTIFY user: "Stale lock detected (>60 min). Clearing and proceeding."
-WRITE lock file with timestamp
-```
-
-#### Step 1.3.6: State Check
-
-```
-CHECK if design-narration/.narration-state.local.md exists
-
-IF exists:
-    READ state file
-    COMPILE onboarding context from completed screens:
-        1. Product name + context document summary (2-3 sentences)
-        2. Completed screens table: | # | Screen | Score | Key Patterns |
-        3. Accumulated patterns (YAML block)
-        4. Key decisions made (from audit trail, latest versions only)
-        5. Current screen status (if mid-processing)
-    NOTIFY user: "Resuming from {current_stage}. {N} screens completed."
-
-IF not exists:
-    CREATE directories: design-narration/, design-narration/screens/, design-narration/figma/, design-narration/validation/
-    INITIALIZE state file with:
-        schema_version: 1
-        current_stage: 2
-        screens_completed: 0
-        screens: []
-        patterns: {}
-        decisions_audit_trail: []
-        coherence: {}
-        validation: {}
-```
-
-### Step 1.4: First Screen Selection
-
-```
-PRESENT via AskUserQuestion:
-    question: "Select the first screen to analyze in Figma Desktop, then confirm."
-
-    options:
-      - "Ready — I've selected a screen in Figma"
-
-CALL mcp__figma-desktop__get_metadata() to detect selection
-EXTRACT node_id and frame name
-ADVANCE to Stage 2
-```
+1. **Figma MCP Check** — Verify `mcp__figma-desktop__get_metadata` available; STOP if not
+2. **Context Document** — Optionally collect PRD/brief; save to `design-narration/context-input.md`
+3. **Lock Acquisition** — Acquire `design-narration/.narration-lock`; handle stale locks
+4. **State Init or Resume** — Create new state (per `references/state-schema.md`) or resume with onboarding digest; run crash recovery if needed (per `references/recovery-protocol.md`)
+5. **First Screen Selection** — User selects screen in Figma; extract node_id via `get_metadata`
 
 ---
 
@@ -210,7 +119,7 @@ ADVANCE to Stage 2
 This stage loops for each screen:
 
 1. **2A — Analysis dispatch**: Send node_id, screen name, context doc, prior patterns, Q&A history, and completed screens digest to `narration-screen-analyzer` agent
-2. **Q&A mediation**: Read analyzer's summary → present questions via AskUserQuestion (batches of 4, "Let's discuss this" option on every question)
+2. **Q&A mediation**: Read analyzer's summary → present questions via AskUserQuestion (batches per `maieutic_questions.max_per_batch` in config, "Let's discuss this" option on every question)
 3. **2B — Refinement dispatch**: Send user answers back to analyzer for narrative update + re-critique
 4. **Decision revision handling**: If analyzer flags contradictions with prior screens, present revisions to user
 5. **Sign-off**: Present final score, user approves or flags for review
@@ -226,7 +135,7 @@ This stage loops for each screen:
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/coherence-protocol.md`
 
 Dispatch `narration-coherence-auditor` agent with ALL completed screen narratives. The auditor:
-- Runs 5 consistency checks (naming, interaction, navigation, state parity, terminology)
+- Runs consistency checks per `coherence_checks` in config (naming, interaction, navigation, state parity, terminology)
 - Extracts shared patterns
 - Generates mermaid diagrams (navigation map, user journey flows, state machines)
 
@@ -243,7 +152,7 @@ Orchestrator presents each inconsistency to user for resolution. Updated screen 
    - `narration-ux-completeness`: All journeys and states covered?
    - `narration-edge-case-auditor`: Unusual conditions handled?
 
-2. **PAL Consensus** (3 models, graceful degradation if unavailable)
+2. **PAL Consensus** (models per `validation.pal_consensus.models` in config, graceful degradation if unavailable)
 
 3. **Synthesis**: `narration-validation-synthesis` merges findings
    - CRITICAL findings → presented to user via AskUserQuestion
@@ -264,105 +173,29 @@ Assemble `UX-NARRATIVE.md` from per-screen narratives, coherence patterns, valid
 
 ## State Management
 
-**State file:** `design-narration/.narration-state.local.md`
-**Schema version:** 1
+**State file:** `design-narration/.narration-state.local.md` | **Schema version:** 1
 
-State uses YAML frontmatter with append-only workflow log.
+**Full schema and initialization template:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/state-schema.md`
 
-**Top-level fields:**
-- `schema_version`: 1
-- `current_stage`: 1-5
-- `screens_completed`: N
-- `context_document`: path or null
-
-**Per-screen structure:**
-```yaml
-screens:
-  - node_id: "{NODE_ID}"
-    name: "{SCREEN_NAME}"
-    status: pending | in_progress | described | critiqued | questions_asked | refined | signed_off
-    narrative_file: "screens/{nodeId}-{name}.md"
-    screenshot_file: "figma/{nodeId}-{name}.png"
-    critique_scores:
-      completeness: [1-4]
-      interaction_clarity: [1-4]
-      state_coverage: [1-4]
-      navigation_context: [1-4]
-      ambiguity: [1-4]
-      total: [X/20]
-    flagged_for_review: false
-```
-
-**Patterns (accumulated across screens):**
-```yaml
-patterns:
-  shared_components: []
-  navigation_patterns: []
-  naming_conventions: []
-  interaction_patterns: []
-```
-
-**Decision audit trail (mutable with tracking):**
-```yaml
-decisions_audit_trail:
-  - id: "screen-1-q3"
-    screen: "login-screen"
-    question: "What happens on failed login?"
-    answer: "Show inline error"
-    timestamp: "{ISO}"
-
-  - id: "screen-1-q3-rev1"
-    screen: "home-screen"
-    revises: "screen-1-q3"
-    question: "What happens on failed login?"
-    answer: "Show error toast notification"
-    revision_reason: "Toast pattern used consistently across app"
-    timestamp: "{ISO}"
-```
-
-**Stage tracking:**
-```yaml
-coherence:
-  status: pending | completed
-  inconsistencies_found: N
-  inconsistencies_resolved: N
-
-validation:
-  status: pending | completed
-  quality_score: N
-  recommendation: ready | needs-revision
-  pal_status: completed | partial | skipped
-```
+Key principles:
+- YAML frontmatter tracks `current_stage`, `screens_completed`, per-screen critique scores, accumulated patterns
+- Decision audit trail is **append-only** — revisions create new entries with `revises` pointer + `revision_reason`
+- Checkpoint state BEFORE any user interaction
 
 ---
 
-## Agent References
+## Agent & Artifact Quick Reference
 
-| Agent | Stage | Purpose | Model |
-|-------|-------|---------|-------|
-| `narration-screen-analyzer` | 2 | Per-screen analysis, narrative generation, self-critique, question generation | sonnet |
-| `narration-coherence-auditor` | 3 | Cross-screen consistency, pattern extraction, mermaid diagrams | sonnet |
-| `narration-developer-implementability` | 4 | MPA: implementability evaluation | sonnet |
-| `narration-ux-completeness` | 4 | MPA: journey and state coverage | sonnet |
-| `narration-edge-case-auditor` | 4 | MPA: unusual condition handling | sonnet |
-| `narration-validation-synthesis` | 4 | Merge MPA + PAL findings, prioritize fixes | opus |
+| Agent | Stage | Model | Purpose |
+|-------|-------|-------|---------|
+| `narration-screen-analyzer` | 2 | sonnet | Per-screen narrative, self-critique, questions |
+| `narration-coherence-auditor` | 3 | sonnet | Cross-screen consistency, mermaid diagrams |
+| `narration-developer-implementability` | 4 | sonnet | MPA: implementability audit |
+| `narration-ux-completeness` | 4 | sonnet | MPA: journey/state coverage |
+| `narration-edge-case-auditor` | 4 | sonnet | MPA: unusual conditions |
+| `narration-validation-synthesis` | 4 | opus | Merge MPA + PAL, prioritize fixes |
 
----
-
-## Output Artifacts
-
-| Artifact | Stage | Description |
-|----------|-------|-------------|
-| `design-narration/UX-NARRATIVE.md` | 5 | Final UX/interaction narrative document |
-| `design-narration/screens/{nodeId}-{name}.md` | 2 | Per-screen narrative |
-| `design-narration/figma/{nodeId}-{name}.png` | 2 | Per-screen Figma screenshot |
-| `design-narration/context-input.md` | 1 | User-provided context document |
-| `design-narration/coherence-report.md` | 3 | Cross-screen consistency findings + mermaid diagrams |
-| `design-narration/validation/mpa-implementability.md` | 4 | Developer implementability audit |
-| `design-narration/validation/mpa-ux-completeness.md` | 4 | UX completeness audit |
-| `design-narration/validation/mpa-edge-cases.md` | 4 | Edge case audit |
-| `design-narration/validation/synthesis.md` | 4 | Merged validation findings |
-| `design-narration/.narration-state.local.md` | All | State persistence |
+**Key output artifacts:** `UX-NARRATIVE.md` (final), `screens/{nodeId}-{name}.md` (per-screen), `coherence-report.md`, `validation/synthesis.md`. For complete artifact listing, see each stage reference file's `artifacts_written` frontmatter.
 
 ---
 
@@ -370,12 +203,16 @@ validation:
 
 | Reference | Purpose | Load When |
 |-----------|---------|-----------|
+| `references/setup-protocol.md` | Stage 1: Figma check, context, lock, state, first screen | Stage 1 execution |
 | `references/screen-processing.md` | Per-screen loop: dispatch, Q&A, refinement, sign-off | Stage 2 execution |
 | `references/coherence-protocol.md` | Cross-screen auditor dispatch, mermaid diagrams | Stage 3 execution |
 | `references/validation-protocol.md` | MPA + PAL dispatch, synthesis, findings | Stage 4 execution |
 | `references/critique-rubric.md` | 5-dimension self-critique rubric | Passed to screen analyzer |
 | `references/output-assembly.md` | Stage 5: final document assembly steps | Stage 5 execution |
+| `references/state-schema.md` | State file YAML schema, initialization template | State creation, crash recovery |
 | `references/recovery-protocol.md` | Crash detection and recovery procedures | Skill re-invocation with incomplete state |
+| `references/error-handling.md` | Error taxonomy, logging format, per-stage error tables | Any error path — shared by all stages |
+| `references/checkpoint-protocol.md` | State update sequence, lock refresh, decision append | Every screen sign-off and stage transition |
 | `references/README.md` | File index, sizes, cross-references | Orientation |
 
 ---
