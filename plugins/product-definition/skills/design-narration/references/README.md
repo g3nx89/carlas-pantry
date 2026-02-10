@@ -4,14 +4,15 @@
 
 | File | Read When... |
 |------|--------------|
-| `setup-protocol.md` | Stage 1 execution — Figma MCP check, context doc, lock acquisition, state init/resume, first screen selection |
-| `screen-processing.md` | Stage 2 execution — per-screen analysis dispatch, Q&A mediation, sign-off, pattern accumulation |
+| `setup-protocol.md` | Stage 1 execution — Figma MCP check, context doc, lock acquisition, state init/resume, screen selection (interactive or batch) |
+| `screen-processing.md` | Stage 2 execution (interactive) — per-screen analysis dispatch, Q&A mediation, sign-off, pattern accumulation |
+| `batch-processing.md` | Stage 2-BATCH execution (batch mode) — sequential analysis, question consolidation, batch Q&A cycles, convergence |
 | `coherence-protocol.md` | Stage 3 execution — cross-screen auditor dispatch, inconsistency handling, mermaid diagram generation |
 | `validation-protocol.md` | Stage 4 execution — MPA parallel dispatch, PAL Consensus, synthesis, findings presentation |
-| `critique-rubric.md` | Stage 2 dispatch context — 5-dimension self-critique rubric passed to screen analyzer agent |
+| `critique-rubric.md` | Stage 2/2-BATCH dispatch context — 5-dimension self-critique rubric passed to screen analyzer agent |
 | `output-assembly.md` | Stage 5 execution — final UX-NARRATIVE.md assembly from screens, patterns, validation |
-| `state-schema.md` | State creation and crash recovery — YAML schema, initialization template, append-only decision trail |
-| `recovery-protocol.md` | Skill re-invocation — crash detection and recovery when state is incomplete |
+| `state-schema.md` | State creation and crash recovery — YAML schema (v2), initialization template, batch mode section, append-only decision trail |
+| `recovery-protocol.md` | Skill re-invocation — crash detection and recovery when state is incomplete (including batch mode statuses) |
 | `error-handling.md` | All stages — error taxonomy, logging format, per-stage error tables, escalation paths |
 | `checkpoint-protocol.md` | All stages — state update sequence, lock refresh, decision append, integrity verification |
 
@@ -19,14 +20,15 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `setup-protocol.md` | ~183 | Stage 1: Config validation (v1.4.0 keys + cross-key validations), Figma check, context doc, lock (with race condition note), state init/resume, first screen selection |
-| `screen-processing.md` | ~400 | Per-screen loop: analysis dispatch (with token budgets), Q&A mediation, stall detection, refinement (with variable sourcing), decision revision, sign-off, context management, session resume |
+| `setup-protocol.md` | ~250 | Stage 1: Config validation (v1.5.0 keys + batch keys), Figma check, context doc, lock (with race condition note), state init/resume, screen selection (interactive: single screen, batch: page frames + descriptions matching) |
+| `screen-processing.md` | ~400 | Per-screen loop (interactive): analysis dispatch (with token budgets), Q&A mediation, stall detection, refinement (with variable sourcing), decision revision, sign-off, context management, session resume |
+| `batch-processing.md` | ~370 | Batch cycle (batch mode): sequential analysis with pattern accumulation, question consolidation dispatch, BATCH-QUESTIONS doc assembly, user pause/resume, refinement of affected screens, convergence check with stall detection |
 | `coherence-protocol.md` | ~265 | Large screen set handling (digest-first), cross-screen auditor dispatch, inconsistency handling, mermaid diagrams (with validation checklist), pattern extraction |
 | `validation-protocol.md` | ~430 | MPA parallel dispatch (3 agents) with constraints and failure handling, post-MPA conflict verification, PAL Consensus multi-step workflow (config-referenced models with stance steering, continuation_id chaining), synthesis (with randomized read order, conflict table), validation gate |
 | `critique-rubric.md` | ~280 | 5-dimension rubric, CoT reasoning protocol, calibration examples, failure modes, dimension-to-category mapping, self-consistency check |
 | `output-assembly.md` | ~135 | Stage 5: completeness assessment (DRAFT/FINAL status), pre-validation gate (Required/Expected/Optional), compile patterns, order screens, append appendices, write output |
-| `state-schema.md` | ~190 | State file YAML schema, per-screen structure (with refinement_rounds, flag_reason), status transitions, decision audit trail, initialization template, schema migration stub |
-| `recovery-protocol.md` | ~185 | Crash detection per stage (including Stage 5), partial Q&A recovery (v1.4.0), summary reconstruction, .qa-digest.md verification, state cleanup |
+| `state-schema.md` | ~240 | State file YAML schema v2: workflow_mode, per-screen source field, batch_mode section with convergence tracking, status transitions (interactive + batch), initialization template, v1→v2 migration |
+| `recovery-protocol.md` | ~220 | Crash detection per stage (including Stage 2-BATCH and Stage 5), batch status recovery (analyzing/consolidating/waiting/refining), partial Q&A recovery, summary reconstruction, state cleanup |
 | `error-handling.md` | ~159 | Error taxonomy (FATAL/BLOCKING/DEGRADED/WARNING), cross-stage plugin integrity errors, logging format, per-stage error tables (with v1.4.0 features), PAL multi-step failure format + PAL-skipped format |
 | `checkpoint-protocol.md` | ~130 | State update sequence, lock refresh, decision append, conditional patterns update, integrity verification, checkpoint triggers |
 
@@ -44,6 +46,8 @@
 ### Reference Files -> Agents
 
 - `screen-processing.md` dispatches `agents/narration-screen-analyzer.md` (both 2A analysis and 2B refinement)
+- `batch-processing.md` dispatches `agents/narration-screen-analyzer.md` (batch_analysis and refinement entry types)
+- `batch-processing.md` dispatches `agents/narration-question-consolidator.md` (question dedup, conflict detection, grouping)
 - `coherence-protocol.md` dispatches `agents/narration-coherence-auditor.md`
 - `validation-protocol.md` dispatches 3 MPA agents in parallel:
   - `agents/narration-developer-implementability.md`
@@ -54,6 +58,9 @@
 ### Reference Files -> Templates
 
 - `screen-processing.md` references `$CLAUDE_PLUGIN_ROOT/templates/screen-narrative-template.md` (passed to screen analyzer)
+- `batch-processing.md` references `$CLAUDE_PLUGIN_ROOT/templates/screen-narrative-template.md` (passed to screen analyzer in batch mode)
+- `batch-processing.md` references `$CLAUDE_PLUGIN_ROOT/templates/batch-questions-template.md` (BATCH-QUESTIONS document structure)
+- `setup-protocol.md` references `$CLAUDE_PLUGIN_ROOT/templates/screen-descriptions-template.md` (user-facing template for batch mode input)
 - `output-assembly.md` references `$CLAUDE_PLUGIN_ROOT/templates/ux-narrative-template.md` (final assembly)
 
 ### Reference Files -> Reference Files
@@ -61,6 +68,9 @@
 - `setup-protocol.md` references `state-schema.md` (for initialization template)
 - `setup-protocol.md` references `recovery-protocol.md` (for crash detection on resume)
 - `screen-processing.md` references `critique-rubric.md` (passed to screen analyzer agent)
+- `batch-processing.md` references `critique-rubric.md` (passed to screen analyzer agent in batch mode)
+- `batch-processing.md` references `checkpoint-protocol.md` (state updates at 7 checkpoint triggers)
+- `batch-processing.md` references `error-handling.md` (error classification for batch failures)
 - `critique-rubric.md` is loaded directly by `agents/narration-screen-analyzer.md` (self-critique integration, self-consistency check)
 - `recovery-protocol.md` references `state-schema.md` (for state repair and field validation)
 - `output-assembly.md` references `coherence-protocol.md` (for mermaid diagrams and patterns)
@@ -77,10 +87,12 @@
 ### Data Flow Between Stages
 
 - Stage 1 (`setup-protocol.md`) produces state file + directories + lock -> consumed by all subsequent stages
-- Stage 2 (`screen-processing.md`) produces per-screen narrative files + accumulated patterns -> consumed by Stage 3
+- Stage 1 (batch mode) additionally produces: matched screens list, screen descriptions parse, working/ directory -> consumed by Stage 2-BATCH
+- Stage 2 (`screen-processing.md`, interactive) produces per-screen narrative files + accumulated patterns -> consumed by Stage 3
+- Stage 2-BATCH (`batch-processing.md`) produces per-screen narrative files + accumulated patterns + BATCH-QUESTIONS docs + consolidation summaries -> consumed by Stage 3
 - Stage 3 (`coherence-protocol.md`) produces coherence report + mermaid diagrams + resolved patterns -> consumed by Stages 4 and 5
 - Stage 4 (`validation-protocol.md`) produces synthesis with scores and findings -> consumed by Stage 5 (`output-assembly.md`)
-- `recovery-protocol.md` reads state file and per-stage artifacts to detect and recover from crashes
+- `recovery-protocol.md` reads state file and per-stage artifacts to detect and recover from crashes (including batch mode statuses)
 
 ### External References
 

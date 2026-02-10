@@ -1,7 +1,7 @@
 # Design Narration Configuration
 # Plugin: product-definition | Skill: design-narration
 
-version: "1.4.0"
+version: "1.5.0"
 last_updated: "2026-02-10"
 
 # =============================================================================
@@ -21,7 +21,7 @@ directories:
 
 state:
   file_name: ".narration-state.local.md"
-  schema_version: 1
+  schema_version: 2
   lock_file: ".narration-lock"
   lock_stale_timeout_minutes: 60
   lock_freshness_check_minutes: 5  # Checkpoint integrity check: lock file must be within this many minutes
@@ -78,6 +78,28 @@ self_critique:
     hard_cap_extension: 2   # Additional rounds granted when user selects "Override" on hard cap
 
 # =============================================================================
+# BATCH MODE
+# =============================================================================
+
+# Alternative workflow mode: process all screens in a single cycle instead of
+# one-at-a-time interactive Q&A. User provides a textual screen descriptions
+# document AND selects a Figma page; system discovers all frames, analyzes them
+# sequentially, consolidates questions across screens, and pauses for offline answers.
+batch_mode:
+  enabled: true
+  screens_document: "screen-descriptions.md"     # Default filename in design-narration/ directory
+  required_fields: ["name", "purpose", "elements", "navigation"]  # Fields that must be present per screen
+  questions_soft_cap_per_cycle: 50                # Warn if consolidated questions exceed this; split into priority tiers
+  max_cycles: 5                                   # Hard cap on batch Q&A cycles before forcing completion
+  stall_detection:
+    plateau_cycles: 2                             # If question count doesn't decrease for this many cycles, trigger stall escape
+  analysis_strategy: "sequential"                 # Process screens sequentially to accumulate patterns (not parallel)
+  working_directory: "working"                    # Subdirectory for batch artifacts (under design-narration/)
+  frame_matching:
+    case_insensitive: true                        # Match Figma frame names to screen descriptions case-insensitively
+    strip_prefixes: ["screen-", "screen_", "page-", "page_"]  # Common prefixes to strip before matching
+
+# =============================================================================
 # TOKEN BUDGETS (Context Injection Limits)
 # =============================================================================
 
@@ -87,6 +109,8 @@ token_budgets:
   patterns_yaml_max_lines: 40          # Accumulated patterns YAML
   qa_history_max_lines: 60             # Cross-screen Q&A history
   completed_screens_digest_max_lines: 50  # 1-line-per-screen summary table
+  screen_description_max_lines: 50     # Per-screen textual description (batch mode)
+  batch_consolidation_context_max_lines: 100  # Consolidator input context per dispatch
 
 # =============================================================================
 # ORCHESTRATOR CONTEXT MANAGEMENT
@@ -220,6 +244,7 @@ model_assignments:
     - "developer-implementability" # MPA validation agent
     - "ux-completeness"            # MPA validation agent
     - "edge-case-auditor"          # MPA validation agent
+    - "question-consolidator"      # Batch mode: cross-screen question dedup and grouping
   opus:
     - "validation-synthesis"       # Final validation synthesis
 
@@ -243,3 +268,5 @@ output:
 templates:
   narrative: "$CLAUDE_PLUGIN_ROOT/templates/ux-narrative-template.md"
   screen: "$CLAUDE_PLUGIN_ROOT/templates/screen-narrative-template.md"
+  screen_descriptions: "$CLAUDE_PLUGIN_ROOT/templates/screen-descriptions-template.md"
+  batch_questions: "$CLAUDE_PLUGIN_ROOT/templates/batch-questions-template.md"

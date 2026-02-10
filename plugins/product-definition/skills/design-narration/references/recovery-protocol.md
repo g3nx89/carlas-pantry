@@ -99,6 +99,56 @@ FOR each screen WHERE status in ["questions_asked", "critiqued", "refined"]:
         NOTIFY user: "Recovered {ANSWERED_COUNT} prior answer(s) for '{SCREEN_NAME}'. Continuing with {REMAINING_COUNT} remaining question(s)."
 ```
 
+### Stage 2-BATCH Recovery: Incomplete Batch Processing
+
+When `workflow_mode == "batch"`, check `batch_mode.status`:
+
+```
+IF batch_mode.status == "analyzing":
+    # Crash during sequential screen analysis
+    IDENTIFY completed screens: screens WHERE status NOT IN ["pending"]
+    IDENTIFY next screen to analyze: first screen WHERE status == "pending" or "in_progress"
+    IF in_progress screen has narrative file:
+        RECONSTRUCT summary from narrative YAML frontmatter
+        SET screen.status = "described"
+    ELSE IF in_progress screen has no narrative:
+        SET screen.status = "pending"
+    RESUME Step 2B.1 from next unanalyzed screen
+    NOTIFY user: "Recovered: {completed_count} screens analyzed. Resuming batch analysis."
+
+IF batch_mode.status == "consolidating":
+    # Crash during question consolidation
+    CHECK: Does design-narration/working/.consolidation-summary.md exist?
+    IF exists AND has valid YAML frontmatter:
+        SET batch_mode.status = "consolidating"
+        RESUME at Step 2B.3 (write BATCH-QUESTIONS)
+    IF not exists OR invalid:
+        # Re-collect questions from screen summaries
+        COLLECT pending_questions from all screens/{nodeId}-{name}-summary.md
+        RESUME at Step 2B.2 (re-run consolidation)
+    NOTIFY user: "Recovered: Re-running question consolidation."
+
+IF batch_mode.status == "waiting_for_user":
+    # Normal resume — user is returning with answers
+    CHECK: Does design-narration/{batch_mode.questions_file} exist?
+    IF exists:
+        RESUME at Step 2B.5 (read answers)
+    IF not exists:
+        # Questions file lost — re-run consolidation from screen summaries
+        SET batch_mode.status = "consolidating"
+        RESUME at Step 2B.2
+    NOTIFY user: "Resuming batch workflow. Reading your answers."
+
+IF batch_mode.status == "refining":
+    # Crash during refinement cycle
+    IDENTIFY refined screens: screens WHERE refinement_rounds > batch_mode.cycle - 1
+    IDENTIFY unrefined screens: screens that had answers but refinement_rounds == batch_mode.cycle - 1
+    FOR each unrefined screen with recorded answers in audit trail:
+        RESUME Step 2B.6 refinement for this screen
+    AFTER all screens refined: proceed to Step 2B.7 (convergence check)
+    NOTIFY user: "Recovered: {refined_count} screens refined. Resuming convergence check."
+```
+
 ### Stage 3 Recovery: Incomplete Coherence
 
 ```

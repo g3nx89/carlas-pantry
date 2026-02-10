@@ -11,7 +11,7 @@ artifacts_written:
 
 ## CRITICAL RULES (must follow)
 
-1. **Schema version required**: Always include `schema_version: 1` in frontmatter.
+1. **Schema version required**: Always include `schema_version: 2` in frontmatter.
 2. **Decisions are append-only**: Never overwrite a decision — append revision records with `revises` pointer.
 3. **Checkpoint before interaction**: Update state BEFORE presenting any AskUserQuestion to the user.
 
@@ -20,8 +20,9 @@ artifacts_written:
 ## Top-Level Fields
 
 ```yaml
-schema_version: 1
+schema_version: 2
 current_stage: 1-5
+workflow_mode: interactive | batch   # v2: "interactive" (default, one-at-a-time) or "batch" (all screens per cycle)
 screens_completed: 0
 context_document: null  # path or null
 ```
@@ -34,6 +35,7 @@ context_document: null  # path or null
 screens:
   - node_id: "{NODE_ID}"
     name: "{SCREEN_NAME}"
+    source: figma | batch_description+figma   # v2: "figma" (interactive) or "batch_description+figma" (batch mode with textual description)
     status: pending | in_progress | described | critiqued | questions_asked | refined | signed_off
     narrative_file: "screens/{nodeId}-{name}.md"
     screenshot_file: "figma/{nodeId}-{name}.png"
@@ -92,6 +94,7 @@ decisions_audit_trail:
     screen: "login-screen"
     question: "What happens on failed login?"
     answer: "Show inline error"
+    cycle: null                  # null for interactive mode; integer for batch mode cycle number
     timestamp: "{ISO}"
 
   - id: "screen-1-q3-rev1"
@@ -100,6 +103,7 @@ decisions_audit_trail:
     question: "What happens on failed login?"
     answer: "Show error toast notification"
     revision_reason: "Toast pattern used consistently across app"
+    cycle: null
     timestamp: "{ISO}"
 ```
 
@@ -123,14 +127,56 @@ validation:
 
 ---
 
+## Batch Mode State (v2)
+
+Present only when `workflow_mode == "batch"`:
+
+```yaml
+batch_mode:
+  screens_input_document: "design-narration/screen-descriptions.md"   # Path to user's textual descriptions
+  figma_page_node_id: "0:1"                                          # Figma page node containing all frames
+  cycle: 1                                                           # Current batch Q&A cycle number
+  screens_analyzed: 0                                                  # Incremented after each screen analysis; enables progress tracking
+  status: parsing | analyzing | consolidating | waiting_for_user | refining | complete
+  questions_file: "working/BATCH-QUESTIONS-001.md"                   # Current/most recent questions document
+  questions_pending: 0                                                # Questions awaiting user answers
+  questions_answered_total: 0                                        # Cumulative answers across all cycles
+  dedup_stats:
+    original: 0                # Raw questions before consolidation
+    consolidated: 0            # Questions after dedup
+    reduction_pct: 0           # Percentage reduction
+  convergence:
+    cycle_question_counts: []  # [23, 8, 0] — question count per cycle for trend tracking
+    screens_at_good: 0         # Screens with critique score >= good threshold
+    screens_below_good: 0      # Screens with critique score < good threshold
+```
+
+### Batch Status Transitions
+
+```
+parsing → analyzing           (screen descriptions parsed and matched to Figma frames)
+analyzing → consolidating     (all screens analyzed, questions collected)
+consolidating → waiting_for_user  (BATCH-QUESTIONS document written)
+waiting_for_user → refining   (user answers read and validated)
+refining → consolidating      (new questions emerged from refinement — next cycle)
+refining → complete           (no new questions — convergence reached)
+
+# Non-standard transitions (recovery):
+any → analyzing               (crash recovery resume)
+any → consolidating           (crash recovery — all screens analyzed but no questions doc)
+```
+
+---
+
 ## Initialization Template
 
 When creating a new state file:
 
 ```yaml
 ---
-schema_version: 1
+schema_version: 2
 current_stage: 2
+workflow_mode: interactive    # Set to "batch" when --batch flag is used
 screens_completed: 0
 context_document: null
 screens: []
@@ -150,6 +196,7 @@ validation:
   quality_score: 0
   recommendation: null
   pal_status: null
+# batch_mode: (added only when workflow_mode == "batch" — see Batch Mode State section)
 ---
 ```
 
@@ -164,12 +211,14 @@ READ config state.schema_version
 IF state.schema_version < config.schema_version:
     RUN migration for each version step:
 
-    # v1 → v2 (placeholder — no migration needed yet)
-    # When adding fields in future versions:
-    # 1. Add new fields with sensible defaults (never remove existing fields)
-    # 2. Preserve all existing decision_audit_trail entries unchanged
-    # 3. Update schema_version in state file after successful migration
-    # 4. Log migration in workflow log: "Migrated state schema v{old} → v{new}"
+    # v1 → v2: Add workflow_mode and per-screen source fields
+    IF state.schema_version == 1:
+        ADD top-level field: workflow_mode: "interactive"  (default — existing sessions are interactive)
+        FOR each screen in screens[]:
+            ADD field: source: "figma"  (default — existing screens were captured interactively)
+        SET schema_version: 2
+        # Note: batch_mode section is NOT added during migration
+        # (only created when workflow starts in batch mode)
 
     NOTIFY user: "State file migrated from schema v{old} to v{new}."
 ```

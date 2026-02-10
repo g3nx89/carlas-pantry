@@ -11,7 +11,7 @@ description: >-
   Produces UX-NARRATIVE.md with per-screen purpose, elements, behaviors,
   states, navigation, and animations — filling the gaps that static
   mockups cannot communicate.
-version: 1.4.0
+version: 1.5.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__pal__consensus"]
 ---
 
@@ -28,7 +28,7 @@ Transform Figma Desktop mockups into a detailed UX/interaction narrative documen
 ## CRITICAL RULES (High Attention Zone — Start)
 
 ### Core Workflow Rules
-1. **One screen at a time**: User selects each screen in Figma Desktop. Never batch-process screens or assume order.
+1. **One screen at a time (interactive) or all screens per cycle (batch)**: In interactive mode, user selects each screen in Figma Desktop. In batch mode (`--batch` flag), all screens are processed per cycle from a Figma page. Never assume screen order — use Figma page position.
 2. **Coordinator never talks to users**: Screen analyzer returns summary with questions; orchestrator mediates ALL user interaction via AskUserQuestion.
 3. **Checkpoint after every screen**: Update state file with screen status, critique scores, and patterns BEFORE asking user to select next screen.
 4. **No question limits**: Continue question rounds until critique score reaches GOOD threshold (per `self_critique.thresholds.good.min` in config) or user signs off.
@@ -54,20 +54,26 @@ Consider user input before proceeding (if not empty).
 +-------------------------------------------------------------------+
 |  Stage 1 (Inline): SETUP                                          |
 |  Figma MCP check, optional context doc, state init/resume         |
-+-------------------------------+-----------------------------------+
-                                |
-+-------------------------------v-----------------------------------+
-|  Stage 2 (Loop — narration-screen-analyzer):                      |
-|  SCREEN PROCESSING                                                 |
-|                                                                    |
-|  REPEAT until user says "no more screens":                         |
-|    2A: Analyzer captures + describes + critiques + questions       |
-|    Orchestrator: mediate questions via AskUserQuestion              |
-|    2B: Analyzer refines with user answers, re-critiques            |
-|    Handle decision revisions if flagged                            |
-|    Sign-off → user picks next screen                               |
-+-------------------------------+-----------------------------------+
-                                |
+|  Batch mode: parse screen descriptions, match Figma page frames   |
++---------------+-------------------+-------------------------------+
+                |                   |
+    (interactive)                 (--batch)
+                |                   |
++---------------v-----------+  +----v----------------------------------+
+|  Stage 2 (Loop):          |  |  Stage 2-BATCH (Cycle loop):          |
+|  SCREEN PROCESSING        |  |  BATCH PROCESSING                     |
+|                           |  |                                       |
+|  Per screen:              |  |  2B.1: Analyze all screens             |
+|  2A: Analyze + critique   |  |  2B.2: Consolidate questions           |
+|  Q&A via AskUserQuestion  |  |  2B.3: Write BATCH-QUESTIONS doc       |
+|  2B: Refine + re-critique |  |  2B.4: Pause for user answers          |
+|  Sign-off → next screen   |  |  2B.5: Read answers on re-invocation   |
++---------------+-----------+  |  2B.6: Refine affected screens         |
+                |              |  2B.7: Convergence check → loop/advance |
+                |              +----+----------------------------------+
+                |                   |
+                +-------+-----------+
+                        |
 +-------------------------------v-----------------------------------+
 |  Stage 3 (narration-coherence-auditor): COHERENCE CHECK            |
 |  Cross-screen consistency, pattern extraction, mermaid diagrams    |
@@ -92,6 +98,7 @@ Consider user input before proceeding (if not empty).
 |-------|------|------------|---------------|-------------|
 | 1 | Setup | **Inline** | `references/setup-protocol.md` | No |
 | 2 | Screen Processing | Coordinator (loop) | `references/screen-processing.md` | Yes (per screen) |
+| 2-BATCH | Batch Processing | Coordinator (cycle loop) | `references/batch-processing.md` | Yes (per cycle) |
 | 3 | Coherence Check | Coordinator | `references/coherence-protocol.md` | Yes (inconsistencies) |
 | 4 | Validation | Coordinator | `references/validation-protocol.md` | Yes (critical findings) |
 | 5 | Output | **Inline** | `references/output-assembly.md` | No |
@@ -112,7 +119,11 @@ Execute directly (no coordinator dispatch). Steps:
 
 ---
 
-## Stage 2 — Screen Processing Loop
+## Stage 2 — Screen Processing
+
+**Mode guard:** Check `workflow_mode` in state file.
+
+### If `workflow_mode == "interactive"` → Stage 2 (Interactive)
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/screen-processing.md`
 
@@ -127,6 +138,22 @@ This stage loops for each screen:
 7. **Next screen**: User selects next screen in Figma or indicates "no more screens"
 
 **Loop exit**: User selects "No more screens — proceed to coherence check" → advance to Stage 3.
+
+### If `workflow_mode == "batch"` → Stage 2-BATCH
+
+**Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/batch-processing.md`
+
+This stage processes all screens in batch cycles:
+
+1. **2B.1 — Batch analysis**: Analyze all screens sequentially (pattern accumulation across screens)
+2. **2B.2 — Consolidation**: Dispatch `narration-question-consolidator` to dedup, detect conflicts, and group
+3. **2B.3 — Write questions**: Generate BATCH-QUESTIONS document from consolidated questions
+4. **2B.4 — Pause**: Save state, notify user, EXIT workflow (user answers offline)
+5. **2B.5 — Read answers** (on re-invocation): Parse user selections from BATCH-QUESTIONS file
+6. **2B.6 — Refine**: Re-analyze affected screens with user answers
+7. **2B.7 — Convergence check**: If no new questions → advance to Stage 3; otherwise loop to 2B.2
+
+**Cycle exit**: All screens at GOOD threshold with zero pending questions, or user accepts current state → advance to Stage 3.
 
 ---
 
@@ -173,7 +200,7 @@ Assemble `UX-NARRATIVE.md` from per-screen narratives, coherence patterns, valid
 
 ## State Management
 
-**State file:** `design-narration/.narration-state.local.md` | **Schema version:** 1
+**State file:** `design-narration/.narration-state.local.md` | **Schema version:** 2
 
 **Full schema and initialization template:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/state-schema.md`
 
@@ -188,7 +215,8 @@ Key principles:
 
 | Agent | Stage | Model | Purpose |
 |-------|-------|-------|---------|
-| `narration-screen-analyzer` | 2 | sonnet | Per-screen narrative, self-critique, questions |
+| `narration-screen-analyzer` | 2, 2-BATCH | sonnet | Per-screen narrative, self-critique, questions |
+| `narration-question-consolidator` | 2-BATCH | sonnet | Cross-screen question dedup, conflict detection, grouping |
 | `narration-coherence-auditor` | 3 | sonnet | Cross-screen consistency, mermaid diagrams |
 | `narration-developer-implementability` | 4 | sonnet | MPA: implementability audit |
 | `narration-ux-completeness` | 4 | sonnet | MPA: journey/state coverage |
@@ -203,8 +231,9 @@ Key principles:
 
 | Reference | Purpose | Load When |
 |-----------|---------|-----------|
-| `references/setup-protocol.md` | Stage 1: Figma check, context, lock, state, first screen | Stage 1 execution |
-| `references/screen-processing.md` | Per-screen loop: dispatch, Q&A, refinement, sign-off | Stage 2 execution |
+| `references/setup-protocol.md` | Stage 1: Figma check, context, lock, state, screen selection | Stage 1 execution |
+| `references/screen-processing.md` | Per-screen loop: dispatch, Q&A, refinement, sign-off | Stage 2 execution (interactive mode) |
+| `references/batch-processing.md` | Batch cycle: analyze all, consolidate Qs, pause, refine, converge | Stage 2-BATCH execution (batch mode) |
 | `references/coherence-protocol.md` | Cross-screen auditor dispatch, mermaid diagrams | Stage 3 execution |
 | `references/validation-protocol.md` | MPA + PAL dispatch, synthesis, findings | Stage 4 execution |
 | `references/critique-rubric.md` | 5-dimension self-critique rubric | Passed to screen analyzer |
@@ -220,9 +249,9 @@ Key principles:
 ## CRITICAL RULES (High Attention Zone — End)
 
 Rules 1-7 above MUST be followed. Key reminders:
-- One screen at a time — user drives the order
+- One screen at a time (interactive) or all screens per cycle (batch) — user drives the order
 - Coordinator never talks to users — orchestrator mediates all interaction
-- Checkpoint after every screen — state updated before next screen selection
+- Checkpoint after every screen — state updated before next interaction
 - No question limits — ask everything needed for completeness
 - Decisions are mutable but EVERY revision requires explicit user confirmation
 - Figma Desktop MCP is required — stop if unavailable

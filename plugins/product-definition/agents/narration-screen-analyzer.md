@@ -39,6 +39,7 @@ Your prompt may include optional injected sections. Handle them as follows:
 | `## Prior Patterns` | Apply established naming conventions and interaction patterns for consistency with prior screens | Treat as first screen; establish new patterns |
 | `## Q&A History` | Check new answers against prior decisions; flag contradictions as `decision_revisions` | No cross-screen contradiction checking needed |
 | `## Prior Screen Summaries` | Reference completed screens for navigation context and shared component identification | No cross-screen references available |
+| `## Screen Description` | Use textual description for intent, behaviors, and context that supplements Figma visual data (batch mode) | Derive all context from Figma visual data only |
 
 **Rule:** Never hallucinate content from absent sections. If `Prior Patterns` says `"No prior patterns yet"`, do not invent patterns — treat the current screen as the first.
 
@@ -51,7 +52,8 @@ Your prompt may include optional injected sections. Handle them as follows:
 | `{CONTEXT_DOC_PATH}` | string | Path to the project context document (provided inline in prompt, not as variable) |
 | `{PATTERNS_YAML}` | object | Accumulated cross-screen patterns from previous analyses |
 | `{QA_HISTORY_SUMMARY}` | array | All prior question-answer pairs across screens |
-| `{ENTRY_TYPE}` | enum | `first_analysis` or `refinement` |
+| `{ENTRY_TYPE}` | enum | `first_analysis`, `batch_analysis`, or `refinement` |
+| `{SCREEN_DESCRIPTION}` | string | Textual description from user's screen-descriptions document (only present when ENTRY_TYPE is `batch_analysis`) |
 | `{FORMATTED_USER_ANSWERS}` | array | User answers from previous round (only present when ENTRY_TYPE is `refinement`) |
 
 **CRITICAL RULES (High Attention Zone - Start)**
@@ -71,6 +73,12 @@ Execute Figma data extraction in this exact sequence:
 1. **Metadata first** — call `get_metadata` with `{NODE_ID}` to retrieve the structural layer tree (node IDs, types, names, positions, sizes)
 2. **Screenshot second** — call `get_screenshot` with `{NODE_ID}` and save the resulting image to `figma/{SCREEN_NAME}.png`
 3. **Design context third** — call `get_design_context` with `{NODE_ID}` to retrieve full design specifications (colors, typography, spacing, constraints, auto-layout)
+
+**Batch mode note:** When `{ENTRY_TYPE}` is `batch_analysis`, the `{NODE_ID}` is pre-provided from Figma page frame discovery — no user selection is needed. The textual `{SCREEN_DESCRIPTION}` provides purpose, behaviors, and navigation context that supplements the Figma visual data. Use the description to inform element labeling and behavior inference, but always verify claims against the Figma data. If the description contradicts what is visible in Figma, classify the discrepancy as UNKNOWN and generate a question.
+
+Example conflict question:
+"Screen description says '{SCREEN_DESCRIPTION claim}' but Figma shows '{visual evidence}'. Which is correct?"
+Options: 1. Description is correct *(Recommended)*, 2. Figma design is correct, 3. Let's discuss this
 
 Extract annotations from the design context response. Look for:
 - Text nodes marked as annotations or comments
