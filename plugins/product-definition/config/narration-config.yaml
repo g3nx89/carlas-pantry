@@ -1,0 +1,191 @@
+# Design Narration Configuration
+# Plugin: product-definition | Skill: design-narration
+
+version: "1.0.0"
+last_updated: "2026-02-10"
+
+# =============================================================================
+# DIRECTORY STRUCTURE (User's working directory - NOT plugin directory)
+# =============================================================================
+
+directories:
+  root: "design-narration"
+  figma: "design-narration/figma"
+  screens: "design-narration/screens"
+  context_input: "design-narration/context-input.md"  # User-provided product context
+  validation: "design-narration/validation"
+
+# =============================================================================
+# STATE MANAGEMENT
+# =============================================================================
+
+state:
+  file_name: ".narration-state.local.md"
+  schema_version: 1
+  lock_file: ".narration-lock"
+  lock_stale_timeout_minutes: 60
+
+# =============================================================================
+# FIGMA INTEGRATION
+# =============================================================================
+
+figma:
+  connection: "desktop"  # Uses Figma Desktop MCP (not API tokens)
+  screenshot_naming:
+    node_id_separator: "-"   # Figma node IDs use ":" which is filesystem-unsafe
+    name_case: "lowercase"
+    name_separator: "-"
+    name_max_length: 50      # Truncate long Figma layer names
+    extension: ".png"
+
+# =============================================================================
+# SELF-CRITIQUE RUBRIC
+# =============================================================================
+
+# Self-scored before presenting to user; drives maieutic follow-up questions.
+self_critique:
+  dimensions:
+    - id: "completeness"
+      description: "All visible elements accounted for"
+      scoring: { 1: "Multiple visible elements missing", 2: "Some secondary elements omitted",
+                 3: "All elements mentioned, minor gaps", 4: "Every visible element fully described" }
+    - id: "interaction_clarity"
+      description: "Every interactive element has explicit behavior"
+      scoring: { 1: "Most interactive elements lack behavior", 2: "Primary actions described, secondary vague",
+                 3: "All actions described, edge cases partial", 4: "Every tap/swipe/gesture has explicit outcome" }
+    - id: "state_coverage"
+      description: "All plausible states identified"
+      scoring: { 1: "Only happy-path state described", 2: "Empty/error states mentioned not detailed",
+                 3: "Most states covered, some edge missing", 4: "All states enumerated with visual diffs" }
+    - id: "navigation_context"
+      description: "Entry/exit points explicit"
+      scoring: { 1: "No mention of arrival or departure", 2: "One direction described",
+                 3: "Both directions, transitions vague", 4: "Full context with transition types" }
+    - id: "ambiguity"
+      description: "No vague language"
+      scoring: { 1: "Frequent 'should', 'might', 'possibly'", 2: "Some hedging language remains",
+                 3: "Mostly precise, rare ambiguity", 4: "Zero vague qualifiers — every statement testable" }
+
+  thresholds:
+    good: { min: 14 }        # /20 — narration ready, no follow-up needed
+    acceptable: { min: 10 }  # /20 — usable but maieutic questions recommended
+  max_question_rounds_per_screen: null  # No artificial limit; ask until "good"
+
+# =============================================================================
+# SESSION RESUME
+# =============================================================================
+
+session_resume:
+  max_digest_lines: 100
+  screen_summarization_threshold: 10  # Summarize oldest screens to 1 line each when count exceeds this
+
+# =============================================================================
+# MAIEUTIC QUESTIONS
+# =============================================================================
+
+# Socratic questions surfaced when self-critique score < good threshold.
+maieutic_questions:
+  max_per_batch: 4  # Avoid overwhelming the user per round
+  categories:
+    - id: "BEHAVIOR"
+      description: "What happens when user interacts with element (tap, swipe, long-press)"
+    - id: "STATE"
+      description: "Screen appearance in different conditions (empty, loading, error, disabled, offline)"
+    - id: "NAVIGATION"
+      description: "Where user goes after action, how they arrived, screen transitions"
+    - id: "CONTENT"
+      description: "Specific text, labels, placeholders, dynamic data format, localization"
+    - id: "EDGE"
+      description: "Unusual conditions — offline, timeout, concurrent actions, permission denied"
+    - id: "ANIMATION"
+      description: "Screen transitions, loading animations, micro-interactions, gesture-driven animations"
+
+# =============================================================================
+# DECISION MANAGEMENT
+# =============================================================================
+
+decisions:
+  decisions_mutable: true                  # Unlike PRD refinement, narration decisions can evolve
+  revision_requires_user_confirmation: true # User must approve any change to a prior answer
+  audit_trail_enabled: true                # Track original + revised values in decision log
+
+# =============================================================================
+# COHERENCE CHECK
+# =============================================================================
+
+coherence_checks:  # Cross-screen consistency checks after all screens narrated
+  - id: "naming_consistency"
+    description: "Same UI element uses the same name across all screen narratives"
+  - id: "interaction_consistency"
+    description: "Same gesture produces the same outcome on equivalent elements across screens"
+  - id: "navigation_completeness"
+    description: "Every exit point on screen A has a matching entry point on screen B"
+  - id: "state_coverage_parity"
+    description: "Screens sharing data show consistent empty/error/loading states"
+  - id: "terminology_drift"
+    description: "Domain terms (e.g., 'cart' vs 'basket') are uniform across all narratives"
+
+# =============================================================================
+# VALIDATION (MPA + PAL)
+# =============================================================================
+
+validation:
+  mpa:
+    parallel_execution: true
+    agents:
+      - id: "developer-implementability"
+        description: "Can a developer build this screen from the narration alone?"
+        model: "sonnet"
+      - id: "ux-completeness"
+        description: "Are all user-facing states, feedback, and flows accounted for?"
+        model: "sonnet"
+      - id: "edge-case-auditor"
+        description: "What happens under unusual, degraded, or adversarial conditions?"
+        model: "sonnet"
+
+  pal_consensus:
+    enabled: true
+    graceful_degradation: true  # Continue without PAL if MCP unavailable
+    minimum_models: 2           # Proceed if at least 2 of 3 models respond
+    models:
+      - "openai/chatgpt-5.2"
+      - "google/gemini-3-pro"
+      - "x-ai/grok-4"
+  synthesis:
+    agent: "narration-validation-synthesis"
+    model: "opus"
+
+# =============================================================================
+# MODEL ASSIGNMENTS
+# =============================================================================
+
+model_assignments:
+  sonnet:
+    - "screen-analyzer"            # Per-screen narration generation
+    - "coherence-auditor"          # Cross-screen consistency check
+    - "developer-implementability" # MPA validation agent
+    - "ux-completeness"            # MPA validation agent
+    - "edge-case-auditor"          # MPA validation agent
+  opus:
+    - "validation-synthesis"       # Final validation synthesis
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+
+output:
+  final_document: "UX-NARRATIVE.md"
+  include_critique_scores: true        # Per-screen self-critique scores in appendix
+  include_flow_diagram: true           # Screen-to-screen navigation map
+  include_mermaid_diagrams: true       # Machine-readable flow diagrams
+  include_glossary: true               # Unified terminology glossary
+  include_coherence_notes: true        # Cross-screen consistency findings
+  include_decision_revision_log: true  # Audit trail of changed decisions
+
+# =============================================================================
+# TEMPLATES (Plugin-relative paths)
+# =============================================================================
+
+templates:
+  narrative: "$CLAUDE_PLUGIN_ROOT/templates/ux-narrative-template.md"
+  screen: "$CLAUDE_PLUGIN_ROOT/templates/screen-narrative-template.md"

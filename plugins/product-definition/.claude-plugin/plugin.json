@@ -1,7 +1,7 @@
 {
   "name": "product-definition",
   "version": "2.0.0",
-  "description": "Transform rough product drafts into finalized PRDs and create detailed technical specifications with multi-perspective analysis, Figma integration, PAL consensus validation, SADD (Subagent-Driven Development) patterns, and V-Model test strategy generation",
+  "description": "Transform rough product drafts into finalized PRDs, create detailed technical specifications, and generate UX/interaction narratives from Figma mockups — with multi-perspective analysis, Figma integration, PAL consensus validation, and V-Model test strategy generation",
   "author": {
     "name": "Alessandro Fato",
     "email": "afato@example.com"
@@ -21,7 +21,10 @@
     "v-model",
     "test-strategy",
     "tdd",
-    "qa"
+    "qa",
+    "ux-narrative",
+    "design-narration",
+    "figma-narrative"
   ],
   "license": "MIT"
 }
