@@ -4,7 +4,8 @@
 # All limits, thresholds, and feature flags are defined here.
 #
 # Referenced by:
-# - $CLAUDE_PLUGIN_ROOT/commands/specify.md
+# - $CLAUDE_PLUGIN_ROOT/skills/feature-specify/SKILL.md
+# - $CLAUDE_PLUGIN_ROOT/commands/specify.md (thin wrapper)
 # - $CLAUDE_PLUGIN_ROOT/agents/business-analyst.md
 # - $CLAUDE_PLUGIN_ROOT/skills/specify-clarification/SKILL.md
 
@@ -1236,4 +1237,78 @@ test_strategy:
     skip_reasons_allowed:
       - "documentation_only_feature"  # Pure docs, no code
       - "user_explicit_skip"  # User says skip
+
+# =============================================================================
+# SKILL ORCHESTRATOR CONFIGURATION (v1.0)
+# =============================================================================
+# Configuration for the feature-specify skill orchestrator.
+# Controls coordinator dispatch, iteration, and context management.
+
+skill_orchestrator:
+  version: "1.0.0"
+
+  # ─────────────────────────────────────────────────────────────
+  # STAGE DISPATCH PROFILES
+  # ─────────────────────────────────────────────────────────────
+  # Defines which shared references and config sections each stage loads.
+  # Reduces coordinator context by loading ONLY what's needed.
+
+  stage_dispatch_profiles:
+    stage_2_spec_draft:
+      shared_refs:
+        - "checkpoint-protocol"
+        - "error-handling"
+      config_yaml: true
+      extra_refs:
+        - name: "thinkdeep-patterns"
+          condition: "PAL_AVAILABLE"
+    stage_3_checklist:
+      shared_refs:
+        - "checkpoint-protocol"
+        - "error-handling"
+      config_yaml: true
+      extra_refs: []
+    stage_4_clarification:
+      shared_refs:
+        - "checkpoint-protocol"
+        - "error-handling"
+      config_yaml: true
+      extra_refs:
+        - name: "thinkdeep-patterns"
+          condition: "PAL_AVAILABLE"
+    stage_5_pal_design:
+      shared_refs:
+        - "checkpoint-protocol"
+        - "error-handling"
+      config_yaml: true
+      extra_refs:
+        - name: "config-reference"
+          condition: "always"
+    stage_6_test_strategy:
+      shared_refs:
+        - "checkpoint-protocol"
+        - "error-handling"
+      config_yaml: true
+      extra_refs: []
+    stage_7_completion:
+      shared_refs:
+        - "checkpoint-protocol"
+      config_yaml: false
+      extra_refs: []
+
+  # ─────────────────────────────────────────────────────────────
+  # ITERATION CONTROL
+  # ─────────────────────────────────────────────────────────────
+  # Controls the Stage 3 <-> Stage 4 iteration loop.
+
+  iteration:
+    coverage_target: 85  # Percentage — loop until this coverage reached
+    stall_threshold: 5   # Percentage — if improvement < this, ask user
+    max_iterations: 10   # Safety circuit breaker
+
+  # ─────────────────────────────────────────────────────────────
+  # COORDINATOR CONTEXT LIMITS
+  # ─────────────────────────────────────────────────────────────
+
+  coordinator_prompt_max: 8000  # Max tokens for coordinator prompt (approximate)
 
