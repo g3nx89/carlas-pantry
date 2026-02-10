@@ -89,11 +89,15 @@ Transforms Figma Desktop mockups into detailed UX/interaction narrative document
 | 4 | Validation | MPA (3 agents) + PAL Consensus (multi-step with stance steering) + synthesis |
 | 5 | Output | Assemble UX-NARRATIVE.md from screens + patterns + validation |
 
+**Modes:**
+- **Interactive** (default) — One screen at a time, user-driven order
+- **Batch** (`/narrate --batch`) — All screens in consolidated Q&A cycles: analyze all → consolidate questions (dedup + conflict detection) → pause for user answers → refine → repeat until convergence
+
 **Key features:**
-- One screen at a time, user-driven order
 - Self-critique rubric with 5 dimensions scores each screen
 - Stall detection prevents infinite refinement loops
 - Mutable decisions with full audit trail
+- Batch mode: cross-screen question consolidation with semantic dedup and conflict detection
 - PAL Consensus with stance steering (for/against/neutral) for validation
 - Graceful degradation when PAL or Figma MCP unavailable
 
@@ -101,7 +105,7 @@ Transforms Figma Desktop mockups into detailed UX/interaction narrative document
 
 | Skill | Purpose |
 |-------|---------|
-| `design-narration` | UX narrative generation from Figma mockups (v1.4.0) |
+| `design-narration` | UX narrative generation from Figma mockups (v1.5.0) |
 | `feature-specify` | Technical specification generation (v1.0.0) |
 | `refinement` | PRD refinement orchestration |
 | `sadd-orchestrator` | Subagent-driven development patterns |
@@ -132,6 +136,9 @@ design-narration/
 ├── screens/                  # Per-screen narratives
 │   └── {nodeId}-{name}.md
 ├── figma/                    # Figma context/screenshots
+├── working/                  # Batch mode: consolidated Q&A documents
+│   ├── BATCH-QUESTIONS-001.md
+│   └── .consolidation-summary.md
 ├── validation/               # MPA + synthesis outputs
 │   ├── mpa-implementability.md
 │   ├── mpa-ux-completeness.md
@@ -157,7 +164,7 @@ If PAL tools are unavailable:
 
 ## Plugin Components
 
-### Agents (23)
+### Agents (24)
 
 | Agent | Command/Skill | Purpose | Model |
 |-------|--------------|---------|-------|
@@ -179,13 +186,14 @@ If PAL tools are unavailable:
 | `qa-strategist` | specify | V-Model test strategy | sonnet |
 | `stakeholder-synthesis` | specify | Stakeholder input synthesis | opus |
 | `narration-screen-analyzer` | narrate | Per-screen narrative + self-critique | sonnet |
+| `narration-question-consolidator` | narrate | Batch mode: cross-screen question dedup + conflict detection | sonnet |
 | `narration-coherence-auditor` | narrate | Cross-screen consistency | sonnet |
 | `narration-developer-implementability` | narrate | MPA: implementability audit | sonnet |
 | `narration-ux-completeness` | narrate | MPA: journey/state coverage | sonnet |
 | `narration-edge-case-auditor` | narrate | MPA: unusual conditions | sonnet |
 | `narration-validation-synthesis` | narrate | Merge MPA + PAL, prioritize fixes | opus |
 
-### Templates (16)
+### Templates (18)
 
 | Template | Purpose |
 |----------|---------|
@@ -205,6 +213,8 @@ If PAL tools are unavailable:
 | `test-plan-template.md` | V-Model test plan |
 | `screen-narrative-template.md` | Per-screen narrative structure |
 | `ux-narrative-template.md` | Final UX narrative document |
+| `batch-questions-template.md` | Batch mode consolidated Q&A document |
+| `screen-descriptions-template.md` | User input format for batch screen descriptions |
 
 ## Configuration
 
@@ -264,7 +274,7 @@ rm design-narration/.narration-state.local.md
 ## Version
 
 - **Plugin Version:** 2.0.0
-- **Schema Version:** 1
+- **Schema Version:** 2
 
 ## License
 
