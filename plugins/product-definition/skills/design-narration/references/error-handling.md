@@ -64,9 +64,6 @@ These errors can occur in any stage when plugin reference files or config are ne
 | Config validation failure | FATAL | STOP. Report missing/invalid key. |
 | Lock conflict (non-stale) | BLOCKING | AskUserQuestion: override or cancel. |
 | Context document unreadable | WARNING | Skip context doc, notify user, continue. |
-| Discovery agent failure (no output file) | BLOCKING | Retry once. If fails: AskUserQuestion with retry / stop. |
-| Discovery agent error status | BLOCKING | Present `error_reason` from discovery output. AskUserQuestion: retry selection / stop. |
-| Discovery match incomplete (unmatched screens) | WARNING | Present match table to user, user decides whether to proceed or fix names. |
 
 ### Stage 2 — Screen Processing
 
@@ -74,7 +71,7 @@ These errors can occur in any stage when plugin reference files or config are ne
 |-------|----------|--------|
 | Critique-rubric.md load failure in screen-analyzer | BLOCKING | STOP screen analysis. Do NOT proceed without self-critique — it drives all question generation. See Cross-Stage Plugin Integrity. |
 | Screen analyzer crash (no summary) | BLOCKING | Reconstruct minimal summary per recovery-protocol.md. Retry once. |
-| Discovery agent failure (next screen) | BLOCKING | AskUserQuestion: retry selection, skip to coherence check, or stop. |
+| Figma selection unreadable | BLOCKING | AskUserQuestion: retry selection or skip screen. |
 | Screenshot capture failure | DEGRADED | Continue without screenshot. Note in narrative: "[Screenshot unavailable]". |
 | Q&A answer recording failure | BLOCKING | Retry state write. If fails: present answers to user again. |
 | Stall detection score tracking error | WARNING | Reset round counter to 0. Continue refinement. Log in state. |
@@ -82,12 +79,25 @@ These errors can occur in any stage when plugin reference files or config are ne
 | Checkpoint state write failure (mid-checkpoint) | BLOCKING | Retry state write. If fails: AskUserQuestion with options: retry / skip checkpoint / stop. |
 | Lock refresh failure during checkpoint | WARNING | Continue without refresh. Log stale lock risk. |
 
+### Stage 2-BATCH — File-Based Handoff Errors (Step 2B.6 Parallel Refinement)
+
+| Error | Severity | Action |
+|-------|----------|--------|
+| Task completion timeout (single screen) | BLOCKING | Auto-retry once. If still timed out: mark screen status as "pending" for retry in next cycle. Log timeout duration, screen name, and retry attempt. Continue collecting remaining tasks. |
+| Summary file missing after completion signal | BLOCKING | Agent returned "DONE" but summary file not found on disk. Mark screen "pending" for retry. Log discrepancy. |
+| YAML frontmatter invalid or missing required fields | BLOCKING | Summary file exists but frontmatter unparseable. Mark screen "pending" for retry. Log parse error. |
+| All tasks timed out (zero completions) | FATAL | AskUserQuestion: "All parallel refinement tasks failed. Retry all / Stop workflow". Preserve all prior work. |
+
 ### Stage 3 — Coherence Check
 
 | Error | Severity | Action |
 |-------|----------|--------|
 | Coherence auditor crash | BLOCKING | Retry once. If fails: skip coherence, note in output, advance to Stage 4. |
 | Mermaid diagram generation failure | DEGRADED | Proceed without diagrams. Note in coherence report. |
+| Clink tool unavailable (`mcp__pal__clink` not in tool set) | DEGRADED | Fall back to digest-first strategy. Log as DEGRADED. |
+| Gemini CLI error (clink dispatch fails) | DEGRADED | Fall back to digest-first strategy. Log error details. |
+| Coherence report missing/malformed after clink | DEGRADED | Delete malformed file. Fall back to digest-first strategy. |
+| Clink timeout (exceeds `coherence.clink_timeout_seconds`) | DEGRADED | Fall back to digest-first strategy. Log timeout duration. |
 
 ### Stage 4 — Validation
 
@@ -97,6 +107,10 @@ These errors can occur in any stage when plugin reference files or config are ne
 | 2-3 MPA agents failure (after retry) | BLOCKING | AskUserQuestion: proceed with partial / skip validation / stop. |
 | PAL Consensus unavailable | DEGRADED | Skip PAL. Set `pal_status: skipped`. Notify user. |
 | PAL < 2 models respond | DEGRADED | Set `pal_status: partial`. Proceed with available responses. |
+| Clink/Codex implementability dispatch failure | DEGRADED | Fall back to Task subagent dispatch. Log clink error. |
+| Clink/Codex output file missing after return | DEGRADED | Fall back to Task subagent dispatch. Log file absence. |
+| Clink/Codex output malformed (frontmatter invalid or missing required fields) | DEGRADED | Delete malformed file. Fall back to Task subagent dispatch. |
+| Clink/Codex timeout (exceeds `validation.mpa.clink_implementability.timeout_seconds`) | DEGRADED | Fall back to Task subagent dispatch. Log timeout duration. |
 | Synthesis agent crash | BLOCKING | Retry once. If fails: present raw MPA outputs to user. |
 
 ### Stage 5 — Output Assembly

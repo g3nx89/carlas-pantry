@@ -95,6 +95,11 @@ batch_mode:
     plateau_cycles: 2                             # If question count doesn't decrease for this many cycles, trigger stall escape
   analysis_strategy: "sequential"                 # Process screens sequentially to accumulate patterns (not parallel)
   working_directory: "working"                    # Subdirectory for batch artifacts (under design-narration/)
+  result_handoff:
+    strategy: "file-based"                        # "file-based": agents write to disk, return only completion signal
+    refinement_dispatch: "parallel"               # "parallel": dispatch all refinements simultaneously (Step 2B.6)
+    completion_timeout_seconds: 300               # Max wait per background task before marking "pending" for retry
+    minimal_response_instruction: true            # If true, agents instructed to respond ONLY with "DONE:{SCREEN_NAME}"
   frame_matching:
     case_insensitive: true                        # Match Figma frame names to screen descriptions case-insensitively
     strip_prefixes: ["screen-", "screen_", "page-", "page_"]  # Common prefixes to strip before matching
@@ -193,6 +198,10 @@ coherence:
   max_screens_per_dispatch: 12         # If more screens, use digest-first strategy
   large_set_strategy: "digest-first"   # "digest-first": send 1-line digests, auditor requests full files on flag
   per_screen_digest_lines: 3           # Lines per screen in digest mode (name + score + key patterns)
+  clink_enabled: true                  # Use mcp__pal__clink with Gemini CLI for large screen sets
+  clink_threshold: 12                  # Activate clink pathway when screen_count > this value
+  clink_cli: "gemini"                  # CLI client for clink dispatch (must be configured in PAL)
+  clink_timeout_seconds: 600           # Max wait for clink coherence analysis
 
 # =============================================================================
 # VALIDATION (MPA + PAL)
@@ -211,6 +220,10 @@ validation:
       - id: "edge-case-auditor"
         description: "What happens under unusual, degraded, or adversarial conditions?"
         model: "sonnet"
+    clink_implementability:
+      enabled: true                    # Use clink/Codex CLI for developer-implementability agent
+      cli_name: "codex"                # CLI client (must be configured in PAL)
+      timeout_seconds: 300             # Max wait for clink dispatch
 
   pal_consensus:
     enabled: true              # Set to false to skip PAL consensus even when MCP is available

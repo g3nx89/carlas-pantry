@@ -15,7 +15,7 @@ artifacts_written:
 
 ## CRITICAL RULES (must follow)
 
-1. **MPA agents run in parallel**: Dispatch all 3 via Task in a SINGLE message (parallel execution).
+1. **MPA agents run in parallel**: Dispatch Agent 1 (Implementability) via clink/Codex CLI, Agents 2-3 via Task, in a SINGLE message.
 2. **PAL Consensus is multi-step**: Call sequentially (analysis → model responses → synthesis) with `continuation_id` chaining. NOT a single call.
 3. **PAL minimum 2 models with stance steering**: Models sourced from config with for/against/neutral stances. If fewer than 2 respond, mark as PARTIAL and notify user.
 4. **Graceful degradation**: If PAL unavailable, skip consensus (MPA results only). NOTIFY user.
@@ -23,31 +23,180 @@ artifacts_written:
 
 ---
 
+READ config: validation.mpa.clink_implementability.enabled
+READ config: validation.mpa.clink_implementability.cli_name
+READ config: validation.mpa.clink_implementability.timeout_seconds
+SET clink_implementability_enabled = validation.mpa.clink_implementability.enabled
+SET clink_cli_name = validation.mpa.clink_implementability.cli_name
+SET clink_timeout = validation.mpa.clink_implementability.timeout_seconds
+
 ## Step 4.1: MPA Agent Dispatch (Parallel)
 
 Dispatch all 3 agents in a SINGLE message for parallel execution:
 
 ```
 # Agent 1: Developer Implementability
-Task(subagent_type="general-purpose", prompt="""
-You are a coordinator for Design Narration, Stage 4 (Validation — Implementability).
-You MUST NOT interact with users directly. Write all output to files.
+# Preferred: clink/Codex CLI (code-specialized model with fresh 400K context —
+#   better suited for structured code-readiness evaluation than general-purpose models)
+# Fallback: Claude Task subagent (if clink unavailable or disabled)
+# SYNC NOTE: The clink prompt below inlines the shared rubric from
+# references/implementability-rubric.md. Both this prompt and
+# agents/narration-developer-implementability.md consume that rubric.
+# If the rubric changes, regenerate the inlined copy below from the shared file.
 
-Read and execute: @$CLAUDE_PLUGIN_ROOT/agents/narration-developer-implementability.md
+SET clink_available = mcp__pal__clink is available in current tool set
 
-## Input
-- Screens directory: design-narration/screens/
-- Screen files: {LIST_OF_SCREEN_FILES}
-- Figma directory: design-narration/figma/
+IF clink_implementability_enabled AND clink_available:
+    SET narrative_paths = [absolute paths for all files in {SCREEN_FILES}]
 
-## Constraints
-- READ-ONLY evaluation: do NOT modify any screen narrative files
-- Write output ONLY to design-narration/validation/mpa-implementability.md
-- Do NOT create files outside design-narration/validation/
+    mcp__pal__clink(
+        cli_name: "{clink_cli_name}",  # "codex" from config
+        absolute_file_paths: narrative_paths,
+        prompt: |
+            You are a senior front-end engineer with expertise in mobile development
+            (React Native, Flutter, SwiftUI) evaluating implementation readiness
+            of UX screen narratives. You have been given screen narrative files.
 
-## Output
-Write to: design-narration/validation/mpa-implementability.md
-""")
+            ## Your Task
+
+            Evaluate whether a coding agent could implement each screen from the
+            narrative alone, without asking additional questions.
+
+            ## CRITICAL RULES
+            1. Evaluate each screen narrative independently
+            2. Score all 5 dimensions for every screen
+            3. List concrete "would need to ask" items for every dimension < 4
+
+            ## 5 Evaluation Dimensions (score 1-5 each)
+
+            ### 1. Component Specification
+            Determine whether all UI components are identifiable with their type and variant:
+            - Can each element be mapped to a concrete widget/component? (e.g., "text field" vs "search bar with autocomplete")
+            - Are component variants specified? (e.g., filled vs outlined text field, primary vs secondary button)
+            - Are dimensions, padding, and spacing derivable from the narrative or explicit?
+            - Are color/typography tokens referenced or at least described consistently?
+
+            ### 2. Interaction Completeness
+            Verify every user action has a defined system response:
+            - Every tappable element has a documented tap behavior
+            - Form submissions define validation rules and success/failure responses
+            - Gesture-based interactions specify exact gesture and threshold (e.g., "swipe left > 50% width to delete")
+            - Transitions specify type (push, modal, fade) or at least direction
+
+            ### 3. Data Requirements
+            Confirm what data each element displays and where it comes from:
+            - Each text element specifies whether content is static, user-generated, or server-provided
+            - Lists specify the data source, sort order, and pagination behavior
+            - Images specify placeholder, loading, and error states
+            - Conditional visibility rules are explicit (e.g., "badge shown only when count > 0")
+
+            ### 4. Layout Precision
+            Assess whether enough detail exists to reproduce the layout structure:
+            - Vertical/horizontal grouping of elements is clear
+            - Scrolling behavior is specified (fixed header, sticky footer, scroll-within-scroll)
+            - Responsive behavior or breakpoint rules are documented (if applicable)
+            - Safe area and notch handling are addressed for mobile
+
+            ### 5. Platform Specifics
+            Check for mobile-specific implementation details:
+            - Keyboard types specified for text inputs (email, numeric, phone, default)
+            - Input validation rules documented (max length, regex patterns, real-time vs on-submit)
+            - Accessibility hints present (labels, roles, traits, reading order)
+            - Platform-specific behaviors noted (iOS vs Android differences, if applicable)
+
+            ## Scoring
+
+            Produce a per-screen scores table:
+
+            | Screen | Components | Interactions | Data | Layout | Platform | Average |
+            |--------|-----------|-------------|------|--------|----------|---------|
+            | {name} | {1-5} | {1-5} | {1-5} | {1-5} | {1-5} | {avg} |
+
+            Overall average across all screens serves as the aggregate implementability score.
+
+            ## "Would Need to Ask" List
+
+            For every score below 4, list the specific questions a developer would be blocked on:
+
+            ### {Screen Name} — {Dimension} (Score: {N})
+            1. {Specific question a developer would ask}
+
+            Classify each question as:
+            - **Blocking** — cannot proceed without an answer
+            - **Degraded** — can implement a reasonable default but may be wrong
+
+            Tag each question with confidence:
+            - **high** — definitively missing from narrative
+            - **medium** — present but ambiguous
+            - **low** — possibly covered elsewhere
+
+            Example: `1. What keyboard type for the email field? — Degraded, Confidence: **medium**`
+
+            ## Output
+
+            Write your complete output to: design-narration/validation/mpa-implementability.md
+
+            Use this YAML frontmatter:
+            ---
+            status: complete
+            overall_score: {average}
+            screen_scores:
+              - screen: "{name}"
+                components: {1-5}
+                interactions: {1-5}
+                data: {1-5}
+                layout: {1-5}
+                platform: {1-5}
+                average: {float}
+            blocker_count: {N}
+            degraded_count: {N}
+            ---
+
+            Then: Implementation Readiness Scores table + Implementation Blockers sections.
+
+            Write ONLY the output file. No preamble, no commentary in your response.
+    )
+
+    # Verify output was written and valid
+    IF design-narration/validation/mpa-implementability.md exists:
+        READ design-narration/validation/mpa-implementability.md (limit=20)
+        PARSE YAML frontmatter
+        IF frontmatter.status == "complete" AND frontmatter has required fields (overall_score, screen_scores):
+            LOG: "Implementability assessment completed via Codex CLI"
+        ELSE:
+            LOG WARNING: "Clink/Codex output has malformed frontmatter — falling back to Task dispatch."
+            DELETE design-narration/validation/mpa-implementability.md
+            GOTO Task fallback below
+    ELSE:
+        LOG WARNING: "Clink/Codex returned but output file missing. Falling back to Task dispatch."
+        GOTO Task fallback below
+
+ELSE:
+    # Fallback: original Task dispatch
+    IF NOT clink_implementability_enabled:
+        LOG: "Clink implementability disabled via config. Using Task dispatch."
+    ELSE:
+        LOG DEGRADED: "Clink tool unavailable. Falling back to Task dispatch."
+
+    Task(subagent_type="general-purpose", prompt="""
+    You are a coordinator for Design Narration, Stage 4 (Validation — Implementability).
+    You MUST NOT interact with users directly. Write all output to files.
+
+    Read and execute: @$CLAUDE_PLUGIN_ROOT/agents/narration-developer-implementability.md
+
+    ## Input
+    - Screens directory: design-narration/screens/
+    - Screen files: {LIST_OF_SCREEN_FILES}
+    - Figma directory: design-narration/figma/
+
+    ## Constraints
+    - READ-ONLY evaluation: do NOT modify any screen narrative files
+    - Write output ONLY to design-narration/validation/mpa-implementability.md
+    - Do NOT create files outside design-narration/validation/
+
+    ## Output
+    Write to: design-narration/validation/mpa-implementability.md
+    """)
 
 # Agent 2: UX Completeness
 Task(subagent_type="general-purpose", prompt="""
@@ -110,6 +259,9 @@ IF 3/3 outputs exist:
 
 IF 2/3 outputs exist:
     IDENTIFY missing agent
+    # NOTE: If Agent 1 (Implementability) failed via clink, retry uses Task dispatch
+    # (same prompt as fallback above). Do not retry clink — the failure likely
+    # indicates a CLI availability issue, not a transient error.
     RETRY the failed agent ONCE (single Task dispatch)
     IF retry succeeds: PROCEED to Step 4.2
     IF retry fails:
@@ -425,7 +577,7 @@ Before advancing to Stage 5:
 
 ## CRITICAL RULES REMINDER
 
-1. MPA agents run in parallel (single message, 3 Task calls)
+1. MPA agents run in parallel (single message: clink/Codex for Agent 1 + 2 Task calls)
 2. PAL Consensus is multi-step (analysis → model responses → synthesis) with continuation_id
 3. PAL minimum 2 models with stance steering (for/against/neutral from config)
 4. Graceful degradation if PAL unavailable

@@ -137,7 +137,7 @@ DISPATCH narration-question-consolidator via Task(subagent_type="narration-quest
         - PRIOR_ANSWERS: {prior_answers}
         - SOFT_CAP: {questions_soft_cap_per_cycle}
 
-IF consolidator dispatch failed OR design-narration/working/.consolidation-summary.md does not exist OR has invalid/missing YAML frontmatter:
+IF consolidator dispatch failed OR design-narration/working/.consolidation-summary.md does not exist:
     LOG error per references/error-handling.md
     PRESENT via orchestrator AskUserQuestion:
         question: "Question consolidation failed. How to proceed?"
@@ -252,13 +252,34 @@ CHECKPOINT state
 
 ---
 
-## Step 2B.6: Refine All Screens
+## File-Based Result Handoff Pattern
 
-Apply user answers to affected screens:
+> **Context protection mechanism for parallel dispatch.** When multiple screen analyzers
+> run in parallel (Step 2B.6), each produces ~30K chars of output. Collecting 20+ results
+> via `TaskOutput` would inject ~600K+ chars into the orchestrator's context (~200K limit),
+> causing fatal "Prompt is too long" errors.
+>
+> **Solution:** Agents write all results to disk (narrative files + summary files — which they
+> already do), and return ONLY a minimal completion signal (`"DONE:{SCREEN_NAME}"`, ~20 chars).
+> The orchestrator then reads results from disk via `Read(summary_path, limit=40)`, extracting
+> only the YAML frontmatter (~500 bytes/screen). For 22 screens: ~660K → ~22K (~30x reduction).
+>
+> **Config keys:** `batch_mode.result_handoff.*` in `narration-config.yaml`.
+
+---
+
+## Step 2B.6: Refine All Screens (Parallel with File-Based Handoff)
+
+Apply user answers to affected screens using parallel dispatch with file-based result collection:
 
 ```
 UPDATE state: batch_mode.status = "refining"
 CHECKPOINT state
+
+READ config: batch_mode.result_handoff.strategy
+READ config: batch_mode.result_handoff.refinement_dispatch
+READ config: batch_mode.result_handoff.completion_timeout_seconds
+READ config: batch_mode.result_handoff.minimal_response_instruction
 
 SET next_cycle_questions = []
 
@@ -266,16 +287,26 @@ SET next_cycle_questions = []
 COMPILE screens_to_refine:
     FOR each answer in user_answers[]:
         ADD each screen in answer.screen_names_affected[] to set
+```
 
-FOR each screen in screens_to_refine (in Figma page order):
+### Phase 1: Dispatch (Parallel)
+
+```
+# Prepare shared context ONCE (not per-screen)
+COMPILE patterns_yaml from accumulated_patterns (current)
+COMPILE qa_history from decisions_audit_trail (all cycles)
+
+SET task_map = {}  # task_id -> { screen_name, node_id, summary_path }
+
+# Dispatch ALL screens in a SINGLE message with multiple Task calls
+# Each Task call uses run_in_background=true
+FOR each screen in screens_to_refine (all dispatched simultaneously):
     # Compile answers relevant to this screen
     FILTER user_answers WHERE screen in screen_names_affected[]
 
-    # Prepare context
-    COMPILE patterns_yaml from accumulated_patterns (current)
-    COMPILE qa_history from decisions_audit_trail (all cycles)
+    SET summary_path = "design-narration/screens/{nodeId}-{name}-summary.md"
 
-    DISPATCH narration-screen-analyzer via Task(subagent_type="narration-screen-analyzer"):
+    DISPATCH narration-screen-analyzer via Task(subagent_type="narration-screen-analyzer", run_in_background=true):
         prompt includes:
             - NODE_ID: screen.node_id
             - SCREEN_NAME: screen.name
@@ -285,22 +316,128 @@ FOR each screen in screens_to_refine (in Figma page order):
             - QA_HISTORY_SUMMARY: {compiled history}
             - Existing narrative_file path (for updating)
             - Reference to critique-rubric.md
+            - CRITICAL RESPONSE RULE: |
+                After writing all files (narrative + summary), your ONLY text response
+                must be exactly: "DONE:{SCREEN_NAME}". Do NOT include analysis text,
+                summaries, or any other content in your response. All results are
+                already written to disk files. This minimal response is essential to
+                prevent orchestrator context overflow.
 
-    READ analyzer summary
-    IF summary.status == "error":
-        LOG error, CONTINUE to next screen
+    STORE in task_map: task_id -> { screen.name, screen.node_id, summary_path }
+```
 
-    EXTRACT new_questions from summary → APPEND to next_cycle_questions[]
-    EXTRACT patterns → MERGE into accumulated_patterns
-    UPDATE state: screen critique_scores (updated)
+### Phase 2: Completion (Signal Collection)
+
+```
+# Collect completion signals — NOT results (results are on disk)
+SET completed_screens = []
+SET pending_screens = []
+SET retried_screens = []
+
+FOR each (task_id, screen_info) in task_map:
+    TRY:
+        SET response = TaskOutput(task_id, block=true, timeout=completion_timeout_seconds * 1000)
+
+        # Validate completion signal format (defensive parsing)
+        IF response matches pattern "DONE:{expected_screen_name}":
+            # Compliant response (~20 chars) — ideal
+            APPEND screen_info to completed_screens
+        ELSE IF len(response) > 200:
+            # Non-compliant: agent returned verbose output instead of signal
+            # Results are still on disk — log warning and proceed
+            LOG WARNING: "Screen '{screen_info.screen_name}' returned non-compliant response ({len(response)} chars instead of ~20). Ignoring response body — reading results from disk."
+            APPEND screen_info to completed_screens
+        ELSE:
+            # Short but unexpected format — still treat as completion
+            LOG WARNING: "Screen '{screen_info.screen_name}' returned unexpected signal format: '{response}'. Proceeding with file-based collection."
+            APPEND screen_info to completed_screens
+
+    CATCH timeout:
+        # Auto-retry once before marking pending
+        IF screen_info NOT IN retried_screens:
+            LOG WARNING: "Screen '{screen_info.screen_name}' timed out. Retrying once..."
+            ADD screen_info to retried_screens
+            # Re-check TaskOutput with same timeout (task may have completed in the meantime)
+            TRY:
+                SET response = TaskOutput(task_id, block=true, timeout=completion_timeout_seconds * 1000)
+                # Validate response (same defensive parsing as above)
+                IF response matches pattern "DONE:{expected_screen_name}":
+                    APPEND screen_info to completed_screens
+                ELSE IF len(response) > 200:
+                    LOG WARNING: "Screen '{screen_info.screen_name}' returned non-compliant response on retry ({len(response)} chars). Reading results from disk."
+                    APPEND screen_info to completed_screens
+                ELSE:
+                    LOG WARNING: "Screen '{screen_info.screen_name}' returned unexpected signal on retry: '{response}'. Proceeding with file-based collection."
+                    APPEND screen_info to completed_screens
+            CATCH timeout:
+                LOG WARNING: "Screen '{screen_info.screen_name}' timed out after retry. Marking pending."
+                APPEND screen_info to pending_screens
+            CATCH error:
+                LOG ERROR per references/error-handling.md
+                APPEND screen_info to pending_screens
+        ELSE:
+            APPEND screen_info to pending_screens
+
+    CATCH error:
+        LOG ERROR per references/error-handling.md
+        APPEND screen_info to pending_screens
+
+IF len(completed_screens) == 0 AND len(pending_screens) == len(task_map):
+    # All tasks failed/timed out — FATAL
+    PRESENT via orchestrator AskUserQuestion:
+        question: "All parallel refinement tasks failed or timed out. How to proceed?"
+        options:
+            - "Retry all screens"
+            - "Stop workflow"
+    IF "Retry": GOTO Phase 1 (re-dispatch)
+    IF "Stop": STOP workflow, preserve all work
+
+IF len(completed_screens) > 0 AND len(pending_screens) > 0:
+    # Partial completion — some screens refined, others timed out
+    LOG WARNING: "Partial refinement: {len(completed_screens)}/{len(task_map)} screens completed. {len(pending_screens)} timed out."
+    # Proceed to Phase 3 with completed screens.
+    # Pending screens will be retried in the next batch cycle (Step 2B.7 loops back).
+    # NOTE: Convergence check (2B.7) will detect pending screens and NOT advance to Stage 3
+    # until all screens are refined or user accepts current state.
+
+IF len(pending_screens) > 0:
+    LOG WARNING: "{len(pending_screens)} screen(s) marked pending for retry: {names}"
+    FOR each pending_screen:
+        SET screen.status = "pending" in state  # Will be retried in next cycle
+```
+
+### Phase 3: Result Collection (File-Based)
+
+```
+# Read results from disk — NOT from TaskOutput responses
+SET collected_revisions = []
+
+FOR each screen_info in completed_screens:
+    # Read ONLY the YAML frontmatter from summary file (~500 bytes, ~40 lines)
+    READ(screen_info.summary_path, limit=40)
+
+    IF file does not exist:
+        LOG ERROR: "Summary file missing after completion signal for '{screen_info.screen_name}'"
+        SET screen.status = "pending" in state  # Mark for retry
+        CONTINUE
+
+    PARSE YAML frontmatter from summary
+    IF YAML frontmatter is invalid or missing required fields (status, critique_scores):
+        LOG ERROR: "Invalid YAML frontmatter in summary for '{screen_info.screen_name}'"
+        SET screen.status = "pending" in state  # Mark for retry
+        CONTINUE
+
+    # Extract results from YAML frontmatter
+    EXTRACT questions from frontmatter → APPEND to next_cycle_questions[]
+    EXTRACT patterns from frontmatter → MERGE into accumulated_patterns
+    UPDATE state: screen critique_scores from frontmatter
     UPDATE state: screen.refinement_rounds += 1
 
     # Handle decision revisions flagged by analyzer
-    IF summary.decision_revisions is non-empty:
-        # In batch mode, collect all revisions for orchestrator to present after refinement loop
+    IF frontmatter.decision_revisions is non-empty:
         COLLECT revisions for post-refinement user confirmation
 
-    CHECKPOINT state
+CHECKPOINT state  # Single checkpoint after ALL results collected
 ```
 
 ---
@@ -430,7 +567,7 @@ Update state file at these points (per `references/checkpoint-protocol.md`):
 3. After BATCH-QUESTIONS document is written (2B.3)
 4. Before pausing for user (2B.4)
 5. After reading and validating user answers (2B.5)
-6. After each screen refinement completes (2B.6)
+6. After parallel refinement batch completes (2B.6 — single checkpoint after ALL file-based results collected)
 7. After convergence check (2B.7)
 
 ---

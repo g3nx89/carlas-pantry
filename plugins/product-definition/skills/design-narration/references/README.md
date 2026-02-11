@@ -15,22 +15,24 @@
 | `recovery-protocol.md` | Skill re-invocation — crash detection and recovery when state is incomplete (including batch mode statuses) |
 | `error-handling.md` | All stages — error taxonomy, logging format, per-stage error tables, escalation paths |
 | `checkpoint-protocol.md` | All stages — state update sequence, lock refresh, decision append, integrity verification |
+| `implementability-rubric.md` | Stage 4 — shared rubric for developer-implementability evaluation (consumed by agent file and clink prompt) |
 
 ## File Sizes
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `setup-protocol.md` | ~350 | Stage 1: Config validation (v1.5.0 keys + batch keys), Figma check, context doc, lock (with race condition note), state init/resume, discovery agent dispatch (interactive: single screen, batch: page frames + optional descriptions matching via agent) |
+| `setup-protocol.md` | ~325 | Stage 1: Config validation (v1.5.0 keys + batch keys + result_handoff keys + clink keys + clink_implementability keys), Figma check, context doc, lock (with race condition note), state init/resume, screen selection (interactive: single screen, batch: page frames + descriptions matching) |
 | `screen-processing.md` | ~400 | Per-screen loop (interactive): analysis dispatch (with token budgets), Q&A mediation, stall detection, refinement (with variable sourcing), decision revision, sign-off, context management, session resume |
-| `batch-processing.md` | ~370 | Batch cycle (batch mode): sequential analysis with pattern accumulation, question consolidation dispatch, BATCH-QUESTIONS doc assembly, user pause/resume, refinement of affected screens, convergence check with stall detection |
-| `coherence-protocol.md` | ~265 | Large screen set handling (digest-first), cross-screen auditor dispatch, inconsistency handling, mermaid diagrams (with validation checklist), pattern extraction |
-| `validation-protocol.md` | ~430 | MPA parallel dispatch (3 agents) with constraints and failure handling, post-MPA conflict verification, PAL Consensus multi-step workflow (config-referenced models with stance steering, continuation_id chaining), synthesis (with randomized read order, conflict table), validation gate |
+| `batch-processing.md` | ~595 | Batch cycle (batch mode): sequential analysis with pattern accumulation, question consolidation dispatch, BATCH-QUESTIONS doc assembly, user pause/resume, **parallel refinement with file-based result handoff** (3-phase: dispatch/completion/collection with defensive parsing, auto-retry, and partial timeout handling), convergence check with stall detection |
+| `coherence-protocol.md` | ~440 | **Clink pathway (Gemini CLI for large screen sets, with few-shot output example)**, digest-first fallback, cross-screen auditor dispatch, inconsistency handling, mermaid diagrams (with validation checklist), pattern extraction |
+| `validation-protocol.md` | ~580 | **Clink/Codex pathway for implementability (with Task fallback)**, MPA parallel dispatch (3 agents) with constraints and failure handling, post-MPA conflict verification, PAL Consensus multi-step workflow (config-referenced models with stance steering, continuation_id chaining), synthesis (with randomized read order, conflict table), validation gate |
 | `critique-rubric.md` | ~280 | 5-dimension rubric, CoT reasoning protocol, calibration examples, failure modes, dimension-to-category mapping, self-consistency check |
 | `output-assembly.md` | ~135 | Stage 5: completeness assessment (DRAFT/FINAL status), pre-validation gate (Required/Expected/Optional), compile patterns, order screens, append appendices, write output |
 | `state-schema.md` | ~240 | State file YAML schema v2: workflow_mode, per-screen source field, batch_mode section with convergence tracking, status transitions (interactive + batch), initialization template, v1→v2 migration |
-| `recovery-protocol.md` | ~250 | Crash detection per stage (including Stage 2-BATCH and Stage 5), batch status recovery (analyzing/consolidating/waiting/refining), discovery output cleanup, partial Q&A recovery, summary reconstruction, state cleanup |
-| `error-handling.md` | ~159 | Error taxonomy (FATAL/BLOCKING/DEGRADED/WARNING), cross-stage plugin integrity errors, logging format, per-stage error tables (with v1.4.0 features), PAL multi-step failure format + PAL-skipped format |
-| `checkpoint-protocol.md` | ~130 | State update sequence, lock refresh, decision append, conditional patterns update, integrity verification, checkpoint triggers |
+| `recovery-protocol.md` | ~250 | Crash detection per stage (including Stage 2-BATCH and Stage 5), batch status recovery (analyzing/consolidating/waiting/refining with **per-screen file verification for parallel dispatch**), partial Q&A recovery, summary reconstruction, state cleanup |
+| `error-handling.md` | ~180 | Error taxonomy (FATAL/BLOCKING/DEGRADED/WARNING), cross-stage plugin integrity errors, logging format, per-stage error tables (with v1.4.0 features), **Stage 2-BATCH file-based handoff errors**, **Stage 3 clink errors (all DEGRADED with digest-first fallback)**, **Stage 4 clink/Codex implementability errors (DEGRADED with Task fallback)**, PAL multi-step failure format + PAL-skipped format |
+| `checkpoint-protocol.md` | ~135 | State update sequence, lock refresh, decision append, conditional patterns update, integrity verification, checkpoint triggers (**including parallel refinement batch trigger**) |
+| `implementability-rubric.md` | ~95 | Shared 5-dimension implementability evaluation rubric (Component Specification, Interaction Completeness, Data Requirements, Layout Precision, Platform Specifics), scoring format, "Would Need to Ask" classification, output YAML schema — consumed by both `agents/narration-developer-implementability.md` and `validation-protocol.md` clink prompt |
 
 ## Cross-References
 
@@ -40,13 +42,16 @@
 - `critique-rubric.md` dimensions map 1:1 with `narration-config.yaml` -> `self_critique.dimensions`
 - `validation-protocol.md` PAL model aliases and stances sourced from `narration-config.yaml` -> `validation.pal_consensus.models[].model`, `validation.pal_consensus.models[].stance`
 - `coherence-protocol.md` checks sourced from `narration-config.yaml` -> `coherence_checks`
+- `coherence-protocol.md` clink config sourced from `narration-config.yaml` -> `coherence.clink_enabled`, `coherence.clink_threshold`, `coherence.clink_cli`, `coherence.clink_timeout_seconds`
+- `validation-protocol.md` clink implementability config sourced from `narration-config.yaml` -> `validation.mpa.clink_implementability.enabled`, `validation.mpa.clink_implementability.cli_name`, `validation.mpa.clink_implementability.timeout_seconds`
+- `batch-processing.md` result handoff config sourced from `narration-config.yaml` -> `batch_mode.result_handoff.*`
 - `setup-protocol.md` lock timeout from `narration-config.yaml` -> `state.lock_stale_timeout_minutes`
 - `state-schema.md` schema version from `narration-config.yaml` -> `state.schema_version`
 
 ### Reference Files -> Agents
 
-- `setup-protocol.md` dispatches `agents/narration-figma-discovery.md` (interactive screen detection in Step 1.5a, batch page discovery + matching in Step 1.5b)
-- `screen-processing.md` dispatches `agents/narration-figma-discovery.md` (next screen detection in interactive mode "Next Screen Selection")
+- `setup-protocol.md` dispatches `agents/narration-figma-discovery.md` (interactive selection and batch page discovery)
+- `screen-processing.md` dispatches `agents/narration-figma-discovery.md` (next screen detection in interactive loop)
 - `screen-processing.md` dispatches `agents/narration-screen-analyzer.md` (both 2A analysis and 2B refinement)
 - `batch-processing.md` dispatches `agents/narration-screen-analyzer.md` (batch_analysis and refinement entry types)
 - `batch-processing.md` dispatches `agents/narration-question-consolidator.md` (question dedup, conflict detection, grouping)
@@ -78,6 +83,8 @@
 - `output-assembly.md` references `coherence-protocol.md` (for mermaid diagrams and patterns)
 - `output-assembly.md` references `state-schema.md` (for decision audit trail extraction)
 - `validation-protocol.md` references `screen-processing.md` (for screen file list sourcing)
+- `validation-protocol.md` clink prompt inlines content from `implementability-rubric.md` (SYNC NOTE in validation-protocol.md)
+- `implementability-rubric.md` is loaded by `agents/narration-developer-implementability.md` (Task subagent pathway)
 
 ### Reference Files -> Shared Protocols
 
@@ -89,8 +96,7 @@
 ### Data Flow Between Stages
 
 - Stage 1 (`setup-protocol.md`) produces state file + directories + lock -> consumed by all subsequent stages
-- Stage 1 dispatches `narration-figma-discovery` agent, which writes `design-narration/.figma-discovery.md` (transient — overwritten on each discovery dispatch). Orchestrator reads discovery output to populate state screens[] entries.
-- Stage 1 (batch mode) additionally produces: matched screens list (via discovery agent), working/ directory -> consumed by Stage 2-BATCH
+- Stage 1 (batch mode) additionally produces: matched screens list, screen descriptions parse, working/ directory -> consumed by Stage 2-BATCH
 - Stage 2 (`screen-processing.md`, interactive) produces per-screen narrative files + accumulated patterns -> consumed by Stage 3
 - Stage 2-BATCH (`batch-processing.md`) produces per-screen narrative files + accumulated patterns + BATCH-QUESTIONS docs + consolidation summaries -> consumed by Stage 3
 - Stage 3 (`coherence-protocol.md`) produces coherence report + mermaid diagrams + resolved patterns -> consumed by Stages 4 and 5
@@ -102,6 +108,7 @@
 - All reference files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/narration-*.md`
 - All reference files reference config at `$CLAUDE_PLUGIN_ROOT/config/narration-config.yaml`
 - `screen-processing.md` references critique rubric at `$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/critique-rubric.md`
+- `coherence-protocol.md` references `mcp__pal__clink` tool for large screen set coherence via Gemini CLI
 
 ## Structural Patterns
 

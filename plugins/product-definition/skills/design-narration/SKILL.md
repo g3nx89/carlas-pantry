@@ -12,7 +12,7 @@ description: >-
   states, navigation, and animations — filling the gaps that static
   mockups cannot communicate.
 version: 1.6.0
-allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__pal__consensus"]
+allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__pal__consensus", "mcp__pal__clink"]
 ---
 
 # Design Narration Skill — Lean Orchestrator
@@ -46,8 +46,7 @@ $ARGUMENTS
 
 **Supported flags:**
 - `--batch` — Batch mode: process all screens from a Figma page in consolidated Q&A cycles
-- `--interactive` — Interactive mode: one screen at a time, user-driven order
-- No flag — Ask user to choose mode at startup (unless resuming, in which case use mode from state file)
+- No flag — Interactive mode (default): one screen at a time, user-driven order
 
 ---
 
@@ -119,7 +118,7 @@ Execute directly (no coordinator dispatch). Steps:
 3. **Context Document** — Optionally collect PRD/brief; save to `design-narration/context-input.md`
 4. **Lock Acquisition** — Acquire `design-narration/.narration-lock`; handle stale locks
 5. **State Init or Resume** — Create new state (per `references/state-schema.md`) or resume with onboarding digest; run crash recovery if needed (per `references/recovery-protocol.md`)
-6. **Workflow Mode & Screen Setup** — Resolve mode from flags (`--batch`/`--interactive`), ask user if no flag, then run mode-specific screen setup
+6. **Workflow Mode & Screen Setup** — Detect `--batch` flag (default: interactive), then run mode-specific screen setup
 
 ---
 
@@ -247,6 +246,7 @@ Key principles:
 | `references/recovery-protocol.md` | Crash detection and recovery procedures | Skill re-invocation with incomplete state |
 | `references/error-handling.md` | Error taxonomy, logging format, per-stage error tables | Any error path — shared by all stages |
 | `references/checkpoint-protocol.md` | State update sequence, lock refresh, decision append | Every screen sign-off and stage transition |
+| `references/implementability-rubric.md` | Shared 5-dimension implementability rubric | Stage 4 (consumed by agent + clink prompt) |
 | `references/README.md` | File index, sizes, cross-references | Orientation |
 
 ---

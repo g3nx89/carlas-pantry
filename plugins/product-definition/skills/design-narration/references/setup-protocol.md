@@ -20,6 +20,23 @@ artifacts_written:
 
 ---
 
+## Step 1.0b: Batch Mode Detection
+
+```
+CHECK if $ARGUMENTS contains "--batch"
+
+IF "--batch" found:
+    SET workflow_intent = "batch"
+    NOTIFY user: "Batch mode detected. Will process all screens in consolidated Q&A cycles."
+ELSE:
+    SET workflow_intent = "interactive"
+```
+
+> This flag is used in Step 1.5 to branch between single-screen selection (interactive) and
+> Figma page selection + screen descriptions parsing (batch).
+
+---
+
 ## Step 1.0: Config Validation (MANDATORY)
 
 Before any other setup step, validate that required config keys exist with valid values:
@@ -56,6 +73,10 @@ VALIDATE the following keys exist and have valid types:
 | session_resume.screen_summarization_threshold | integer | >= 2 |
 | state.schema_version | integer | >= 1 |
 | coherence.per_screen_digest_lines | integer | >= 1 |
+| coherence.clink_enabled | boolean | true or false |
+| coherence.clink_threshold | integer | >= 2 |
+| coherence.clink_cli | string | non-empty, valid PAL CLI client name |
+| coherence.clink_timeout_seconds | integer | >= 60 |
 | screen_narrative.target_lines | integer | >= 20 |
 | screen_narrative.max_lines | integer | > screen_narrative.target_lines |
 | batch_mode.questions_soft_cap_per_cycle | integer | >= 1 |
@@ -66,8 +87,13 @@ VALIDATE the following keys exist and have valid types:
 | token_budgets.batch_consolidation_context_max_lines | integer | >= 10 |
 | batch_mode.frame_matching.case_insensitive | boolean | true or false |
 | batch_mode.frame_matching.strip_prefixes | array | may be empty |
-| batch_mode.screens_document | string | non-empty |
-| batch_mode.working_directory | string | non-empty |
+| batch_mode.result_handoff.strategy | string | "file-based" |
+| batch_mode.result_handoff.refinement_dispatch | string | one of: parallel, sequential |
+| batch_mode.result_handoff.completion_timeout_seconds | integer | >= 60 |
+| batch_mode.result_handoff.minimal_response_instruction | boolean | true or false |
+| validation.mpa.clink_implementability.enabled | boolean | true or false |
+| validation.mpa.clink_implementability.cli_name | string | non-empty, valid PAL CLI client name |
+| validation.mpa.clink_implementability.timeout_seconds | integer | >= 60 |
 
 CROSS-KEY VALIDATIONS (after individual key checks):
 - screen_narrative.max_lines > screen_narrative.target_lines (hard cap must exceed target)
@@ -159,43 +185,11 @@ IF not exists:
 
 ---
 
-## Step 1.5: Workflow Mode Selection & Screen Setup
+## Step 1.5: Screen Selection
 
-### Step 1.5.0: Resolve Workflow Mode
+Branch based on `workflow_intent` from Step 1.0b:
 
-```
-# 1. On resume, mode is already set — skip to mode-specific setup
-IF state file existed (from Step 1.4) AND state.workflow_mode is set:
-    SET workflow_mode = state.workflow_mode
-    NOTIFY user: "Resuming in {workflow_mode} mode."
-    SKIP to Step 1.5a (if interactive) or Step 1.5b (if batch)
-
-# 2. New session — check $ARGUMENTS for explicit flag
-CHECK $ARGUMENTS for flags:
-    IF "--batch" found:
-        SET workflow_mode = "batch"
-        NOTIFY user: "Batch mode selected. Will process all screens in consolidated Q&A cycles."
-    ELSE IF "--interactive" found:
-        SET workflow_mode = "interactive"
-        NOTIFY user: "Interactive mode selected. One screen at a time, you choose the order."
-    ELSE:
-        # 3. No flag — ask user
-        PRESENT via AskUserQuestion:
-            question: "How do you want to process screens?"
-            options:
-                - "Interactive — one screen at a time, I choose the order (Recommended)"
-                - "Batch — all screens from a Figma page, consolidated Q&A cycles"
-        IF "Interactive": SET workflow_mode = "interactive"
-        IF "Batch": SET workflow_mode = "batch"
-```
-
-> **Why ask:** Silent defaulting to interactive caused missed `--batch` flags. Explicit mode
-> selection ensures the user is always aware of which mode is active. On resume, the mode
-> is read from the state file and never re-asked.
-
----
-
-### Step 1.5a: Interactive Mode Setup
+### Step 1.5a: Interactive Mode (default)
 
 ```
 PRESENT via AskUserQuestion:
@@ -226,7 +220,7 @@ UPDATE state: workflow_mode = "interactive"
 ADVANCE to Stage 2
 ```
 
-### Step 1.5b: Batch Mode Setup
+### Step 1.5b: Batch Mode
 
 ```
 # 1. Screen descriptions document (optional)

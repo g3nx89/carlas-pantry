@@ -20,10 +20,189 @@ artifacts_written:
 
 ## Large Screen Set Handling
 
-When screen count exceeds `coherence.max_screens_per_dispatch` (from config) and `coherence.large_set_strategy` (from config) is `"digest-first"`, the auditor cannot process all full narrative files in a single context:
+When screen count exceeds `coherence.max_screens_per_dispatch` (from config), two strategies are available:
+
+1. **Clink Pathway (preferred for large sets)**: Use `mcp__pal__clink` with Gemini CLI (1M context) to analyze all full narrative files at once — no digest compression needed.
+2. **Digest-first (fallback)**: Compress each screen to a few-line digest, auditor reads full files only for flagged screens.
+
+### Clink Pathway (Large Screen Sets via Gemini)
+
+> **Why Gemini for coherence:** Cross-screen coherence requires reading ALL narrative files
+> simultaneously (~120-200 lines each). Gemini's 1M context window can hold 20+ full
+> narrative files without digest compression, unlike Codex (used for validation) which
+> is code-specialized but has a smaller effective context for prose-heavy analysis.
+
+When `clink_enabled == true` AND `screen_count > clink_threshold` AND `mcp__pal__clink` tool is available:
 
 ```
-IF screen_count > coherence.max_screens_per_dispatch AND coherence.large_set_strategy == "digest-first":
+READ config: coherence.clink_enabled
+READ config: coherence.clink_threshold
+READ config: coherence.clink_cli
+READ config: coherence.clink_timeout_seconds
+
+IF screen_count > clink_threshold AND clink_enabled:
+    # Verify clink tool availability
+    CHECK: mcp__pal__clink is available in current tool set
+
+    IF available:
+        # Compile full file paths for ALL screen narratives
+        SET narrative_paths = []
+        FOR each screen in state.screens[] WHERE status IN ["described", "signed_off"]:
+            APPEND absolute path of "design-narration/screens/{nodeId}-{name}.md" to narrative_paths
+
+        # Also include accumulated patterns for baseline context
+        SET patterns_yaml = state.patterns (compiled to YAML string)
+
+        # Dispatch via clink with inline prompt (no custom role)
+        CALL mcp__pal__clink:
+            cli_name: "{clink_cli}"  # "gemini" from config
+            absolute_file_paths: narrative_paths
+            prompt: |
+                You are a Cross-Screen Coherence Auditor for UX narrative documents.
+                You have been given {screen_count} screen narrative files. Each file describes
+                a single app screen with its purpose, elements, behaviors, states, and navigation.
+
+                ## Your Task
+
+                Perform 5 consistency checks across ALL screens.
+                (These checks mirror `coherence_checks` in narration-config.yaml.
+                If the config adds/removes checks, update this prompt to match.)
+
+                1. **Naming Consistency**: Same UI element must use the same name across all screens.
+                   Flag: element called "Header" in one screen and "Top Bar" in another.
+
+                2. **Interaction Consistency**: Same gesture must produce the same outcome on
+                   equivalent elements. Flag: long-press shows tooltip on Screen A but context
+                   menu on Screen B for the same element type.
+
+                3. **Navigation Completeness**: Every exit point on Screen A must have a matching
+                   entry point on Screen B. Flag: "Tap Settings" navigates to Settings screen,
+                   but Settings screen has no "Back to {origin}" path.
+
+                4. **State Coverage Parity**: Screens sharing data must show consistent
+                   empty/error/loading states. Flag: Product List has loading state but
+                   Order History (same data pattern) does not.
+
+                5. **Terminology Drift**: Domain terms must be uniform. Flag: "cart" vs "basket"
+                   or "order" vs "purchase" used interchangeably.
+
+                ## Patterns Baseline
+
+                These patterns have been accumulated during screen analysis:
+                ```yaml
+                {patterns_yaml}
+                ```
+
+                ## Required Output Format
+
+                Write your complete output as a markdown document with YAML frontmatter.
+
+                ### YAML Frontmatter (MANDATORY):
+                ```yaml
+                ---
+                status: completed
+                inconsistencies_found: {N}
+                patterns_extracted:
+                  shared_components: {N}
+                  interaction_conventions: {N}
+                  naming_patterns: {N}
+                mermaid_diagrams_generated: {N}
+                ---
+                ```
+
+                ### Section 1: Inconsistencies
+                Table: | # | Check | Screen A | Screen B | Issue | Suggested Fix |
+
+                ### Section 2: Extracted Patterns
+                - Shared components table
+                - Interaction conventions table
+                - Naming patterns table
+
+                ### Section 3: Mermaid Diagrams (MANDATORY)
+                Generate ALL of these:
+                1. **Navigation Map**: `graph LR` showing all screen-to-screen transitions
+                2. **User Journey Flows**: One `graph TD` per key user task
+                3. **State Machine Diagrams**: `stateDiagram-v2` for screens with 4+ states
+
+                Mermaid validation rules:
+                - No spaces in node IDs (use `ProductDetail` not `Product Detail`)
+                - All edge labels in double quotes (`|"label"|`)
+                - Every referenced node must be declared
+                - Node IDs must match screen names from narrative files
+
+                ## Example Output (abbreviated)
+
+                ---
+                status: completed
+                inconsistencies_found: 2
+                patterns_extracted:
+                  shared_components: 3
+                  interaction_conventions: 2
+                  naming_patterns: 1
+                mermaid_diagrams_generated: 3
+                ---
+
+                ## Inconsistencies
+
+                | # | Check | Screen A | Screen B | Issue | Suggested Fix |
+                |---|-------|----------|----------|-------|---------------|
+                | 1 | naming_consistency | Home | Search | "Navigation Bar" vs "Nav Bar" | Standardize to "Navigation Bar" |
+                | 2 | state_coverage_parity | ProductList | OrderHistory | OrderHistory missing loading state | Add loading skeleton matching ProductList |
+
+                ## Extracted Patterns
+                [tables...]
+
+                ## Mermaid Diagrams
+
+                ### Navigation Map
+                ```mermaid
+                graph LR
+                    Home -->|"Search"| Search
+                    Home -->|"Profile"| Profile
+                    Search -->|"Select"| ProductDetail
+                ```
+
+                ### Purchase Journey
+                ```mermaid
+                graph TD
+                    Home -->|"Browse"| Search
+                    Search -->|"Select"| ProductDetail
+                    ProductDetail -->|"Add"| Cart
+                ```
+
+                Write ONLY the markdown document. No preamble, no commentary.
+
+        # Verify output
+        IF clink returned successfully:
+            # Clink output is the coherence report content
+            WRITE clink output to: design-narration/coherence-report.md
+
+            # Validate the written file
+            READ design-narration/coherence-report.md (limit=20)
+            PARSE YAML frontmatter
+            IF frontmatter.status == "completed" AND frontmatter has required fields:
+                LOG: "Clink coherence check completed via Gemini CLI"
+                # Continue to "Orchestrator: Handle Inconsistencies" below
+            ELSE:
+                LOG WARNING: "Clink output has malformed frontmatter — falling back to digest-first"
+                DELETE design-narration/coherence-report.md
+                GOTO digest-first strategy below
+
+        ELSE (clink error):
+            LOG DEGRADED: "Clink coherence failed — falling back to digest-first"
+            GOTO digest-first strategy below
+
+    IF NOT available (mcp__pal__clink not in tool set):
+        LOG DEGRADED: "Clink tool unavailable — falling back to digest-first"
+        GOTO digest-first strategy below
+```
+
+### Digest-First Strategy (Fallback for Large Screen Sets)
+
+When clink is unavailable/disabled/failed, OR `coherence.large_set_strategy == "digest-first"`:
+
+```
+IF screen_count > coherence.max_screens_per_dispatch:
     # Digest-first strategy
     COMPILE per-screen digest (coherence.per_screen_digest_lines per screen):
         "{SCREEN_NAME} | Score: {TOTAL}/20 | Patterns: {top 3 patterns} | Nav: {entry→exit}"

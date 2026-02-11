@@ -140,29 +140,42 @@ IF batch_mode.status == "waiting_for_user":
     NOTIFY user: "Resuming batch workflow. Reading your answers."
 
 IF batch_mode.status == "refining":
-    # Crash during refinement cycle
-    IDENTIFY refined screens: screens WHERE refinement_rounds > batch_mode.cycle - 1
-    IDENTIFY unrefined screens: screens that had answers but refinement_rounds == batch_mode.cycle - 1
-    FOR each unrefined screen with recorded answers in audit trail:
-        RESUME Step 2B.6 refinement for this screen
-    AFTER all screens refined: proceed to Step 2B.7 (convergence check)
-    NOTIFY user: "Recovered: {refined_count} screens refined. Resuming convergence check."
+    # Crash during parallel refinement dispatch (Step 2B.6)
+    # Because refinement uses parallel dispatch with file-based handoff,
+    # some screens may have completed (files written) while others didn't.
+    # Check EACH screen's summary file individually to determine completion.
+
+    SET completed_in_crash = []
+    SET needs_retry = []
+
+    FOR each screen in screens_to_refine (from user_answers):
+        SET summary_path = "design-narration/screens/{nodeId}-{name}-summary.md"
+        CHECK: Does summary_path exist?
+
+        IF exists:
+            READ YAML frontmatter from summary_path (limit=40 lines)
+            IF frontmatter.refinement_rounds >= batch_mode.cycle:
+                # This screen completed refinement before crash
+                APPEND to completed_in_crash
+                EXTRACT critique_scores, questions, patterns from frontmatter
+                UPDATE state with extracted data
+            ELSE:
+                # Summary exists but from prior cycle — needs re-refinement
+                APPEND to needs_retry
+        ELSE:
+            # No summary at all — needs full re-refinement
+            SET screen.status = "pending"
+            APPEND to needs_retry
+
+    IF needs_retry is non-empty:
+        # Re-dispatch ONLY incomplete screens (not already-completed ones)
+        RESUME Step 2B.6 with screens_to_refine = needs_retry
+    ELSE:
+        # All screens completed before crash — proceed to convergence
+        PROCEED to Step 2B.7 (convergence check)
+
+    NOTIFY user: "Recovered: {len(completed_in_crash)} screens already refined, {len(needs_retry)} need re-refinement."
 ```
-
-### Discovery Output Cleanup
-
-The file `design-narration/.figma-discovery.md` is a transient artifact from the `narration-figma-discovery` agent.
-
-```
-On resume:
-    IF design-narration/.figma-discovery.md exists:
-        IGNORE it — this is stale from a prior dispatch.
-        Discovery is always re-dispatched when needed (fast and cheap via haiku agent).
-        Do NOT use stale discovery output to infer screen state — the state file is
-        the single source of truth for discovered screens.
-```
-
----
 
 ### Stage 3 Recovery: Incomplete Coherence
 
