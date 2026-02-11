@@ -25,6 +25,15 @@ Transform Figma Desktop mockups into a detailed UX/interaction narrative documen
 
 ---
 
+## Core Concepts
+
+- **Self-critique loop**: Each screen narrative is scored on 5 dimensions (completeness, interaction clarity, state coverage, navigation context, ambiguity). Targeted follow-up questions address weak dimensions until the GOOD threshold is reached or the user signs off.
+- **MPA validation**: Three specialist agents (implementability, UX completeness, edge cases) evaluate independently in parallel. A synthesis agent merges findings with randomized read order and source-dominance bias checks.
+- **File-based handoff**: Batch mode writes per-screen results to disk rather than passing them through context, preventing overflow with large screen sets.
+- **Coordinator isolation**: Stage coordinators never interact with users directly — the orchestrator mediates all prompts and answer routing, keeping user experience consistent.
+
+---
+
 ## CRITICAL RULES (High Attention Zone — Start)
 
 ### Core Workflow Rules
@@ -109,6 +118,8 @@ $ARGUMENTS
 
 ## Stage 1 — Inline Setup
 
+Establish prerequisites and workspace before any analysis begins — a missing MCP connection or stale lock discovered mid-workflow would waste an entire analysis cycle.
+
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/setup-protocol.md`
 
 Execute directly (no coordinator dispatch). Steps:
@@ -123,6 +134,8 @@ Execute directly (no coordinator dispatch). Steps:
 ---
 
 ## Stage 2 — Screen Processing
+
+The core analysis loop — each screen is narrated, self-critiqued, and refined through Socratic Q&A until the narrative is concrete enough for a coding agent to implement without guessing.
 
 **Mode guard:** Check `workflow_mode` in state file.
 
@@ -162,6 +175,8 @@ This stage processes all screens in batch cycles:
 
 ## Stage 3 — Coherence Check
 
+Individual screen narratives may use different terms for the same concept or describe inconsistent behaviors for shared elements — this stage catches cross-screen contradictions before they reach validation.
+
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/coherence-protocol.md`
 
 Dispatch `narration-coherence-auditor` agent with ALL completed screen narratives. The auditor:
@@ -174,6 +189,8 @@ Orchestrator presents each inconsistency to user for resolution. Updated screen 
 ---
 
 ## Stage 4 — Validation
+
+Three specialist perspectives catch blind spots that a single reviewer would miss; PAL consensus adds cross-model verification to reduce single-model bias.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/validation-protocol.md`
 
@@ -194,6 +211,8 @@ Orchestrator presents each inconsistency to user for resolution. Updated screen 
 ---
 
 ## Stage 5 — Output Assembly
+
+Consolidate all per-screen narratives, coherence fixes, and validation findings into a single deliverable document that downstream skills (specification, implementation) consume.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/output-assembly.md`
 
