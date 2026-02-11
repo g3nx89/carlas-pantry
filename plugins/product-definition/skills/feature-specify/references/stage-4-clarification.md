@@ -10,17 +10,17 @@ artifacts_written:
 # Stage 4: Edge Cases & Clarification (Coordinator)
 
 > This stage discovers edge cases via multi-model ThinkDeep, collects user clarifications
-> via the `specify-clarification` sub-skill, triangulates questions from multiple perspectives,
+> via the clarification protocol, triangulates questions from multiple perspectives,
 > then updates the spec. Resolves all `[NEEDS CLARIFICATION]` markers.
 
 ## CRITICAL RULES (must follow — failure-prevention)
 
 1. **No question limits**: Ask EVERYTHING needed — no artificial caps
 2. **Never re-ask**: Questions from `user_decisions.clarifications` are IMMUTABLE — check before asking
-3. **`specify-clarification` handles batching**: Max 4 questions per AskUserQuestion call
+3. **Clarification protocol handles batching**: Max 4 questions per AskUserQuestion call
 4. **Edge case severity boost**: 2+ models agree = MEDIUM→HIGH, 3/3 = HIGH→CRITICAL
 5. **CRITICAL/HIGH edge cases**: Auto-inject as clarification questions
-6. **NEVER interact with users directly**: Use `specify-clarification` sub-skill for all user Q&A
+6. **NEVER interact with users directly**: Dispatch subagent with clarification protocol for all user Q&A
 7. **Spec updates additive only**: ONLY add/refine requirements, NEVER remove existing ones
 
 ## Step 4.1: MPA-EdgeCases ThinkDeep (Optional)
@@ -53,9 +53,9 @@ Write report: `specs/{FEATURE_DIR}/analysis/mpa-edgecases-parallel.md`
 
 **If disabled OR PAL_AVAILABLE = false:** Skip, proceed to Step 4.2.
 
-## Step 4.2: Invoke Clarification Sub-Skill
+## Step 4.2: Invoke Clarification Protocol
 
-Delegate to `specify-clarification` sub-skill:
+Dispatch subagent with clarification protocol:
 
 ```
 ## Task: Collect Clarifications
@@ -70,9 +70,9 @@ State file: specs/{FEATURE_DIR}/.specify-state.local.md
 - Previously answered clarifications: {PRIOR_CLARIFICATIONS from user_decisions}
 
 ## Instructions
-Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify-clarification/SKILL.md
+Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/clarification-protocol.md
 
-The skill will:
+The protocol will:
 1. Identify all [NEEDS CLARIFICATION] markers in spec
 2. Add injected edge case questions
 3. Generate questions with BA recommendations (first option = Recommended)
@@ -106,7 +106,7 @@ Each generates 2-4 additional questions not covered by BA.
 - Discard duplicates
 - Priority boost on cross-source agreement
 
-**Present unique questions** to user via `specify-clarification` sub-skill (re-invoke if new questions found).
+**Present unique questions** to user via clarification protocol subagent (re-invoke if new questions found).
 
 Write report: `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md`
 
@@ -203,7 +203,7 @@ BEFORE writing the summary file, verify:
 
 - No question limits — ask EVERYTHING needed
 - Never re-ask questions from user_decisions.clarifications
-- specify-clarification handles batching (max 4 per call)
+- Clarification protocol handles batching (max 4 per call)
 - Edge case severity boost on cross-model agreement
 - CRITICAL/HIGH edge cases auto-inject as questions
 - Spec updates are additive only — NEVER remove requirements

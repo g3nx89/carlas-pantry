@@ -64,6 +64,9 @@ These errors can occur in any stage when plugin reference files or config are ne
 | Config validation failure | FATAL | STOP. Report missing/invalid key. |
 | Lock conflict (non-stale) | BLOCKING | AskUserQuestion: override or cancel. |
 | Context document unreadable | WARNING | Skip context doc, notify user, continue. |
+| Discovery agent failure (no output file) | BLOCKING | Retry once. If fails: AskUserQuestion with retry / stop. |
+| Discovery agent error status | BLOCKING | Present `error_reason` from discovery output. AskUserQuestion: retry selection / stop. |
+| Discovery match incomplete (unmatched screens) | WARNING | Present match table to user, user decides whether to proceed or fix names. |
 
 ### Stage 2 — Screen Processing
 
@@ -71,7 +74,7 @@ These errors can occur in any stage when plugin reference files or config are ne
 |-------|----------|--------|
 | Critique-rubric.md load failure in screen-analyzer | BLOCKING | STOP screen analysis. Do NOT proceed without self-critique — it drives all question generation. See Cross-Stage Plugin Integrity. |
 | Screen analyzer crash (no summary) | BLOCKING | Reconstruct minimal summary per recovery-protocol.md. Retry once. |
-| Figma selection unreadable | BLOCKING | AskUserQuestion: retry selection or skip screen. |
+| Discovery agent failure (next screen) | BLOCKING | AskUserQuestion: retry selection, skip to coherence check, or stop. |
 | Screenshot capture failure | DEGRADED | Continue without screenshot. Note in narrative: "[Screenshot unavailable]". |
 | Q&A answer recording failure | BLOCKING | Retry state write. If fails: present answers to user again. |
 | Stall detection score tracking error | WARNING | Reset round counter to 0. Continue refinement. Log in state. |

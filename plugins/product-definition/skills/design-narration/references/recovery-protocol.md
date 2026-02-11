@@ -149,6 +149,21 @@ IF batch_mode.status == "refining":
     NOTIFY user: "Recovered: {refined_count} screens refined. Resuming convergence check."
 ```
 
+### Discovery Output Cleanup
+
+The file `design-narration/.figma-discovery.md` is a transient artifact from the `narration-figma-discovery` agent.
+
+```
+On resume:
+    IF design-narration/.figma-discovery.md exists:
+        IGNORE it — this is stale from a prior dispatch.
+        Discovery is always re-dispatched when needed (fast and cheap via haiku agent).
+        Do NOT use stale discovery output to infer screen state — the state file is
+        the single source of truth for discovered screens.
+```
+
+---
+
 ### Stage 3 Recovery: Incomplete Coherence
 
 ```

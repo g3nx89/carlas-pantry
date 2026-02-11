@@ -21,13 +21,14 @@ claude plugins enable product-definition
 
 ### Multi-Phase Workflow
 
-The command `commands/requirements.md` orchestrates a 12-phase workflow with phases split into separate files under `commands/requirements/`:
+The skill `skills/refinement/SKILL.md` (invoked via `commands/requirements.md`) orchestrates a 6-stage workflow:
 
-1. **Setup (1-3):** Initialize workspace, detect state, select analysis mode
-2. **Research (4-5):** Optional market/user research agenda generation
-3. **Analysis (6-7):** Deep analysis (if MCP available), then MPA question generation
-4. **Collection (8-10):** User responses, gap analysis, PRD readiness validation
-5. **Output (11-12):** PRD generation/extension, completion
+1. **Stage 1: Setup** — Initialize workspace, detect state, select analysis mode
+2. **Stage 2: Research** — Optional market/user research agenda generation
+3. **Stage 3: Analysis & Questions** — Deep analysis (if MCP available), then MPA question generation
+4. **Stage 4: Response & Gaps** — User responses, gap analysis
+5. **Stage 5: Validation & PRD** — PRD readiness validation, PRD generation/extension
+6. **Stage 6: Completion** — Lock release, report, next steps
 
 ### Multi-Perspective Analysis (MPA) Pattern
 
@@ -78,12 +79,12 @@ PRDs must NOT contain technical implementation details (APIs, architecture, data
 
 ### PAL/ThinkDeep Integration
 
-Phase 6 runs multi-model ThinkDeep analysis (gpt-5.2, gemini-3-pro-preview, grok-4) across perspectives (competitive, risk, contrarian). These insights inform MPA agent option generation.
+Stage 3 runs multi-model ThinkDeep analysis (gpt-5.2, gemini-3-pro-preview, grok-4) across perspectives (competitive, risk, contrarian). These insights inform MPA agent option generation.
 
 ## File Naming Conventions
 
 - Agents: `agents/{domain}-{role}.md` (e.g., `requirements-product-strategy.md`)
-- Phase modules: `commands/requirements/phase-NN-{name}.md`
+- Skill references: `skills/{name}/references/{stage-or-protocol}.md`
 - Templates: `templates/{purpose}-template.md`
 - User workspace files: `requirements/working/QUESTIONS-{NNN}.md`
 - State: `requirements/.requirements-state.local.md`

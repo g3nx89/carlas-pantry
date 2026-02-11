@@ -137,7 +137,7 @@ DISPATCH narration-question-consolidator via Task(subagent_type="narration-quest
         - PRIOR_ANSWERS: {prior_answers}
         - SOFT_CAP: {questions_soft_cap_per_cycle}
 
-IF consolidator dispatch failed OR design-narration/working/.consolidation-summary.md does not exist:
+IF consolidator dispatch failed OR design-narration/working/.consolidation-summary.md does not exist OR has invalid/missing YAML frontmatter:
     LOG error per references/error-handling.md
     PRESENT via orchestrator AskUserQuestion:
         question: "Question consolidation failed. How to proceed?"

@@ -4,6 +4,7 @@ artifacts_written:
   - design-narration/context-input.md (optional)
   - design-narration/.narration-state.local.md (created or resumed)
   - design-narration/.narration-lock
+  - design-narration/.figma-discovery.md (transient — overwritten each dispatch)
 ---
 
 # Setup Protocol (Stage 1)
@@ -16,23 +17,6 @@ artifacts_written:
 1. **Figma MCP is a hard requirement**: If `mcp__figma-desktop__get_metadata` is unavailable, STOP immediately.
 2. **Lock before modifying state**: Acquire lock before any state file read/write.
 3. **Onboarding digest for resumed sessions**: Compile completed-screens digest to pass to Stage 2 coordinators.
-
----
-
-## Step 1.0b: Batch Mode Detection
-
-```
-CHECK if $ARGUMENTS contains "--batch"
-
-IF "--batch" found:
-    SET workflow_intent = "batch"
-    NOTIFY user: "Batch mode detected. Will process all screens in consolidated Q&A cycles."
-ELSE:
-    SET workflow_intent = "interactive"
-```
-
-> This flag is used in Step 1.5 to branch between single-screen selection (interactive) and
-> Figma page selection + screen descriptions parsing (batch).
 
 ---
 
@@ -82,6 +66,8 @@ VALIDATE the following keys exist and have valid types:
 | token_budgets.batch_consolidation_context_max_lines | integer | >= 10 |
 | batch_mode.frame_matching.case_insensitive | boolean | true or false |
 | batch_mode.frame_matching.strip_prefixes | array | may be empty |
+| batch_mode.screens_document | string | non-empty |
+| batch_mode.working_directory | string | non-empty |
 
 CROSS-KEY VALIDATIONS (after individual key checks):
 - screen_narrative.max_lines > screen_narrative.target_lines (hard cap must exceed target)
@@ -167,17 +153,49 @@ IF exists:
 
 IF not exists:
     CREATE directories: design-narration/, design-narration/screens/,
-        design-narration/figma/, design-narration/validation/
+        design-narration/figma/, design-narration/validation/, design-narration/working/
     INITIALIZE state file per references/state-schema.md Initialization Template
 ```
 
 ---
 
-## Step 1.5: Screen Selection
+## Step 1.5: Workflow Mode Selection & Screen Setup
 
-Branch based on `workflow_intent` from Step 1.0b:
+### Step 1.5.0: Resolve Workflow Mode
 
-### Step 1.5a: Interactive Mode (default)
+```
+# 1. On resume, mode is already set — skip to mode-specific setup
+IF state file existed (from Step 1.4) AND state.workflow_mode is set:
+    SET workflow_mode = state.workflow_mode
+    NOTIFY user: "Resuming in {workflow_mode} mode."
+    SKIP to Step 1.5a (if interactive) or Step 1.5b (if batch)
+
+# 2. New session — check $ARGUMENTS for explicit flag
+CHECK $ARGUMENTS for flags:
+    IF "--batch" found:
+        SET workflow_mode = "batch"
+        NOTIFY user: "Batch mode selected. Will process all screens in consolidated Q&A cycles."
+    ELSE IF "--interactive" found:
+        SET workflow_mode = "interactive"
+        NOTIFY user: "Interactive mode selected. One screen at a time, you choose the order."
+    ELSE:
+        # 3. No flag — ask user
+        PRESENT via AskUserQuestion:
+            question: "How do you want to process screens?"
+            options:
+                - "Interactive — one screen at a time, I choose the order (Recommended)"
+                - "Batch — all screens from a Figma page, consolidated Q&A cycles"
+        IF "Interactive": SET workflow_mode = "interactive"
+        IF "Batch": SET workflow_mode = "batch"
+```
+
+> **Why ask:** Silent defaulting to interactive caused missed `--batch` flags. Explicit mode
+> selection ensures the user is always aware of which mode is active. On resume, the mode
+> is read from the state file and never re-asked.
+
+---
+
+### Step 1.5a: Interactive Mode Setup
 
 ```
 PRESENT via AskUserQuestion:
@@ -186,35 +204,53 @@ PRESENT via AskUserQuestion:
     options:
       - "Ready — I've selected a screen in Figma"
 
-CALL mcp__figma-desktop__get_metadata() to detect selection
-EXTRACT node_id and frame name
+# Dispatch discovery agent to detect user's Figma selection
+DISPATCH narration-figma-discovery via Task(subagent_type="general-purpose"):
+    prompt includes:
+        - Reference: @$CLAUDE_PLUGIN_ROOT/agents/narration-figma-discovery.md
+        - DISCOVERY_MODE: "interactive_selection"
+        - WORKING_DIR: "design-narration/"
+
+READ design-narration/.figma-discovery.md
+IF status == "error":
+    PRESENT via AskUserQuestion:
+        question: "Figma frame detection failed: {error_reason}"
+        options:
+            - "Retry — I'll re-select the screen"
+            - "Stop workflow"
+    IF "Retry": re-ask user to select, re-dispatch discovery agent
+    IF "Stop": STOP workflow
+
+EXTRACT node_id and frame_name from discovery output YAML frontmatter
 UPDATE state: workflow_mode = "interactive"
 ADVANCE to Stage 2
 ```
 
-### Step 1.5b: Batch Mode
+### Step 1.5b: Batch Mode Setup
 
 ```
-# 1. Screen descriptions document
+# 1. Screen descriptions document (optional)
 READ config: batch_mode.screens_document (default filename)
 READ config: batch_mode.required_fields
+READ config: batch_mode.frame_matching
 
 PRESENT via AskUserQuestion:
-    question: "Provide the path to your screen descriptions document
-              (or press enter for default: design-narration/{screens_document})."
+    question: "Do you have a screen descriptions document?
+              This helps match Figma frames to your intended screen names and purposes."
     options:
-      - "Use default location"
-      - "I'll provide a path"
+      - "Yes — use default location (design-narration/{screens_document})"
+      - "Yes — I'll provide a path"
+      - "No — discover all frames from the Figma page without descriptions"
 
-READ and PARSE the screen descriptions document:
-    SPLIT on "## Screen:" delimiters
-    FOR each screen section:
-        EXTRACT name (from header)
-        EXTRACT required fields (purpose, elements, navigation)
-        VALIDATE: all required_fields present
-        IF any required field missing:
-            NOTIFY user: "Screen '{name}' missing required field: {field}. Add it and re-run."
-            STOP
+IF "default location":
+    SET descriptions_path = "design-narration/{screens_document}"
+    VERIFY file exists; IF not: NOTIFY and STOP
+IF "provide a path":
+    PROMPT for path
+    SET descriptions_path = {user-provided path}
+    VERIFY file exists; IF not: NOTIFY and STOP
+IF "No":
+    SET descriptions_path = null
 
 # 2. Figma page selection
 PRESENT via AskUserQuestion:
@@ -222,61 +258,102 @@ PRESENT via AskUserQuestion:
     options:
       - "Ready — I've selected the page in Figma"
 
-CALL mcp__figma-desktop__get_metadata() to get page structure
-EXTRACT page_node_id
-EXTRACT child frames[] (direct children of the page that are FRAME type)
+# 3. Dispatch discovery agent for batch page discovery
+DISPATCH narration-figma-discovery via Task(subagent_type="general-purpose"):
+    prompt includes:
+        - Reference: @$CLAUDE_PLUGIN_ROOT/agents/narration-figma-discovery.md
+        - DISCOVERY_MODE: "batch_page_discovery"
+        - WORKING_DIR: "design-narration/"
+        - SCREEN_DESCRIPTIONS_PATH: {descriptions_path} (or omit if null)
+        - REQUIRED_FIELDS: {batch_mode.required_fields from config}
+        - FRAME_MATCHING_CASE_INSENSITIVE: {from config}
+        - FRAME_MATCHING_STRIP_PREFIXES: {from config}
 
-# 3. Match frame names to screen descriptions
-READ config: batch_mode.frame_matching
-
-FOR each screen_description:
-    FIND best matching frame:
-        - Exact match (case-insensitive if config.case_insensitive)
-        - After stripping config.strip_prefixes from both sides
-        - Fuzzy match: normalize whitespace, hyphens, underscores
-
-COMPILE match_table:
-    | # | Screen Description | Figma Frame | Node ID | Match Type |
-    |---|-------------------|-------------|---------|------------|
-    For each: description name, matched frame name (or "UNMATCHED"), node_id, exact/fuzzy/unmatched
-
-IDENTIFY:
-    - unmatched_descriptions: descriptions with no Figma frame match
-    - unmatched_frames: Figma frames with no description match
-
-IF unmatched_descriptions or unmatched_frames:
-    PRESENT match table via AskUserQuestion:
-        question: "Some screens couldn't be matched automatically.
-                   {N} descriptions unmatched, {M} Figma frames unmatched.
-                   Review the match table and confirm or adjust."
+READ design-narration/.figma-discovery.md
+IF status == "error":
+    PRESENT via AskUserQuestion:
+        question: "Figma frame discovery failed: {error_reason}"
         options:
-          - "Matches look correct — proceed with matched screens only"
-          - "I'll fix names and re-run"
-          - "Include unmatched Figma frames (analyze without descriptions)"
-    IF "fix names": STOP
-    IF "include unmatched": add unmatched frames to screens[] with source = "figma"
+            - "Retry — I'll re-select the Figma page"
+            - "Stop workflow"
+    IF "Retry": re-ask user to select page, re-dispatch discovery agent
+    IF "Stop": STOP workflow
+
+EXTRACT from discovery output YAML frontmatter:
+    page_node_id, total_frames_found, match_table (or frames_list),
+    unmatched_descriptions, unmatched_frames, validation_errors
+
+# 4. Handle validation errors from descriptions parsing
+IF validation_errors is non-empty:
+    NOTIFY user: "Screen descriptions validation issues: {validation_errors}"
+    PRESENT via AskUserQuestion:
+        question: "Some screen descriptions have missing required fields. Fix and re-run?"
+        options:
+            - "Fix and re-run"
+            - "Proceed anyway with valid screens only"
+    IF "Fix": STOP
+
+# 5. Present match results for user confirmation
+IF descriptions_path is not null:
+    # Matching mode — show match table from discovery output
+    READ match_table from discovery output
+
+    IF unmatched_descriptions or unmatched_frames:
+        PRESENT match table (from discovery output markdown body) via AskUserQuestion:
+            question: "Some screens couldn't be matched automatically.
+                       {unmatched_descriptions_count} descriptions unmatched,
+                       {unmatched_frames_count} Figma frames unmatched.
+                       Review the match table and confirm or adjust."
+            options:
+              - "Matches look correct — proceed with matched screens only"
+              - "I'll fix names and re-run"
+              - "Include unmatched Figma frames (analyze without descriptions)"
+        IF "fix names": STOP
+        IF "include unmatched": add unmatched frames to screens list with source = "figma"
+    ELSE:
+        PRESENT match table via AskUserQuestion:
+            question: "All {matched_count} screens matched successfully. Confirm to proceed."
+            options:
+              - "Confirmed — proceed"
 ELSE:
-    PRESENT match table via AskUserQuestion:
-        question: "All {N} screens matched successfully. Confirm to proceed."
+    # No descriptions — show frames list from discovery output
+    READ frames_list from discovery output
+
+    PRESENT frames list (from discovery output markdown body) via AskUserQuestion:
+        question: "{total_frames_found} frames found on the Figma page.
+                   All frames will be analyzed. Confirm to proceed."
         options:
-          - "Confirmed — proceed"
+          - "Confirmed — proceed with all frames"
+          - "I'll provide a screen descriptions document first"
+    IF "provide descriptions": STOP (user provides doc, re-runs)
 
-# 4. Initialize batch state
+# 6. Initialize batch state
 UPDATE state: workflow_mode = "batch"
-CREATE design-narration/working/ directory
 
-FOR each matched screen (in Figma page order):
-    APPEND to state.screens[]:
-        node_id: {frame_node_id}
-        name: {screen_name}
-        source: "batch_description+figma" (or "figma" if no description)
-        status: "pending"
-        ...  (other fields per state-schema.md defaults)
+IF descriptions_path is not null:
+    # Build screens[] from match_table
+    FOR each entry in match_table WHERE match_type != "unmatched":
+        APPEND to state.screens[]:
+            node_id: {entry.node_id}
+            name: {entry.screen_description}
+            source: "batch_description+figma"
+            status: "pending"
+            ...  (other fields per state-schema.md defaults)
+ELSE:
+    # Build screens[] from frames_list
+    FOR each frame in frames_list:
+        APPEND to state.screens[]:
+            node_id: {frame.node_id}
+            name: {frame.name}
+            source: "figma"
+            status: "pending"
+            ...  (other fields per state-schema.md defaults)
 
 UPDATE state: batch_mode section:
-    screens_input_document: {path to descriptions file}
+    screens_input_document: {descriptions_path or null}
     figma_page_node_id: {page_node_id}
     cycle: 1
+    screens_analyzed: 0
     status: "parsing"
     questions_file: null
     questions_pending: 0
@@ -297,12 +374,14 @@ ADVANCE to Stage 2-BATCH
 
 Before advancing to Stage 2 (interactive) or Stage 2-BATCH (batch):
 
-1. Figma MCP confirmed available
-2. Lock file created with timestamp
-3. State file exists (created or resumed)
-4. Directories exist (screens/, figma/, validation/)
-5. **Interactive:** First screen node_id extracted from Figma
-6. **Batch:** Screen descriptions parsed, Figma frames matched, working/ directory created
+1. Config validated (all keys present and valid)
+2. Figma MCP confirmed available
+3. Lock file created with timestamp
+4. State file exists (created or resumed)
+5. Directories exist (screens/, figma/, validation/, working/)
+6. Workflow mode resolved (`workflow_mode` set in state: "interactive" or "batch")
+7. **Interactive:** Discovery agent produced valid output with node_id and frame_name
+8. **Batch:** Discovery agent produced valid match table (or frames list), user confirmed, screens[] populated in state
 
 **Error handling:** For error classification and logging format, see `references/error-handling.md`.
 

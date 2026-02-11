@@ -20,7 +20,7 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `setup-protocol.md` | ~250 | Stage 1: Config validation (v1.5.0 keys + batch keys), Figma check, context doc, lock (with race condition note), state init/resume, screen selection (interactive: single screen, batch: page frames + descriptions matching) |
+| `setup-protocol.md` | ~350 | Stage 1: Config validation (v1.5.0 keys + batch keys), Figma check, context doc, lock (with race condition note), state init/resume, discovery agent dispatch (interactive: single screen, batch: page frames + optional descriptions matching via agent) |
 | `screen-processing.md` | ~400 | Per-screen loop (interactive): analysis dispatch (with token budgets), Q&A mediation, stall detection, refinement (with variable sourcing), decision revision, sign-off, context management, session resume |
 | `batch-processing.md` | ~370 | Batch cycle (batch mode): sequential analysis with pattern accumulation, question consolidation dispatch, BATCH-QUESTIONS doc assembly, user pause/resume, refinement of affected screens, convergence check with stall detection |
 | `coherence-protocol.md` | ~265 | Large screen set handling (digest-first), cross-screen auditor dispatch, inconsistency handling, mermaid diagrams (with validation checklist), pattern extraction |
@@ -28,7 +28,7 @@
 | `critique-rubric.md` | ~280 | 5-dimension rubric, CoT reasoning protocol, calibration examples, failure modes, dimension-to-category mapping, self-consistency check |
 | `output-assembly.md` | ~135 | Stage 5: completeness assessment (DRAFT/FINAL status), pre-validation gate (Required/Expected/Optional), compile patterns, order screens, append appendices, write output |
 | `state-schema.md` | ~240 | State file YAML schema v2: workflow_mode, per-screen source field, batch_mode section with convergence tracking, status transitions (interactive + batch), initialization template, v1→v2 migration |
-| `recovery-protocol.md` | ~220 | Crash detection per stage (including Stage 2-BATCH and Stage 5), batch status recovery (analyzing/consolidating/waiting/refining), partial Q&A recovery, summary reconstruction, state cleanup |
+| `recovery-protocol.md` | ~250 | Crash detection per stage (including Stage 2-BATCH and Stage 5), batch status recovery (analyzing/consolidating/waiting/refining), discovery output cleanup, partial Q&A recovery, summary reconstruction, state cleanup |
 | `error-handling.md` | ~159 | Error taxonomy (FATAL/BLOCKING/DEGRADED/WARNING), cross-stage plugin integrity errors, logging format, per-stage error tables (with v1.4.0 features), PAL multi-step failure format + PAL-skipped format |
 | `checkpoint-protocol.md` | ~130 | State update sequence, lock refresh, decision append, conditional patterns update, integrity verification, checkpoint triggers |
 
@@ -45,6 +45,8 @@
 
 ### Reference Files -> Agents
 
+- `setup-protocol.md` dispatches `agents/narration-figma-discovery.md` (interactive screen detection in Step 1.5a, batch page discovery + matching in Step 1.5b)
+- `screen-processing.md` dispatches `agents/narration-figma-discovery.md` (next screen detection in interactive mode "Next Screen Selection")
 - `screen-processing.md` dispatches `agents/narration-screen-analyzer.md` (both 2A analysis and 2B refinement)
 - `batch-processing.md` dispatches `agents/narration-screen-analyzer.md` (batch_analysis and refinement entry types)
 - `batch-processing.md` dispatches `agents/narration-question-consolidator.md` (question dedup, conflict detection, grouping)
@@ -87,7 +89,8 @@
 ### Data Flow Between Stages
 
 - Stage 1 (`setup-protocol.md`) produces state file + directories + lock -> consumed by all subsequent stages
-- Stage 1 (batch mode) additionally produces: matched screens list, screen descriptions parse, working/ directory -> consumed by Stage 2-BATCH
+- Stage 1 dispatches `narration-figma-discovery` agent, which writes `design-narration/.figma-discovery.md` (transient — overwritten on each discovery dispatch). Orchestrator reads discovery output to populate state screens[] entries.
+- Stage 1 (batch mode) additionally produces: matched screens list (via discovery agent), working/ directory -> consumed by Stage 2-BATCH
 - Stage 2 (`screen-processing.md`, interactive) produces per-screen narrative files + accumulated patterns -> consumed by Stage 3
 - Stage 2-BATCH (`batch-processing.md`) produces per-screen narrative files + accumulated patterns + BATCH-QUESTIONS docs + consolidation summaries -> consumed by Stage 3
 - Stage 3 (`coherence-protocol.md`) produces coherence report + mermaid diagrams + resolved patterns -> consumed by Stages 4 and 5

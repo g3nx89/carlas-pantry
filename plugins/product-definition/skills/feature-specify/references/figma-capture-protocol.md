@@ -1,23 +1,14 @@
----
-name: specify-figma-capture
-description: Figma design capture workflow for sdd:01-specify
----
+# Figma Capture Protocol
 
-# Figma Capture Skill
+> Migrated from `specify-figma-capture` sub-skill (v1.0.0) on 2026-02-11.
+> Loaded inline by `stage-1-setup.md` Step 1.9 when Figma capture is enabled.
 
-## Purpose
+### Expected Context
 
-Handle Figma design capture for the specification workflow.
-Supports both Desktop (local app) and Online (URL-based) connections.
-
----
-
-## Input Context
-
-| Variable | Description |
-|----------|-------------|
-| FEATURE_DIR | Path to feature directory |
-| ARGUMENTS | Original command arguments (for flag detection) |
+| Variable | Source | Description |
+|----------|--------|-------------|
+| `FEATURE_DIR` | Stage 1 (Step 1.7) | Path to feature directory (e.g., `1-add-login`) |
+| `ARGUMENTS` | Orchestrator | Original command arguments (for `--figma`/`--no-figma` flag detection) |
 
 ---
 
@@ -236,20 +227,6 @@ Include for each captured screen:
 - Extracted UI elements summary
 - Component hierarchy
 - Any @FigmaConnect mappings found
-
----
-
-## Output Variables
-
-Return to orchestrator:
-
-| Variable | Value |
-|----------|-------|
-| FIGMA_ENABLED | true or false |
-| FIGMA_CONNECTION | desktop or online or null |
-| FIGMA_CAPTURE_MODE | selected or page or null |
-| FIGMA_CONTEXT_FILE | `{FEATURE_DIR}/figma_context.md` or null |
-| SCREENS_CAPTURED | count |
 
 ---
 

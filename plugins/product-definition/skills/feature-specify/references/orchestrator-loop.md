@@ -282,7 +282,7 @@ The orchestrator stays running and mediates via AskUserQuestion.
 
 Pause points:
 - Stage 2: Gate RED/YELLOW, MPA-Challenge RED
-- Stage 4: Clarification batches (via specify-clarification sub-skill)
+- Stage 4: Clarification batches (via clarification protocol)
 - Stage 5: PAL REJECTED after retries, insufficient models
 - Stage 6: Test coverage gaps
 

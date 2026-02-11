@@ -62,8 +62,8 @@ No context document provided.
 
 | Variable | Source | Default | Max Lines |
 |----------|--------|---------|-----------|
-| NODE_ID | User selection in Figma (orchestrator reads from get_metadata) | Required | — |
-| SCREEN_NAME | From Figma frame name | Required | — |
+| NODE_ID | From discovery output (`design-narration/.figma-discovery.md` → `node_id`) | Required | — |
+| SCREEN_NAME | From discovery output (`design-narration/.figma-discovery.md` → `frame_name`) | Required | — |
 | PATTERNS_YAML | State file `patterns` section | `"No prior patterns yet"` | 40 (per `token_budgets.patterns_yaml_max_lines`) |
 | QA_HISTORY_SUMMARY | Compiled from completed screen files (Q&A sections) | `"No prior Q&A"` | 60 (per `token_budgets.qa_history_max_lines`) |
 | COMPLETED_SCREENS_DIGEST | 1-line-per-screen table from completed narratives | `"First screen — no prior screens completed"` | 50 (per `token_budgets.completed_screens_digest_max_lines`) |
@@ -189,8 +189,8 @@ Read and execute the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-scree
 
 | Variable | Source | Default | Max Lines |
 |----------|--------|---------|-----------|
-| NODE_ID | string — Figma node identifier from user's screen selection (same value used in 2A) | Required | — |
-| SCREEN_NAME | string — Figma frame name extracted via `get_metadata` (same value used in 2A) | Required | — |
+| NODE_ID | string — Figma node identifier from discovery output (same value used in 2A) | Required | — |
+| SCREEN_NAME | string — Figma frame name from discovery output (same value used in 2A) | Required | — |
 | NARRATIVE_FILE | From 2A summary `narrative_file` field | Required | — |
 | FORMATTED_USER_ANSWERS | Collected from AskUserQuestion responses, formatted as `Q: ... A: ...` | Required | — |
 | PATTERNS_YAML | State file `patterns` section (may have grown since 2A) | `"No prior patterns yet"` | 40 (per `token_budgets.patterns_yaml_max_lines`) |
@@ -319,8 +319,26 @@ PRESENT via AskUserQuestion:
       - "No more screens — proceed to coherence check"
 
 IF "Ready":
-    CALL mcp__figma-desktop__get_metadata() to detect selection
-    EXTRACT node_id and frame name
+    # Dispatch discovery agent to detect user's Figma selection
+    DISPATCH narration-figma-discovery via Task(subagent_type="general-purpose"):
+        prompt includes:
+            - Reference: @$CLAUDE_PLUGIN_ROOT/agents/narration-figma-discovery.md
+            - DISCOVERY_MODE: "interactive_selection"
+            - WORKING_DIR: "design-narration/"
+
+    READ design-narration/.figma-discovery.md
+    IF status == "error":
+        PRESENT via AskUserQuestion:
+            question: "Could not detect Figma selection: {error_reason}"
+            options:
+                - "Retry — I'll re-select the screen"
+                - "No more screens — proceed to coherence check"
+                - "Stop workflow"
+        IF "Retry": re-ask user to select, re-dispatch discovery agent
+        IF "No more screens": ADVANCE to Stage 3
+        IF "Stop": STOP workflow
+
+    EXTRACT node_id and frame_name from discovery output YAML frontmatter
     DISPATCH 2A for new screen
 
 IF "No more screens":

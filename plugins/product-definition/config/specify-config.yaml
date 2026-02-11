@@ -7,7 +7,7 @@
 # - $CLAUDE_PLUGIN_ROOT/skills/feature-specify/SKILL.md
 # - $CLAUDE_PLUGIN_ROOT/commands/specify.md (thin wrapper)
 # - $CLAUDE_PLUGIN_ROOT/agents/business-analyst.md
-# - $CLAUDE_PLUGIN_ROOT/skills/specify-clarification/SKILL.md
+# - $CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/clarification-protocol.md
 
 ---
 
@@ -427,10 +427,8 @@ deprecations:
 # SADD PATTERN CONFIGURATION (v1.1)
 # =============================================================================
 # Subagent-Driven Development patterns for multi-agent specification workflow.
-# Implements multi-perspective analysis, judge-based evaluation, and debate protocols.
 
 sadd_patterns:
-  # Master switch for SADD enhancements
   enabled: true
   version: "1.1.0"
 
@@ -438,51 +436,13 @@ sadd_patterns:
   # MODEL ASSIGNMENT (Critical for cost control)
   # ─────────────────────────────────────────────────────────────
   model_assignments:
-    # OPUS - Complex synthesis requiring highest reasoning
-    opus:
-      - "stakeholder-synthesis"
-      - "question-synthesis"
-
-    # SONNET - Structured reasoning tasks
     sonnet:
-      - "stakeholder-advocates/*"
-      - "question-discovery/*"
-      - "recommendation-judges/*"
       - "gate-judge"
-      - "pal-rejection-analysts/*"
       - "qa-strategist"  # V-Model test strategy generation
 
-    # HAIKU - Simple, well-defined tasks
-    haiku:
-      - "question-classifier"
-      - "consensus-checker"
-      - "progress-reporter"
-
   # ─────────────────────────────────────────────────────────────
-  # TIER 1: Core Enhancements (Always Enabled)
+  # Gate Evaluation
   # ─────────────────────────────────────────────────────────────
-
-  stakeholder_advocates:
-    enabled: true
-    phase: "2"
-    parallel: true
-    perspectives:
-      - name: "end_user"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-advocates/end-user-advocate.md"
-        model: "sonnet"
-      - name: "business"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-advocates/business-advocate.md"
-        model: "sonnet"
-      - name: "operations"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-advocates/operations-advocate.md"
-        model: "sonnet"
-      - name: "security"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-advocates/security-advocate.md"
-        model: "sonnet"
-    synthesis:
-      agent: "$CLAUDE_PLUGIN_ROOT/agents/stakeholder-synthesis.md"
-      model: "opus"
-    output_dir: "sadd/"
 
   gate_evaluation:
     enabled: true
@@ -503,187 +463,6 @@ sadd_patterns:
         thresholds:
           green: 3.5
           yellow: 2.5
-
-  question_discovery:
-    enabled: true
-    phase: "4.5"
-    parallel: true
-    perspectives:
-      - name: "ux"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/question-discovery/ux-perspective.md"
-        model: "sonnet"
-      - name: "business"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/question-discovery/business-perspective.md"
-        model: "sonnet"
-      - name: "technical"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/question-discovery/technical-perspective.md"
-        model: "sonnet"
-    synthesis:
-      agent: "$CLAUDE_PLUGIN_ROOT/agents/question-synthesis.md"
-      model: "opus"
-    classifier:
-      agent: "$CLAUDE_PLUGIN_ROOT/agents/question-classifier.md"
-      model: "haiku"
-
-  recommendation_debate:
-    enabled: true
-    phase: "4.5"
-    trigger: "scope_critical"
-    adversarial: true  # Use stance-based prompting
-    judges:
-      - name: "risk"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/recommendation-judges/risk-judge.md"
-        model: "sonnet"
-        stance: "skeptical"
-        stance_prompt: "Challenge the mainstream. Find hidden risks."
-      - name: "value"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/recommendation-judges/value-judge.md"
-        model: "sonnet"
-        stance: "optimistic"
-        stance_prompt: "Advocate for user value. Push back on caution."
-      - name: "effort"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/recommendation-judges/effort-judge.md"
-        model: "sonnet"
-        stance: "pragmatic"
-        stance_prompt: "Ground in reality. Challenge both extremes."
-    consensus_threshold: 0.67
-    max_debate_rounds: 2
-    output_dir: "sadd/"
-
-  # ─────────────────────────────────────────────────────────────
-  # TIER 2: Advanced Enhancements (Enabled by Default)
-  # ─────────────────────────────────────────────────────────────
-
-  pal_rejection_analysis:
-    enabled: true
-    phase: "5"
-    trigger: "pal_score < 12"
-    judges:
-      - name: "validity"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/pal-rejection/validity-judge.md"
-        model: "sonnet"
-      - name: "actionability"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/pal-rejection/actionability-judge.md"
-        model: "sonnet"
-      - name: "root_cause"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/pal-rejection/root-cause-judge.md"
-        model: "sonnet"
-
-  # ─────────────────────────────────────────────────────────────
-  # TIER 3: Experimental (Disabled by Default)
-  # ─────────────────────────────────────────────────────────────
-
-  competitive_drafting:
-    enabled: false
-    phase: "2"
-    trigger_keywords:
-      - "security-critical"
-      - "revenue-critical"
-      - "compliance"
-    drafters:
-      - name: "user_centric"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/competitive-drafters/user-centric-ba.md"
-        model: "sonnet"
-      - name: "business_centric"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/competitive-drafters/business-centric-ba.md"
-        model: "sonnet"
-      - name: "technical_centric"
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/competitive-drafters/technical-centric-ba.md"
-        model: "sonnet"
-
-  tree_of_thoughts:
-    enabled: false
-    phase: "4.5"
-    complexity_threshold: 0.7
-    complexity_indicators:
-      - "integration"
-      - "migration"
-      - "global"
-      - "enterprise"
-      - "regulatory"
-    explorers: 3
-    pruning_judges: 3
-    top_n_to_expand: 2
-
-  # ─────────────────────────────────────────────────────────────
-  # Orchestration
-  # ─────────────────────────────────────────────────────────────
-
-  orchestration:
-    skill: "$CLAUDE_PLUGIN_ROOT/skills/sadd-orchestrator/SKILL.md"
-    timeout_per_agent: 120  # seconds
-    parallel_max_concurrent: 4
-    file_coordination:
-      base_dir: "sadd/"
-      cleanup_on_complete: false  # Keep for debugging
-
-  # ─────────────────────────────────────────────────────────────
-  # Rollout Configuration
-  # ─────────────────────────────────────────────────────────────
-
-  rollout:
-    phase: "full"  # Current rollout phase: week_1_2, week_3_4, week_5_6, week_7_8, full
-    ab_testing:
-      enabled: false  # Set to true for phased rollout
-      split: 0.5
-      min_sample: 10
-
-  # ─────────────────────────────────────────────────────────────
-  # Fallback Configuration
-  # ─────────────────────────────────────────────────────────────
-
-  fallbacks:
-    on_agent_failure:
-      action: "fallback_to_single_agent"
-      log: true
-      notify_user: true
-      preserve:
-        - "gate_evaluation"
-
-    on_debate_timeout:
-      action: "present_as_contested"
-      include_all_perspectives: true
-
-    on_latency_exceeded:
-      threshold_seconds: 300
-      action: "skip_optional_enhancements"
-      preserve:
-        - "stakeholder_advocates"
-        - "gate_evaluation"
-
-    on_orchestration_failure:
-      action: "inline_execution"
-      sequential_only: true
-
-# =============================================================================
-# QUESTION CLASSIFICATION (SADD)
-# =============================================================================
-# Rules used by question-classifier agent to route questions.
-
-question_classification:
-  scope_critical_indicators:
-    - "whether to include"
-    - "whether to support"
-    - "scope"
-    - "boundary"
-    - "limit"
-    - "MVP"
-    - "phase 1"
-    - "must have"
-    - "nice to have"
-
-  ux_preference_indicators:
-    - "how to display"
-    - "animation"
-    - "layout"
-    - "color"
-    - "style"
-
-  tech_default_indicators:
-    - "cache"
-    - "timeout"
-    - "retry"
-    - "format"
 
 # =============================================================================
 # THINKDEEP INTEGRATION (MPA Framework v4.1)

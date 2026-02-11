@@ -1,25 +1,16 @@
----
-name: specify-clarification
-description: Question batching and BA recommendation patterns for specification clarifications
----
+# Clarification Protocol
 
-# Clarification Skill
+> Migrated from `specify-clarification` sub-skill (v1.0.0) on 2026-02-11.
+> Dispatched as a subagent by the Stage 4 coordinator.
 
-## Purpose
+### Expected Context
 
-Handle the clarification phase of specification workflow.
-Manages question batching, BA recommendations, error recovery, and state tracking.
-
----
-
-## Input Context
-
-| Variable | Description |
-|----------|-------------|
-| FEATURE_DIR | Path to feature directory |
-| SPEC_FILE | Path to spec.md |
-| CHECKLIST_FILE | Path to spec-checklist.md |
-| STATE_FILE | Path to state file |
+| Variable | Source | Description |
+|----------|--------|-------------|
+| `FEATURE_DIR` | Stage 1 (Step 1.7) | Path to feature directory |
+| `SPEC_FILE` | Stage 2 output | Path to `spec.md` |
+| `CHECKLIST_FILE` | Stage 3 output | Path to `spec-checklist.md` |
+| `STATE_FILE` | Stage 1 (Step 1.10) | Path to `.specify-state.local.md` |
 
 ---
 
@@ -277,7 +268,7 @@ ON ERROR:
 
 **If "Retry from beginning":**
 - Clear current_batch from state
-- Re-invoke clarification skill
+- Re-invoke clarification protocol
 
 ---
 
@@ -322,14 +313,14 @@ IF total_errors_in_session > 3:
 
 ### Entry Point
 
-Called by orchestrator when checklist validation identifies gaps:
+Called by coordinator when checklist validation identifies gaps:
 1. Load spec and checklist
 2. Identify markers and low-coverage items
 3. Check already-answered in state file (NEVER re-ask)
 4. Generate questions with BA recommendations
 5. Present in batches of 4
 6. Save immediately after each batch
-7. Return to orchestrator for spec update
+7. Return to coordinator for spec update
 
 ### Exit Conditions
 
@@ -341,7 +332,7 @@ Called by orchestrator when checklist validation identifies gaps:
 
 ## Output Variables
 
-Return to orchestrator:
+Return to coordinator:
 
 | Variable | Value |
 |----------|-------|

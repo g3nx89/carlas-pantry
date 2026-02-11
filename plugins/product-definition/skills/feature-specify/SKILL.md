@@ -19,38 +19,37 @@ Guided feature specification with codebase understanding, Figma integration, PAL
 1. **State Preservation**: ALWAYS checkpoint after user decisions via state file update
 2. **Resume Compliance**: NEVER re-ask questions from `user_decisions` — they are IMMUTABLE
 3. **Delegation Pattern**: Complex analysis → specialized agents (`business-analyst`, `design-brief-generator`, `gap-analyzer`, `qa-strategist`)
-4. **Skill Invocation**: Figma capture → `specify-figma-capture`, Clarifications → `specify-clarification`
-5. **Progressive Disclosure**: Load templates ONLY when stage reached (reference via `@$CLAUDE_PLUGIN_ROOT/templates/prompts/`)
-6. **Batching Limit**: AskUserQuestion MAX 4 questions per call — use sub-skill for batching
-7. **BA Recommendation**: First option MUST be "(Recommended)" with rationale
-8. **Lock Protocol**: Always acquire lock at start, release at completion
-9. **Config Reference**: All limits and thresholds from `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
-10. **Structured Responses**: Agents return responses per `@$CLAUDE_PLUGIN_ROOT/templates/agent-response-schema.md`
-11. **Unified Checkpoints**: State file ONLY — no HTML comment checkpoints
+4. **Progressive Disclosure**: Load templates ONLY when stage reached (reference via `@$CLAUDE_PLUGIN_ROOT/templates/prompts/`)
+5. **Batching Limit**: AskUserQuestion MAX 4 questions per call — clarification protocol handles batching
+6. **BA Recommendation**: First option MUST be "(Recommended)" with rationale
+7. **Lock Protocol**: Always acquire lock at start, release at completion
+8. **Config Reference**: All limits and thresholds from `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
+9. **Structured Responses**: Agents return responses per `@$CLAUDE_PLUGIN_ROOT/templates/agent-response-schema.md`
+10. **Unified Checkpoints**: State file ONLY — no HTML comment checkpoints
 
 ### Mandatory Requirements
-12. **Design Brief MANDATORY**: `design-brief.md` MUST be generated for EVERY specification. NEVER skip.
-13. **Design Feedback MANDATORY**: `design-feedback.md` MUST be generated for EVERY specification. NEVER skip.
-14. **No Question Limits**: There is NO maximum on clarification questions — ask EVERYTHING needed for complete spec.
-15. **No Story Limits**: There is NO maximum on user stories, acceptance criteria, or NFRs — capture ALL requirements.
-16. **No Iteration Limits**: Continue clarification loops until COMPLETE, not until a counter reaches max.
+11. **Design Brief MANDATORY**: `design-brief.md` MUST be generated for EVERY specification. NEVER skip.
+12. **Design Feedback MANDATORY**: `design-feedback.md` MUST be generated for EVERY specification. NEVER skip.
+13. **No Question Limits**: There is NO maximum on clarification questions — ask EVERYTHING needed for complete spec.
+14. **No Story Limits**: There is NO maximum on user stories, acceptance criteria, or NFRs — capture ALL requirements.
+15. **No Iteration Limits**: Continue clarification loops until COMPLETE, not until a counter reaches max.
 
 ### PAL/Model Failure Rules
-17. **PAL Consensus Minimum**: Consensus requires **minimum 2 models**. If < 2 models available → **FAIL** and notify user.
-18. **No Model Substitution**: If a ThinkDeep model fails, **DO NOT** substitute with another model. ThinkDeep is for variety — substituting defeats the purpose.
-19. **User Notification MANDATORY**: When ANY PAL model fails or is unavailable, **ALWAYS** notify user.
+16. **PAL Consensus Minimum**: Consensus requires **minimum 2 models**. If < 2 models available → **FAIL** and notify user.
+17. **No Model Substitution**: If a ThinkDeep model fails, **DO NOT** substitute with another model. ThinkDeep is for variety — substituting defeats the purpose.
+18. **User Notification MANDATORY**: When ANY PAL model fails or is unavailable, **ALWAYS** notify user.
 
 ### Graceful Degradation
-20. **MCP Availability Check**: Before using PAL/Sequential Thinking/Figma MCP, check if tools are available
-21. **Fallback Behavior**: If PAL unavailable, skip ThinkDeep and Consensus steps — proceed with internal reasoning
-22. **grok-4 for Variety**: PAL Consensus and ThinkDeep include `x-ai/grok-4` for additional variety. Continue gracefully if unavailable.
+19. **MCP Availability Check**: Before using PAL/Sequential Thinking/Figma MCP, check if tools are available
+20. **Fallback Behavior**: If PAL unavailable, skip ThinkDeep and Consensus steps — proceed with internal reasoning
+21. **grok-4 for Variety**: PAL Consensus and ThinkDeep include `x-ai/grok-4` for additional variety. Continue gracefully if unavailable.
 
 ### Orchestrator Delegation Rules
-23. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
-24. **Stage 1 runs inline** — all other stages are coordinator-delegated
-25. **Iteration loop owned by orchestrator** — Stage 3 <-> Stage 4 until coverage >= 85% or user forces proceed
-26. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty (see `orchestrator-loop.md` → Variable Defaults)
-27. **Quality gates**: Orchestrator performs lightweight quality checks after Stages 2, 4, and 5 — non-blocking, notify user of issues
+22. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
+23. **Stage 1 runs inline** — all other stages are coordinator-delegated
+24. **Iteration loop owned by orchestrator** — Stage 3 <-> Stage 4 until coverage >= 85% or user forces proceed
+25. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty (see `orchestrator-loop.md` → Variable Defaults)
+26. **Quality gates**: Orchestrator performs lightweight quality checks after Stages 2, 4, and 5 — non-blocking, notify user of issues
 
 ---
 
@@ -104,7 +103,7 @@ You **MUST** consider the user input before proceeding (if not empty).
                                 |                      |             |
 +-------------------------------v-----------------------------------+
 |  Stage 4 (Coordinator): EDGE CASES & CLARIFICATION  |             |
-|  MPA-EdgeCases ThinkDeep, clarification sub-skill,   |             |
+|  MPA-EdgeCases ThinkDeep, clarification protocol,    |             |
 |  MPA-Triangulation, spec update                      |             |
 +-------------------------------+----------------------+             |
                                 |              (loop if coverage     |
@@ -231,13 +230,6 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `qa-strategist` | 6 | V-Model test strategy generation | sonnet |
 | `gate-judge` | 2 | Incremental quality gate evaluation | sonnet |
 
-## Sub-Skill References
-
-| Sub-Skill | Stage | Purpose |
-|-----------|-------|---------|
-| `specify-figma-capture` | 1 | Figma screen capture pipeline |
-| `specify-clarification` | 4 | Clarification batching via AskUserQuestion |
-
 ## Output Artifacts
 
 | Artifact | Stage | Description |
@@ -270,12 +262,14 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `references/error-handling.md` | Error recovery, degradation | Any error condition |
 | `references/config-reference.md` | Key config values, ThinkDeep/PAL params | PAL tool usage |
 | `references/thinkdeep-patterns.md` | Parameterized ThinkDeep execution patterns | Stages 2, 4 (ThinkDeep calls) |
+| `references/figma-capture-protocol.md` | Figma connection, capture, screenshot naming | Stage 1 (Figma enabled) |
+| `references/clarification-protocol.md` | Batching, BA recommendations, error recovery | Stage 4 (clarification dispatch) |
 
 ---
 
 ## CRITICAL RULES (High Attention Zone — End)
 
-Rules 1-27 above MUST be followed. Key reminders:
+Rules 1-26 above MUST be followed. Key reminders:
 - Coordinators NEVER talk to users directly
 - Orchestrator owns the iteration loop (Stage 3 <-> Stage 4)
 - Stage 1 is inline, all others are coordinator-delegated

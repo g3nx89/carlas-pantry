@@ -27,16 +27,3 @@ Read and execute the skill at: @$CLAUDE_PLUGIN_ROOT/skills/refinement/SKILL.md
 Pass all arguments: `$ARGUMENTS`
 
 ---
-
-## Legacy Phase Files
-
-The original phase-by-phase implementation files remain at `$CLAUDE_PLUGIN_ROOT/commands/requirements/` for reference. The skill consolidates them into 6 stages:
-
-| Skill Stage | Original Phases |
-|-------------|----------------|
-| Stage 1: Setup | Phases 1-3 (initialization, workspace, configuration) |
-| Stage 2: Research | Phases 4-5 (research agenda, synthesis) |
-| Stage 3: Analysis & Questions | Phases 6-7 (ThinkDeep, MPA question generation) |
-| Stage 4: Response & Gaps | Phases 8-9 (user response, gap analysis) |
-| Stage 5: Validation & PRD | Phases 10-11 (readiness validation, PRD generation) |
-| Stage 6: Completion | Phase 12 (lock release, report, next steps) |

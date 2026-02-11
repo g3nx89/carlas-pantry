@@ -44,7 +44,7 @@ claude plugins enable product-definition
 
 ### `/product-definition:requirements`
 
-Orchestrates a 12-phase PRD refinement workflow.
+Orchestrates a 6-stage PRD refinement workflow.
 
 **Workflow:**
 1. **Initialization** - Detects draft, creates workspace
@@ -108,9 +108,6 @@ Transforms Figma Desktop mockups into detailed UX/interaction narrative document
 | `design-narration` | UX narrative generation from Figma mockups (v1.6.0) |
 | `feature-specify` | Technical specification generation (v1.0.0) |
 | `refinement` | PRD refinement orchestration |
-| `sadd-orchestrator` | Subagent-driven development patterns |
-| `specify-clarification` | Specification clarification workflows |
-| `specify-figma-capture` | Figma design capture for specifications |
 
 ## Directory Structures
 
@@ -164,7 +161,7 @@ If PAL tools are unavailable:
 
 ## Plugin Components
 
-### Agents (25)
+### Agents (23)
 
 | Agent | Command/Skill | Purpose | Model |
 |-------|--------------|---------|-------|
@@ -177,14 +174,12 @@ If PAL tools are unavailable:
 | `research-discovery-technical` | requirements | Viability research | sonnet |
 | `research-discovery-ux` | requirements | User research questions | sonnet |
 | `research-question-synthesis` | requirements | Research agenda synthesis | opus |
-| `question-classifier` | requirements | Route question types | haiku |
 | `question-synthesis` | requirements | Generic question synthesis | opus |
 | `business-analyst` | specify | Specification generation | sonnet |
 | `design-brief-generator` | specify | Design brief creation | sonnet |
 | `gap-analyzer` | specify | Specification gap analysis | sonnet |
 | `gate-judge` | specify | Quality gate evaluation | sonnet |
 | `qa-strategist` | specify | V-Model test strategy | sonnet |
-| `stakeholder-synthesis` | specify | Stakeholder input synthesis | opus |
 | `narration-figma-discovery` | narrate | Figma frame detection + batch page discovery with matching | haiku |
 | `narration-screen-analyzer` | narrate | Per-screen narrative + self-critique | sonnet |
 | `narration-question-consolidator` | narrate | Batch mode: cross-screen question dedup + conflict detection | sonnet |
