@@ -29,7 +29,12 @@ FOR stage IN [1, 2, 3, 4, 5]:
 
   summary = READ(summary_path)
   VALIDATE summary has required fields: [stage, status, checkpoint, artifacts_written, summary]
-  IF validation fails: mark degraded, ask user: retry / continue / abort
+  IF validation fails:
+    policy = READ autonomy_policy from Stage 1 summary (or null if Stage 1 not yet complete)
+    infra_action = LOOKUP policy infrastructure action from config (autonomy_policy.levels.{policy}.infrastructure)
+    IF infra_action == "retry_then_continue": RETRY stage once, then continue with degraded summary
+    ELIF infra_action == "retry_then_ask": RETRY stage once, then ask user: retry / continue / abort
+    ELSE: ask user: retry / continue / abort
 
   # NOTE: Stage 4 applies an auto-decision matrix internally (see stage-4-quality-review.md
   # Section 4.4). Low-severity-only findings are auto-accepted by the coordinator — the
@@ -38,13 +43,22 @@ FOR stage IN [1, 2, 3, 4, 5]:
 
   # Handle summary status
   IF summary.status == "needs-user-input":
+    # NOTE: When autonomy policy is active, most needs-user-input cases are resolved
+    # INSIDE the coordinator (Stages 2-5 check the policy before setting this status).
+    # If a coordinator still sets needs-user-input despite the policy, it means either:
+    # (a) the policy doesn't cover this case, or (b) the auto-resolution failed.
+    # In both cases, the orchestrator falls through to asking the user.
     ASK user the question from summary.flags.block_reason
     WRITE answer to {FEATURE_DIR}/.stage-summaries/stage-{stage}-user-input.md
     RE-DISPATCH_COORDINATOR(stage)  # coordinator reads user-input file
     RE-READ summary
 
   IF summary.status == "failed":
-    ASK user: retry / skip / abort
+    policy = READ autonomy_policy from Stage 1 summary (or null if Stage 1 not yet complete)
+    infra_action = LOOKUP policy infrastructure action from config (autonomy_policy.levels.{policy}.infrastructure)
+    IF infra_action == "retry_then_continue": RETRY stage once; if still failed, SKIP stage and continue
+    ELIF infra_action == "retry_then_ask": RETRY stage once; if still failed, ASK user: retry / skip / abort
+    ELSE: ASK user: retry / skip / abort
     IF user chooses "abort": RELEASE_LOCK and HALT
 
   # Update state (stage_summaries is the source of truth for stage completion)
@@ -104,7 +118,11 @@ FUNCTION CRASH_RECOVERY(stage):
   ELSE:
     SET status=failed, block_reason="Coordinator produced no output"
 
-  ASK user: Retry stage / Continue with degraded summary / Abort
+  policy = READ autonomy_policy from Stage 1 summary (or null if Stage 1 not yet complete)
+  infra_action = LOOKUP policy infrastructure action from config (autonomy_policy.levels.{policy}.infrastructure)
+  IF infra_action == "retry_then_continue": RETRY stage once; if still no summary, continue with degraded summary
+  ELIF infra_action == "retry_then_ask": RETRY stage once; if still no summary, ASK user: Retry / Continue / Abort
+  ELSE: ASK user: Retry stage / Continue with degraded summary / Abort
   IF user chooses "Abort": RELEASE_LOCK and HALT
 ```
 

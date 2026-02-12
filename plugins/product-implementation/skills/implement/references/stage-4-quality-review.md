@@ -239,16 +239,33 @@ Total findings: {count}
 
 ## 4.4 User Decision
 
-Before writing the summary, apply the auto-decision matrix from `config/implementation-config.yaml` under `severity.auto_decision`:
+Before writing the summary, apply the auto-decision matrix. The autonomy policy from Stage 1 summary EXTENDS the base auto-decision matrix — it does not replace it. The base matrix handles the "no findings" and "low-only" cases that are always auto-accepted. The autonomy policy handles the cases that would otherwise escalate to the user.
 
-### Auto-Decision Logic
+### Auto-Decision Logic (Base Matrix)
+
+Read `severity.auto_decision` from `config/implementation-config.yaml`:
 
 1. **No findings**: Set `status: completed`, `review_outcome: "accepted"` — no user interaction needed
 2. **All findings Low only**: If `auto_accept_low_only` is `true` (default), auto-accept. Set `status: completed`, `review_outcome: "accepted"`, log: "Auto-accepted: {N} Low findings"
 3. **Highest is Medium AND medium count <= `medium_auto_accept_max_count`**: Auto-accept with note. Set `status: completed`, `review_outcome: "accepted"`, log: "Auto-accepted: {N} Medium + {M} Low findings (within threshold)"
-4. **Any Critical or High, OR medium count > threshold**: Escalate to user (below)
+4. **Any Critical or High, OR medium count > threshold**: Check autonomy policy (below)
 
-### User Escalation (Critical/High findings or excessive Medium)
+### Autonomy Policy Check (extends base matrix)
+
+Read `autonomy_policy` from the Stage 1 summary. Read the policy level definition from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml` under `autonomy_policy.levels.{policy}`.
+
+For each severity level present in findings (Critical, High, Medium), look up `policy.findings.{severity}`:
+- **`"fix"`**: Add to the auto-fix list
+- **`"defer"`**: Add to the defer list (will be written to `review-findings.md`)
+- **`"accept"`**: Accept silently
+
+Then apply:
+- If auto-fix list is non-empty: Auto-fix — launch fix agent (Option F clink or native developer) for findings in the fix list. Log: `"[AUTO-{policy}] Auto-fixing {N} findings ({severity_breakdown})"`. After fix, run test count cross-validation (same as manual "Fix now"). Write deferred findings to `review-findings.md`. Set `review_outcome: "fixed"`.
+- If auto-fix list is empty but defer list is non-empty: Write defer list to `review-findings.md`. Log: `"[AUTO-{policy}] Deferred {N} findings"`. Set `review_outcome: "deferred"`.
+- If both lists are empty (all accepted): Set `review_outcome: "accepted"`. Log: `"[AUTO-{policy}] All findings accepted"`.
+- If no policy set (edge case): fall through to manual escalation below.
+
+### Manual Escalation (when no autonomy policy applies)
 
 Set `status: needs-user-input` in the stage summary with the consolidated findings as the `block_reason`. The orchestrator will present options to the user:
 

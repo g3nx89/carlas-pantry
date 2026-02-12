@@ -43,7 +43,16 @@ Before documenting, verify that the implementation is complete enough to documen
 
 2. **If all tasks are complete**: Proceed to Section 5.2 (Documentation Update)
 
-3. **If incomplete tasks exist**: Set `status: needs-user-input` in the stage summary with the incomplete task list as `block_reason`.
+3. **If incomplete tasks exist**:
+
+   **Check autonomy policy** (read `autonomy_policy` from Stage 1 summary, read policy level from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml` `autonomy_policy.levels.{policy}`):
+   - Look up `policy.incomplete_tasks` action:
+     - If action is `"fix"`: Auto-fix — launch `developer` agent to complete tasks, log: `"[AUTO-{policy}] Incomplete tasks — auto-fixing before documentation"`. After fix, re-verify. If still incomplete after one fix attempt, fall back to `"document_as_is"` behavior.
+     - If action is `"document_as_is"`: Log: `"[AUTO-{policy}] Incomplete tasks — documenting as-is with noted gaps"`. Note incomplete tasks for tech-writer. Proceed to Section 5.2.
+   - If no policy set (edge case): fall through to manual escalation below.
+
+   **Manual escalation** (when no autonomy policy applies):
+   Set `status: needs-user-input` in the stage summary with the incomplete task list as `block_reason`.
 
    The orchestrator will present options to the user:
    1. **Fix now** — Launch `developer` agent to address incomplete tasks before documenting

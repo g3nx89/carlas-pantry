@@ -247,7 +247,9 @@ After phase completion is verified (all tasks `[X]`, tests passing), optionally 
      - Log: `"Simplification reverted: {test_failures} test(s) failed after simplification"`
      - Proceed to Step 4 with original (unsimplified) code
    - If `test_failures > 0` AND `rollback_on_test_failure` is `false`:
-     - Set `status: needs-user-input`, `block_reason: "Tests failed after code simplification. {test_failures} failures. Review and decide: revert simplification or fix manually."` → return to orchestrator
+     - **Check autonomy policy** (read `autonomy_policy` from Stage 1 summary):
+       - If `autonomy_policy` is `full_auto` or `balanced` or `critical_only`: Auto-revert simplification changes (`git checkout -- {modified_files_list}`), log: `"[AUTO-{policy}] Simplification auto-reverted: {test_failures} test(s) failed"`. Proceed to Step 4.
+       - Otherwise (no policy set, edge case): Set `status: needs-user-input`, `block_reason: "Tests failed after code simplification. {test_failures} failures. Review and decide: revert simplification or fix manually."` → return to orchestrator
    - If `test_failures == 0`:
      - Log: `"Simplification complete: {files_simplified} files, {changes_made} changes, all tests passing"`
      - Proceed to Step 4
@@ -363,10 +365,18 @@ Where `phase_name_sanitized` converts the phase name to a safe directory name (l
 
 2. **Severity gating** (from `clink_dispatch.stage2.uat_mobile_tester.severity_gating`):
    - If `critical_issues > 0` OR raw output contains `[Critical]` or `[High]` findings:
-     - Set `status: needs-user-input`
-     - Set `block_reason: "UAT testing found critical/high issues in phase '{phase_name}': {critical_issues} critical issue(s), {failed} scenario(s) failed. Review findings and decide: fix implementation / skip UAT for this phase / proceed anyway."`
-     - Include the raw findings section from clink output in the block_reason for user context
-     - Return to orchestrator (orchestrator mediates user interaction per standard protocol)
+     - **Check autonomy policy** (read `autonomy_policy` from Stage 1 summary, read policy level from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml` `autonomy_policy.levels.{policy}`):
+       - Determine the highest severity found (`critical` if `critical_issues > 0`, else `high`)
+       - Look up `policy.findings.{highest_severity}` action:
+         - If action is `"fix"`: Auto-fix — launch developer agent to address the UAT findings, log: `"[AUTO-{policy}] UAT critical/high findings — auto-fixing for phase '{phase_name}'"`. After fix, re-build and re-run UAT (one retry). If retry still fails, log warning and proceed to Step 4.
+         - If action is `"defer"`: Log findings to `{FEATURE_DIR}/review-findings.md`, log: `"[AUTO-{policy}] UAT high findings deferred for phase '{phase_name}'"`. Proceed to Step 4.
+         - If action is `"accept"`: Log: `"[AUTO-{policy}] UAT findings accepted for phase '{phase_name}'"`. Proceed to Step 4.
+       - If no policy set (edge case): fall through to manual escalation below
+     - **Manual escalation** (when no autonomy policy applies):
+       - Set `status: needs-user-input`
+       - Set `block_reason: "UAT testing found critical/high issues in phase '{phase_name}': {critical_issues} critical issue(s), {failed} scenario(s) failed. Review findings and decide: fix implementation / skip UAT for this phase / proceed anyway."`
+       - Include the raw findings section from clink output in the block_reason for user context
+       - Return to orchestrator (orchestrator mediates user interaction per standard protocol)
    - If findings are `[Medium]` or `[Low]` only:
      - Log warning: `"UAT found {count} medium/low findings in phase '{phase_name}' — continuing"`
      - Proceed to Step 4

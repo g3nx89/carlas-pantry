@@ -2,6 +2,46 @@
 # Single source of truth for all configurable values used by the implement skill.
 # Referenced by: skills/implement/SKILL.md and skills/implement/references/
 
+# Autonomy policy (issue resolution behavior)
+# Controls how the system handles findings, failures, and issues during execution.
+# When default_level is null, the orchestrator asks the user at Stage 1 startup.
+# When default_level is set, the question is skipped and the chosen level applies automatically.
+# Referenced by: stage-1-setup.md Section 1.9a, orchestrator-loop.md, stage-2-execution.md,
+#   stage-3-validation.md, stage-4-quality-review.md, stage-5-documentation.md
+autonomy_policy:
+  default_level: null  # null = ask at start; "full_auto" | "balanced" | "critical_only"
+  levels:
+    full_auto:
+      label: "Full Auto"
+      description: "Fix everything automatically — minimum interruptions"
+      findings:
+        critical: "fix"       # Auto-fix: launch fix agent
+        high: "fix"           # Auto-fix: launch fix agent
+        medium: "fix"         # Auto-fix: launch fix agent
+        low: "accept"         # Accept silently
+      incomplete_tasks: "fix"              # Auto-fix: launch developer agent to complete
+      infrastructure: "retry_then_continue"  # Retry 1x, then continue with degraded state
+    balanced:
+      label: "Balanced"
+      description: "Fix critical/high automatically, defer medium, accept low"
+      findings:
+        critical: "fix"       # Auto-fix: launch fix agent
+        high: "fix"           # Auto-fix: launch fix agent
+        medium: "defer"       # Log to review-findings.md, continue
+        low: "accept"         # Accept silently
+      incomplete_tasks: "document_as_is"   # Proceed to documentation noting gaps
+      infrastructure: "retry_then_continue"  # Retry 1x, then continue with degraded state
+    critical_only:
+      label: "Minimal"
+      description: "Fix only critical blockers, defer the rest"
+      findings:
+        critical: "fix"       # Auto-fix: launch fix agent
+        high: "defer"         # Log to review-findings.md, continue
+        medium: "accept"      # Accept silently
+        low: "accept"         # Accept silently
+      incomplete_tasks: "document_as_is"   # Proceed to documentation noting gaps
+      infrastructure: "retry_then_ask"     # Retry 1x, then ask user
+
 # Lock protocol
 lock:
   stale_timeout_minutes: 60  # Locks older than this are treated as stale and overridden

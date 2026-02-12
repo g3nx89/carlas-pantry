@@ -125,7 +125,22 @@ PASS / PASS WITH NOTES / NEEDS ATTENTION
 
 ## 3.4 Handling Validation Failures
 
-If validation reveals issues, set `status: needs-user-input` in the stage summary with the validation report as the `block_reason`. The orchestrator will present options to the user:
+If validation reveals issues:
+
+### Autonomy Policy Check
+
+Read `autonomy_policy` from the Stage 1 summary. Read the policy level definition from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml` under `autonomy_policy.levels.{policy}`.
+
+1. Determine the **highest severity** among all validation findings (Critical > High > Medium > Low)
+2. Look up `policy.findings.{highest_severity}` action:
+   - If action is `"fix"`: Auto-fix — launch developer agent to address issues at this severity and above, log: `"[AUTO-{policy}] Validation issues found — auto-fixing {severity}+ findings"`. After fix, re-validate. If re-validation still finds issues at the same or higher severity, log and proceed to quality review (do not loop infinitely).
+   - If action is `"defer"`: Log findings, log: `"[AUTO-{policy}] Validation findings deferred — proceeding to quality review"`. Set `validation_outcome: "proceed_anyway"`.
+   - If action is `"accept"`: Log: `"[AUTO-{policy}] Validation findings accepted"`. Set `validation_outcome: "proceed_anyway"`.
+3. If no policy set (edge case): fall through to manual escalation below.
+
+### Manual Escalation (when no autonomy policy applies)
+
+Set `status: needs-user-input` in the stage summary with the validation report as the `block_reason`. The orchestrator will present options to the user:
 
 **Options:**
 1. **Fix now** — Launch developer agent to address specific issues, then re-validate

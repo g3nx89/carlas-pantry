@@ -364,6 +364,44 @@ If user provided arguments (non-empty `$ARGUMENTS`):
 - Apply these as filters/overrides to the execution plan
 - Store in state file under `user_decisions`
 
+## 1.9a Autonomy Policy Selection
+
+Determine how the system should handle issues (findings, failures, incomplete tasks) during execution. This decision applies to all downstream stages and is stored in the Stage 1 summary for consumption by coordinators and the orchestrator.
+
+### Procedure
+
+1. Read `autonomy_policy` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+2. If `autonomy_policy.default_level` is NOT null:
+   - Validate that the value matches a key in `autonomy_policy.levels` (one of: `full_auto`, `balanced`, `critical_only`)
+   - If valid: set `autonomy_policy` to the configured value, log: `"Autonomy policy: {label} (from config default)"`
+   - If invalid: log warning, fall through to user question
+3. If `autonomy_policy.default_level` is null (or invalid):
+   - Ask the user via `AskUserQuestion`:
+     - **Question:** "How should I handle issues during implementation?"
+     - **Options:**
+       1. **Full Auto** — "Fix everything automatically, don't interrupt me" (description from config: `levels.full_auto.description`)
+       2. **Balanced (Recommended)** — "Fix critical/high automatically, defer the rest" (description from config: `levels.balanced.description`)
+       3. **Minimal** — "Fix only critical blockers, ask me for important decisions" (description from config: `levels.critical_only.description`)
+   - Map user's selection to the level key: "Full Auto" → `full_auto`, "Balanced" → `balanced`, "Minimal" → `critical_only`
+   - Log: `"Autonomy policy: {label} (user selected)"`
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+autonomy_policy: "balanced"  # or "full_auto" or "critical_only"
+```
+
+### Impact
+
+This value is consumed by:
+- **Orchestrator** (orchestrator-loop.md): determines behavior on summary validation failure, stage failure, and crash recovery
+- **Stage 2 coordinator**: determines behavior on code simplification test failure (Step 3.5) and UAT findings (Step 3.7)
+- **Stage 3 coordinator**: determines behavior on validation issues (Section 3.4)
+- **Stage 4 coordinator**: overrides the auto-decision matrix (Section 4.4) based on policy
+- **Stage 5 coordinator**: determines behavior on incomplete tasks (Section 5.1)
+
 ## 1.10 Write Stage 1 Summary
 
 After completing all setup steps, write the summary to `{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`:
@@ -399,6 +437,7 @@ resolved_libraries:         # from Section 1.6c
 private_doc_urls: [{list of private doc URLs}]  # from Section 1.6d
 mobile_mcp_available: {true/false}  # from Section 1.6e (false if UAT config disabled or no emulator)
 mobile_device_name: "{name or null}"  # from Section 1.6e (first available emulator device)
+autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user-selected or config default)
 ---
 ## Context for Next Stage
 
@@ -417,6 +456,7 @@ mobile_device_name: "{name or null}"  # from Section 1.6e (first available emula
 - Resolved libraries: {count} Context7 library IDs pre-resolved (or "disabled")
 - Private doc URLs: {count} private documentation sources (or "disabled")
 - Mobile MCP: {available with device "{name}" / not available} (or "UAT disabled")
+- Autonomy policy: {full_auto/balanced/critical_only} ({user selected / from config default})
 
 ## Planning Artifacts Summary
 
@@ -474,6 +514,7 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] Library pre-resolution: {N} libraries resolved via Context7 (or "disabled/skipped")
 - [{timestamp}] Private docs: {N} private doc URLs discovered (or "disabled/skipped")
 - [{timestamp}] Mobile MCP probe: {available with device "{name}" / not available / UAT disabled}
+- [{timestamp}] Autonomy policy: {level_key} ({source: user selected / config default})
 - [{timestamp}] Lock acquired
 - [{timestamp}] State initialized / resumed from Stage {S}
 ```

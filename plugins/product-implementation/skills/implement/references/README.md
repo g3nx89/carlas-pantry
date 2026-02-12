@@ -43,12 +43,12 @@ Quick guide to when to read each reference file during skill development or debu
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `orchestrator-loop.md` | 210 | Dispatch loop, crash recovery, lock release, state migration, late notification handling |
-| `stage-1-setup.md` | 479 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), CLI availability detection (1.7a), summary template |
-| `stage-2-execution.md` | 581 | Skill resolution, research context resolution (2.0a), phase loop, clink test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7), clink test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction |
-| `stage-3-validation.md` | 181 | Validation checks, clink spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format |
-| `stage-4-quality-review.md` | 340 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), clink multi-model review (4.2a), clink security reviewer (Option E), clink fix engineer (Option F), severity reclassification, consolidation, auto-decision matrix, auto-commit on fix |
-| `stage-5-documentation.md` | 249 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release |
+| `orchestrator-loop.md` | 228 | Dispatch loop, crash recovery, lock release, state migration, late notification handling, autonomy policy infrastructure checks |
+| `stage-1-setup.md` | 520 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), CLI availability detection (1.7a), autonomy policy selection (1.9a), summary template |
+| `stage-2-execution.md` | 591 | Skill resolution, research context resolution (2.0a), phase loop, clink test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7), clink test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, autonomy policy checks |
+| `stage-3-validation.md` | 196 | Validation checks, clink spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, autonomy policy check (3.4) |
+| `stage-4-quality-review.md` | 357 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), clink multi-model review (4.2a), clink security reviewer (Option E), clink fix engineer (Option F), severity reclassification, consolidation, auto-decision matrix with autonomy policy extension (4.4), auto-commit on fix |
+| `stage-5-documentation.md` | 258 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release, autonomy policy check for incomplete tasks (5.1) |
 | `agent-prompts.md` | 433 | All 8 agent prompt templates (7 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, build verification, API verification, test quality, animation testing, pattern propagation, code simplification |
 | `auto-commit-dispatch.md` | 61 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
@@ -98,3 +98,6 @@ Quick guide to when to read each reference file during skill development or debu
 - `stage-2-execution.md` writes `uat_results` to Stage 2 summary flags (from UAT mobile tester, Step 3.7)
 - `config/cli_clients/gemini_uat_mobile_tester.txt` → role prompt for Option J UAT mobile tester clink dispatch
 - UAT mobile testing is orchestrator-transparent: Stage 1 (inline) probes mobile-mcp, Stage 2 coordinator handles build/install/dispatch; orchestrator never touches UAT
+- `config/implementation-config.yaml` `autonomy_policy` → referenced by `stage-1-setup.md` Section 1.9a, `orchestrator-loop.md` (infrastructure failures), `stage-2-execution.md` (Steps 3.5, 3.7), `stage-3-validation.md` (Section 3.4), `stage-4-quality-review.md` (Section 4.4), `stage-5-documentation.md` (Section 5.1)
+- `stage-1-setup.md` writes `autonomy_policy` to Stage 1 summary; consumed by orchestrator and all downstream coordinators
+- Autonomy policy auto-resolution is logged with `[AUTO-{policy}]` prefix in all stage logs for traceability
