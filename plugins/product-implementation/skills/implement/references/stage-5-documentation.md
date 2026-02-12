@@ -91,6 +91,32 @@ for inline diagrams. Read skill SKILL.md on-demand for syntax reference and best
 
 **Fallback:** `"No documentation skills available — produce prose documentation without diagrams."`
 
+## 5.1b Research Context Resolution for Documentation
+
+Build the `{research_context}` block for the tech-writer agent prompt using accumulated research URLs.
+
+### Procedure
+
+1. Read `mcp_availability` from the Stage 1 summary
+2. Read `research_mcp` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+3. If `research_mcp.enabled` is `false` OR all MCP tools are unavailable → set `research_context` to the fallback text and skip to Section 5.2
+
+4. **Re-read accumulated URLs** (Ref — maximum Dropout benefit):
+   - Read `research_urls_discovered` from the Stage 2 summary flags
+   - For each URL (up to `ref.max_reads_per_stage`): call `ref_read_url(url)` — by Stage 5, Ref returns only the most documentation-relevant content from session cache
+   - Cap each source at `ref.token_budgets.per_source` tokens
+
+5. **Enrichment protocol**: Assemble `{research_context}` with documentation-specific focus:
+   - **Link generation**: Official documentation URLs for inclusion in feature docs
+   - **Example verification**: Code examples from official docs for cross-checking against implemented examples
+   - **Migration notes**: Version migration or deprecation warnings from documentation
+
+6. Cap at `ref.token_budgets.research_context_total` tokens.
+
+### Context Budget
+
+Same cap as earlier stages. Maximum Dropout benefit: Ref serves from session cache, returning only documentation-focused content relevant to the feature's libraries.
+
 ## 5.2 Documentation Update
 
 Launch `tech-writer` agent to create and update project documentation based on the implementation.

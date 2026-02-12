@@ -31,6 +31,11 @@ FOR stage IN [1, 2, 3, 4, 5]:
   VALIDATE summary has required fields: [stage, status, checkpoint, artifacts_written, summary]
   IF validation fails: mark degraded, ask user: retry / continue / abort
 
+  # NOTE: Stage 4 applies an auto-decision matrix internally (see stage-4-quality-review.md
+  # Section 4.4). Low-severity-only findings are auto-accepted by the coordinator — the
+  # orchestrator sees status=completed, not needs-user-input. Only findings exceeding the
+  # auto-decision threshold reach the orchestrator as needs-user-input.
+
   # Handle summary status
   IF summary.status == "needs-user-input":
     ASK user the question from summary.flags.block_reason
@@ -172,6 +177,16 @@ Required fields in every stage summary YAML:
 - `summary` (non-empty string)
 
 If validation fails, mark summary as degraded and ask user whether to retry, continue, or abort.
+
+## Late Agent Notifications
+
+If a background coordinator `Task()` returns AFTER the orchestrator has already moved past that stage (e.g., via crash recovery + user "Continue"):
+
+1. **Ignore late output** — do not re-read summaries for completed stages
+2. **Log the event** — append to Implementation Log: `[{timestamp}] Late notification from Stage {N} coordinator — ignored (stage already resolved)`
+3. **Do not overwrite** — the existing summary (reconstructed or user-resolved) takes precedence
+
+The forward-only dispatch loop (`stage_summaries[stage] != null` -> SKIP) naturally handles this. Dismiss late notifications with a single-line acknowledgment to minimize context waste.
 
 ## Architecture Decision Record: Delegation vs Direct Dispatch
 

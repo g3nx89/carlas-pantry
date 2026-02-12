@@ -42,13 +42,13 @@ Quick guide to when to read each reference file during skill development or debu
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `orchestrator-loop.md` | 195 | Dispatch loop, crash recovery, lock release, state migration |
-| `stage-1-setup.md` | 289 | Inline setup instructions, domain detection, summary template |
-| `stage-2-execution.md` | 236 | Skill resolution, phase loop, auto-commit per phase, batch strategy, execution rules, test count extraction |
-| `stage-3-validation.md` | 138 | Validation checks, constitution compliance, coverage delta, Stage 2 cross-validation, report format |
-| `stage-4-quality-review.md` | 222 | Skill resolution, review dimensions (base + conditional), severity reclassification, consolidation, auto-commit on fix |
-| `stage-5-documentation.md` | 223 | Skill resolution for docs, tech-writer dispatch, auto-commit documentation, lock release |
-| `agent-prompts.md` | 306 | All 7 agent prompt templates (6 agent + 1 auto-commit) with `{skill_references}` variable, verified test count, severity escalation |
+| `orchestrator-loop.md` | 210 | Dispatch loop, crash recovery, lock release, state migration, late notification handling |
+| `stage-1-setup.md` | 413 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), summary template |
+| `stage-2-execution.md` | 306 | Skill resolution, research context resolution (2.0a), phase loop, auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction |
+| `stage-3-validation.md` | 142 | Validation checks, constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format |
+| `stage-4-quality-review.md` | 261 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), severity reclassification, consolidation, auto-decision matrix, auto-commit on fix |
+| `stage-5-documentation.md` | 249 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release |
+| `agent-prompts.md` | 358 | All 7 agent prompt templates (6 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, build verification, API verification, test quality, animation testing, pattern propagation |
 | `auto-commit-dispatch.md` | 61 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
 
@@ -66,8 +66,17 @@ Quick guide to when to read each reference file during skill development or debu
 - `stage-1-setup.md` writes `detected_domains` to Stage 1 summary; consumed by Stages 2, 4, 5 coordinators
 - `skill-resolution.md` → shared algorithm referenced by `stage-2-execution.md`, `stage-4-quality-review.md`, `stage-5-documentation.md`
 - Dev-skills integration is orchestrator-transparent: only coordinators read/resolve skill references
+- Research MCP integration is orchestrator-transparent: Stage 1 (inline) probes availability, coordinators build `{research_context}`, agents make on-demand MCP calls
+- `config/implementation-config.yaml` `research_mcp` → referenced by `stage-1-setup.md` Sections 1.6a-1.6d, `stage-2-execution.md` Section 2.0a, `stage-3-validation.md` Section 3.1, `stage-4-quality-review.md` Section 4.1b, `stage-5-documentation.md` Section 5.1b
+- `stage-1-setup.md` writes `mcp_availability`, `extracted_urls`, `resolved_libraries`, `private_doc_urls` to Stage 1 summary; consumed by all downstream coordinators
+- `stage-2-execution.md` writes `research_urls_discovered` to Stage 2 summary flags (session accumulation); consumed by Stages 4, 5
+- `agent-prompts.md` `{research_context}` variable in 4 prompts (Phase Implementation, Completion Validation, Quality Review, Documentation Update) with explicit fallback defaults
+- `agents/developer.md` and `agents/tech-writer.md` have Research MCP Awareness sections for optional `## Research Context` injection
 - Stages 2, 3, 4 propagate verified test counts via summary flags: `test_count_verified` (Stage 2) → `baseline_test_count` (Stage 3) → `test_count_post_fix` (Stage 4)
 - `config/implementation-config.yaml` `severity.escalation_triggers` → referenced by `agent-prompts.md` Quality Review Prompt and `stage-4-quality-review.md` Section 4.3 reclassification pass
 - `config/implementation-config.yaml` `test_coverage.thresholds` → referenced by `agent-prompts.md` Completion Validation Prompt and `stage-3-validation.md` Section 3.2/3.3
 - `auto-commit-dispatch.md` → shared procedure referenced by `stage-2-execution.md` Step 4.5, `stage-4-quality-review.md` Section 4.4 step 6, `stage-5-documentation.md` Section 5.3a
 - `config/implementation-config.yaml` `auto_commit` → referenced by `auto-commit-dispatch.md` procedure, `agent-prompts.md` Auto-Commit Prompt, and all 3 calling stage files via the shared procedure
+- `config/implementation-config.yaml` `test_coverage.tautological_patterns` → referenced by `stage-3-validation.md` Section 3.2 check 11 and `agent-prompts.md` Quality Review Prompt step 5
+- `config/implementation-config.yaml` `severity.auto_decision` (`auto_accept_low_only`) → referenced by `stage-4-quality-review.md` Section 4.4 auto-decision logic
+- `config/implementation-config.yaml` `timestamps` → referenced by `stage-2-execution.md` Section 2.3 and all stage log templates

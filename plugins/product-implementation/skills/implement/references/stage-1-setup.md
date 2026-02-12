@@ -147,6 +147,111 @@ If `dev_skills.enabled` is `false` in config, set `detected_domains: []` and ski
 
 Zero additional file reads. Zero additional agent dispatches. Pure text matching against already-loaded content.
 
+## 1.6a MCP Availability Check
+
+Probe available MCP tools to determine which research capabilities are reachable. This step runs ONCE during Stage 1 and stores results for all downstream stages.
+
+### Procedure
+
+1. Read `research_mcp` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+2. If `research_mcp.enabled` is `false` → set all availability flags to `false`, skip Sections 1.6b-1.6d, and proceed to Section 1.7
+3. **Probe Ref**: If `research_mcp.ref.enabled` is `true`, call `ref_search_documentation` with a minimal query derived from plan.md tech stack (e.g., the primary framework name). If the call succeeds (returns results or empty results without error), set `ref_available: true`. If it errors or times out, set `ref_available: false`.
+4. **Probe Context7**: If `research_mcp.context7.enabled` is `true`, call `resolve-library-id` with the primary framework name from plan.md. If the call succeeds, set `context7_available: true`. If it errors, set `context7_available: false`.
+5. **Probe Tavily**: If `research_mcp.tavily.enabled` is `true`, call `tavily_search` with a minimal query (e.g., `"{primary_framework} documentation"`). If the call succeeds, set `tavily_available: true`. If it errors, set `tavily_available: false`.
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+mcp_availability:
+  ref: true       # or false
+  context7: true   # or false
+  tavily: true     # or false
+```
+
+### Cost
+
+3 lightweight probe calls (~1-3s total). Skipped entirely when `research_mcp.enabled` is `false`.
+
+## 1.6b URL Extraction from Planning Artifacts
+
+Extract documentation URLs from already-loaded planning artifacts for pre-reading in Stage 2.
+
+### Procedure
+
+1. If `research_mcp.url_extraction.enabled` is `false` OR `ref_available` is `false` → skip, set `extracted_urls: []`
+2. Scan the text content of `plan.md`, `design.md`, and `research.md` (already loaded in Section 1.4) for URLs matching `research_mcp.url_extraction.url_patterns`
+3. Filter out URLs matching any pattern in `research_mcp.url_extraction.ignore_patterns`
+4. Deduplicate by exact URL string
+5. Cap at 5 URLs (keep earliest-appearing)
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+extracted_urls:
+  - "https://docs.example.com/api/v2"
+  - "https://framework.dev/migration-guide"
+```
+
+### Cost
+
+Zero MCP calls. Pure regex matching against already-loaded content.
+
+## 1.6c Library ID Pre-Resolution (Context7)
+
+Pre-resolve Context7 library IDs so downstream coordinators can skip the resolve step and query docs directly.
+
+### Procedure
+
+1. If `research_mcp.context7.pre_resolve_in_stage1` is `false` OR `context7_available` is `false` → skip, set `resolved_libraries: []`
+2. Extract library/framework names from `plan.md` tech stack section (e.g., "React", "Express", "Prisma")
+3. For each library name (up to `research_mcp.context7.max_pre_resolve`, default 5):
+   - Call `resolve-library-id` with `libraryName` = the library name and `query` = a brief description of how it's used in the project
+   - If successful, record `{name, library_id}` pair
+   - If the call fails, skip that library (do not halt)
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+resolved_libraries:
+  - name: "React"
+    library_id: "/facebook/react"
+  - name: "Express"
+    library_id: "/expressjs/express"
+```
+
+### Cost
+
+Up to 5 `resolve-library-id` calls (~2-5s total). Skipped when disabled or Context7 unavailable.
+
+## 1.6d Private Documentation Discovery
+
+Discover private documentation sources via Ref for use in downstream stages.
+
+### Procedure
+
+1. If `research_mcp.private_docs.enabled` is `false` OR `ref_available` is `false` → skip, set `private_doc_urls: []`
+2. Call `ref_search_documentation` with query: `"{primary_framework} {feature_description} ref_src=private"` (use plan.md tech stack and feature name)
+3. Extract up to `research_mcp.private_docs.max_private_results` (default 3) result URLs
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+private_doc_urls:
+  - "https://internal.docs.company.com/api-guide"
+```
+
+### Cost
+
+1 Ref call. Skipped when disabled or Ref unavailable.
+
 ## 1.7 Lock Acquisition
 
 Before initializing or resuming state, acquire the execution lock:
@@ -224,6 +329,15 @@ flags:
   block_reason: null
   test_cases_available: {true/false}
 detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from Section 1.6
+mcp_availability:           # from Section 1.6a (all false if research_mcp.enabled is false)
+  ref: {true/false}
+  context7: {true/false}
+  tavily: {true/false}
+extracted_urls: [{list of doc URLs from planning artifacts}]  # from Section 1.6b
+resolved_libraries:         # from Section 1.6c
+  - name: "{library_name}"
+    library_id: "{context7_library_id}"
+private_doc_urls: [{list of private doc URLs}]  # from Section 1.6d
 ---
 ## Context for Next Stage
 
@@ -235,6 +349,10 @@ detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from
 - Phases remaining: {list}
 - Resume from: {phase_name or "beginning"}
 - Detected domains: {list, e.g., ["kotlin", "compose", "api"] or [] if detection disabled}
+- MCP availability: ref={true/false}, context7={true/false}, tavily={true/false} (or "all disabled" if research_mcp.enabled is false)
+- Extracted URLs: {count} documentation URLs from planning artifacts (or "disabled")
+- Resolved libraries: {count} Context7 library IDs pre-resolved (or "disabled")
+- Private doc URLs: {count} private documentation sources (or "disabled")
 
 ## Planning Artifacts Summary
 
@@ -279,11 +397,17 @@ For each loaded optional/expected file, provide a 1-line summary of its key cont
 
 ## Stage Log
 
+Use ISO 8601 timestamps with seconds precision per `config/implementation-config.yaml` `timestamps` section (e.g., `2026-02-10T14:30:45Z`). Never round to hours or minutes.
+
 - [{timestamp}] Branch parsed: {branch_name}
 - [{timestamp}] Context loaded: {N} phases, {M} tasks
 - [{timestamp}] Expected file warnings: {list or "none"}
 - [{timestamp}] Test cases: {discovered N specs / not available}
 - [{timestamp}] Domain detection: {detected_domains list or "disabled"}
+- [{timestamp}] MCP availability: ref={bool}, context7={bool}, tavily={bool} (or "research_mcp disabled")
+- [{timestamp}] URL extraction: {N} URLs extracted from planning artifacts (or "disabled/skipped")
+- [{timestamp}] Library pre-resolution: {N} libraries resolved via Context7 (or "disabled/skipped")
+- [{timestamp}] Private docs: {N} private doc URLs discovered (or "disabled/skipped")
 - [{timestamp}] Lock acquired
 - [{timestamp}] State initialized / resumed from Stage {S}
 ```

@@ -78,6 +78,53 @@ Codebase conventions (CLAUDE.md, constitution.md) always take precedence over sk
 
 This resolution adds ~5-10 lines to the agent prompt. The agent reads skill files on-demand only when encountering relevant implementation decisions — it does NOT preload all skills into context.
 
+## 2.0a Research Context Resolution
+
+Before entering the phase loop, build the `{research_context}` block for developer agent prompts. This step runs ONCE per Stage 2 dispatch, not per phase.
+
+### Procedure
+
+1. Read `mcp_availability` from the Stage 1 summary YAML frontmatter
+2. Read `research_mcp` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+3. If `research_mcp.enabled` is `false` OR all MCP tools are unavailable → set `research_context` to the fallback text from `research_mcp.graceful_degradation.fallback_text` and skip to Section 2.1
+
+4. **Pre-read extracted URLs** (Ref):
+   - Read `extracted_urls` from Stage 1 summary
+   - For each URL (up to `ref.max_reads_per_stage`): call `ref_read_url(url)` and capture a summary (cap each at `ref.token_budgets.per_source` tokens)
+   - If Ref is unavailable, skip this step
+
+5. **Quick Context7 lookup**:
+   - Read `resolved_libraries` from Stage 1 summary
+   - For each resolved library (up to `context7.max_queries_per_stage`): call `query-docs(library_id, "{relevant_query}")` using the feature's primary use case from plan.md
+   - If Context7 is unavailable, skip this step
+
+6. **Pre-read private documentation** (Ref):
+   - Read `private_doc_urls` from Stage 1 summary
+   - For each URL: call `ref_read_url(url)` and capture key content
+   - Counts against `ref.max_reads_per_stage` (shared budget with step 4)
+
+7. **Assemble `{research_context}`**: Combine all gathered content, cap at `ref.token_budgets.research_context_total` tokens. Format as:
+
+```markdown
+### Documentation References
+{for each pre-read URL:}
+- **{source_title}** ({url}): {summary}
+
+### Library Documentation
+{for each Context7 query result:}
+- **{library_name}**: {key_content}
+
+### Private Documentation
+{for each private doc:}
+- **{doc_title}**: {key_content}
+```
+
+8. **Track discovered URLs**: Collect all URLs successfully read in this step into `research_urls_discovered` list for session accumulation in the Stage 2 summary.
+
+### Context Budget
+
+The assembled `{research_context}` block is capped at `research_context_total` (default: 4000) tokens. Same value reused for all phases within this Stage 2 dispatch.
+
 ## 2.1 Phase Loop
 
 For each phase in `tasks.md` (in order), perform these steps:
@@ -117,8 +164,9 @@ After agent returns, verify:
 1. All tasks in the phase are marked `[X]` in tasks.md
 2. No task was skipped or left incomplete
 3. Agent reported test results (all passing)
-4. Extract `test_count_verified` and `test_failures` from the agent's structured output (see `agent-prompts.md` Phase Implementation Prompt, "Final Step" section). If the agent did not report these values, log a warning: "Developer agent did not report verified test count — cross-validation will be limited."
-5. Record the phase-level `test_count_verified` value. The LAST phase's `test_count_verified` becomes the final verified count for all of Stage 2 (since each phase runs the full suite).
+4. No compilation errors reported in agent output (agent must compile after each file change per Build Verification Rule in Section 2.2)
+5. Extract `test_count_verified` and `test_failures` from the agent's structured output (see `agent-prompts.md` Phase Implementation Prompt, "Final Step" section). If the agent did not report these values, log a warning: "Developer agent did not report verified test count — cross-validation will be limited."
+6. Record the phase-level `test_count_verified` value. The LAST phase's `test_count_verified` becomes the final verified count for all of Stage 2 (since each phase runs the full suite).
 
 If verification fails:
 - For sequential task failure: **Halt execution**. Report which task failed and why.
@@ -179,6 +227,10 @@ The `developer` agent follows TDD internally (see `agents/developer.md`). This c
 - Phase is NOT complete until all tests in the phase pass
 - If tests fail, the agent must fix implementation until tests pass
 
+### Build Verification
+
+The developer agent must compile/build the project after writing or modifying each source file, before marking the corresponding task `[X]`. This is enforced via the Phase Implementation Prompt (see `agent-prompts.md`). The coordinator verifies compliance in Step 3: if the agent's output indicates compilation failures, the phase is NOT complete.
+
 ### Error Handling
 
 | Error Type | Action |
@@ -187,7 +239,22 @@ The `developer` agent follows TDD internally (see `agents/developer.md`). This c
 | Parallel task fails | Continue other parallel tasks. Collect failure. Report all failures at phase end. |
 | Agent crashes | Retry once with same prompt. If second failure, halt with full error context. |
 | Tests fail after implementation | Agent retries fix internally (part of developer agent self-critique). If still failing after agent completes, report to orchestrator. |
+| Build error with MCP available | Agent uses build error smart resolution (see below). |
 | tasks.md corrupted | Re-read from disk. If unrecoverable, halt with guidance to check git history. |
+
+### Build Error Smart Resolution (MCP-Assisted)
+
+When a build or compilation error occurs and MCP tools are available (per `mcp_availability` from Stage 1 summary), the developer agent can use research tools to diagnose and fix the error. This is controlled by `research_mcp.build_error_resolution` in config.
+
+**Strategy: `ref_first`** (default):
+
+1. **Ref lookup**: Call `ref_search_documentation("{library} {error_terms}")` using the library name and key error terms. If results are found, call `ref_read_url(best_result)` for the fix details.
+2. **Context7 fallback** (after `escalation_after` failed Ref lookups, default 1): Call `query-docs(library_id, "error {error_terms}")` using the pre-resolved library ID from Stage 1 summary.
+3. **Tavily last resort** (after all above fail): Call `tavily_search("{library} {version} {error_message}")` with `search_depth` and `max_results` from config.
+
+**Budget**: Maximum `max_retries` (default 2) MCP lookup attempts per build error. If all attempts fail, the agent reports the error normally (no MCP-assisted fix).
+
+**Note**: This resolution is performed by the developer agent itself within its implementation context — the coordinator does not make MCP calls for error resolution. The agent's Research MCP Awareness section (in `agents/developer.md`) describes how to use these tools.
 
 ### Progress Persistence
 
@@ -217,6 +284,7 @@ flags:
   block_reason: null  # or description of error if needs-user-input
   test_count_verified: {N}  # Verified test count from last phase's developer agent final test run (null if agent did not report)
   commits_made: ["sha1", "sha2"]  # Array: one SHA per phase (per_phase strategy) or single SHA (batch). Stages 4/5 use scalar commit_sha instead.
+  research_urls_discovered: []  # URLs successfully read during research context resolution (Section 2.0a). Consumed by Stages 4/5 for session accumulation.
 ---
 ## Context for Next Stage
 
@@ -229,6 +297,8 @@ flags:
 - Errors encountered: {none / list}
 
 ## Stage Log
+
+Use ISO 8601 timestamps with seconds precision per `config/implementation-config.yaml` `timestamps` section (e.g., `2026-02-10T14:30:45Z`). Never round to hours or minutes.
 
 - [{timestamp}] Phase 1: {phase_name} — {task_count} tasks completed — commit: {sha or skipped}
 - [{timestamp}] Phase 2: {phase_name} — {task_count} tasks completed — commit: {sha or skipped}

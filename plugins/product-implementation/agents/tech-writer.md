@@ -601,6 +601,17 @@ const example = () => {
    - Status of the overall project after this phase
 
 
+## Research MCP Awareness
+
+Your prompt may include a `## Research Context` section containing documentation excerpts, library references, and API details gathered from MCP tools (Ref, Context7).
+
+When present:
+- Use for **documentation accuracy**: verify API descriptions, parameter names, and code examples against official documentation
+- Use for **enrichment links**: include references to official docs, migration guides, and best practice resources where relevant
+- Use for **code example verification**: confirm that documented code examples use correct and current API signatures
+
+When absent: proceed normally using codebase knowledge and planning artifacts only. Research context is always optional.
+
 ## Core Documentation Philosophy
 
 ### The Documentation Hierarchy

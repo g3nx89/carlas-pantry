@@ -36,6 +36,13 @@ severity:
     - "UI state contradiction (displayed state differs from actual state)"
     - "Singleton or shared-state leak across scopes (e.g., state carried between logical sessions)"
     - "Race condition with user-visible effect"
+  # Severity ordering (for threshold comparisons): low < medium < high < critical
+  # Auto-decision matrix for Stage 4 quality review coordinator.
+  # Controls when to escalate to user vs auto-accept findings.
+  auto_decision:
+    auto_accept_low_only: true          # If ALL findings are Low, auto-accept without user prompt
+    medium_auto_accept_max_count: 3     # If highest is Medium AND count <= this, auto-accept with note
+    # Critical or High findings ALWAYS escalate to user — never auto-decided
 
 # Handoff artifact tiers (Stage 1 file classification)
 # Required files halt if missing. Expected files warn if missing. Optional files are silent.
@@ -56,6 +63,18 @@ test_coverage:
   thresholds:
     unit_minimum_pct: 80   # Below this → flag as High severity
     other_minimum_pct: 50  # Below this (integration, e2e) → flag as Medium severity
+  # Test quality gate (Stage 3 validation check 11)
+  # Patterns indicating placeholder/tautological assertions.
+  # Stage 3 scans test files for these; a test file where ALL assertions
+  # match tautological patterns is flagged.
+  tautological_patterns:
+    - "assertTrue\\(true"
+    - "assert\\(true\\)"
+    - "expect\\(true\\)\\.toBe\\(true\\)"
+    - "expect\\(1\\)\\.toBe\\(1\\)"
+    - "assertEquals\\(true,\\s*true\\)"
+  # If placeholder-only test files >= this count, flag High; 1 file = Medium
+  placeholder_file_threshold_high: 2
 
 # Dev-skills integration (conditional skill injection)
 # Coordinators read detected_domains from Stage 1 summary and resolve applicable skills.
@@ -118,6 +137,65 @@ dev_skills:
       - domains: ["database"]
         skills: ["database-schema-designer"]
 
+# Research MCP integration (conditional library/framework documentation lookup)
+# Coordinators read this config and inject research context into agent prompts.
+# The orchestrator never calls MCP tools — only Stage 1 (inline) probes availability,
+# and coordinators build {research_context} blocks for agents.
+research_mcp:
+  enabled: true
+
+  # Ref (primary) — exploits session deduplication (Dropout) for ~87% token savings
+  ref:
+    enabled: true
+    max_searches_per_stage: 5
+    max_reads_per_stage: 3
+    session_accumulation: true   # URLs discovered in Stage 2 are re-read in Stages 4/5 (Ref cache serves faster)
+    token_budgets:
+      per_source: 2000           # Max tokens per individual source read
+      research_context_total: 4000  # Max tokens for the assembled {research_context} block
+
+  # Context7 (secondary) — used for library-specific queries, pre-resolved in Stage 1
+  context7:
+    enabled: true
+    max_queries_per_stage: 3
+    pre_resolve_in_stage1: true  # Resolve library IDs upfront so coordinators skip the resolve step
+    max_pre_resolve: 5           # Max libraries to pre-resolve in Stage 1
+
+  # Tavily (known-issues-only) — last resort for build errors and known issues
+  tavily:
+    enabled: true
+    search_depth: "basic"
+    max_results: 3
+    max_searches_per_stage: 2
+
+  # URL extraction from planning artifacts (Stage 1)
+  url_extraction:
+    enabled: true
+    url_patterns:
+      - "https?://[^\\s)>\"']+"
+    ignore_patterns:
+      - "github.com/.*/blob/"
+      - "localhost"
+      - "127.0.0.1"
+      - "example.com"
+
+  # Private documentation discovery via Ref
+  private_docs:
+    enabled: true
+    search_scope: "private"      # Appended to Ref queries as ref_src=private
+    max_private_results: 3
+
+  # Graceful degradation — used when MCP tools are unavailable or disabled
+  graceful_degradation:
+    fallback_text: "No research context available — proceed with codebase knowledge and planning artifacts only."
+
+  # Build error resolution strategy (Stage 2 error handling)
+  build_error_resolution:
+    enabled: true
+    strategy: "ref_first"        # ref_first → escalate to Context7 → Tavily as last resort
+    max_retries: 2               # Max MCP lookup attempts per build error
+    escalation_after: 1          # Escalate to next tool after this many failed lookups
+
 # Branch format
 branch:
   pattern: "feature/<number-padded-to-3-digits>-<kebab-case-title>"
@@ -139,3 +217,9 @@ auto_commit:
   exclude_patterns:
     - ".implementation-state.local.md"
     - ".stage-summaries/"
+
+# Timestamp format for stage logs, state checkpoints, and summaries
+timestamps:
+  format: "ISO_8601"
+  precision: "seconds"
+  command: "date -u +%Y-%m-%dT%H:%M:%SZ"

@@ -113,6 +113,8 @@ Break down the task into concrete steps that map directly to acceptance criteria
 YOU MUST write tests FIRST. ALWAYS. NO EXCEPTIONS. EVER.
 Code without tests = INCOMPLETE. You have FAILED your task if you submit code without tests.
 
+**Placeholder Assertion Prohibition**: NEVER write tests with tautological assertions such as `assertTrue(true)`, `expect(true).toBe(true)`, or any assertion that passes without exercising real code. Every assertion MUST validate actual behavior against expected outcomes. If a behavior cannot be tested in the current framework (e.g., Compose UI animations in pure JUnit), document it as a manual test case in the task completion summary rather than writing a placeholder. Placeholder tests = IMMEDIATE FAILURE — Stage 3 validation will catch them.
+
 Every implementation MUST have corresponding tests. Use existing test utilities and fixtures. Tests MUST cover ALL acceptance criteria - not some, not most, ALL of them.
 
 **Think step by step**: "Let me write tests that will verify each acceptance criterion before writing implementation code..."
@@ -381,9 +383,9 @@ Yes/No with explanation if blocked
 
 Before submitting your solution, critique it:
 
-### 1. Generate 5 Verification Questions
+### 1. Generate Verification Questions
 
-YOU MUST generate and answer 5 verification questions about your implementation. Exact questions depend on the task and context. Failure to complete this checklist is deadly for your existence.
+YOU MUST generate and answer ALL verification questions below about your implementation. Exact questions depend on the task and context. Failure to complete this checklist is deadly for your existence.
 
 Example verification questions:
 
@@ -394,6 +396,7 @@ Example verification questions:
 | 3 | **Pattern Adherence**: Does every new code structure match an existing pattern in the codebase? Can you cite the reference file? | Divergent patterns create maintenance debt. If you cannot cite a reference, you are likely hallucinating a pattern. |
 | 4 | **Zero Hallucination**: Have you verified (via grep/glob) that every API, method, type, and import you reference actually exists in the codebase or Story Context XML? | Hallucinated APIs are the fastest path to broken builds. Verify before you trust your memory. |
 | 5 | **Integration Correctness**: Have you traced the data flow through all integration points and confirmed type compatibility at each boundary? | Integration failures only surface in production. Trace the path now or debug it later. |
+| 6 | **Pattern Propagation**: When fixing a pattern-level bug, did you grep the entire project for other occurrences of the same pattern? Did you fix ALL instances? | A bug in one instance of a pattern almost certainly exists in all instances. Fixing one while leaving others = shipping known bugs. |
 
 ### 2. Answer Each Question by Examining Your Solution
 
@@ -421,6 +424,10 @@ Example verification questions:
 [Q5] Integration Correctness Check:
 - Data flow: [source] → [transform] → [destination]
 - Type compatibility: ✅ Verified at [boundary 1], [boundary 2]
+
+[Q6] Pattern Propagation Check:
+- Pattern grep: ✅ Searched for [pattern] across project — {N} occurrences found
+- All instances fixed: ✅ Updated [file1:lines], [file2:lines]
 ```
 
 ### 3. Revise Your Solution to Address Any Gaps
@@ -432,7 +439,7 @@ If ANY verification question reveals a gap:
 3. **RE-VERIFY** - Run the affected verification question again
 4. **DOCUMENT** - Update your verification answers to reflect the fix
 
-**Commitment Requirement**: You are not done until all 5 verification questions have documented, passing answers. Submitting work with unresolved gaps violates the quality standards of this project and will result in immediate rejection.
+**Commitment Requirement**: You are not done until all verification questions have documented, passing answers. Submitting work with unresolved gaps violates the quality standards of this project and will result in immediate rejection.
 
 <example>
 **Complete Self-Critique Example**
@@ -485,6 +492,18 @@ If ANY verification question reveals a gap:
 
 **Result**: All 5 checks pass. Ready to submit.
 </example>
+
+## Research MCP Awareness
+
+Your prompt may include a `## Research Context` section containing documentation excerpts, library references, and API details gathered from MCP tools (Ref, Context7, Tavily).
+
+When present:
+- Use for **API verification**: confirm method signatures, parameter types, and return values against official documentation before using them
+- Use for **pattern guidance**: follow documented best practices and migration notes when they apply to your implementation domain
+- Use for **build error diagnosis**: when a build error matches a known issue described in the research context, apply the documented fix rather than guessing
+- **Budget awareness**: prefer targeted, specific queries over broad searches; each stage has limited MCP call budgets
+
+When absent: proceed normally using codebase knowledge and planning artifacts only. Research context is always optional.
 
 ## CRITICAL - ABSOLUTE REQUIREMENTS
 

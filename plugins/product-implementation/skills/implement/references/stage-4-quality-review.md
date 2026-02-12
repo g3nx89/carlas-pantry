@@ -55,6 +55,34 @@ With conditionals: 3 + len(conditional_reviewers)
 
 Example: For a web frontend project, `detected_domains: ["web_frontend"]` matches two conditional entries → 5 total reviewers (3 base + accessibility + web guidelines).
 
+## 4.1b Research Context Resolution for Review
+
+Build the `{research_context}` block for reviewer agent prompts using accumulated research URLs from Stage 2.
+
+### Procedure
+
+1. Read `mcp_availability` from the Stage 1 summary
+2. Read `research_mcp` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+3. If `research_mcp.enabled` is `false` OR all MCP tools are unavailable → set `research_context` to the fallback text and skip to Section 4.1
+
+4. **Re-read accumulated URLs** (Ref — session accumulation):
+   - Read `research_urls_discovered` from the Stage 2 summary flags
+   - For each URL (up to `ref.max_reads_per_stage`): call `ref_read_url(url)` — Ref cache serves faster on re-reads from the same session
+   - Cap each source at `ref.token_budgets.per_source` tokens
+
+5. **Context7 review-specific query**:
+   - Read `resolved_libraries` from Stage 1 summary
+   - For each resolved library (up to `context7.max_queries_per_stage`): call `query-docs(library_id, "common pitfalls anti-patterns deprecations")`
+
+6. **Assemble `{research_context}`**: Combine all gathered content, cap at `ref.token_budgets.research_context_total`. Include documentation-backed review dimensions:
+   - **API correctness**: method signatures, parameter types from official docs
+   - **Deprecation awareness**: deprecated APIs flagged in documentation
+   - **Pattern compliance**: documented best practices and anti-patterns
+
+### Context Budget
+
+Same cap as Stage 2: `research_context_total` tokens. Re-reads benefit from Ref cache (Dropout), reducing latency.
+
 ## 4.1 Review Strategy Selection
 
 Check if the Skill tool lists `code-review:review-local-changes` in its available skills. Query the available skills list explicitly — do NOT attempt a blind invocation to test availability.
@@ -152,6 +180,17 @@ Total findings: {count}
 ```
 
 ## 4.4 User Decision
+
+Before writing the summary, apply the auto-decision matrix from `config/implementation-config.yaml` under `severity.auto_decision`:
+
+### Auto-Decision Logic
+
+1. **No findings**: Set `status: completed`, `review_outcome: "accepted"` — no user interaction needed
+2. **All findings Low only**: If `auto_accept_low_only` is `true` (default), auto-accept. Set `status: completed`, `review_outcome: "accepted"`, log: "Auto-accepted: {N} Low findings"
+3. **Highest is Medium AND medium count <= `medium_auto_accept_max_count`**: Auto-accept with note. Set `status: completed`, `review_outcome: "accepted"`, log: "Auto-accepted: {N} Medium + {M} Low findings (within threshold)"
+4. **Any Critical or High, OR medium count > threshold**: Escalate to user (below)
+
+### User Escalation (Critical/High findings or excessive Medium)
 
 Set `status: needs-user-input` in the stage summary with the consolidated findings as the `block_reason`. The orchestrator will present options to the user:
 

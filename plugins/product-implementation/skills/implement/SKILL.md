@@ -6,7 +6,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 2.0.0
+version: 2.1.0
 allowed-tools:
   # File operations
   - Read
@@ -21,6 +21,12 @@ allowed-tools:
   # Agent orchestration
   - Task
   - AskUserQuestion
+  # Research MCP tools (conditional — graceful fallback when unavailable)
+  - mcp__Ref__ref_search_documentation
+  - mcp__Ref__ref_read_url
+  - mcp__context7__resolve-library-id
+  - mcp__context7__query-docs
+  - mcp__tavily__tavily_search
 ---
 
 # Implement Feature Skill — Lean Orchestrator
@@ -178,17 +184,37 @@ When the `dev-skills` plugin is installed alongside `product-implementation`, ag
 
 Configuration: `config/implementation-config.yaml` under `dev_skills`.
 
+## Research MCP Integration
+
+When MCP tools (Ref, Context7, Tavily) are available, agents receive documentation-backed context that improves implementation accuracy, build error diagnosis, and documentation quality. This integration is:
+
+- **Zero-cost when disabled** — if `research_mcp.enabled: false` in config, all research steps are skipped; no MCP calls occur
+- **Orchestrator-transparent** — the orchestrator never calls MCP tools; Stage 1 (inline) probes availability, coordinators build `{research_context}` blocks, agents make on-demand calls
+- **Ref-primary** — Ref is the primary lookup tool, exploiting session deduplication (Dropout) for ~87% token savings across sequential stages; Context7 is secondary for library-specific queries; Tavily is last-resort for known-issues only
+- **Budget-controlled** — per-stage caps on searches, reads, and total context tokens are defined in config
+
+**MCP availability detection** runs in Stage 1 (Sections 1.6a-1.6c): lightweight probe calls determine which tools are reachable, with results stored in `mcp_availability` in the Stage 1 summary.
+
+**Injection points:**
+- Stage 2 coordinators build `{research_context}` from pre-read URLs and resolved libraries, inject into developer agent prompts. Agents also use MCP on-demand for build error diagnosis (ref_first → Context7 → Tavily escalation).
+- Stage 4 coordinators re-read `research_urls_discovered` from Stage 2 summary for documentation-backed review context.
+- Stage 5 coordinators re-read accumulated URLs for documentation enrichment and link generation.
+
+**Session accumulation:** Stage 2 writes `research_urls_discovered` to its summary flags. Stages 4 and 5 re-read these URLs via Ref (cache serves faster on re-reads, maximum Dropout benefit by Stage 5).
+
+Configuration: `config/implementation-config.yaml` under `research_mcp`.
+
 ## Reference Map
 
 | File | When to Read | Content |
 |------|-------------|---------|
-| `references/orchestrator-loop.md` | Workflow start (always) | Dispatch loop, crash recovery, state migration |
+| `references/orchestrator-loop.md` | Workflow start (always) | Dispatch loop, crash recovery, state migration, late notification handling |
 | `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, lock, state init, domain detection |
 | `references/stage-2-execution.md` | Stage 2 (coordinator) | Skill resolution, phase loop, task parsing, error handling |
-| `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage |
-| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Skill resolution, review dimensions (base + conditional), finding consolidation |
+| `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |
+| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Skill resolution, review dimensions (base + conditional), finding consolidation, auto-decision matrix |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
-| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates (with `{skill_references}` variable), including auto-commit prompt |
+| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, auto-commit prompt |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
 

@@ -40,6 +40,7 @@ Task(subagent_type="product-implementation:developer")
 - `{user_input}` — Original user arguments (if any)
 - `{test_cases_dir}` — If Stage 1 summary has `test_cases_available: true`, set to `{FEATURE_DIR}/test-cases/`. Otherwise set to `"Not available"`.
 - `{traceability_file}` — If `analysis/task-test-traceability.md` was loaded per Stage 1 summary, set to `{FEATURE_DIR}/analysis/task-test-traceability.md`. Otherwise set to `"Not available"`.
+- `{research_context}` — If `mcp_availability` from Stage 1 summary shows Context7 available AND `resolved_libraries` is non-empty: call `query-docs` for key libraries with query `"API signatures common pitfalls"` (up to `context7.max_queries_per_stage`). Assemble into `{research_context}`. If MCP is unavailable or disabled, use fallback: `"No research context available — proceed with codebase knowledge and planning artifacts only."`
 
 ## 3.2 Validation Checks
 
@@ -55,6 +56,8 @@ The validation agent verifies:
 8. **Test coverage delta** *(conditional — only if `test-plan.md` is available)*: Count implemented automated tests by level (unit, integration, e2e). Compare against planned targets from test-plan.md. Report delta as `{implemented}/{planned} {level} ({pct}%)`. Apply thresholds from `config/implementation-config.yaml` under `test_coverage.thresholds`: if unit tests < `unit_minimum_pct` (default 80%), flag High; if any other level < `other_minimum_pct` (default 50%), flag Medium.
 9. **Independent test count verification**: Run the full test suite independently (do not rely on Stage 2's count) and record the result as `baseline_test_count`. This becomes the reference for Stage 4 post-fix validation.
 10. **Stage 2 cross-validation** *(conditional — only if Stage 2 summary has `test_count_verified` in flags)*: Compare the independently verified `baseline_test_count` against Stage 2's `test_count_verified`. If the values differ, log a warning: "Test count discrepancy: Stage 2 reported {test_count_verified} but independent verification found {baseline_test_count}. Investigate possible agent reporting error." The `baseline_test_count` (independently verified) takes precedence.
+11. **Test quality gate** *(always runs)*: Scan all test files created or modified during implementation for tautological/placeholder assertions. Use patterns from `config/implementation-config.yaml` under `test_coverage.tautological_patterns`. For each test file: if ALL assertions match tautological patterns (no substantive assertions), flag the file. If flagged file count >= `placeholder_file_threshold_high` (default 2), flag as **High** severity: "Placeholder tests detected: {N} test file(s) contain only tautological assertions ({file_list})." If count > 0 but below threshold, flag as Medium.
+12. **API documentation alignment** *(advisory, optional — only if `{research_context}` is provided)*: Cross-check implemented API usage (method signatures, parameter types, return values) against the documentation excerpts in `{research_context}`. Flag discrepancies as **Low** severity (advisory). This check uses Context7 library docs when available. If `{research_context}` is absent, skip this check entirely.
 
 ## 3.3 Validation Report
 
@@ -70,6 +73,7 @@ Test ID Traceability: {all traced / N gaps} (if test_cases_available)
 Test Coverage Delta: unit {implemented}/{planned} ({pct}%) | integration {implemented}/{planned} ({pct}%) | e2e {implemented}/{planned} ({pct}%) (if test-plan.md available)
 Coverage Flags: {list of flags, e.g., "Unit tests below 80% threshold (HIGH)" / "All levels above minimum"}
 Constitution Compliance: {compliant / N violations found (HIGH)}
+Test Quality: {N placeholder files found / all tests substantive} {severity if applicable}
 Baseline Test Count: {N} (independently verified)
 
 ### Issues Found
