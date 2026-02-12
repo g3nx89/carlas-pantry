@@ -17,7 +17,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 | Stage | Name | Dispatch | Agent(s) |
 |-------|------|----------|----------|
 | 1 | Setup & Context Loading | Inline | None (orchestrator) |
-| 2 | Phase-by-Phase Execution | Coordinator | developer + code-simplifier (per phase) |
+| 2 | Phase-by-Phase Execution | Coordinator | developer + code-simplifier + uat-tester (per phase, clink/gemini) |
 | 3 | Completion Validation | Coordinator | developer |
 | 4 | Quality Review | Coordinator | 3x+ developer (parallel, conditionally extended) |
 | 5 | Feature Documentation | Coordinator | developer + tech-writer |
@@ -66,6 +66,7 @@ The implement skill expects these files in the feature directory (produced by pr
 - After inserting a new numbered section in any stage file, grep all reference files for the old section numbers and update — cross-file section references (e.g., "Section 1.7") break silently when sections are renumbered
 - When adding a new reference file: register in `references/README.md` (3 tables: usage, file sizes, cross-references) AND `SKILL.md` Reference Map — this wiring step is the most common omission when sessions exhaust context
 - Code simplification runs after each phase in Stage 2 (Step 3.5) when `code_simplification.enabled` is `true` in config. The simplifier never modifies test files and automatically rolls back if tests fail. Configuration lives in `config/implementation-config.yaml` under `code_simplification`
+- UAT mobile testing runs after each relevant phase in Stage 2 (Step 3.7) when both `uat_execution.enabled` and `clink_dispatch.stage2.uat_mobile_tester.enabled` are `true`. Requires Genymotion emulator running + mobile-mcp MCP server + Gemini CLI. Configuration lives in `config/implementation-config.yaml` under `uat_execution` and `clink_dispatch.stage2.uat_mobile_tester`. Role prompt in `config/cli_clients/gemini_uat_mobile_tester.txt`
 
 ## Dev-Skills Integration
 
@@ -95,3 +96,34 @@ Domain indicators (file extensions, framework keywords) are defined in `config/i
 ### Conditional Quality Reviewers
 
 Stage 4 can launch additional reviewer agents beyond the base 3 when `detected_domains` match entries in `dev_skills.conditional_review`. Example: `web_frontend` triggers an accessibility reviewer using `accessibility-auditor` skill.
+
+## UAT Mobile Testing Integration
+
+When UAT is enabled and a Genymotion emulator is running with mobile-mcp available, Stage 2 runs per-phase behavioral acceptance testing and Figma visual verification against the running app after each relevant phase completes.
+
+### Architecture (Orchestrator-Transparent)
+
+The orchestrator NEVER touches UAT, mobile-mcp, or Figma. All logic lives in:
+
+1. **Stage 1** (inline) probes `mobile_list_available_devices` to detect emulator availability → writes `mobile_mcp_available` and `mobile_device_name` to summary
+2. **Stage 2** coordinator checks 5 gates (uat_execution enabled + uat_mobile_tester enabled + Gemini CLI available + mobile-mcp available + phase relevance), builds APK via Gradle, installs on emulator via mobile-mcp, dispatches Gemini clink agent with UAT role prompt
+3. **Stage 2 summary** writes `uat_results` (phases tested, pass/fail counts, visual mismatches, evidence directory) for implementation record
+
+### Key Constraints
+
+- **5 conditional gates**: `uat_execution.enabled` + `uat_mobile_tester.enabled` + `cli_availability.gemini` + `mobile_mcp_available` + phase has UAT specs or UI files — ANY false → silent skip
+- **Fallback is "skip"**: If Gemini unavailable, mobile-mcp unreachable, no emulator, or build fails → UAT silently skipped, native behavior (no UAT) is default
+- **Block on CRITICAL/HIGH**: UAT findings at critical/high severity halt phase progression (status: needs-user-input), user decides: fix now / skip UAT / proceed
+- **MEDIUM/LOW warn only**: Logged as warnings but do not block phase progression
+- **Evidence stored**: Screenshots saved to `{FEATURE_DIR}/.uat-evidence/{phase_name}/` for traceability
+- **Write boundaries**: Clink agent writes ONLY screenshots to evidence directory; never touches source/test/spec files
+- **Phase relevance detection**: UAT runs only for phases with mapped UAT-* test IDs or task file paths matching UI domain indicators (compose, android, web_frontend)
+
+### Configuration
+
+- Master switches: `uat_execution.enabled` AND `clink_dispatch.stage2.uat_mobile_tester.enabled`
+- Figma visual comparison: `clink_dispatch.stage2.uat_mobile_tester.figma.enabled` + `figma.default_node_url`
+- Severity gating: `clink_dispatch.stage2.uat_mobile_tester.severity_gating` (block_on / warn_on)
+- Gradle build: `clink_dispatch.stage2.uat_mobile_tester.gradle_build` (command, apk_search_pattern, timeout)
+- MCP tool budgets: `clink_dispatch.mcp_tool_budgets.per_clink_dispatch.mobile_mcp` and `.figma`
+- Emulator/install: `uat_execution.emulator` and `uat_execution.apk_install`

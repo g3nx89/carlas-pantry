@@ -22,6 +22,7 @@ artifacts_written:
   - "test files (conditional — created by clink test author in Step 1.8 if enabled)"
   - "test files (conditional — created by clink test augmenter in Section 2.1a if enabled)"
   - "source files (conditional — simplified by code-simplifier in Step 3.5 if enabled)"
+  - ".uat-evidence/ (conditional — screenshots from UAT mobile testing in Step 3.7 if enabled)"
 agents:
   - "product-implementation:developer"
   - "product-implementation:code-simplifier"
@@ -261,6 +262,137 @@ After phase completion is verified (all tasks `[X]`, tests passing), optionally 
 
 Adds ~5-15s dispatch overhead + 30-120s agent execution per phase. Skipped automatically when disabled, when no eligible files exist, or when file count exceeds threshold.
 
+### Step 3.7: UAT Mobile Testing (Optional)
+
+> **Conditional**: Only runs when ALL of:
+>   1. `uat_execution.enabled` is `true` (master switch from config)
+>   2. `clink_dispatch.stage2.uat_mobile_tester.enabled` is `true`
+>   3. `cli_availability.gemini` is `true` (from Stage 1 summary)
+>   4. `mobile_mcp_available` is `true` (from Stage 1 summary)
+>   5. Phase has mapped UAT specs OR touches UI files (see relevance check below)
+> If any condition is false, skip to Step 4.
+
+After code completion (and optional simplification), run behavioral acceptance testing and Figma visual verification against the running app on a Genymotion emulator. The coordinator handles APK build and install; the clink agent handles testing.
+
+#### Phase Relevance Check
+
+Determine if the current phase warrants UAT testing:
+
+1. **UAT test ID check** (if `uat_mobile_tester.phase_relevance.check_uat_test_ids` is `true`):
+   - Extract test IDs from current phase task descriptions
+   - Filter for `UAT-*` pattern (from `handoff.test_cases.test_id_patterns`)
+   - Map each `UAT-{ID}` to `{FEATURE_DIR}/test-cases/uat/UAT-{ID}.md`
+   - If at least one UAT spec file exists for this phase → `uat_relevant = true`
+
+2. **UI file path check** (if `uat_mobile_tester.phase_relevance.check_ui_file_paths` is `true`):
+   - Collect file paths from current phase task descriptions
+   - Check against domain indicators for domains listed in `uat_mobile_tester.phase_relevance.ui_domains` (resolved via `dev_skills.domain_mapping` in config)
+   - If any file path matches a UI domain indicator → `uat_relevant = true`
+
+3. If neither check matches → skip to Step 4, log: `"Phase '{phase_name}' has no UAT specs or UI files — skipping UAT"`
+
+#### APK Build
+
+1. Read build config from `clink_dispatch.stage2.uat_mobile_tester.gradle_build`
+2. Run the build command:
+   ```
+   Bash("{gradle_build.command}")
+   ```
+   With timeout: `gradle_build.timeout_ms` (default: 180000 = 3 minutes)
+3. If build fails: log warning `"Gradle build failed — skipping UAT for phase '{phase_name}'"`, skip to Step 4
+4. Locate APK: use `Glob("{gradle_build.apk_search_pattern}")` to find the built APK
+5. If no APK found: log warning `"No APK found matching '{apk_search_pattern}' — skipping UAT"`, skip to Step 4
+6. Store `apk_path` for injection into clink prompt
+
+#### APK Install
+
+1. Read install config from `uat_execution.apk_install`
+2. If `uat_execution.apk_install.reinstall` is `true`:
+   - Call `mobile_terminate_app` with `app_package` (if app running, ignore errors)
+   - Call `mobile_uninstall_app` with `app_package` (if installed, ignore errors)
+3. Call `mobile_install_app` with the located APK path
+4. If install fails: log warning `"APK install failed — skipping UAT for phase '{phase_name}'"`, skip to Step 4
+5. If `uat_execution.apk_install.launch_after_install` is `true`:
+   - Determine `app_package`: use `uat_execution.apk_install.app_package` from config if set, otherwise auto-detect from APK via `aapt dump badging {apk_path}` or similar
+   - Call `mobile_launch_app` with `app_package`
+   - Wait 3-5 seconds for app initialization
+
+#### Evidence Directory Setup
+
+Create the evidence directory for this phase:
+```
+mkdir -p {FEATURE_DIR}/{uat_mobile_tester.evidence_dir}/{phase_name_sanitized}/
+```
+Where `phase_name_sanitized` converts the phase name to a safe directory name (lowercase, non-alphanumeric replaced with hyphens, e.g., "Phase 1: Setup" → "phase-1-setup").
+
+#### Clink Dispatch
+
+1. **Collect UAT specs**: Read content of all matched UAT spec files for this phase (from the relevance check above). If no specific specs matched but the phase was deemed relevant via UI file paths, use all available UAT specs from `{FEATURE_DIR}/test-cases/uat/` as context.
+
+2. **Build prompt**: Read the role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_uat_mobile_tester.txt`
+
+3. **Dispatch**: Follow the Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+   - `cli_name="gemini"`, `role="uat_mobile_tester"`
+   - `file_paths=[FEATURE_DIR/test-cases/uat/, FEATURE_DIR, PROJECT_ROOT]`
+   - `timeout_ms` from `clink_dispatch.stage2.uat_mobile_tester.timeout_ms` (default: 600000 = 10 minutes)
+   - `fallback_behavior` from `clink_dispatch.stage2.uat_mobile_tester.fallback_behavior` (default: `"skip"`)
+   - `expected_fields=["total_scenarios", "passed", "failed", "blocked", "critical_issues", "visual_mismatches", "recommendation"]`
+
+4. **Coordinator-Injected Context** (appended per `clink-dispatch-procedure.md` variable injection convention):
+   - `{phase_name}` — current phase name
+   - `{FEATURE_DIR}` — feature directory
+   - `{PROJECT_ROOT}` — project root
+   - `{uat_spec_content}` — content of matched UAT spec files (concatenated, with file headers)
+   - `{apk_path}` — path to the built APK
+   - `{evidence_dir}` — full path to `{FEATURE_DIR}/{evidence_dir}/{phase_name_sanitized}/`
+   - `{mobile_device_name}` — from Stage 1 summary
+   - `{figma_default_url}` — from `uat_mobile_tester.figma.default_node_url` config (or `"Not provided"`)
+   - `{app_package}` — from `uat_execution.apk_install.app_package` config (or `"Auto-detected from APK"`)
+
+5. **MCP Tool Budget** (appended per standard convention, values from `clink_dispatch.mcp_tool_budgets.per_clink_dispatch`):
+   ```
+   ## MCP Tool Budget (Advisory)
+   - Mobile MCP: max {mobile_mcp.max_screenshots} screenshots, {mobile_mcp.max_interactions} interactions, {mobile_mcp.max_device_queries} device queries
+   - Figma: max {figma.max_calls} calls
+   - Sequential Thinking: max {sequential_thinking.max_chains} chains
+   ```
+
+#### Result Processing
+
+1. **Parse `<SUMMARY>` block**: Extract `total_scenarios`, `passed`, `failed`, `blocked`, `critical_issues`, `visual_mismatches`, `recommendation`
+
+2. **Severity gating** (from `clink_dispatch.stage2.uat_mobile_tester.severity_gating`):
+   - If `critical_issues > 0` OR raw output contains `[Critical]` or `[High]` findings:
+     - Set `status: needs-user-input`
+     - Set `block_reason: "UAT testing found critical/high issues in phase '{phase_name}': {critical_issues} critical issue(s), {failed} scenario(s) failed. Review findings and decide: fix implementation / skip UAT for this phase / proceed anyway."`
+     - Include the raw findings section from clink output in the block_reason for user context
+     - Return to orchestrator (orchestrator mediates user interaction per standard protocol)
+   - If findings are `[Medium]` or `[Low]` only:
+     - Log warning: `"UAT found {count} medium/low findings in phase '{phase_name}' — continuing"`
+     - Proceed to Step 4
+   - If `recommendation` is `"PASS"` or `"PASS_WITH_NOTES"`:
+     - Log: `"UAT passed for phase '{phase_name}': {passed}/{total_scenarios} scenarios, {visual_mismatches} visual mismatches"`
+     - Proceed to Step 4
+
+3. **If clink fails, CLI unavailable, or times out**: follow `fallback_behavior` — default `"skip"` means continue without UAT results, log warning
+
+4. **Track metrics**: Record in phase-level tracking for summary:
+   - `uat_ran: true`
+   - `uat_scenarios: {total_scenarios}`
+   - `uat_passed: {passed}`
+   - `uat_failed: {failed}`
+   - `uat_blocked: {blocked}`
+   - `uat_visual_mismatches: {visual_mismatches}`
+   - `uat_recommendation: {recommendation}`
+
+#### Write Boundaries
+
+The clink agent writes ONLY screenshot files to the evidence directory (`{FEATURE_DIR}/{evidence_dir}/{phase_name_sanitized}/`). It MUST NOT write to source directories, test directories, or spec directories. The coordinator verifies post-dispatch that no files outside the evidence directory were created or modified.
+
+#### Latency Impact
+
+Adds ~30-60s for Gradle build + ~10-30s for APK install + ~120-600s for UAT execution per phase. Total overhead per relevant phase: ~3-10 minutes. Skipped automatically when disabled, when no relevant UAT specs or UI files exist for the phase, when mobile-mcp is unavailable, or when Gemini CLI is not installed.
+
 ### Step 4: Update Progress
 
 1. Mark phase as completed in tasks.md (ensure all `[X]` marks are persisted)
@@ -398,6 +530,7 @@ artifacts_written:
   - "tasks.md (updated with [X] marks)"
   - ".implementation-state.local.md"
   - "augmented test files (conditional — from clink test augmenter Section 2.1a if enabled)"
+  - ".uat-evidence/ (conditional — from UAT mobile testing Step 3.7 if enabled)"
 summary: |
   Executed {N}/{M} phases. {X} tasks completed, {Y} tasks remaining.
   All tests passing: {yes/no}.
@@ -415,6 +548,17 @@ flags:
     # phases_reverted: {N}       — Phases where simplification was reverted due to test failure
     # total_files_simplified: {N} — Sum of files_simplified across all phases
     # total_changes_made: {N}    — Sum of changes_made across all phases
+  uat_results: null              # null if UAT mobile testing disabled or not applicable for any phase.
+    # When enabled and run on at least one phase, replace null with an object containing these keys:
+    # phases_tested: {N}           — Phases where UAT ran successfully
+    # phases_skipped: {N}          — Phases where UAT was skipped (not relevant, build failure, etc.)
+    # total_scenarios: {N}         — Sum of scenarios across all phases
+    # total_passed: {N}            — Sum of passed scenarios
+    # total_failed: {N}            — Sum of failed scenarios
+    # total_blocked: {N}           — Sum of blocked scenarios
+    # total_visual_mismatches: {N} — Sum of visual mismatches (major + minor)
+    # critical_issues: {N}         — Total critical/high issues found across all phases
+    # evidence_dir: "{path}"       — Base evidence directory path (FEATURE_DIR/.uat-evidence/)
 ---
 ## Context for Next Stage
 
@@ -425,6 +569,7 @@ flags:
 - Commits: {count} auto-commits ({list of SHAs or "disabled"})
 - Files modified: {list of key files}
 - Errors encountered: {none / list}
+- UAT results: {phases_tested}/{phases_total} phases tested, {total_passed}/{total_scenarios} scenarios passed, {total_visual_mismatches} visual mismatches (or "disabled" or "not applicable — no relevant phases")
 
 ## Stage Log
 

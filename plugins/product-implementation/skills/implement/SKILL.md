@@ -21,6 +21,12 @@ allowed-tools:
   # Agent orchestration
   - Task
   - AskUserQuestion
+  # Mobile MCP tools (conditional — for UAT emulator probe in Stage 1)
+  - mcp__mobile-mcp__mobile_list_available_devices
+  - mcp__mobile-mcp__mobile_install_app
+  - mcp__mobile-mcp__mobile_launch_app
+  - mcp__mobile-mcp__mobile_terminate_app
+  - mcp__mobile-mcp__mobile_uninstall_app
   # Research MCP tools (conditional — graceful fallback when unavailable)
   - mcp__Ref__ref_search_documentation
   - mcp__Ref__ref_read_url
@@ -89,7 +95,7 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 | Stage | Delegation | Reference File | Agents Used | Prior Summaries | User Interaction | Checkpoint |
 |-------|-----------|----------------|-------------|-----------------|------------------|------------|
 | 1 | Inline | `stage-1-setup.md` | — | — | — | SETUP |
-| 2 | Coordinator | `stage-2-execution.md` | `developer`, `code-simplifier` | stage-1 | On error only | EXECUTION |
+| 2 | Coordinator | `stage-2-execution.md` | `developer`, `code-simplifier`, `uat-tester (clink/gemini)` | stage-1 | On error only | EXECUTION |
 | 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 | If issues found | VALIDATION |
 | 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3 or code-review skill | stage-2, stage-3 | Fix/defer/proceed | QUALITY_REVIEW |
 | 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer` | stage-3, stage-4 | If incomplete tasks | DOCUMENTATION |
@@ -166,6 +172,7 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `review-findings.md` | Quality review findings (created if findings exist and user chooses "fix now" or "fix later") |
 | `docs/` | Feature documentation, API guides, architecture updates (Stage 5) |
 | Module `README.md` files | Updated READMEs in folders affected by implementation (Stage 5) |
+| `.uat-evidence/` | UAT screenshots organized by phase (Step 3.7, conditional on UAT being enabled and relevant phases) |
 | Git commits | Auto-commits at phase completion (Stage 2, with simplified code when enabled), review fix (Stage 4), and documentation (Stage 5). Controlled by `auto_commit` and `code_simplification` in config. |
 
 ## Dev-Skills Integration
@@ -217,7 +224,7 @@ When PAL clink (CLI-to-CLI bridge) is available and configured, coordinators can
 **CLI availability detection** runs in Stage 1 (Section 1.7a): healthcheck commands verify which CLIs are installed, with results stored in `cli_availability` in the Stage 1 summary.
 
 **Injection points:**
-- Stage 2: Test Author (Option H — Codex generates TDD tests from specs), Test Augmenter (Option I — Gemini discovers untested edge cases)
+- Stage 2: Test Author (Option H — Codex generates TDD tests from specs), Test Augmenter (Option I — Gemini discovers untested edge cases), UAT Mobile Tester (Option J — Gemini runs per-phase behavioral acceptance testing and Figma visual verification on Genymotion emulator via mobile-mcp)
 - Stage 3: Spec Validator (Option C — Gemini cross-validates implementation against specs in parallel with native validator)
 - Stage 4: Multi-Model Review (Option D — Gemini + Codex + Native reviewers with distinct focus areas), Security Reviewer (Option E — conditional OWASP audit via Codex), Fix Engineer (Option F — Codex fixes review findings)
 

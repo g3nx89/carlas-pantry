@@ -239,6 +239,21 @@ code_simplification:
   test_verification: true           # Run full test suite after simplification (always recommended)
   rollback_on_test_failure: true    # Revert all simplification changes if any test fails
 
+# UAT mobile testing (Stage 2 per-phase)
+# When enabled, runs behavioral acceptance scenarios and Figma visual verification
+# against a running app on a Genymotion emulator after each relevant phase.
+# Requires: Genymotion emulator running, mobile-mcp MCP server available, Gemini CLI installed.
+# Referenced by: stage-1-setup.md Section 1.6e, stage-2-execution.md Step 3.7
+uat_execution:
+  enabled: true                          # Master switch (also requires clink_dispatch.stage2.uat_mobile_tester.enabled)
+  emulator:
+    platform: "android"                  # "android" | "ios" (future)
+    launch_timeout_ms: 30000             # Wait for device to appear in mobile_list_available_devices
+  apk_install:
+    reinstall: true                      # Uninstall before install to ensure clean state
+    launch_after_install: true           # Launch app after install
+    app_package: null                    # Auto-detected from APK; override if needed
+
 # Clink dispatch configuration (PAL MCP integration)
 # All clink features are opt-in (enabled: false by default).
 # Native agent behavior is the default for every stage.
@@ -246,7 +261,7 @@ code_simplification:
 #           config/cli_clients/ directory with role prompt files.
 #
 # NOTE: All clink agents (Codex, Gemini) share the same MCP servers as native Claude:
-#   Ref, Context7, Tavily, Sequential Thinking, Figma (desktop + API).
+#   Ref, Context7, Tavily, Sequential Thinking, Figma (desktop + API), Mobile MCP.
 #   MCP tools are available to clink agents automatically — no per-CLI configuration needed.
 #   See "MCP Tool Parity" in the Architecture Overview for details.
 clink_dispatch:
@@ -276,7 +291,11 @@ clink_dispatch:
       sequential_thinking:
         max_chains: 1            # Max sequentialthinking chains per dispatch
       figma:
-        max_calls: 0             # No clink role currently uses Figma; set >0 when UI roles are added
+        max_calls: 5             # UAT mobile tester uses get_design_context + get_screenshot for visual verification
+      mobile_mcp:
+        max_screenshots: 10      # Max mobile_take_screenshot calls per dispatch
+        max_interactions: 50     # Max click/swipe/type calls per dispatch
+        max_device_queries: 3    # Max list_devices/list_elements calls per dispatch
 
   # --- STAGE 2 ---
 
@@ -311,6 +330,39 @@ clink_dispatch:
       role: "test_augmenter"
       max_additional_tests: 10
       focus: ["boundary", "error", "concurrency", "security"]
+
+    # Option J: Per-phase UAT mobile testing via Genymotion + Figma visual verification (Tier 1)
+    # Runs behavioral acceptance scenarios and visual fidelity checks against a running app
+    # on a Genymotion emulator after each relevant phase completes in Stage 2.
+    # Requires: uat_execution.enabled, Gemini CLI, mobile-mcp MCP server, running emulator.
+    uat_mobile_tester:
+      enabled: false
+      cli_name: "gemini"
+      role: "uat_mobile_tester"
+      fallback_behavior: "skip"          # skip silently if Gemini unavailable, mobile-mcp unreachable, or no emulator
+      # Phase relevance detection — determines which phases trigger UAT
+      phase_relevance:
+        check_uat_test_ids: true         # Check task descriptions for UAT-* test IDs mapped to test-cases/uat/
+        check_ui_file_paths: true        # Check task file paths against UI domain indicators
+        ui_domains: ["compose", "android", "web_frontend"]  # Domains from dev_skills.domain_mapping whose indicators suggest UI work
+      # Gradle build configuration — builds installable APK before UAT
+      gradle_build:
+        command: "./gradlew assembleDebug"
+        apk_search_pattern: "**/build/outputs/apk/debug/*.apk"
+        timeout_ms: 180000               # 3 minutes for Gradle build
+      # Figma visual verification — compare running app against Figma designs
+      figma:
+        enabled: true                    # Enable Figma design comparison alongside behavioral testing
+        default_node_url: null           # Optional: static default Figma URL; UAT specs can override per-scenario via figma_url: in YAML frontmatter
+        visual_mismatch_threshold: "medium"  # Severity assigned to visual mismatches: "medium" | "high"
+      # Finding severity gating — controls phase progression
+      severity_gating:
+        block_on: ["critical", "high"]   # Halt phase progression for these severities (status: needs-user-input)
+        warn_on: ["medium", "low"]       # Log warning, continue for these
+      # Screenshot evidence storage
+      evidence_dir: ".uat-evidence"      # Relative to FEATURE_DIR; screenshots stored per phase as {evidence_dir}/{phase_name_sanitized}/
+      # Timeout for the clink dispatch itself (overrides global clink_dispatch.timeout_ms)
+      timeout_ms: 600000                 # 10 minutes — UAT scenarios with mobile-mcp interactions take longer than code review
 
   # --- STAGE 3 ---
 

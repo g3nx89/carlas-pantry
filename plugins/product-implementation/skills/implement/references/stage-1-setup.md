@@ -253,6 +253,31 @@ private_doc_urls:
 
 1 Ref call. Skipped when disabled or Ref unavailable.
 
+## 1.6e Mobile Device Availability Check
+
+Probe mobile-mcp to determine if a mobile testing emulator is available for UAT execution. This step runs ONCE during Stage 1 and stores results for all downstream stages.
+
+### Procedure
+
+1. Read `uat_execution` and `clink_dispatch.stage2.uat_mobile_tester` sections from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+2. If BOTH `uat_execution.enabled` is `false` AND `clink_dispatch.stage2.uat_mobile_tester.enabled` is `false` → set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.7a
+3. **Probe mobile-mcp**: Call `mobile_list_available_devices`
+   - If call succeeds AND returns at least one device: set `mobile_mcp_available: true`, store `mobile_device_name` from the first available emulator device (prefer emulator over physical device for UAT reproducibility)
+   - If call fails, times out, or returns empty device list: set `mobile_mcp_available: false`, `mobile_device_name: null`, log warning: `"Mobile MCP not available or no emulator running — UAT mobile testing will be skipped for all phases"`
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+mobile_mcp_available: true    # or false
+mobile_device_name: "emulator-5554"  # or null
+```
+
+### Cost
+
+1 lightweight MCP probe call (~1-2s). Skipped entirely when both UAT config switches are disabled.
+
 ## 1.7a CLI Availability Detection (Clink)
 
 Detect which external CLI tools are available for clink dispatch. This step runs ONCE during Stage 1 and stores results for all downstream coordinators. It only executes when at least one clink option is enabled in config.
@@ -372,6 +397,8 @@ resolved_libraries:         # from Section 1.6c
   - name: "{library_name}"
     library_id: "{context7_library_id}"
 private_doc_urls: [{list of private doc URLs}]  # from Section 1.6d
+mobile_mcp_available: {true/false}  # from Section 1.6e (false if UAT config disabled or no emulator)
+mobile_device_name: "{name or null}"  # from Section 1.6e (first available emulator device)
 ---
 ## Context for Next Stage
 
@@ -389,6 +416,7 @@ private_doc_urls: [{list of private doc URLs}]  # from Section 1.6d
 - Extracted URLs: {count} documentation URLs from planning artifacts (or "disabled")
 - Resolved libraries: {count} Context7 library IDs pre-resolved (or "disabled")
 - Private doc URLs: {count} private documentation sources (or "disabled")
+- Mobile MCP: {available with device "{name}" / not available} (or "UAT disabled")
 
 ## Planning Artifacts Summary
 
@@ -445,6 +473,7 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] URL extraction: {N} URLs extracted from planning artifacts (or "disabled/skipped")
 - [{timestamp}] Library pre-resolution: {N} libraries resolved via Context7 (or "disabled/skipped")
 - [{timestamp}] Private docs: {N} private doc URLs discovered (or "disabled/skipped")
+- [{timestamp}] Mobile MCP probe: {available with device "{name}" / not available / UAT disabled}
 - [{timestamp}] Lock acquired
 - [{timestamp}] State initialized / resumed from Stage {S}
 ```

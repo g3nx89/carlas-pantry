@@ -1,7 +1,7 @@
 ---
 purpose: "Shared parameterized clink dispatch, timeout, parsing, and fallback procedure"
 referenced_by:
-  - "stage-2-execution.md (Options H, I)"
+  - "stage-2-execution.md (Options H, I, J)"
   - "stage-3-validation.md (Option C)"
   - "stage-4-quality-review.md (Options D, E, F)"
 config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (clink_dispatch)"

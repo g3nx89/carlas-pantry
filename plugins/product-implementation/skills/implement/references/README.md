@@ -44,8 +44,8 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | 210 | Dispatch loop, crash recovery, lock release, state migration, late notification handling |
-| `stage-1-setup.md` | 450 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), CLI availability detection (1.7a), summary template |
-| `stage-2-execution.md` | 436 | Skill resolution, research context resolution (2.0a), phase loop, clink test author (Step 1.8), code simplification (Step 3.5), clink test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction |
+| `stage-1-setup.md` | 479 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), CLI availability detection (1.7a), summary template |
+| `stage-2-execution.md` | 581 | Skill resolution, research context resolution (2.0a), phase loop, clink test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7), clink test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction |
 | `stage-3-validation.md` | 181 | Validation checks, clink spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format |
 | `stage-4-quality-review.md` | 340 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), clink multi-model review (4.2a), clink security reviewer (Option E), clink fix engineer (Option F), severity reclassification, consolidation, auto-decision matrix, auto-commit on fix |
 | `stage-5-documentation.md` | 249 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release |
@@ -82,7 +82,7 @@ Quick guide to when to read each reference file during skill development or debu
 - `config/implementation-config.yaml` `test_coverage.tautological_patterns` → referenced by `stage-3-validation.md` Section 3.2 check 11 and `agent-prompts.md` Quality Review Prompt step 5
 - `config/implementation-config.yaml` `severity.auto_decision` (`auto_accept_low_only`) → referenced by `stage-4-quality-review.md` Section 4.4 auto-decision logic
 - `config/implementation-config.yaml` `timestamps` → referenced by `stage-2-execution.md` Section 2.3 and all stage log templates
-- `clink-dispatch-procedure.md` → shared procedure referenced by `stage-2-execution.md` (Steps 1.8, 2.1a), `stage-3-validation.md` (Section 3.1a), `stage-4-quality-review.md` (Section 4.2a, 4.4)
+- `clink-dispatch-procedure.md` → shared procedure referenced by `stage-2-execution.md` (Steps 1.8, 2.1a, 3.7), `stage-3-validation.md` (Section 3.1a), `stage-4-quality-review.md` (Section 4.2a, 4.4)
 - `config/cli_clients/shared/severity-output-conventions.md` → injected into all clink role prompts at dispatch time by coordinators
 - `config/implementation-config.yaml` `clink_dispatch` → referenced by `clink-dispatch-procedure.md`, `stage-1-setup.md` Section 1.7a (CLI detection), and all stage files with clink integration points
 - `stage-1-setup.md` writes `cli_availability` to Stage 1 summary; consumed by Stages 2, 3, 4 coordinators for clink dispatch gating
@@ -91,3 +91,10 @@ Quick guide to when to read each reference file during skill development or debu
 - `stage-2-execution.md` Step 3.5 uses `agent-prompts.md` Code Simplification Prompt; dispatches `agents/code-simplifier.md`
 - `config/implementation-config.yaml` `code_simplification` → referenced by `stage-2-execution.md` Step 3.5
 - `stage-2-execution.md` writes `simplification_stats` to Stage 2 summary flags (from code-simplifier, Step 3.5)
+- `stage-2-execution.md` Step 3.7 uses `clink-dispatch-procedure.md` for UAT clink dispatch to Gemini
+- `config/implementation-config.yaml` `clink_dispatch.stage2.uat_mobile_tester` → referenced by `stage-2-execution.md` Step 3.7
+- `config/implementation-config.yaml` `uat_execution` → referenced by `stage-1-setup.md` Section 1.6e, `stage-2-execution.md` Step 3.7
+- `stage-1-setup.md` writes `mobile_mcp_available` and `mobile_device_name` to Stage 1 summary; consumed by Stage 2 coordinator for UAT gating
+- `stage-2-execution.md` writes `uat_results` to Stage 2 summary flags (from UAT mobile tester, Step 3.7)
+- `config/cli_clients/gemini_uat_mobile_tester.txt` → role prompt for Option J UAT mobile tester clink dispatch
+- UAT mobile testing is orchestrator-transparent: Stage 1 (inline) probes mobile-mcp, Stage 2 coordinator handles build/install/dispatch; orchestrator never touches UAT

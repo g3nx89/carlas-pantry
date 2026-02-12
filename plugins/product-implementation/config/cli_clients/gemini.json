@@ -9,6 +9,7 @@
   "roles": {
     "spec_validator":      { "prompt_path": "gemini_spec_validator.txt", "max_output_tokens": 8000 },
     "simplicity_reviewer": { "prompt_path": "gemini_simplicity_reviewer.txt", "max_output_tokens": 4000 },
-    "test_augmenter":      { "prompt_path": "gemini_test_augmenter.txt", "max_output_tokens": 6000 }
+    "test_augmenter":      { "prompt_path": "gemini_test_augmenter.txt", "max_output_tokens": 6000 },
+    "uat_mobile_tester":   { "prompt_path": "gemini_uat_mobile_tester.txt", "max_output_tokens": 12000 }
   }
 }
