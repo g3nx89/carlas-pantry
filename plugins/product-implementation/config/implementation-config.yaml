@@ -218,6 +218,27 @@ auto_commit:
     - ".implementation-state.local.md"
     - ".stage-summaries/"
 
+# Code simplification (Stage 2 post-phase)
+# When enabled, a code-simplifier agent runs after each phase's developer agent completes.
+# The simplifier refines modified files for clarity and maintainability while preserving functionality.
+# Rollback is safe because simplification runs before auto-commit (git checkout reverts cleanly).
+# Referenced by: stage-2-execution.md Step 3.5
+code_simplification:
+  enabled: true                     # Set to false to skip simplification entirely
+  scope: "phase_modified_files"     # Only files modified in the current phase
+  exclude_patterns:                 # Substring-matched against file paths — skip these files
+    - ".test."
+    - ".spec."
+    - "__tests__/"
+    - "test/"
+    - ".md"
+    - ".json"
+    - ".yaml"
+    - ".yml"
+  max_files_per_phase: 15           # Skip simplification if more files modified (likely infra/config phase)
+  test_verification: true           # Run full test suite after simplification (always recommended)
+  rollback_on_test_failure: true    # Revert all simplification changes if any test fails
+
 # Clink dispatch configuration (PAL MCP integration)
 # All clink features are opt-in (enabled: false by default).
 # Native agent behavior is the default for every stage.

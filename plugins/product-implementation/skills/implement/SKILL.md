@@ -82,14 +82,14 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 
 ## Latency Trade-off
 
-Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for significant orchestrator context reduction and fault isolation. Stage 1 is inline to avoid overhead for lightweight setup.
+Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for significant orchestrator context reduction and fault isolation. Stage 1 is inline to avoid overhead for lightweight setup. When `code_simplification.enabled` is `true`, each phase adds an additional code-simplifier dispatch (~5-15s overhead + 30-120s execution). This is the trade-off for cleaner downstream code, reduced review noise in Stage 4, lower token cost for future maintenance, and improved LLM comprehension.
 
 ## Stage Dispatch Table
 
 | Stage | Delegation | Reference File | Agents Used | Prior Summaries | User Interaction | Checkpoint |
 |-------|-----------|----------------|-------------|-----------------|------------------|------------|
 | 1 | Inline | `stage-1-setup.md` | — | — | — | SETUP |
-| 2 | Coordinator | `stage-2-execution.md` | `developer` | stage-1 | On error only | EXECUTION |
+| 2 | Coordinator | `stage-2-execution.md` | `developer`, `code-simplifier` | stage-1 | On error only | EXECUTION |
 | 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 | If issues found | VALIDATION |
 | 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3 or code-review skill | stage-2, stage-3 | Fix/defer/proceed | QUALITY_REVIEW |
 | 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer` | stage-3, stage-4 | If incomplete tasks | DOCUMENTATION |
@@ -142,6 +142,7 @@ Stage completion is derived from `stage_summaries` (non-null = completed). The `
 | Agent | Role | Used In |
 |-------|------|---------|
 | `product-implementation:developer` | Implementation, testing, validation, review | Stages 2, 3, 4, 5 |
+| `product-implementation:code-simplifier` | Code simplification, clarity, maintainability | Stage 2 |
 | `product-implementation:tech-writer` | Feature documentation, API guides, architecture updates | Stage 5 |
 
 ## Severity Levels (Canonical)
@@ -165,7 +166,7 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `review-findings.md` | Quality review findings (created if findings exist and user chooses "fix now" or "fix later") |
 | `docs/` | Feature documentation, API guides, architecture updates (Stage 5) |
 | Module `README.md` files | Updated READMEs in folders affected by implementation (Stage 5) |
-| Git commits | Auto-commits at phase completion (Stage 2), review fix (Stage 4), and documentation (Stage 5). Controlled by `auto_commit` in config. |
+| Git commits | Auto-commits at phase completion (Stage 2, with simplified code when enabled), review fix (Stage 4), and documentation (Stage 5). Controlled by `auto_commit` and `code_simplification` in config. |
 
 ## Dev-Skills Integration
 
@@ -234,7 +235,7 @@ Configuration: `config/implementation-config.yaml` under `clink_dispatch`. CLI r
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |
 | `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Skill resolution, review dimensions (base + conditional), finding consolidation, auto-decision matrix |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
-| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, auto-commit prompt |
+| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, code simplification, auto-commit prompt |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
 | `references/clink-dispatch-procedure.md` | Stages 2, 3, 4 (coordinator reads) | Shared parameterized clink dispatch, timeout, parsing, fallback procedure |

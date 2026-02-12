@@ -45,11 +45,11 @@ Quick guide to when to read each reference file during skill development or debu
 |------|-------|---------|
 | `orchestrator-loop.md` | 210 | Dispatch loop, crash recovery, lock release, state migration, late notification handling |
 | `stage-1-setup.md` | 450 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), CLI availability detection (1.7a), summary template |
-| `stage-2-execution.md` | 378 | Skill resolution, research context resolution (2.0a), phase loop, clink test author (Step 1.8), clink test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction |
+| `stage-2-execution.md` | 436 | Skill resolution, research context resolution (2.0a), phase loop, clink test author (Step 1.8), code simplification (Step 3.5), clink test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction |
 | `stage-3-validation.md` | 181 | Validation checks, clink spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format |
 | `stage-4-quality-review.md` | 340 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), clink multi-model review (4.2a), clink security reviewer (Option E), clink fix engineer (Option F), severity reclassification, consolidation, auto-decision matrix, auto-commit on fix |
 | `stage-5-documentation.md` | 249 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release |
-| `agent-prompts.md` | 358 | All 7 agent prompt templates (6 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, build verification, API verification, test quality, animation testing, pattern propagation |
+| `agent-prompts.md` | 433 | All 8 agent prompt templates (7 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, build verification, API verification, test quality, animation testing, pattern propagation, code simplification |
 | `auto-commit-dispatch.md` | 61 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
 | `clink-dispatch-procedure.md` | 133 | Shared parameterized clink dispatch, timeout, parsing, variable injection convention, fallback procedure |
@@ -58,7 +58,7 @@ Quick guide to when to read each reference file during skill development or debu
 
 - `orchestrator-loop.md` → referenced by SKILL.md at workflow start
 - `stage-1-setup.md` → inline execution, writes first summary
-- `stage-2-execution.md` → uses `agent-prompts.md` Phase Implementation Prompt
+- `stage-2-execution.md` → uses `agent-prompts.md` Phase Implementation Prompt + Code Simplification Prompt
 - `stage-3-validation.md` → uses `agent-prompts.md` Completion Validation Prompt
 - `stage-4-quality-review.md` → uses `agent-prompts.md` Quality Review + Review Fix Prompts
 - `stage-5-documentation.md` → uses `agent-prompts.md` Incomplete Task Fix + Documentation Update Prompts
@@ -88,3 +88,6 @@ Quick guide to when to read each reference file during skill development or debu
 - `stage-1-setup.md` writes `cli_availability` to Stage 1 summary; consumed by Stages 2, 3, 4 coordinators for clink dispatch gating
 - Clink integration is orchestrator-transparent: only coordinators and Stage 1 (inline) read clink config; orchestrator never sees clink
 - `stage-2-execution.md` writes `augmentation_bugs_found` to Stage 2 summary flags (from clink test augmenter, Section 2.1a)
+- `stage-2-execution.md` Step 3.5 uses `agent-prompts.md` Code Simplification Prompt; dispatches `agents/code-simplifier.md`
+- `config/implementation-config.yaml` `code_simplification` → referenced by `stage-2-execution.md` Step 3.5
+- `stage-2-execution.md` writes `simplification_stats` to Stage 2 summary flags (from code-simplifier, Step 3.5)

@@ -17,7 +17,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 | Stage | Name | Dispatch | Agent(s) |
 |-------|------|----------|----------|
 | 1 | Setup & Context Loading | Inline | None (orchestrator) |
-| 2 | Phase-by-Phase Execution | Coordinator | developer (per phase) |
+| 2 | Phase-by-Phase Execution | Coordinator | developer + code-simplifier (per phase) |
 | 3 | Completion Validation | Coordinator | developer |
 | 4 | Quality Review | Coordinator | 3x+ developer (parallel, conditionally extended) |
 | 5 | Feature Documentation | Coordinator | developer + tech-writer |
@@ -25,6 +25,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 ### Agent Assignments
 
 - **developer** (`agents/developer.md`): model=opus — implementation, testing, validation, code review
+- **code-simplifier** (`agents/code-simplifier.md`): model=opus — post-phase code simplification for clarity and maintainability (Stage 2, optional via config)
 - **tech-writer** (`agents/tech-writer.md`): model=sonnet — feature documentation, API guides, architecture updates
 
 ### Key Files
@@ -64,6 +65,7 @@ The implement skill expects these files in the feature directory (produced by pr
 - After bulk reference file edits, update `references/README.md` line counts — stale counts mislead developers about file complexity
 - After inserting a new numbered section in any stage file, grep all reference files for the old section numbers and update — cross-file section references (e.g., "Section 1.7") break silently when sections are renumbered
 - When adding a new reference file: register in `references/README.md` (3 tables: usage, file sizes, cross-references) AND `SKILL.md` Reference Map — this wiring step is the most common omission when sessions exhaust context
+- Code simplification runs after each phase in Stage 2 (Step 3.5) when `code_simplification.enabled` is `true` in config. The simplifier never modifies test files and automatically rolls back if tests fail. Configuration lives in `config/implementation-config.yaml` under `code_simplification`
 
 ## Dev-Skills Integration
 

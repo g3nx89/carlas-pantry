@@ -21,8 +21,10 @@ artifacts_written:
   - ".implementation-state.local.md (updated phases)"
   - "test files (conditional — created by clink test author in Step 1.8 if enabled)"
   - "test files (conditional — created by clink test augmenter in Section 2.1a if enabled)"
+  - "source files (conditional — simplified by code-simplifier in Step 3.5 if enabled)"
 agents:
   - "product-implementation:developer"
+  - "product-implementation:code-simplifier"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/clink-dispatch-procedure.md"
@@ -210,6 +212,55 @@ If verification fails:
 - For sequential task failure: **Halt execution**. Report which task failed and why.
 - For parallel task `[P]` failure: Continue with successful tasks, collect failures.
 
+### Step 3.5: Code Simplification (Optional)
+
+> **Conditional**: Only runs when `code_simplification.enabled` is `true` in `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`. If disabled, skip to Step 4.
+
+After phase completion is verified (all tasks `[X]`, tests passing), optionally simplify modified files for clarity and maintainability. This step runs BEFORE auto-commit, so rollback is a safe `git checkout`.
+
+#### Procedure
+
+1. **Check eligibility**:
+   - Read `code_simplification` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+   - If `enabled` is `false` → skip to Step 4
+   - Collect list of source files modified in this phase: prefer `git diff --name-only` against the pre-phase state for accuracy; fall back to extracting file paths from tasks.md `[X]` entries for the current phase if git diff is unavailable
+   - Filter out files matching any pattern in `code_simplification.exclude_patterns` (substring match against file path)
+   - If filtered file count is 0 → skip to Step 4 (nothing to simplify)
+   - If filtered file count > `code_simplification.max_files_per_phase` → skip to Step 4, log: `"Skipping simplification: {N} files exceeds max_files_per_phase ({max})"`
+
+2. **Dispatch code-simplifier agent**:
+   ```
+   Task(subagent_type="product-implementation:code-simplifier")
+   ```
+   Using the Code Simplification Prompt from `agent-prompts.md`. Prefill variables:
+   - `{modified_files_list}` — filtered file list from step 1, formatted as a bullet list
+   - `{FEATURE_NAME}` — from Stage 1 summary
+   - `{FEATURE_DIR}` — from Stage 1 summary
+   - `{phase_name}` — current phase name
+   - `{skill_references}` — resolved in Section 2.0 (same value as used for the developer agent)
+
+3. **Verify post-simplification**:
+   - Extract `test_count_verified`, `test_failures`, `files_simplified`, and `changes_made` from agent output
+   - If `test_failures > 0` AND `code_simplification.rollback_on_test_failure` is `true`:
+     - Revert all simplification changes: `git checkout -- {modified_files_list}`
+     - Log: `"Simplification reverted: {test_failures} test(s) failed after simplification"`
+     - Proceed to Step 4 with original (unsimplified) code
+   - If `test_failures > 0` AND `rollback_on_test_failure` is `false`:
+     - Set `status: needs-user-input`, `block_reason: "Tests failed after code simplification. {test_failures} failures. Review and decide: revert simplification or fix manually."` → return to orchestrator
+   - If `test_failures == 0`:
+     - Log: `"Simplification complete: {files_simplified} files, {changes_made} changes, all tests passing"`
+     - Proceed to Step 4
+
+4. **Track metrics**: Record in phase-level tracking for summary:
+   - `simplification_ran: true`
+   - `files_simplified: {count}`
+   - `changes_made: {count}`
+   - `simplification_reverted: false` (or `true` if reverted)
+
+#### Latency Impact
+
+Adds ~5-15s dispatch overhead + 30-120s agent execution per phase. Skipped automatically when disabled, when no eligible files exist, or when file count exceeds threshold.
+
 ### Step 4: Update Progress
 
 1. Mark phase as completed in tasks.md (ensure all `[X]` marks are persisted)
@@ -357,6 +408,13 @@ flags:
   commits_made: ["sha1", "sha2"]  # Array: one SHA per phase (per_phase strategy) or single SHA (batch). Stages 4/5 use scalar commit_sha instead.
   research_urls_discovered: []  # URLs successfully read during research context resolution (Section 2.0a). Consumed by Stages 4/5 for session accumulation.
   augmentation_bugs_found: 0    # Confirmed bug discoveries from clink test augmenter (Section 2.1a). 0 if skipped or no bugs found.
+  simplification_stats: null     # null if code_simplification.enabled is false.
+    # When enabled, replace null with an object containing these keys:
+    # phases_simplified: {N}     — Phases where simplification ran successfully
+    # phases_skipped: {N}        — Phases where simplification was skipped (too many files, no eligible files, disabled)
+    # phases_reverted: {N}       — Phases where simplification was reverted due to test failure
+    # total_files_simplified: {N} — Sum of files_simplified across all phases
+    # total_changes_made: {N}    — Sum of changes_made across all phases
 ---
 ## Context for Next Stage
 

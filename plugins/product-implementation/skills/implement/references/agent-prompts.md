@@ -92,6 +92,81 @@ Where {N} is the total number of passing tests and {M} is the number of failing 
 
 ---
 
+## Code Simplification Prompt
+
+Used in Stage 2 after each phase's developer agent completes and tests pass. The code-simplifier agent refines modified files for clarity and maintainability before auto-commit.
+
+```markdown
+**Goal**: Simplify and refine the following recently-modified files for clarity, consistency, and maintainability. Preserve ALL existing functionality — every test must continue to pass.
+
+## Scope
+
+ONLY modify these files:
+{modified_files_list}
+
+Do NOT modify:
+- Test files (they are the safety net that validates your changes)
+- Configuration files (.json, .yaml, .yml)
+- Documentation files (.md)
+- Files not in the list above
+
+## Project Context
+
+FEATURE_NAME: {FEATURE_NAME}
+FEATURE_DIR: {FEATURE_DIR}
+Phase just completed: {phase_name}
+
+## Simplification Guidelines
+
+Focus on these areas (in priority order):
+1. **Dead code removal** — unreachable branches, unused imports, commented-out blocks
+2. **Naming clarity** — rename internal variables/functions for self-documentation (never rename exports)
+3. **Flatten conditionals** — replace nested if/else with early returns, guard clauses
+4. **Extract method** — break long functions into well-named smaller functions
+5. **Reduce duplication** — extract shared logic within the modified files
+6. **Consistent patterns** — align with codebase conventions (check CLAUDE.md, constitution.md)
+
+Do NOT:
+- Change public API signatures (function parameters, return types, class interfaces)
+- Add new dependencies or imports from external packages
+- Reorganize file structure or move code between files
+- Optimize for performance (this is a clarity pass, not a performance pass)
+- Use nested ternary operators — prefer if/else or switch for multiple conditions
+- Over-compact code — prefer clarity over brevity (a clear 3-line block > a dense one-liner)
+- Modify test files under any circumstances
+- Make changes that alter observable behavior
+
+## Domain-Specific Skill References
+
+{skill_references}
+
+## Build Verification Rule
+
+After modifying ANY source file, you MUST compile/build the project before proceeding to the next file. If the build fails, REVERT your last change and move on to the next file. If the project has no explicit build step (interpreted languages), run the linter or type checker instead.
+
+## Final Step — Test Verification
+
+After completing all simplifications, run the project's full test suite as your FINAL action. Report the result in this exact structured format at the end of your response:
+
+    test_count_verified: {N}
+    test_failures: {M}
+    files_simplified: {count}
+    changes_made: {total}
+
+Where {N} is the total number of passing tests and {M} is the number of failing tests (should be 0). If ANY test fails, report which tests failed and which simplification likely caused the failure.
+```
+
+**Variables:**
+- `{modified_files_list}` — Bullet list of source files modified by the developer agent in the current phase. Extracted from tasks.md `[X]` entries for this phase, filtered to exclude test files, config files, and documentation per `code_simplification.exclude_patterns` in config.
+- `{FEATURE_NAME}` — Feature identifier from git branch
+- `{FEATURE_DIR}` — Path to feature spec directory
+- `{phase_name}` — Name of the phase that was just completed (e.g., "Phase 1: Setup")
+- `{skill_references}` — Domain-specific skill references resolved by the coordinator in Section 2.0. Same value used for the developer agent. **Fallback if no skills apply or dev-skills not installed:** `"No domain-specific skills available — simplify using standard clean code principles."`
+
+**Agent behavior:** The code-simplifier agent reads each listed file, identifies simplification opportunities (dead code, naming, nesting, duplication), applies changes while preserving all functionality, builds after each file change, and runs the full test suite as final verification. It reports structured output with per-file detail and test results. The agent MUST NOT modify test files, change public APIs, add dependencies, or alter observable behavior.
+
+---
+
 ## Completion Validation Prompt
 
 Used in Stage 3 after all phases complete.
