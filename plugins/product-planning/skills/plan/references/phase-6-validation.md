@@ -24,6 +24,7 @@ feature_flags:
   - "s6_multi_judge_debate"
   - "clink_context_isolation"
   - "clink_custom_roles"
+  - "deep_reasoning_escalation"  # orchestrator may offer escalation on RED after 2 retries
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/debate-protocol.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/validation-rubric.md"
@@ -203,6 +204,12 @@ ELSE:
 If YELLOW: Set `status: needs-user-input` with `block_reason` explaining the risks and asking user to confirm proceeding or return to Phase 4.
 
 If RED: Set `status: needs-user-input` with `block_reason` explaining what failed and that the orchestrator should loop back to Phase 4 with specific improvements.
+
+> **Deep Reasoning Escalation Note:** If RED verdict is set and this is the 2nd retry,
+> the orchestrator (not this coordinator) may offer deep reasoning escalation to the user
+> before looping back to Phase 4. When `architecture_wall_breaker` is enabled, the
+> orchestrator generates a specialized CTCO prompt for an external deep reasoning model.
+> The coordinator does not need to handle this. See `deep-reasoning-dispatch-pattern.md`.
 
 ## Step 6.4: Internal Validation (Fallback)
 

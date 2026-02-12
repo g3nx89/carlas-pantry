@@ -33,6 +33,7 @@ feature_flags:
   - "st_fork_join_architecture"
   - "st_tao_loops"
   - "dev_skills_integration"
+  - "deep_reasoning_escalation"  # algorithm awareness: flag difficulty for orchestrator
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/tot-workflow.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/adaptive-strategy-logic.md"
@@ -41,6 +42,13 @@ additional_references:
 ---
 
 # Phase 4: Architecture Design
+
+> **Algorithm Awareness:** If `state.deep_reasoning.algorithm_detected == true`, the
+> architecture options should explicitly address the algorithmic complexity identified
+> in Phase 1 (keywords: `state.deep_reasoning.algorithm_keywords`). If the architect
+> agents cannot adequately design for the algorithm requirement, set
+> `flags.algorithm_difficulty: true` in the phase summary so the orchestrator can
+> consider deep reasoning escalation if the architecture gate fails.
 
 > **COORDINATOR INSTRUCTIONS**
 > You are a phase coordinator dispatched by the lean orchestrator.

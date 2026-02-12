@@ -1418,3 +1418,99 @@ dev_skills_integration:
       skills:
         - skill: qa-test-planner
           extract: "Regression suite types, priority defs, severity defs"
+
+# =============================================================================
+# DEEP REASONING ESCALATION
+# =============================================================================
+# Integration with external deep reasoning models (GPT-5 Pro, Google Deep Think)
+# for tasks where Claude's gate-retry loop fails to produce passing results.
+# User manually submits prompt to the model's web interface and returns the result.
+# See skills/plan/references/deep-reasoning-dispatch-pattern.md
+
+deep_reasoning_escalation:
+  # --- Feature Flags (all disabled by default) ---
+  circular_failure_recovery:
+    enabled: false
+    description: "Offer deep reasoning escalation after 2 gate retries fail"
+    rollback: "Set false to use existing retry/skip/abort flow"
+    modes: [complete, advanced]
+    requires_mcp: false  # Manual user submission, no MCP needed
+    cost_impact: "0 API cost; 3-15 min user wait time per escalation"
+    applies_to: "All gates (Phase 2, 4, 6, 7, 8)"
+
+  architecture_wall_breaker:
+    enabled: false
+    description: "Architecture-specific escalation when Phase 6 RED loops to Phase 4"
+    rollback: "Set false to use generic circular failure recovery"
+    modes: [complete, advanced]
+    requires_mcp: false
+    cost_impact: "0 API cost; 5-15 min user wait time"
+    requires: [circular_failure_recovery]
+    applies_to: "Phase 6 RED → Phase 4 loop"
+
+  security_deep_dive:
+    enabled: false
+    description: "CVE-level deep reasoning audit when 2+ CRITICAL security findings"
+    rollback: "Set false to use standard security review only"
+    modes: [complete, advanced]
+    requires_mcp: false
+    cost_impact: "0 API cost; 5-15 min user wait time"
+    trigger:
+      min_critical_findings: 2
+      severity_levels: [CRITICAL]
+    applies_to: "Phase 6b security findings"
+
+  abstract_algorithm_detection:
+    enabled: false
+    description: "Detect algorithm/math keywords in spec for potential later escalation"
+    rollback: "Set false to skip detection (no escalation offered in later phases)"
+    modes: [complete, advanced]
+    requires_mcp: false
+    cost_impact: "0 API cost; detection only (later escalation adds 3-15 min user wait)"
+    detection_phase: 1
+
+  # --- Detection Keywords (case-insensitive scan of spec.md) ---
+  algorithm_keywords:
+    high_confidence:
+      - "proof"
+      - "theorem"
+      - "formal verification"
+      - "mathematical optimization"
+      - "NP-hard"
+      - "NP-complete"
+      - "constraint solver"
+      - "SAT solver"
+      - "linear programming"
+      - "dynamic programming"
+      - "cryptographic"
+      - "zero-knowledge"
+    moderate_confidence:
+      - "algorithm"
+      - "heuristic"
+      - "optimization"
+      - "state machine"
+      - "parser"
+      - "compiler"
+      - "sorting"
+      - "pathfinding"
+
+  # --- Context Length Limits for CTCO Prompts (tokens) ---
+  context_limits:
+    architecture_wall: { min: 16000, max: 32000 }
+    circular_failure: { min: 10000, max: 20000 }
+    security_deep_dive: { min: 32000, max: 64000 }
+    algorithm_escalation: { min: 4000, max: 16000 }
+
+  # --- Escalation Attempt Limits ---
+  limits:
+    max_escalations_per_session: 3
+    max_escalations_per_phase: 1
+
+  # --- Supported Models (informational, for user guidance) ---
+  supported_models:
+    - name: "GPT-5 Pro / GPT-5.2 Pro"
+      interface: "chat.openai.com (Pro subscription)"
+      latency: "3-15 min"
+    - name: "Google Deep Think"
+      interface: "AI Studio / Gemini Advanced"
+      latency: "2-10 min"

@@ -23,6 +23,7 @@ feature_flags:
   - "clink_context_isolation"
   - "clink_custom_roles"
   - "dev_skills_integration"
+  - "deep_reasoning_escalation"  # orchestrator may offer security deep dive after this phase
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
@@ -169,6 +170,22 @@ IF any security_findings.severity in {CRITICAL, HIGH}:
     3. Abort planning
   """
 ```
+
+## Step 6b.3b: Flag Critical Count for Deep Reasoning Check
+
+Always include the critical finding count in the phase summary, regardless of blocking status. The orchestrator uses `critical_security_count` to determine if a deep reasoning security audit should be offered (threshold: 2+ CRITICAL findings when `security_deep_dive` flag is enabled).
+
+```
+# In the phase summary YAML flags section, always write:
+flags:
+  critical_security_count: {count of CRITICAL severity findings from security_findings}
+  high_security_count: {count of HIGH severity findings from security_findings}
+  # ... existing flags (requires_user_input, block_reason, degraded, etc.)
+```
+
+> **Note:** The coordinator does NOT offer deep reasoning escalation. The orchestrator reads
+> `critical_security_count` from this summary and follows the `deep-reasoning-dispatch-pattern.md`
+> if the threshold is met and the `security_deep_dive` flag is enabled.
 
 ## Step 6b.4: Report Advisory Findings
 

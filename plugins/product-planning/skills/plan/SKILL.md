@@ -121,6 +121,8 @@ Graceful degradation: If PAL unavailable, fall back to Standard/Rapid modes. If 
 
 Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for ~78% orchestrator context reduction. For lightweight phases (Phase 3 in Standard/Rapid), inline execution avoids this overhead.
 
+**Deep Reasoning Escalation** (Complete/Advanced, disabled by default): When gate retries exhaust (2 failures), the orchestrator can offer manual escalation to external deep reasoning models (GPT-5 Pro, Google Deep Think). User copies a CTCO prompt to the model's web interface, waits 3-15 min, and returns the result. Adds no API cost. See `references/deep-reasoning-dispatch-pattern.md` for the dispatch pattern and `config/planning-config.yaml` `deep_reasoning_escalation:` for feature flags.
+
 ## Phase Dispatch Table
 
 | Phase | Delegation | File | Prior Summaries | User Interaction | Clink | Checkpoint |
@@ -231,6 +233,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `references/research-mcp-patterns.md` — Research MCP server usage guide
 - `references/clink-dispatch-pattern.md` — Canonical clink dual-CLI dispatch pattern (retry, synthesis, self-critique)
 - `references/skill-loader-pattern.md` — Canonical dev-skills context loading via subagent delegation (Phases 2, 4, 6b, 7, 9)
+- `references/deep-reasoning-dispatch-pattern.md` — Deep reasoning escalation workflow (gate failures, security deep dive, algorithm escalation)
 
 ### Sequential Thinking Reference
 - `$CLAUDE_PLUGIN_ROOT/templates/sequential-thinking-templates.md`
@@ -244,6 +247,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `$CLAUDE_PLUGIN_ROOT/templates/tasks-template.md` — Task breakdown structure
 - `$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md` — Test plan structure
 - `$CLAUDE_PLUGIN_ROOT/templates/uat-script-template.md` — UAT script format
+- `$CLAUDE_PLUGIN_ROOT/templates/deep-reasoning-templates.md` — CTCO prompt templates for deep reasoning escalation
 
 ## Quick Start
 

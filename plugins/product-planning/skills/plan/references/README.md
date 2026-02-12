@@ -31,6 +31,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `v-model-methodology.md` | Understanding test level mapping and V-Model alignment |
 | `clink-dispatch-pattern.md` | Canonical clink dual-CLI dispatch pattern (referenced by all clink phase steps) |
 | `skill-loader-pattern.md` | Canonical dev-skills context loading via subagent delegation (referenced by Phases 2, 4, 6b, 7, 9) |
+| `deep-reasoning-dispatch-pattern.md` | Offering deep reasoning escalation after gate failures or security findings; understanding the manual user submission workflow |
 
 ## Working with Clink Integration
 
@@ -98,6 +99,8 @@ Each clink role runs BOTH Gemini and Codex in parallel. The coordinator synthesi
 | Others | <100 | Focused reference content |
 | `clink-dispatch-pattern.md` | ~120 | Canonical clink dual-CLI dispatch pattern |
 | `skill-loader-pattern.md` | ~100 | Dev-skills context loading via subagent delegation |
+| `deep-reasoning-dispatch-pattern.md` | ~180 | Deep reasoning escalation dispatch pattern |
+| `$PLUGIN/templates/deep-reasoning-templates.md` | ~200 | CTCO prompt templates for deep reasoning models |
 | `$PLUGIN/templates/clink-roles/*.txt` | ~80-120 | Clink role prompts (10 files) |
 | `$PLUGIN/templates/clink-roles/README.md` | ~100 | Clink role index and patterns |
 
@@ -118,6 +121,25 @@ Each clink role runs BOTH Gemini and Codex in parallel. The coordinator synthesi
 | 7 | 7.1c | qa-test-planner, accessibility | 2000 |
 | 9 | 9.2a | clean-code | 800 |
 
+### Working with Deep Reasoning Escalation
+
+External deep reasoning models (GPT-5 Pro, Google Deep Think) can be escalated to when Claude's gate-retry loop fails. The user manually submits a CTCO prompt to the model's web interface and returns the result.
+
+1. Read `deep-reasoning-dispatch-pattern.md` for the canonical escalation workflow
+2. Check `config/planning-config.yaml` `deep_reasoning_escalation:` section for flags and keywords
+3. Phase 1 (`phase-1-setup.md`) Step 1.5d handles algorithm detection
+4. `orchestrator-loop.md` gate failure handler and post-Phase-6b check trigger escalation
+5. Templates in `$PLUGIN/templates/deep-reasoning-templates.md` define CTCO prompts
+
+### Deep Reasoning Escalation Points
+
+| Trigger | Phase | Type | Config Flag |
+|---------|-------|------|-------------|
+| Gate RED after 2 retries | Any gated | `circular_failure` | `circular_failure_recovery` |
+| Phase 6 RED → Phase 4 | 6→4 | `architecture_wall` | `architecture_wall_breaker` |
+| 2+ CRITICAL security findings | 6b | `security_deep_dive` | `security_deep_dive` |
+| Algorithm keywords in spec | 1 (detect), 4/7 (surface) | `algorithm_escalation` | `abstract_algorithm_detection` |
+
 ## Cross-References
 
 - `phase-workflows.md` references most other files
@@ -127,3 +149,4 @@ Each clink role runs BOTH Gemini and Codex in parallel. The coordinator synthesi
 - `judge-gate-rubrics.md` used by `phase-gate-judge` agent
 - `self-critique-template.md` used by all agents
 - `debate-protocol.md` used by `debate-judge` agent
+- `deep-reasoning-dispatch-pattern.md` used by `orchestrator-loop.md` gate failure handler and Phase 6b security check

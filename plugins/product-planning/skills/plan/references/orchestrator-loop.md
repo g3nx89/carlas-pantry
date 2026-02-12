@@ -12,6 +12,28 @@ IF state.version == 1 OR state.version is missing: MIGRATE to v2 (see Migration 
 READ config at $CLAUDE_PLUGIN_ROOT/config/planning-config.yaml
 BUILD dispatch_table from SKILL.md Phase Dispatch Table
 
+# Check for pending deep reasoning escalation (resume case)
+IF state.deep_reasoning AND state.deep_reasoning.pending_escalation:
+  pending = state.deep_reasoning.pending_escalation
+  ASK user via AskUserQuestion:
+    header: "Pending Deep Reasoning Escalation"
+    question: "A deep reasoning escalation was started for Phase {pending.phase}
+      ({pending.type}) but no response was received.
+      The prompt is saved at: {FEATURE_DIR}/{pending.prompt_file}"
+    options:
+      - label: "Provide the response now"
+        description: "I have the deep reasoning model's response ready"
+      - label: "Skip this escalation"
+        description: "Continue the workflow without the escalation response"
+
+  IF user provides response:
+    # Follow Step D-F from deep-reasoning-dispatch-pattern.md
+    INGEST response → WRITE to file → UPDATE state → RE-DISPATCH pending.phase
+  ELSE:
+    CLEAR state.deep_reasoning.pending_escalation
+    WRITE state
+    LOG: "Pending escalation cleared — continuing normal flow"
+
 FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 9]:
   IF phase IN state.completed_phases: SKIP (already done)
   IF phase requires feature_flag AND flag disabled in config: SKIP
@@ -50,9 +72,99 @@ FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 9]:
     ASK user: retry / skip / abort
 
   # Handle gate failures (RED)
-  IF summary.gate AND summary.gate.verdict == "RED" AND summary.gate.retries < 2:
-    INCREMENT retry counter in state
-    LOOP BACK to same phase (or to Phase 4 if Phase 6 RED, Phase 7 if Phase 8 RED)
+  IF summary.gate AND summary.gate.verdict == "RED":
+    IF summary.gate.retries < 2:
+      INCREMENT retry counter in state
+      LOOP BACK to same phase (or to Phase 4 if Phase 6 RED, Phase 7 if Phase 8 RED)
+
+    ELSE:
+      # 2 retries exhausted — check deep reasoning escalation eligibility
+      # Reference: $CLAUDE_PLUGIN_ROOT/skills/plan/references/deep-reasoning-dispatch-pattern.md
+      dr_config = config.deep_reasoning_escalation
+      dr_state = state.deep_reasoning OR { escalations: [], pending_escalation: null }
+      escalations_for_phase = dr_state.escalations.count(e => e.phase == phase)
+      total_escalations = dr_state.escalations.length
+
+      IF dr_config.circular_failure_recovery.enabled
+         AND analysis_mode in dr_config.circular_failure_recovery.modes
+         AND escalations_for_phase < dr_config.limits.max_escalations_per_phase
+         AND total_escalations < dr_config.limits.max_escalations_per_session:
+
+        # Determine escalation type (specific beats generic)
+        IF phase == "6" AND dr_config.architecture_wall_breaker.enabled:
+          escalation_type = "architecture_wall"
+          escalation_flag = "architecture_wall_breaker"
+          template = "architecture_wall"
+          target_phase = "4"  # Loop back to Phase 4
+        ELIF phase in ["4", "7"]
+             AND state.deep_reasoning.algorithm_detected
+             AND summary.flags.algorithm_difficulty == true
+             AND dr_config.abstract_algorithm_detection.enabled
+             AND analysis_mode in dr_config.abstract_algorithm_detection.modes:
+          escalation_type = "algorithm_escalation"
+          escalation_flag = "abstract_algorithm_detection"
+          template = "algorithm_escalation"
+          target_phase = phase  # Re-dispatch same phase
+        ELSE:
+          escalation_type = "circular_failure"
+          escalation_flag = "circular_failure_recovery"
+          template = "circular_failure"
+          target_phase = redirect_target(phase)  # same phase or loop-back target
+
+        # Execute deep reasoning dispatch pattern (Steps A-F)
+        DEEP_REASONING_DISPATCH(
+          ESCALATION_TYPE: escalation_type,
+          ESCALATION_FLAG: escalation_flag,
+          PHASE: phase,
+          TEMPLATE: template,
+          CONTEXT_SOURCES: [summary files + failing artifacts for this phase],
+          GATE_HISTORY: {
+            retries: summary.gate.retries,
+            scores: [retry_1_score, retry_2_score],
+            failing_dimensions: summary.gate.failing_dimensions or [],
+            feedback: [retry_1_feedback, retry_2_feedback]
+          },
+          SPECIFIC_FOCUS: summary.gate.lowest_dimension or "overall quality"
+        )
+
+        IF user accepted escalation AND response received:
+          # Re-dispatch with deep reasoning context (Step F)
+          RE-DISPATCH_COORDINATOR(target_phase)
+          # Continue to summary read/validation for the re-dispatched phase
+        ELSE:
+          # User declined — fall through to existing behavior
+          ASK user: retry / skip / abort
+
+      ELSE:
+        # Deep reasoning not available or limits exceeded — existing behavior
+        ASK user: retry / skip / abort
+
+  # Post-phase deep reasoning checks (non-gate triggers)
+  # Security Deep Dive: check after Phase 6b completes
+  IF phase == "6b" AND summary.status == "completed":
+    dr_config = config.deep_reasoning_escalation
+    critical_count = summary.flags.critical_security_count OR 0
+
+    IF dr_config.security_deep_dive.enabled
+       AND analysis_mode in dr_config.security_deep_dive.modes
+       AND critical_count >= dr_config.security_deep_dive.trigger.min_critical_findings:
+
+      LOG: "Security deep dive trigger: {critical_count} CRITICAL findings"
+      DEEP_REASONING_DISPATCH(
+        ESCALATION_TYPE: "security_deep_dive",
+        ESCALATION_FLAG: "security_deep_dive",
+        PHASE: "6b",
+        TEMPLATE: "security_deep_dive",
+        CONTEXT_SOURCES: ["analysis/expert-review.md", "analysis/clink-security-report.md", "design.md"],
+        GATE_HISTORY: null,
+        SPECIFIC_FOCUS: "CRITICAL severity security findings requiring CVE-level analysis"
+      )
+
+      IF user accepted AND response received:
+        # Append to expert review (do NOT re-dispatch Phase 6b)
+        APPEND deep reasoning response summary to {FEATURE_DIR}/analysis/expert-review.md
+        UPDATE phase-6b-summary.md: flags.deep_reasoning_supplement = true
+      # Continue to next phase regardless
 
   # Update state
   ADD phase to state.completed_phases

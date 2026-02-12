@@ -40,6 +40,7 @@ feature_flags:
   - "clink_context_isolation"
   - "clink_custom_roles"
   - "dev_skills_integration"
+  - "deep_reasoning_escalation"  # algorithm awareness: flag test difficulty for orchestrator
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/v-model-methodology.md"
@@ -48,6 +49,13 @@ additional_references:
 ---
 
 # Phase 7: Test Strategy (V-Model)
+
+> **Algorithm Awareness:** If `state.deep_reasoning.algorithm_detected == true`, the
+> test strategy should include test cases for algorithmic correctness — edge cases,
+> boundary conditions, and formal property verification where applicable. If the QA
+> agents cannot adequately cover the algorithm test space, set
+> `flags.algorithm_difficulty: true` in the phase summary so the orchestrator can
+> consider deep reasoning escalation if the test coverage gate fails.
 
 > **COORDINATOR INSTRUCTIONS**
 > You are a phase coordinator dispatched by the lean orchestrator.

@@ -11,6 +11,8 @@ flowchart TB
     classDef output fill:#7ED321,stroke:#5BA018,color:#fff,stroke-width:2px
     classDef mcp fill:#9013FE,stroke:#6B0FBE,color:#fff,stroke-width:2px
     classDef subphase fill:#50E3C2,stroke:#3BB09A,color:#333,stroke-width:1px
+    classDef clink fill:#E91E63,stroke:#AD1457,color:#fff,stroke-width:2px
+    classDef devskills fill:#FF9800,stroke:#E65100,color:#fff,stroke-width:1px
 
     %% Phase 1: Setup & Initialization
     subgraph P1[" Phase 1: Setup & Initialization "]
@@ -22,12 +24,14 @@ flowchart TB
         P1_5["Fresh Start"]
         P1_6["Lock Acquisition"]
         P1_7["MCP Availability Check"]
+        P1_7b["Clink Detection (1.5b)<br/>CLI availability + role deploy"]
+        P1_7c["Dev-Skills Detection (1.5c)<br/>Tech-stack keyword scan"]
         P1_8{"Select Analysis Mode"}
 
         P1_1 --> P1_2 --> P1_3
         P1_3 -->|Yes| P1_4 --> P1_6
         P1_3 -->|No| P1_5 --> P1_6
-        P1_6 --> P1_7 --> P1_8
+        P1_6 --> P1_7 --> P1_7b --> P1_7c --> P1_8
     end
 
     %% Phase 2: Research & Exploration
@@ -36,6 +40,7 @@ flowchart TB
         P2_1["Load Context<br/>spec.md + constitution.md"]
         P2_2["Adaptive Research Depth (A3)<br/>Risk keyword detection"]
         P2_3["Research MCP Enhancement<br/>Context7 / Ref / Tavily"]
+        P2_3s["Dev-Skills Loader (2.2c-a)<br/>accessibility, mobile, figma"]
         P2_4["Launch Code Explorers (MPA)<br/>3 parallel agents"]
         P2_5["Learnings Researcher (A2)<br/>Institutional knowledge"]
         P2_6["Sequential Thinking T4-T6<br/>Pattern Recognition"]
@@ -43,7 +48,10 @@ flowchart TB
         P2_8["Consolidate research.md"]
         P2_G{"Gate 1:<br/>Research Quality"}
 
-        P2_1 --> P2_2 --> P2_3 --> P2_4
+        P2_1 --> P2_2 --> P2_3
+        P2_3 --> P2_3s
+        P2_3 --> P2_4
+        P2_3s --> P2_6
         P2_4 --> P2_5 --> P2_6 --> P2_7 --> P2_8 --> P2_G
     end
 
@@ -72,18 +80,23 @@ flowchart TB
     %% Phase 4: Architecture Design
     subgraph P4[" Phase 4: Architecture Design "]
         direction TB
+        P4_0a["Dev-Skills Loader (4.0a)<br/>api-patterns, database, c4,<br/>mermaid, frontend"]
         P4_1["Architecture Pattern Research<br/>Research MCP"]
         P4_2["Launch 3 Architects (MPA)<br/>Minimal / Clean / Pragmatic"]
+        P4_2w["Wildcard Architect (S5/ToT)<br/>Unconstrained exploration"]
         P4_3["TAO Loop Analysis"]
         P4_4["Fork-Join ST T7a-T8<br/>Branch exploration"]
+        P4_4p["Architecture Pruning Judge<br/>Ranked-choice voting"]
         P4_5["Risk Assessment T11-T13"]
         P4_6["Present Options<br/>Comparison Table"]
         P4_7["Record Architecture Decision"]
         P4_8["Adaptive Strategy (S4)<br/>Select/Synthesize/Redesign"]
         P4_G{"Gate 2:<br/>Architecture Quality"}
 
-        P4_1 --> P4_2 --> P4_3 --> P4_4
-        P4_4 --> P4_5 --> P4_6 --> P4_7 --> P4_8 --> P4_G
+        P4_0a --> P4_2
+        P4_1 --> P4_2
+        P4_2 --> P4_2w --> P4_3 --> P4_4
+        P4_4 --> P4_4p --> P4_5 --> P4_6 --> P4_7 --> P4_8 --> P4_G
     end
 
     %% Phase 5: PAL ThinkDeep
@@ -94,13 +107,16 @@ flowchart TB
         P5_3["ThinkDeep Matrix<br/>3 perspectives x 3 models"]
         P5_4["Synthesize Insights<br/>Convergent vs Divergent"]
         P5_5["Present Findings"]
+        P5_6["Clink Deepthinker<br/>Gemini + Codex parallel"]
 
-        P5_1 --> P5_2 --> P5_3 --> P5_4 --> P5_5
+        P5_1 --> P5_2 --> P5_3 --> P5_4 --> P5_5 --> P5_6
     end
 
     %% Phase 6: Plan Validation
     subgraph P6[" Phase 6: Plan Validation "]
         direction TB
+        P6_0a["Clink Plan Review (6.0a)<br/>planreviewer: strategic + feasibility"]
+        P6_0["Multi-Judge Debate (S6)<br/>3 rounds: analysis/rebuttal/final"]
         P6_1["PAL Consensus<br/>3 models: neutral/advocate/challenger"]
         P6_2["Groupthink Detection<br/>PAL Challenge if variance < 0.5"]
         P6_3["Score Calculation<br/>20 points across 5 dimensions"]
@@ -109,7 +125,7 @@ flowchart TB
         P6_Y["YELLOW: Document Risks"]
         P6_R["RED: Return to Phase 4"]
 
-        P6_1 --> P6_2 --> P6_3 --> P6_V
+        P6_0a --> P6_0 --> P6_1 --> P6_2 --> P6_3 --> P6_V
         P6_V -->|"≥16"| P6_G
         P6_V -->|"12-15"| P6_Y
         P6_V -->|"<12"| P6_R
@@ -118,12 +134,16 @@ flowchart TB
     %% Phase 6b: Expert Review
     subgraph P6b[" Phase 6b: Expert Review (A4) "]
         direction TB
+        P6b_0a["Dev-Skills Loader (6b.0a)<br/>clean-code, api-security"]
         P6b_1["Security Analyst<br/>STRIDE Analysis"]
         P6b_2["Simplicity Reviewer<br/>Over-engineering Check"]
+        P6b_CL["Clink Security Audit<br/>securityauditor role"]
         P6b_3{"Blocking<br/>Issues?"}
         P6b_4["Address or Acknowledge"]
 
-        P6b_1 --> P6b_3
+        P6b_0a --> P6b_1
+        P6b_0a --> P6b_2
+        P6b_1 --> P6b_CL --> P6b_3
         P6b_2 --> P6b_3
         P6b_3 -->|Yes| P6b_4
     end
@@ -132,18 +152,22 @@ flowchart TB
     subgraph P7[" Phase 7: Test Strategy (V-Model) "]
         direction TB
         P7_1["Load Test Context"]
-        P7_2["Testing Best Practices<br/>Research MCP"]
+        P7_1b["Testing Best Practices<br/>Research MCP"]
+        P7_1c["Dev-Skills Loader (7.1c)<br/>qa-test-planner, accessibility"]
         P7_3["Risk Analysis<br/>T-RISK-1, T-RISK-2, T-RISK-3"]
         P7_4["Launch QA Agents (MPA)<br/>Strategist / Security / Performance"]
         P7_5["Reconciliation<br/>ST Revision with Phase 5"]
         P7_6["Red Team Branch<br/>Adversarial Analysis"]
         P7_7["TAO Loop QA Synthesis"]
+        P7_CL["Clink Test Review<br/>teststrategist role"]
         P7_8["Generate UAT Scripts<br/>Given-When-Then"]
         P7_9["Structure Test Directories"]
         P7_G{"Gate 3:<br/>Test Coverage"}
 
-        P7_1 --> P7_2 --> P7_3 --> P7_4
-        P7_4 --> P7_5 --> P7_6 --> P7_7 --> P7_8 --> P7_9 --> P7_G
+        P7_1 --> P7_1b --> P7_3
+        P7_1 --> P7_1c --> P7_3
+        P7_3 --> P7_4
+        P7_4 --> P7_5 --> P7_6 --> P7_7 --> P7_CL --> P7_8 --> P7_9 --> P7_G
     end
 
     %% Phase 8: Test Coverage Validation
@@ -167,21 +191,23 @@ flowchart TB
         direction TB
         P9_1["Load All Artifacts<br/>spec + plan + design + tests"]
         P9_2["Extract Test IDs<br/>UT / INT / E2E / UAT"]
+        P9_2a["Dev-Skills Loader (9.2a)<br/>clean-code"]
         P9_3["Initialize tasks.md"]
         P9_4["Launch Tech-Lead<br/>ST T-TASK-1 to T-TASK-4"]
         P9_5["Clarification Loop<br/>Max 2 iterations"]
         P9_6["Task Validation<br/>Self-critique 5 questions"]
+        P9_CL["Clink Task Audit<br/>taskauditor role"]
         P9_7["Generate Final Artifacts"]
         P9_8["Summary Report"]
         P9_9["Post-Planning Menu (A5)"]
 
-        P9_1 --> P9_2 --> P9_3 --> P9_4
-        P9_4 --> P9_5 --> P9_6 --> P9_7 --> P9_8 --> P9_9
+        P9_1 --> P9_2 --> P9_2a --> P9_3 --> P9_4
+        P9_4 --> P9_5 --> P9_6 --> P9_CL --> P9_7 --> P9_8 --> P9_9
     end
 
     %% Main Flow Connections
     P1 --> P2
-    P2_G -->|"PASS"| P2b
+    P2_G -->|"PASS<br/>Complete"| P2b
     P2_G -->|"PASS<br/>Non-Complete"| P3
     P2b --> P3
     P3 --> P4
@@ -200,16 +226,19 @@ flowchart TB
     %% Apply styles
     class P1_1,P1_2,P1_5,P1_6,P1_7,P2_1,P2_2,P2_4,P2_5,P2_8 phase
     class P1_3,P1_8,P2_G,P4_G,P6_V,P7_G,P8_V gate
-    class P2_3,P2_6,P2_7,P4_1,P4_3,P4_4,P5_1,P5_3,P6_1,P6_2,P7_2,P7_3,P7_5,P7_6,P7_7,P8_2,P9_4 mcp
+    class P2_3,P2_6,P2_7,P4_1,P4_3,P4_4,P5_1,P5_3,P6_1,P6_2,P7_1b,P7_3,P7_5,P7_6,P7_7,P8_2,P9_4 mcp
     class P6_G,P6_Y,P8_G,P8_Y,P9_7,P9_8 output
     class P2b_1,P2b_2,P2b_3,P6b_1,P6b_2 subphase
+    class P5_6,P6_0a,P6b_CL,P7_CL,P9_CL clink
+    class P1_7b,P1_7c,P2_3s,P4_0a,P6b_0a,P7_1c,P9_2a devskills
+    class P4_2w,P4_4p,P6_0 mcp
 ```
 
 ## Analysis Modes
 
 ```mermaid
 flowchart LR
-    subgraph COMPLETE["Complete Mode<br/>$0.80-$1.50"]
+    subgraph COMPLETE["Complete Mode<br/>Base: $0.80-$1.50 | With Clink: $1.10-$2.00"]
         C1["MPA: All Agents"]
         C2["ThinkDeep: 9 calls"]
         C3["PAL Consensus"]
@@ -218,15 +247,21 @@ flowchart LR
         C6["Full Test Plan"]
         C7["Expert Review (A4)"]
         C8["Flow Analysis (A1)"]
+        C9["Multi-Judge Debate (S6)"]
+        C10["Clink: 5 roles"]
+        C11["Dev-Skills Loading"]
     end
 
-    subgraph ADVANCED["Advanced Mode<br/>$0.45-$0.75"]
+    subgraph ADVANCED["Advanced Mode<br/>Base: $0.45-$0.75 | With Clink: $0.55-$0.90"]
         A1["MPA: All Agents"]
         A2["ThinkDeep: 6 calls"]
         A3["PAL Consensus"]
         A4["Linear ST"]
         A5["Red Team Branch"]
         A6["Test Plan"]
+        A7["Expert Review (A4)"]
+        A8["Clink: 5 roles"]
+        A9["Dev-Skills Loading"]
     end
 
     subgraph STANDARD["Standard Mode<br/>$0.15-$0.30"]
@@ -234,12 +269,15 @@ flowchart LR
         S2["No ThinkDeep"]
         S3["TAO Loop"]
         S4["Basic Test Plan"]
+        S5["Dev-Skills Loading"]
+        S6["No Clink"]
     end
 
     subgraph RAPID["Rapid Mode<br/>$0.05-$0.12"]
         R1["Single Agent"]
         R2["No MCP"]
         R3["Minimal Tests"]
+        R4["No Clink / Dev-Skills"]
     end
 
     MCP{"MCP<br/>Available?"}
@@ -359,6 +397,114 @@ flowchart TB
     style TAO fill:#50E3C2,stroke:#3BB09A,color:#333
 ```
 
+## Clink Dual-CLI Dispatch Pattern
+
+```mermaid
+flowchart TB
+    classDef clink fill:#E91E63,stroke:#AD1457,color:#fff,stroke-width:2px
+    classDef synthesis fill:#50E3C2,stroke:#3BB09A,color:#333,stroke-width:1px
+
+    subgraph CHECK["Availability Check"]
+        CK1{"Clink<br/>Enabled?"}
+        CK2{"Both CLIs<br/>Installed?"}
+        CK3["Dual-CLI Mode"]
+        CK4["Single-CLI Degraded"]
+        CK5["Skip Clink"]
+
+        CK1 -->|Yes| CK2
+        CK1 -->|No| CK5
+        CK2 -->|Both| CK3
+        CK2 -->|One| CK4
+        CK2 -->|None| CK5
+    end
+
+    subgraph DISPATCH["Step 1: Parallel Dispatch"]
+        direction LR
+        G["Gemini CLI<br/>1M context window<br/>Broad exploration"]
+        C["Codex CLI<br/>Code-level precision<br/>Implementation focus"]
+    end
+
+    subgraph SYNTH["Step 2: Synthesis"]
+        SY1["Convergent: HIGH confidence<br/>Both CLIs agree"]
+        SY2["Divergent: FLAG for decision<br/>CLIs disagree"]
+        SY3["Unique: VERIFY first<br/>One CLI only"]
+    end
+
+    subgraph CRITIQUE["Step 3: Self-Critique"]
+        CR1["Task subagent<br/>CoVe verification"]
+        CR2["Context isolation<br/>No coordinator pollution"]
+    end
+
+    subgraph REPORT["Step 4: Write Report"]
+        RP["analysis/clink-{role}-report.md"]
+    end
+
+    subgraph ROLES["5 Clink Roles"]
+        direction LR
+        R1["deepthinker<br/>Phase 5"]
+        R2["planreviewer<br/>Phase 6"]
+        R3["securityauditor<br/>Phase 6b"]
+        R4["teststrategist<br/>Phase 7"]
+        R5["taskauditor<br/>Phase 9"]
+    end
+
+    CK3 --> DISPATCH
+    CK4 --> DISPATCH
+    DISPATCH --> SYNTH --> CRITIQUE --> REPORT
+
+    class G,C,R1,R2,R3,R4,R5 clink
+    class SYNTH synthesis
+```
+
+## Dev-Skills Integration
+
+```mermaid
+flowchart TB
+    classDef devskills fill:#FF9800,stroke:#E65100,color:#fff,stroke-width:1px
+    classDef loader fill:#FFF3E0,stroke:#E65100,color:#333,stroke-width:1px
+
+    subgraph DETECT["Phase 1: Detection (Step 1.5c)"]
+        D1["Scan spec.md for<br/>technology keywords"]
+        D2["Scan project root for<br/>framework markers"]
+        D3["Store detected domains<br/>in state.dev_skills"]
+
+        D1 --> D2 --> D3
+    end
+
+    subgraph PATTERN["Subagent Loader Pattern"]
+        direction TB
+        LP1["Dispatch Task subagent"]
+        LP2["Load Skill files<br/>5-15K tokens raw"]
+        LP3["Extract relevant sections"]
+        LP4["Write condensed output<br/>1-3K tokens"]
+        LP5["Coordinator reads<br/>small context file only"]
+
+        LP1 --> LP2 --> LP3 --> LP4 --> LP5
+    end
+
+    subgraph PHASES["Per-Phase Skill Loading"]
+        direction TB
+        PH2["Phase 2 (2.2c-a)<br/>accessibility, mobile, figma<br/>Budget: 2500 tokens"]
+        PH4["Phase 4 (4.0a)<br/>api-patterns, database, c4,<br/>mermaid, frontend<br/>Budget: 3000 tokens"]
+        PH6b["Phase 6b (6b.0a)<br/>clean-code, api-security<br/>Budget: 2000 tokens"]
+        PH7["Phase 7 (7.1c)<br/>qa-test-planner, accessibility<br/>Budget: 2000 tokens"]
+        PH9["Phase 9 (9.2a)<br/>clean-code<br/>Budget: 800 tokens"]
+    end
+
+    subgraph MODES["Mode Availability"]
+        M1["Complete"]
+        M2["Advanced"]
+        M3["Standard"]
+        M4["Rapid: SKIP"]
+    end
+
+    DETECT --> PHASES
+    PHASES --> PATTERN
+
+    class D1,D2,D3,PH2,PH4,PH6b,PH7,PH9 devskills
+    class PATTERN loader
+```
+
 ## Sequential Thinking (ST) Patterns
 
 ```mermaid
@@ -439,7 +585,8 @@ flowchart TB
         CP3 --> CP4["ARCHITECTURE"]
         CP4 --> CP5["THINKDEEP"]
         CP5 --> CP6["VALIDATION"]
-        CP6 --> CP7["TEST_STRATEGY"]
+        CP6 --> CP6b["EXPERT_REVIEW"]
+        CP6b --> CP7["TEST_STRATEGY"]
         CP7 --> CP8["TEST_COVERAGE"]
         CP8 --> CP9["COMPLETION"]
     end
@@ -482,6 +629,7 @@ flowchart LR
 
     subgraph P2_OUT["Phase 2"]
         O2["research.md"]
+        O2s["skill-context.md<br/>(conditional)"]
     end
 
     subgraph P4_OUT["Phase 4"]
@@ -489,15 +637,20 @@ flowchart LR
         O4B["design.clean.md"]
         O4C["design.pragmatic.md"]
         O4D["design.md"]
+        O4s["skill-context.md<br/>(conditional)"]
     end
 
     subgraph P5_OUT["Phase 5"]
         O5["analysis/<br/>thinkdeep-insights.md"]
+        O5c["analysis/<br/>clink-deepthinker-report.md<br/>(conditional)"]
     end
 
-    subgraph P6_OUT["Phase 6"]
+    subgraph P6_OUT["Phase 6 + 6b"]
         O6A["plan.md"]
-        O6B["analysis/<br/>expert-review.md"]
+        O6B["analysis/<br/>validation-report.md"]
+        O6C["analysis/<br/>expert-review.md"]
+        O6c1["analysis/<br/>clink-planreview-report.md<br/>(conditional)"]
+        O6c2["analysis/<br/>clink-security-report.md<br/>(conditional)"]
     end
 
     subgraph P7_OUT["Phase 7"]
@@ -506,6 +659,7 @@ flowchart LR
         O7C["test-cases/integration/"]
         O7D["test-cases/e2e/"]
         O7E["test-cases/uat/"]
+        O7c["analysis/<br/>clink-testreview-report.md<br/>(conditional)"]
     end
 
     subgraph P8_OUT["Phase 8"]
@@ -515,11 +669,13 @@ flowchart LR
     subgraph P9_OUT["Phase 9"]
         O9A["tasks.md"]
         O9B["analysis/<br/>task-test-traceability.md"]
+        O9c["analysis/<br/>clink-taskaudit-report.md<br/>(conditional)"]
     end
 
     subgraph STATE["State"]
         ST1[".planning-state.local.md"]
         ST2[".planning.lock"]
+        ST3[".phase-summaries/*.md"]
     end
 
     INPUT --> P2_OUT --> P4_OUT --> P5_OUT --> P6_OUT --> P7_OUT --> P8_OUT --> P9_OUT
@@ -529,6 +685,118 @@ flowchart LR
     style STATE fill:#F5A623,stroke:#D4880F,color:#fff
 ```
 
+## Orchestrator Dispatch Model
+
+```mermaid
+flowchart TB
+    classDef inline fill:#4A90D9,stroke:#2E5A8B,color:#fff,stroke-width:2px
+    classDef coord fill:#9013FE,stroke:#6B0FBE,color:#fff,stroke-width:2px
+    classDef cond fill:#F5A623,stroke:#D4880F,color:#fff,stroke-width:2px
+
+    subgraph ORCH["Orchestrator (SKILL.md)"]
+        direction TB
+        O1["Read State"]
+        O2["Dispatch Phase"]
+        O3["Read Summary"]
+        O4{"Status?"}
+        O5["Update State"]
+        O6["Next Phase"]
+        O7["Relay User Q"]
+        O8["Crash Recovery"]
+
+        O1 --> O2 --> O3 --> O4
+        O4 -->|completed| O5 --> O6
+        O4 -->|needs-user-input| O7 --> O2
+        O4 -->|failed/missing| O8
+    end
+
+    subgraph DELEG["Delegation Model"]
+        direction LR
+        D1["Phase 1<br/>INLINE"]
+        D3["Phase 3<br/>CONDITIONAL<br/>Inline: Std/Rapid<br/>Coord: Comp/Adv"]
+        D2["Phases 2,4-9<br/>COORDINATOR<br/>Task subagent"]
+    end
+
+    subgraph SUMMARY["Summary Contract"]
+        direction TB
+        SF1["phase: string"]
+        SF2["status: completed |<br/>needs-user-input |<br/>failed | skipped"]
+        SF3["checkpoint: string"]
+        SF4["artifacts_written: array"]
+        SF5["summary: string"]
+    end
+
+    class D1 inline
+    class D2 coord
+    class D3 cond
+```
+
+---
+
+## 9. Deep Reasoning Escalation Flow
+
+Shows when and how the orchestrator offers deep reasoning escalation to external models (GPT-5 Pro, Google Deep Think). All 4 escalation types are gated by feature flags and mode checks.
+
+```mermaid
+flowchart TD
+    subgraph TRIGGERS["Escalation Triggers"]
+        T1["Gate RED after 2 retries<br/>(circular_failure)"]
+        T2["Phase 6 RED → Phase 4 loop<br/>(architecture_wall)"]
+        T3["2+ CRITICAL security findings<br/>(security_deep_dive)"]
+        T4["Algorithm keywords in spec<br/>(abstract_algorithm_detection)"]
+    end
+
+    T1 --> CHECK
+    T2 --> CHECK
+    T3 --> CHECK
+    T4 -->|"Detection only<br/>in Phase 1"| DETECT["Set state flag:<br/>algorithm_detected = true"]
+    DETECT -->|"Later gate failure"| CHECK
+
+    CHECK{"Feature flag enabled?<br/>Mode in (Complete, Advanced)?<br/>Escalation limits OK?"}
+    CHECK -->|"No"| FALLBACK["Existing behavior:<br/>retry / skip / abort"]
+    CHECK -->|"Yes"| ASSEMBLE
+
+    subgraph DISPATCH["Deep Reasoning Dispatch (Steps A-F)"]
+        direction TB
+        ASSEMBLE["Step A: Context Assembly<br/>Read summaries + artifacts"]
+        GENERATE["Step B: CTCO Prompt Generation<br/>Load template, fill variables"]
+        PRESENT["Step C: User Presentation<br/>via AskUserQuestion"]
+        ASSEMBLE --> GENERATE --> PRESENT
+
+        PRESENT -->|"User accepts"| SUBMIT["User submits to<br/>GPT-5 Pro / Deep Think<br/>(3-15 min wait)"]
+        PRESENT -->|"User skips"| FALLBACK2["Continue without<br/>escalation"]
+
+        SUBMIT --> INGEST["Step D: Response Ingestion<br/>Write to analysis/ directory"]
+        INGEST --> STATE["Step E: State Update<br/>Record in escalations[]"]
+        STATE --> REDISPATCH["Step F: Re-dispatch<br/>Coordinator with response"]
+    end
+
+    REDISPATCH --> CONTINUE["Continue workflow"]
+    FALLBACK2 --> CONTINUE
+    FALLBACK --> CONTINUE
+
+    subgraph RESUME["Resume Handling"]
+        R1["On workflow resume:<br/>check pending_escalation"]
+        R1 -->|"Found"| R2["Re-present saved prompt"]
+        R2 -->|"User provides response"| R3["Ingest → State → Re-dispatch"]
+        R2 -->|"User skips"| R4["Clear pending, continue"]
+    end
+
+    classDef trigger fill:#ff6b6b,stroke:#333,color:#fff
+    classDef check fill:#ffa94d,stroke:#333,color:#fff
+    classDef dispatch fill:#845ef7,stroke:#333,color:#fff
+    classDef fallback fill:#868e96,stroke:#333,color:#fff
+    classDef success fill:#51cf66,stroke:#333,color:#fff
+    classDef resume fill:#339af0,stroke:#333,color:#fff
+
+    class T1,T2,T3,T4 trigger
+    class CHECK check
+    class ASSEMBLE,GENERATE,PRESENT,SUBMIT,INGEST,STATE,REDISPATCH dispatch
+    class FALLBACK,FALLBACK2 fallback
+    class CONTINUE success
+    class DETECT,R1,R2,R3,R4 resume
+```
+
 ---
 
 ## Legend
@@ -536,11 +804,13 @@ flowchart LR
 | Color | Meaning |
 |-------|---------|
 | Blue | Core workflow phases and steps |
-| Purple | MCP-dependent features |
+| Purple | MCP-dependent features (PAL, ST, Research) |
 | Green | Outputs and success paths |
-| Orange | Decision points and warnings |
-| Red | Quality gates and failure paths |
+| Orange | Decision points, warnings, and dev-skills integration |
+| Red | Quality gates, failure paths, and escalation triggers |
 | Teal | Sub-phases and synthesis |
+| Pink | Clink Dual-CLI integration |
+| Violet | Deep reasoning escalation dispatch |
 
 ## Usage
 
@@ -552,4 +822,4 @@ These diagrams can be rendered in:
 
 ---
 
-*Generated: 2026-02-04*
+*Updated: 2026-02-12 | Skill version: 3.0.0*

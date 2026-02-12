@@ -38,6 +38,10 @@ flags:
   block_reason: null                 # What input is needed (if requires_user_input)
   degraded: false                    # true if a sub-agent failed and results are partial
   degradation_reason: null           # What failed and what's missing
+  critical_security_count: null      # Count of CRITICAL severity findings (Phase 6b only)
+  high_security_count: null          # Count of HIGH severity findings (Phase 6b only)
+  algorithm_difficulty: null         # true if coordinator found algorithmic challenge (Phase 4/7)
+  deep_reasoning_supplement: null    # true if deep reasoning response was appended (Phase 6b)
 ---
 ```
 
@@ -151,3 +155,4 @@ Phase 5 (ThinkDeep) should focus analysis on:
 - The `Context for Next Phase` section is read by the next coordinator to understand priorities.
 - Phase identifiers are **strings** to accommodate `6b`.
 - **Gate verdict translation:** Judge agents produce `PASS/FAIL` verdicts internally. When writing the summary, translate to the orchestrator vocabulary: `PASS` → `GREEN`, `FAIL` with score ≥ threshold → `YELLOW`, `FAIL` below threshold → `RED`. The orchestrator checks `verdict == "RED"` for retry logic.
+- **Deep reasoning escalation flags:** The `critical_security_count`, `high_security_count`, `algorithm_difficulty`, and `deep_reasoning_supplement` flags support the orchestrator's deep reasoning escalation workflow. Coordinators set `critical_security_count` (Phase 6b), `high_security_count` (Phase 6b), and `algorithm_difficulty` (Phase 4/7) but never offer escalation directly. The orchestrator sets `deep_reasoning_supplement` after appending external model analysis. See `deep-reasoning-dispatch-pattern.md`.

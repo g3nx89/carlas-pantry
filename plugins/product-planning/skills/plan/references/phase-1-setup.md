@@ -16,6 +16,7 @@ feature_flags:
   - "clink_context_isolation"
   - "clink_custom_roles"
   - "dev_skills_integration"
+  - "deep_reasoning_escalation"  # Step 1.5d: abstract algorithm detection
 additional_references: []
 ---
 
@@ -201,6 +202,61 @@ IF config.dev_skills_integration.enabled:
 ELSE:
   SET state.dev_skills.available = false
   SET state.dev_skills.detected_domains = []
+```
+
+## Step 1.5d: Abstract Algorithm Detection
+
+**Purpose:** Detect algorithm/math complexity keywords in spec.md that may warrant deep reasoning escalation in later phases. This is **detection only** — no escalation happens in Phase 1. The orchestrator uses this flag when quality gates fail in Phase 4, 6, or 7.
+
+```
+IF config.deep_reasoning_escalation.abstract_algorithm_detection.enabled:
+
+  1. SCAN spec.md for algorithm keywords (case-insensitive):
+
+     high_confidence_matches = []
+     moderate_confidence_matches = []
+
+     FOR EACH keyword IN config.deep_reasoning_escalation.algorithm_keywords.high_confidence:
+       IF spec.md contains keyword (case-insensitive):
+         ADD keyword to high_confidence_matches
+
+     FOR EACH keyword IN config.deep_reasoning_escalation.algorithm_keywords.moderate_confidence:
+       IF spec.md contains keyword (case-insensitive):
+         ADD keyword to moderate_confidence_matches
+
+  2. DETERMINE detection result:
+
+     IF high_confidence_matches.length >= 1:
+       algorithm_detected = true
+       confidence = "high"
+       LOG: "DEEP REASONING PRE-ALERT: High-confidence algorithm keywords detected: {high_confidence_matches}"
+     ELSE IF moderate_confidence_matches.length >= 3:
+       algorithm_detected = true
+       confidence = "moderate"
+       LOG: "DEEP REASONING PRE-ALERT: Multiple moderate-confidence algorithm keywords: {moderate_confidence_matches}"
+     ELSE:
+       algorithm_detected = false
+       confidence = null
+
+  3. UPDATE state:
+     deep_reasoning:
+       available: true
+       algorithm_detected: {algorithm_detected}
+       algorithm_keywords: {high_confidence_matches + moderate_confidence_matches}
+       algorithm_confidence: {confidence}
+       escalations: []
+       pending_escalation: null
+
+  4. LOG: "Deep reasoning detection: algorithm_detected={algorithm_detected}, keywords={all_matches}"
+
+ELSE:
+  SET state.deep_reasoning:
+    available: false
+    algorithm_detected: false
+    algorithm_keywords: []
+    algorithm_confidence: null
+    escalations: []
+    pending_escalation: null
 ```
 
 ## Step 1.6: Analysis Mode Selection

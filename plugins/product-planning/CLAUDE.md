@@ -780,6 +780,37 @@ When adding new ST template groups:
 | Skip Phase 1 detection | All phases load max skills | Always run Step 1.5c |
 | Hard-depend on skill content in agents | Breaks when dev-skills not installed | Treat as supplementary, never required |
 
+### Deep Reasoning Integration
+
+#### Orchestrator-Level Execution
+- **Pattern**: Deep reasoning escalation runs at the **orchestrator level**, not within coordinators. Coordinators set flags in summaries; the orchestrator decides whether to offer escalation
+- **Workflow**: Orchestrator detects trigger → generates CTCO prompt → presents to user via `AskUserQuestion` → user submits to external model (GPT-5 Pro / Google Deep Think) → user returns response → orchestrator writes to file → re-dispatches coordinator with response as additional context
+- **State tracking**: `state.deep_reasoning` tracks `escalations[]` (completed), `pending_escalation` (in-flight), `algorithm_detected` (Phase 1 scan)
+- **Resume**: On workflow resume, pending escalations are re-presented — user can provide the response or skip
+- **Config**: All flags in `config/planning-config.yaml` under `deep_reasoning_escalation:`, all disabled by default
+- **Reference**: `skills/plan/references/deep-reasoning-dispatch-pattern.md` — canonical 6-step pattern (A-F)
+- **Templates**: `templates/deep-reasoning-templates.md` — 4 CTCO prompt templates with variable sourcing
+
+#### Escalation Types
+
+| Type | Trigger | Phase | Config Flag | Target |
+|------|---------|-------|-------------|--------|
+| `circular_failure` | Gate RED after 2 retries | Any gated | `circular_failure_recovery` | Same phase (re-dispatch) |
+| `architecture_wall` | Phase 6 RED → Phase 4 loop | 6 → 4 | `architecture_wall_breaker` | Phase 4 (re-dispatch) |
+| `security_deep_dive` | 2+ CRITICAL security findings | 6b | `security_deep_dive` | Append to expert-review.md |
+| `algorithm_escalation` | Algorithm keywords in spec | 1 (detect), 4/7 (surface) | `abstract_algorithm_detection` | Detection only; escalation if gate fails |
+
+#### Deep Reasoning Anti-Patterns
+
+| Anti-Pattern | Problem | Solution |
+|--------------|---------|----------|
+| Escalate in Standard/Rapid mode | Added latency not justified | Mode guard: Complete/Advanced only |
+| Escalate for creative tasks | Deep reasoning models produce flat, sterile output | Check anti-pattern list in skill |
+| Auto-escalate without user consent | User must manually submit to external model | Always present via `AskUserQuestion` |
+| Run escalation inside coordinator | Coordinator context pollution | Orchestrator mediates all escalation |
+| Skip pending escalation on resume | User loses work if they already submitted | Check `state.deep_reasoning.pending_escalation` |
+| Escalate before 2 retries | Premature; Claude may succeed on retry | Only trigger after retry limit exhausted |
+
 ---
 
-*Last updated: 2026-02-07 - Added dev-skills integration: subagent-delegated skill loading, tech-stack detection, agent awareness hints*
+*Last updated: 2026-02-12 - Added deep reasoning integration: escalation types, orchestrator-level execution pattern, anti-patterns*
