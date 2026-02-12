@@ -12,6 +12,8 @@ stage_summaries:                 # Paths to coordinator summary files
   "4": null                      # .stage-summaries/stage-4-summary.md
   "5": null                      # .stage-summaries/stage-5-summary.md
 user_decisions:                  # Immutable once set. Valid keys:
+  # NOTE: autonomy_policy is stored in the Stage 1 summary YAML, not here.
+  # It flows through stage summaries to all downstream coordinators.
   # validation_outcome: "passed" | "fixed" | "proceed_anyway" | "stopped"
   # review_outcome: "fixed" | "deferred" | "accepted"
   # documentation_verification: "fixed" | "accepted_incomplete"

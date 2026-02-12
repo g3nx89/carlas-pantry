@@ -399,7 +399,7 @@ This value is consumed by:
 - **Orchestrator** (orchestrator-loop.md): determines behavior on summary validation failure, stage failure, and crash recovery
 - **Stage 2 coordinator**: determines behavior on code simplification test failure (Step 3.5) and UAT findings (Step 3.7)
 - **Stage 3 coordinator**: determines behavior on validation issues (Section 3.4)
-- **Stage 4 coordinator**: overrides the auto-decision matrix (Section 4.4) based on policy
+- **Stage 4 coordinator**: extends the auto-decision matrix (Section 4.4) based on policy
 - **Stage 5 coordinator**: determines behavior on incomplete tasks (Section 5.1)
 
 ## 1.10 Write Stage 1 Summary

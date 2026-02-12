@@ -114,7 +114,7 @@ The orchestrator NEVER touches UAT, mobile-mcp, or Figma. All logic lives in:
 
 - **5 conditional gates**: `uat_execution.enabled` + `uat_mobile_tester.enabled` + `cli_availability.gemini` + `mobile_mcp_available` + phase has UAT specs or UI files — ANY false → silent skip
 - **Fallback is "skip"**: If Gemini unavailable, mobile-mcp unreachable, no emulator, or build fails → UAT silently skipped, native behavior (no UAT) is default
-- **Block on CRITICAL/HIGH**: UAT findings at critical/high severity halt phase progression (status: needs-user-input), user decides: fix now / skip UAT / proceed
+- **Severity gating (policy-aware)**: UAT findings at critical/high severity are handled per autonomy policy — `full_auto`/`balanced` auto-fix or defer, `critical_only` auto-fixes only critical. When no policy applies, falls back to manual escalation (status: needs-user-input). Medium/low findings are always logged as warnings without blocking.
 - **MEDIUM/LOW warn only**: Logged as warnings but do not block phase progression
 - **Evidence stored**: Screenshots saved to `{FEATURE_DIR}/.uat-evidence/{phase_name}/` for traceability
 - **Write boundaries**: Clink agent writes ONLY screenshots to evidence directory; never touches source/test/spec files

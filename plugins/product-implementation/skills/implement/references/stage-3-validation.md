@@ -133,7 +133,7 @@ Read `autonomy_policy` from the Stage 1 summary. Read the policy level definitio
 
 1. Determine the **highest severity** among all validation findings (Critical > High > Medium > Low)
 2. Look up `policy.findings.{highest_severity}` action:
-   - If action is `"fix"`: Auto-fix — launch developer agent to address issues at this severity and above, log: `"[AUTO-{policy}] Validation issues found — auto-fixing {severity}+ findings"`. After fix, re-validate. If re-validation still finds issues at the same or higher severity, log and proceed to quality review (do not loop infinitely).
+   - If action is `"fix"`: Auto-fix — launch developer agent to address issues at this severity and above, log: `"[AUTO-{policy}] Validation issues found — auto-fixing {severity}+ findings"`. After fix, re-validate. If re-validation passes or only lower-severity issues remain, set `validation_outcome: "fixed"`. If re-validation still finds issues at the same or higher severity, set `validation_outcome: "proceed_anyway"`, log, and proceed to quality review (do not loop infinitely).
    - If action is `"defer"`: Log findings, log: `"[AUTO-{policy}] Validation findings deferred — proceeding to quality review"`. Set `validation_outcome: "proceed_anyway"`.
    - If action is `"accept"`: Log: `"[AUTO-{policy}] Validation findings accepted"`. Set `validation_outcome: "proceed_anyway"`.
 3. If no policy set (edge case): fall through to manual escalation below.
