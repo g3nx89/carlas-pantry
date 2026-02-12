@@ -120,6 +120,7 @@ After every checkpoint, verify:
 | After each Q&A batch answer recorded | Yes — save answers immediately |
 | After refinement (2B) completes | Yes — update critique scores |
 | After parallel refinement batch completes (2B.6 parallel) | Yes — single checkpoint after ALL file-based results collected |
+| After auto-resolve gate runs (any stage) | Yes — append auto_resolved_questions, update registry file |
 | After screen sign-off | Yes — full checkpoint (all 5 steps) |
 | Before presenting AskUserQuestion | Yes — ensures state survives if user abandons session |
 | After stage transition (2→3, 3→4, 4→5) | Yes — update `current_stage` |

@@ -11,7 +11,7 @@ description: >-
   Produces UX-NARRATIVE.md with per-screen purpose, elements, behaviors,
   states, navigation, and animations — filling the gaps that static
   mockups cannot communicate.
-version: 1.6.1
+version: 1.8.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__pal__consensus", "mcp__pal__clink"]
 ---
 
@@ -31,6 +31,8 @@ Transform Figma Desktop mockups into a detailed UX/interaction narrative documen
 - **MPA validation**: Three specialist agents (implementability, UX completeness, edge cases) evaluate independently in parallel. A synthesis agent merges findings with randomized read order and source-dominance bias checks.
 - **File-based handoff**: Batch mode writes per-screen results to disk rather than passing them through context, preventing overflow with large screen sets.
 - **Coordinator isolation**: Stage coordinators never interact with users directly — the orchestrator mediates all prompts and answer routing, keeping user experience consistent.
+- **Auto-resolve gate**: Before presenting questions to users, an auto-resolve protocol checks if answers are already available in input documents, prior Q&A, or accumulated patterns. Only unresolved questions reach the user, with a registry tracking all auto-resolutions for transparency.
+- **Clink model quality control**: External CLI dispatches (Gemini, Codex) specify exact model names to prevent auto-routing to lightweight models, and include step-by-step reasoning instructions for complex multi-document analysis.
 
 ---
 
@@ -97,6 +99,7 @@ $ARGUMENTS
                                 |
 +-------------------------------v-----------------------------------+
 |  Stage 5 (Inline): OUTPUT                                          |
+|  Auto-select: single-file (<threshold) or multi-file (≥threshold)  |
 |  Assemble UX-NARRATIVE.md from screens + patterns + validation     |
 +-------------------------------------------------------------------+
 ```
@@ -112,7 +115,7 @@ $ARGUMENTS
 | 2-BATCH | Batch Processing | Coordinator (cycle loop) | `references/batch-processing.md` | Yes (per cycle) |
 | 3 | Coherence Check | Coordinator | `references/coherence-protocol.md` | Yes (inconsistencies) |
 | 4 | Validation | Coordinator | `references/validation-protocol.md` | Yes (critical findings) |
-| 5 | Output | **Inline** | `references/output-assembly.md` | No |
+| 5 | Output | **Inline** | `references/output-assembly.md` | No (mode auto-detected) |
 
 ---
 
@@ -212,17 +215,19 @@ Three specialist perspectives catch blind spots that a single reviewer would mis
 
 ## Stage 5 — Output Assembly
 
-Consolidate all per-screen narratives, coherence fixes, and validation findings into a single deliverable document that downstream skills (specification, implementation) consume.
+Consolidate all per-screen narratives, coherence fixes, and validation findings into a deliverable document that downstream skills (specification, implementation) consume.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/output-assembly.md`
 
-Assemble `UX-NARRATIVE.md` from per-screen narratives, coherence patterns, validation results, and decision audit trail. Use template `@$CLAUDE_PLUGIN_ROOT/templates/ux-narrative-template.md`.
+Supports two output modes (auto-selected based on screen count vs `output.progressive_disclosure.screen_threshold` in config):
+- **Single-file** (default for <8 screens): Monolithic `UX-NARRATIVE.md` with all screen narratives inline. Uses template `@$CLAUDE_PLUGIN_ROOT/templates/ux-narrative-template.md`.
+- **Multi-file** (auto for ≥8 screens): Compact `UX-NARRATIVE.md` index with screen inventory table + links. Per-screen files in `screens/` enhanced with navigation headers. Uses template `@$CLAUDE_PLUGIN_ROOT/templates/ux-narrative-index-template.md`.
 
 ---
 
 ## State Management
 
-**State file:** `design-narration/.narration-state.local.md` | **Schema version:** 2
+**State file:** `design-narration/.narration-state.local.md` | **Schema version:** 3
 
 **Full schema and initialization template:** `@$CLAUDE_PLUGIN_ROOT/skills/design-narration/references/state-schema.md`
 
@@ -246,7 +251,7 @@ Key principles:
 | `narration-edge-case-auditor` | 4 | sonnet | MPA: unusual conditions |
 | `narration-validation-synthesis` | 4 | opus | Merge MPA + PAL, prioritize fixes |
 
-**Key output artifacts:** `UX-NARRATIVE.md` (final), `screens/{nodeId}-{name}.md` (per-screen), `coherence-report.md`, `validation/synthesis.md`. For complete artifact listing, see each stage reference file's `artifacts_written` frontmatter.
+**Key output artifacts:** `UX-NARRATIVE.md` (final — monolithic or index depending on output mode), `screens/{nodeId}-{name}.md` (per-screen), `coherence-report.md`, `validation/synthesis.md`, `decision-log.md` (multi-file mode only). For complete artifact listing, see each stage reference file's `artifacts_written` frontmatter.
 
 ---
 
@@ -260,12 +265,13 @@ Key principles:
 | `references/coherence-protocol.md` | Cross-screen auditor dispatch, mermaid diagrams | Stage 3 execution |
 | `references/validation-protocol.md` | MPA + PAL dispatch, synthesis, findings | Stage 4 execution |
 | `references/critique-rubric.md` | 5-dimension self-critique rubric | Passed to screen analyzer |
-| `references/output-assembly.md` | Stage 5: final document assembly steps | Stage 5 execution |
+| `references/output-assembly.md` | Stage 5: final document assembly steps (single-file + multi-file pathways) | Stage 5 execution |
 | `references/state-schema.md` | State file YAML schema, initialization template | State creation, crash recovery |
 | `references/recovery-protocol.md` | Crash detection and recovery procedures | Skill re-invocation with incomplete state |
 | `references/error-handling.md` | Error taxonomy, logging format, per-stage error tables | Any error path — shared by all stages |
 | `references/checkpoint-protocol.md` | State update sequence, lock refresh, decision append | Every screen sign-off and stage transition |
 | `references/implementability-rubric.md` | Shared 5-dimension implementability rubric | Stage 4 (consumed by agent + clink prompt) |
+| `references/auto-resolve-protocol.md` | Auto-resolution gate: filters questions with existing answers | Before any user-facing question presentation (Stages 2, 2-BATCH, 3, 4) |
 | `references/README.md` | File index, sizes, cross-references | Orientation |
 
 ---

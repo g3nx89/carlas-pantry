@@ -11,7 +11,7 @@ artifacts_written:
 
 ## CRITICAL RULES (must follow)
 
-1. **Schema version required**: Always include `schema_version: 2` in frontmatter.
+1. **Schema version required**: Always include `schema_version: 3` in frontmatter.
 2. **Decisions are append-only**: Never overwrite a decision — append revision records with `revises` pointer.
 3. **Checkpoint before interaction**: Update state BEFORE presenting any AskUserQuestion to the user.
 
@@ -20,7 +20,7 @@ artifacts_written:
 ## Top-Level Fields
 
 ```yaml
-schema_version: 2
+schema_version: 3
 current_stage: 1-5
 workflow_mode: interactive | batch   # v2: "interactive" (default, one-at-a-time) or "batch" (all screens per cycle)
 screens_completed: 0
@@ -123,6 +123,29 @@ validation:
   quality_score: 0
   recommendation: ready | needs-revision
   pal_status: completed | partial | skipped
+
+output:
+  mode: null                        # "single-file" | "multi-file" | null (set in Stage 5, Step 5.0c)
+```
+
+---
+
+## Auto-Resolved Questions (v3)
+
+Questions automatically answered by the auto-resolve protocol (see `references/auto-resolve-protocol.md`).
+Append-only — entries are never modified or removed.
+
+```yaml
+auto_resolved_questions:
+  - id: "auto-001"
+    stage: "2"
+    screen: "CartScreen"
+    question: "Empty state behavior?"
+    answer: "Show illustration with CTA"
+    rationale: "PRD Section 3.2 specifies empty state pattern"
+    source_type: "context_document"
+    source_ref: "Section 3.2"
+    timestamp: "{ISO}"
 ```
 
 ---
@@ -174,7 +197,7 @@ When creating a new state file:
 
 ```yaml
 ---
-schema_version: 2
+schema_version: 3
 current_stage: 2
 workflow_mode: interactive    # Set to "batch" when --batch flag is used
 screens_completed: 0
@@ -186,6 +209,7 @@ patterns:
   naming_conventions: []
   interaction_patterns: []
 decisions_audit_trail: []
+auto_resolved_questions: []
 coherence:
   status: pending
   inconsistencies_found: 0
@@ -196,6 +220,8 @@ validation:
   quality_score: 0
   recommendation: null
   pal_status: null
+output:
+  mode: null
 # batch_mode: (added only when workflow_mode == "batch" — see Batch Mode State section)
 ---
 ```
@@ -219,6 +245,11 @@ IF state.schema_version < config.schema_version:
         SET schema_version: 2
         # Note: batch_mode section is NOT added during migration
         # (only created when workflow starts in batch mode)
+
+    # v2 → v3: Add auto_resolved_questions
+    IF state.schema_version == 2:
+        ADD top-level field: auto_resolved_questions: []  (append-only list, starts empty)
+        SET schema_version: 3
 
     NOTIFY user: "State file migrated from schema v{old} to v{new}."
 ```

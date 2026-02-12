@@ -1,307 +1,135 @@
-# Test Plan: {FEATURE_NAME}
+# Test Strategy: {FEATURE_NAME}
 
-> **V-Model Test Strategy**
+> **V-Model Test Strategy — Specification Phase**
 > **Feature ID:** {FEATURE_ID}
 > **Spec Version:** {SPEC_VERSION}
 > **Created:** {DATE}
-> **QA Strategist:** Agent-generated
 
 ---
 
-## Executive Summary
+## Summary
 
 | Metric | Value |
 |--------|-------|
-| **Total Tests Planned** | {N} |
-| **Unit Tests** | {N} (Inner Loop - TDD) |
-| **Integration Tests** | {N} (Inner Loop - CI) |
-| **E2E Tests** | {N} (Outer Loop - Manual/Agentic) |
-| **Visual Tests** | {N} (Outer Loop - Design Compliance) |
-| **AC Coverage** | {N}/{Total} ({%}) |
-| **Risk Areas** | {N} Critical, {N} High, {N} Medium |
+| **Acceptance Criteria** | {N} total |
+| **Testable ACs** | {N} ({%}) |
+| **ACs Needing Revision** | {N} |
+| **Risk Areas** | {N} critical, {N} high, {N} medium |
+| **Critical User Journeys** | {N} |
+| **Edge Cases Identified** | {N} |
 
 ---
 
 ## 1. Risk Assessment
 
-> Failure modes identified BEFORE test definition.
+> Failure modes identified from the specification, ordered by severity.
 
-### 1.1 Failure Point Analysis
-
-| Risk Area | Severity | Component | Test Mitigation |
-|-----------|----------|-----------|-----------------|
-| {Network failure} | {High/Medium/Low} | {Component} | {Test IDs} |
-| {Permission denial} | {Severity} | {Component} | {Test IDs} |
-| {Empty state handling} | {Severity} | {Component} | {Test IDs} |
-| {Process death} | {Severity} | {Component} | {Test IDs} |
-| {Configuration changes} | {Severity} | {Component} | {Test IDs} |
-
-### 1.2 Critical User Flows
-
-**Primary Flow**: {Description of most common user journey}
-- Entry: {Starting point}
-- Actions: {Key action sequence}
-- Success: {End state}
-- Tests: {E2E-xxx, E2E-xxx}
-
-**Secondary Flows**: {Important alternative paths}
-- {Flow description → Test IDs}
-
-**Error Recovery**: {How users recover from failures}
-- {Recovery path → Test IDs}
+| Risk Area | Severity | Affected Requirements | Mitigation Approach |
+|-----------|----------|----------------------|---------------------|
+| {Risk area} | Critical / High / Medium | {US-xxx, AC-xxx} | {How tests should address this} |
 
 ---
 
-## 2. Unit Tests (TDD - Inner Loop)
+## 2. Testability Verification
 
-> **Executor:** Build tool (`gradle testDebugUnitTest`, `npm test`, `pytest`)
-> **Pattern:** Write test BEFORE implementation (TDD)
-> **Characteristics:** Fast, isolated, deterministic, no external dependencies
+> Every acceptance criterion checked for testability.
 
-### 2.1 ViewModel/Controller Tests
+| AC ID | Description | Testable? | Test Level | Notes |
+|-------|-------------|-----------|------------|-------|
+| {AC-001} | {Description} | YES / NEEDS_REVISION | Unit / Integration / E2E / Visual | {Why not testable, revision suggestion} |
 
-| ID | Component | Scenario | Expected Result | AC Ref |
-|----|-----------|----------|-----------------|--------|
-| UT-001 | {ViewModel} | {Initial state scenario} | {Expected state} | AC-{N} |
-| UT-002 | {ViewModel} | {User action scenario} | {State change} | AC-{N} |
-| UT-003 | {ViewModel} | {Error handling scenario} | {Error state} | AC-{N} |
+### Non-Testable ACs (Requires Spec Revision)
 
-### 2.2 UseCase/Business Logic Tests
-
-| ID | Component | Scenario | Expected Result | AC Ref |
-|----|-----------|----------|-----------------|--------|
-| UT-010 | {UseCase} | {Happy path} | {Expected result} | AC-{N} |
-| UT-011 | {UseCase} | {Edge case} | {Expected handling} | AC-{N} |
-
-### 2.3 Repository Tests (with Mocks)
-
-| ID | Component | Scenario | Expected Result | AC Ref |
-|----|-----------|----------|-----------------|--------|
-| UT-020 | {Repository} | {Data fetch success} | {Returns data} | AC-{N} |
-| UT-021 | {Repository} | {Network error} | {Throws exception} | AC-{N} |
-
-### 2.4 Edge Cases (MANDATORY Unit Tests)
-
-- [ ] Handle null/empty API responses
-- [ ] Handle malformed data gracefully
-- [ ] Handle boundary values (min/max)
-- [ ] Handle special characters in input
-- [ ] Handle concurrent state updates
-- [ ] Handle process death state restoration
-- [ ] Handle configuration changes (rotation)
+{List any ACs flagged as NEEDS_REVISION with specific revision suggestions}
 
 ---
 
-## 3. Integration Tests (Inner Loop)
+## 3. Test Level Guidance
 
-> **Executor:** Instrumented test task (`gradle connectedDebugAndroidTest`, integration test suite)
-> **Focus:** Component interaction with real dependencies
-> **Characteristics:** Slower than unit, uses real database/navigation
+> How requirements map to test levels. Individual tests are defined during planning phase.
 
-### 3.1 Component Boundary Tests
+### Unit Test Targets
 
-| ID | Components | Scenario | Assertion |
-|----|------------|----------|-----------|
-| INT-001 | {ViewModel + Repository} | {Data flow scenario} | {State persisted correctly} |
-| INT-002 | {Screen + Navigation} | {Navigation scenario} | {Correct destination reached} |
-| INT-003 | {Repository + Database} | {Persistence scenario} | {Data survives restart} |
+Areas requiring unit test coverage (pure logic, no external dependencies):
+- {Category 1 — e.g., input validation rules}
+- {Category 2 — e.g., business calculation logic}
+- {Category 3 — e.g., state transformation rules}
 
-### 3.2 State Persistence Tests
+### Integration Test Targets
 
-| ID | Components | Scenario | Assertion |
-|----|------------|----------|-----------|
-| INT-010 | {State + Storage} | {Process death simulation} | {State restored correctly} |
-| INT-011 | {Cache + Network} | {Offline → Online transition} | {Sync completes} |
+Component boundaries requiring integration coverage:
+- {Boundary 1 — e.g., data persistence across sessions}
+- {Boundary 2 — e.g., authentication flow end-to-end}
 
----
+### E2E Test Targets
 
-## 4. E2E Tests (Acceptance - Outer Loop)
+Full user journeys requiring end-to-end coverage:
+- {Journey 1 — primary happy path}
+- {Journey 2 — critical alternative path}
+- {Journey 3 — error recovery path}
 
-> **Executor:** QA agent, manual tester, or automation framework
-> **Evidence:** Screenshot REQUIRED for each checkpoint
-> **Characteristics:** Full user journey, real device/emulator
+### Visual Test Targets
 
-### 4.1 Happy Path Tests
+> Omit this section for non-UI features (APIs, backend services, CLIs).
 
-| ID | Scenario | Pre-conditions | Steps | Expected Outcome | Visual Oracle |
-|----|----------|----------------|-------|------------------|---------------|
-| E2E-001 | {Primary flow name} | {Setup required} | 1. {Step 1}<br>2. {Step 2}<br>3. {Step 3} | {Success state} | {Figma URL or design-brief ref} |
-| E2E-002 | {Secondary flow name} | {Setup required} | 1. {Step 1}<br>2. {Step 2} | {Success state} | {Visual ref} |
-
-### 4.2 Error Handling Tests
-
-| ID | Scenario | Pre-conditions | Steps | Expected Outcome | Visual Oracle |
-|----|----------|----------------|-------|------------------|---------------|
-| E2E-010 | {Invalid input scenario} | {Setup} | {Steps} | {Error message shown} | {Visual ref} |
-| E2E-011 | {Network error scenario} | No network | {Steps} | {Offline error shown} | {Visual ref} |
-
-### 4.3 Edge Case Tests
-
-| ID | Scenario | Pre-conditions | Steps | Expected Outcome | Visual Oracle |
-|----|----------|----------------|-------|------------------|---------------|
-| E2E-020 | {Boundary condition} | {Setup} | {Steps} | {Expected handling} | {Visual ref} |
-| E2E-021 | {Concurrent action} | {Setup} | {Steps} | {No race condition} | {Visual ref} |
+Screens and states requiring visual regression coverage:
+- {Screen 1 — states: default, loading, error, empty}
+- {Screen 2 — states: default, selected, disabled}
 
 ---
 
-## 5. Visual Regression Tests
+## 4. Critical User Journeys
 
-> **Executor:** Visual diff tool, PAL Consensus, or manual design review
-> **Tolerance:** Strict (< 1% difference) unless animation/dynamic content
-> **Source of Truth:** Figma designs or design-brief.md
+> The 3-5 most important user flows (or API/workflow sequences for non-UI features) that MUST work for acceptance.
 
-### 5.1 Screen State Matrix
+### Journey 1: {Primary Flow Name}
 
-| ID | Screen | State | Reference | Tolerance | Notes |
-|----|--------|-------|-----------|-----------|-------|
-| VIS-001 | {ScreenName} | Default | {Figma URL / design-brief section} | Strict | |
-| VIS-002 | {ScreenName} | Loading | {Reference} | Flexible | Animation |
-| VIS-003 | {ScreenName} | Error | {Reference} | Strict | |
-| VIS-004 | {ScreenName} | Empty | {Reference} | Strict | |
-| VIS-005 | {ScreenName} | Success | {Reference} | Strict | |
+**Priority:** Primary (must pass for release)
+**Entry:** {Starting point}
+**Actions:** {Key action sequence}
+**Success:** {End state / observable outcome}
+**ACs Exercised:** {AC-xxx, AC-xxx}
 
-### 5.2 Visual Oracle Inventory
+### Journey 2: {Secondary Flow Name}
 
-| Screen | States Documented | Visual References | Gaps |
-|--------|-------------------|-------------------|------|
-| {Screen 1} | {N} states | {All/Partial/None} | {Missing states} |
-| {Screen 2} | {N} states | {All/Partial/None} | {Missing states} |
+**Priority:** Secondary
+**Entry:** {Starting point}
+**Actions:** {Key action sequence}
+**Success:** {End state}
+**ACs Exercised:** {AC-xxx}
 
----
+### Journey 3: {Error Recovery Flow}
 
-## 6. AC → Test Traceability Matrix
-
-> Proves EVERY acceptance criterion has test coverage.
-
-| AC ID | AC Description | Unit | Integration | E2E | Visual | Status |
-|-------|----------------|------|-------------|-----|--------|--------|
-| AC-001 | {Description} | UT-001 | - | E2E-001 | VIS-001 | COVERED |
-| AC-002 | {Description} | UT-002 | INT-001 | E2E-001 | - | COVERED |
-| AC-003 | {Description} | UT-003 | - | E2E-010 | VIS-003 | COVERED |
-| AC-004 | {Description} | - | - | - | - | **GAP** |
-
-### Coverage Summary
-
-| Metric | Count | Percentage |
-|--------|-------|------------|
-| Total Acceptance Criteria | {N} | 100% |
-| ACs with Unit Test coverage | {N} | {%} |
-| ACs with Integration Test coverage | {N} | {%} |
-| ACs with E2E Test coverage | {N} | {%} |
-| ACs with Visual Test coverage | {N} | {%} |
-| **ACs without ANY coverage** | {N} | {%} |
-
-### Coverage Gaps (MUST be addressed)
-
-{List any ACs without test coverage and recommended tests}
+**Priority:** Error recovery
+**Entry:** {Failure state}
+**Actions:** {Recovery action sequence}
+**Success:** {Restored state}
+**ACs Exercised:** {AC-xxx}
 
 ---
 
-## 7. Test Execution Order
+## 5. Edge Case Coverage
 
-> TDD-compliant execution sequence.
+> Edge cases identified from specification analysis and MPA reports.
 
-### Phase 1: Pre-Implementation (TDD)
-
-**Goal:** Write failing tests BEFORE writing any implementation code.
-
-```
-[ ] Write UT-001 through UT-{N} (ViewModels)
-[ ] Write UT-010 through UT-{N} (UseCases)
-[ ] Write UT-020 through UT-{N} (Repositories)
-[ ] Verify ALL unit tests FAIL (no implementation yet)
-```
-
-### Phase 2: During Implementation
-
-**Goal:** Implement components and verify unit tests pass.
-
-```
-[ ] Implement {Component 1} → Run UT-001, UT-002 → Should PASS
-[ ] Implement {Component 2} → Run UT-010, UT-011 → Should PASS
-[ ] Implement {Component 3} → Run UT-020, UT-021 → Should PASS
-```
-
-### Phase 3: Post-Implementation
-
-**Goal:** Verify component integration works correctly.
-
-```
-[ ] Run INT-001 through INT-{N}
-[ ] Verify all integration tests PASS
-[ ] Fix any integration issues
-```
-
-### Phase 4: Acceptance Testing
-
-**Goal:** Execute full user journeys with evidence.
-
-```
-[ ] Execute E2E-001 (Primary flow) - Capture screenshots
-[ ] Execute E2E-002 through E2E-{N} - Capture screenshots
-[ ] Document any failures with reproduction steps
-```
-
-### Phase 5: Visual Approval
-
-**Goal:** Verify UI matches design specifications.
-
-```
-[ ] Compare VIS-001 through VIS-{N} against Figma oracles
-[ ] Document any visual deviations
-[ ] Get design sign-off on acceptable differences
-```
+| Edge Case | Severity | Source | Test Level |
+|-----------|----------|--------|------------|
+| {Edge case description} | Critical / High / Medium | Spec / MPA | Unit / Integration / E2E |
 
 ---
 
-## 8. Edge Cases from MPA Analysis
+## 6. Deferred to Planning Phase
 
-> Edge cases injected from MPA-EdgeCases phase (if available).
+> These items require architectural decisions before test definitions can be created.
 
-| MPA ID | Edge Case | Severity | Converted To Test |
-|--------|-----------|----------|-------------------|
-| EC-001 | {Edge case description} | CRITICAL | E2E-020, UT-030 |
-| EC-002 | {Edge case description} | HIGH | INT-015 |
-| EC-003 | {Edge case description} | MEDIUM | UT-031 |
-
----
-
-## 9. Quality Gates Compliance
-
-> How tests verify specification quality requirements.
-
-| Quality Gate | Test Coverage | Tests |
-|--------------|---------------|-------|
-| Testability (AC have tests) | {%} coverage | All UT-*, INT-*, E2E-* |
-| Edge Cases Documented | {N} edge cases | E2E-020+, UT-030+ |
-| Visual Compliance | {N} states | VIS-* |
-| Error Handling | {N} error scenarios | E2E-010+, UT-*error* |
+| Item | Reason | Prerequisite |
+|------|--------|-------------|
+| Individual test IDs | Requires component architecture | Planning phase: architecture design |
+| Unit test specifics | Requires class/module structure | Planning phase: technical design |
+| Integration test boundaries | Requires dependency graph | Planning phase: component design |
+| Visual regression baselines | Requires implemented UI | Implementation phase: UI completion |
+| E2E test scripts | Requires navigation architecture | Planning phase: flow design |
 
 ---
 
-## Self-Critique Summary
-
-### Test Plan Quality Check
-
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| All ACs have tests? | {PASS/FAIL} | {AC count} with coverage |
-| Risk areas covered? | {PASS/FAIL} | {N} risk mitigations |
-| Visual oracles complete? | {PASS/FAIL} | {N}/{M} states documented |
-| Edge cases documented? | {PASS/FAIL} | {N} edge case tests |
-| TDD order specified? | {PASS/FAIL} | 5-phase execution plan |
-
-### Gaps to Address Before Implementation
-
-{List any identified gaps or concerns}
-
----
-
-## Approval
-
-| Role | Name | Date | Approved |
-|------|------|------|----------|
-| QA Strategist Agent | | {DATE} | [x] Generated |
-| Product Owner | | | [ ] |
-| Tech Lead | | | [ ] |
-| QA Lead | | | [ ] |
+*Generated by `/sdd:01-specify` test strategy analysis. Individual tests will be defined during `/sdd:02-plan`.*

@@ -26,9 +26,13 @@ artifacts_written:
 READ config: validation.mpa.clink_implementability.enabled
 READ config: validation.mpa.clink_implementability.cli_name
 READ config: validation.mpa.clink_implementability.timeout_seconds
+READ config: validation.mpa.clink_implementability.model_hint
+READ config: validation.mpa.clink_implementability.use_thinking
 SET clink_implementability_enabled = validation.mpa.clink_implementability.enabled
 SET clink_cli_name = validation.mpa.clink_implementability.cli_name
 SET clink_timeout = validation.mpa.clink_implementability.timeout_seconds
+SET clink_model_hint = validation.mpa.clink_implementability.model_hint
+SET clink_use_thinking = validation.mpa.clink_implementability.use_thinking
 
 ## Step 4.1: MPA Agent Dispatch (Parallel)
 
@@ -51,11 +55,19 @@ IF clink_implementability_enabled AND clink_available:
 
     mcp__pal__clink(
         cli_name: "{clink_cli_name}",  # "codex" from config
+        model: "{clink_model_hint}",   # null = CLI default; set in config to override
         absolute_file_paths: narrative_paths,
         prompt: |
             You are a senior front-end engineer with expertise in mobile development
             (React Native, Flutter, SwiftUI) evaluating implementation readiness
             of UX screen narratives. You have been given screen narrative files.
+
+            ## Reasoning Instructions
+
+            This is a complex multi-screen evaluation task. Think step by step.
+            For each screen, systematically evaluate all 5 dimensions before scoring.
+            For each dimension score below 4, explicitly state what is missing and why
+            a developer would be blocked or need to guess.
 
             ## Your Task
 
@@ -183,6 +195,10 @@ ELSE:
     You MUST NOT interact with users directly. Write all output to files.
 
     Read and execute: @$CLAUDE_PLUGIN_ROOT/agents/narration-developer-implementability.md
+
+    ## Reasoning
+    For complex multi-screen evaluation, use `mcp__sequential-thinking__sequentialthinking` if available
+    to systematically evaluate each screen across all 5 dimensions before writing scores.
 
     ## Input
     - Screens directory: design-narration/screens/
@@ -501,13 +517,41 @@ Followed by:
 
 ---
 
-## Orchestrator: Handle Findings
+## Orchestrator: Auto-Resolve Gate (Critical Findings)
+
+Before presenting critical findings to user, run the auto-resolve gate to filter out
+findings where the answer already exists in context documents or prior decisions.
+See `references/auto-resolve-protocol.md` for full logic.
 
 ```
 READ synthesis.md
 
 IF critical_findings > 0:
-    FOR each critical finding (batch of up to {maieutic_questions.max_per_batch}):
+    # Convert critical findings to question format for auto-resolve gate
+    SET pending_questions = []
+    FOR each critical finding:
+        CONVERT to question: "[CRITICAL] {FINDING_DESCRIPTION} — Screen: {SCREEN_NAME}"
+        SET options: [suggested_fix, skip, discuss]
+        APPEND to pending_questions
+
+    # Run auto-resolve gate (per references/auto-resolve-protocol.md)
+    RUN auto-resolve gate on pending_questions
+    SET user_findings = returned user_questions[]
+    SET auto_resolved_count = critical_findings - len(user_findings)
+
+    IF auto_resolved_count > 0:
+        NOTIFY user: "{auto_resolved_count} critical finding(s) auto-resolved from prior answers/context."
+```
+
+---
+
+## Orchestrator: Handle Findings
+
+```
+READ synthesis.md
+
+IF len(user_findings) > 0:  # Only user-facing critical findings after auto-resolve
+    FOR each finding in user_findings (batch of up to {maieutic_questions.max_per_batch}):
         PRESENT via AskUserQuestion:
             question: "[CRITICAL] {FINDING_DESCRIPTION}
             Screen: {SCREEN_NAME}

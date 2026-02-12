@@ -1,332 +1,235 @@
-# Clarification Protocol
+# Clarification Protocol — File-Based
 
-> Migrated from `specify-clarification` sub-skill (v1.0.0) on 2026-02-11.
-> Dispatched as a subagent by the Stage 4 coordinator.
+> Migrated from interactive AskUserQuestion batching (v1.0) to file-based flow (v2.0).
+> Dispatched by the Stage 4 coordinator. All questions written to a single file;
+> user edits offline; workflow resumes on re-invocation.
 
 ### Expected Context
 
 | Variable | Source | Description |
 |----------|--------|-------------|
 | `FEATURE_DIR` | Stage 1 (Step 1.7) | Path to feature directory |
+| `FEATURE_NAME` | Stage 1 | Human-readable feature name |
 | `SPEC_FILE` | Stage 2 output | Path to `spec.md` |
 | `CHECKLIST_FILE` | Stage 3 output | Path to `spec-checklist.md` |
 | `STATE_FILE` | Stage 1 (Step 1.10) | Path to `.specify-state.local.md` |
+| `INPUT_DOCUMENT_PATHS` | Stage 2 checkpoint | Paths to input documents for auto-resolve |
 
 ---
 
-## Batching Rules
+## Configuration Reference
 
-### Configuration Reference (P7)
-
-**Load limits from:** `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
+**Load from:** `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
 
 | Setting | Config Path | Default |
 |---------|-------------|---------|
-| Questions per batch | `limits.questions_per_batch` | 4 (API limit) |
-| Max clarification iterations | `limits.clarification_iterations_max` | **null** (no limit) |
-| Max clarification markers | `limits.clarification_markers_max` | **null** (no limit) |
-| Max clarification questions | `limits.max_clarification_questions` | **null** (no limit) |
-| Max clarification batches | `limits.max_clarification_batches` | **null** (no limit) |
-
-### Core Constraints
-
-- AskUserQuestion supports **MAX 4 questions** per invocation (API constraint - cannot change)
-- If > 4 questions: batch in groups, save after EACH batch
-- Track: `current_batch`, `total_batches`, `questions_answered`
-- **NO LIMIT on total questions** - ask everything needed for complete spec
-- **NO LIMIT on iterations** - continue until all clarifications resolved
-
-### Batching Algorithm
-
-```
-total_questions = count(identified_clarifications)
-batch_size = 4
-total_batches = ceil(total_questions / batch_size)
-
-for batch_num in 1..total_batches:
-    start_idx = (batch_num - 1) * batch_size
-    end_idx = min(start_idx + batch_size, total_questions)
-    batch_questions = questions[start_idx:end_idx]
-
-    present_batch(batch_questions)
-    save_responses_to_state()  # IMMEDIATELY after each batch
-```
+| Clarification mode | `clarification.mode` | `file_based` |
+| Auto-resolve enabled | `clarification.auto_resolve.enabled` | `true` |
+| Auto-resolve confidence | `clarification.auto_resolve.confidence_required` | `high` |
+| Auto-resolve sources | `clarification.auto_resolve.sources` | `[input_documents, prior_decisions, spec_content]` |
+| Registry file | `clarification.auto_resolve.registry_file` | `clarification-report.md` |
 
 ---
 
 ## BA Recommendation Pattern (MANDATORY)
 
-For **EVERY** question, the first option MUST be BA-recommended:
+For **EVERY** question, the coordinator MUST generate a BA recommendation:
 
-### Format
+### Format (in question file)
 
-```json
-{
-  "question": "{clear question ending with ?}",
-  "header": "{max 12 chars}",
-  "options": [
-    {
-      "label": "{BA choice} (Recommended)",
-      "description": "BA Rationale: {why this is recommended based on industry best practices, project context, or technical constraints}"
-    },
-    {
-      "label": "{alternative 1}",
-      "description": "{trade-offs and implications of this choice}"
-    },
-    {
-      "label": "{alternative 2}",
-      "description": "{when this might be appropriate}"
-    }
-  ],
-  "multiSelect": false
-}
+```markdown
+### Q-{NNN}: {clear question title}
+**Source**: {checklist_gap | edge_case | triangulation}  |  **Severity**: {CRITICAL | HIGH | MEDIUM}
+**Context**: {1-2 sentences on why this matters}
+**Recommendation**: {BA recommended answer with rationale}
+**Options**:
+1. {BA choice} (Recommended)
+2. {Alternative 1}: {trade-offs}
+3. {Alternative 2}: {when appropriate}
+
+**Your answer** (leave blank to accept recommendation):
 ```
 
 ### Example
 
-```json
-{
-  "question": "How should the app handle network errors during form submission?",
-  "header": "Error",
-  "options": [
-    {
-      "label": "Exponential backoff with retry (Recommended)",
-      "description": "BA Rationale: Industry standard for mobile. Reduces server load during outages while providing user feedback."
-    },
-    {
-      "label": "Immediate retry with limit",
-      "description": "Faster recovery but may overwhelm server. Good for low-latency requirements."
-    },
-    {
-      "label": "Show error and manual retry",
-      "description": "Simplest implementation. Gives user full control but may frustrate during intermittent issues."
-    }
-  ],
-  "multiSelect": false
-}
+```markdown
+### Q-015: How should the app handle network errors during form submission?
+**Source**: edge_case  |  **Severity**: HIGH
+**Context**: Forms collect user data that could be lost on network failure.
+**Recommendation**: Exponential backoff with retry. Reduces server load during
+  outages while providing user feedback.
+**Options**:
+1. Exponential backoff with retry (Recommended)
+2. Immediate retry with limit: Faster recovery but may overwhelm server
+3. Show error and manual retry: Simplest but may frustrate users
+
+**Your answer** (leave blank to accept recommendation):
 ```
 
 ---
 
-## Custom Response Handling ("Other" Option)
+## Question File Format
 
-AskUserQuestion automatically adds "Other" option to all questions.
+**File path:** `specs/{FEATURE_DIR}/clarification-questions.md`
 
-### Detection
+```markdown
+---
+feature: "{FEATURE_NAME}"
+total_questions: {N}
+auto_resolved: {N}
+requires_user: {N}
+generated: "{ISO_TIMESTAMP}"
+status: pending  # pending | answered
+---
+
+# Clarification Questions: {FEATURE_NAME}
+
+> Fill in answers below. Leave blank to accept BA recommendation.
+> When done, re-run `/feature-specify` to continue.
+
+---
+
+## Auto-Resolved (for your review)
+
+> These questions were answered from your input documents. Override by writing
+> a different answer in the override field.
+
+### Q-001: {title} [AUTO-RESOLVED]
+**Source**: {source}  |  **Severity**: {severity}
+**Answer**: {auto-resolved answer}
+**Citation**: {document}: "{exact quote}" (section X.Y)
+> Override (leave blank to keep auto-answer): ___
+
+{... more auto-resolved questions ...}
+
+---
+
+## Requires Your Input
+
+### Q-{NNN}: {title}
+**Source**: {source}  |  **Severity**: {severity}
+**Context**: {why this matters}
+**Recommendation**: {BA recommended answer with rationale}
+**Options**:
+1. {Option 1} (Recommended)
+2. {Option 2}: {trade-offs}
+3. {Option 3}: {when appropriate}
+
+**Your answer** (leave blank to accept recommendation):
+
+{... more questions requiring user input ...}
+```
+
+---
+
+## Answer Parsing Rules
+
+When the workflow resumes after user edits:
+
+### Parsing Logic
 
 ```
-IF user_response.selected_option == "other" OR user_response contains free text:
-  RESPONSE_TYPE = "custom"
-  CUSTOM_TEXT = user_response.text
+READ clarification-questions.md
+
+FOR each question Q:
+
+    IF Q is AUTO-RESOLVED:
+        IF override field is non-empty and differs from auto-answer:
+            answer = override text
+            response_type = "user_override"
+            user_chose_recommended = false
+        ELSE:
+            answer = auto-resolved answer
+            response_type = "auto_resolved"
+            user_chose_recommended = N/A
+
+    IF Q is REQUIRES_USER:
+        IF "Your answer" field is non-empty:
+            answer = user's text
+            response_type = "custom"
+            # Check if answer matches recommendation
+            IF answer matches option 1 text OR is blank:
+                user_chose_recommended = true
+            ELSE:
+                user_chose_recommended = false
+        ELSE (blank):
+            answer = recommendation text
+            response_type = "accepted_recommendation"
+            user_chose_recommended = true
 ```
 
 ### Validation
 
 ```
-IF RESPONSE_TYPE == "custom":
-  IF CUSTOM_TEXT is empty OR whitespace only:
-    -> Retry question: "Please provide a valid custom response"
+IF any CRITICAL severity question has no answer AND no recommendation:
+    FLAG as incomplete — notify user
 
-  IF CUSTOM_TEXT length > 500:
-    -> Truncate and confirm: "Your response was truncated to 500 chars. Confirm?"
+COUNT answered = auto_resolved + user_answered + accepted_recommendations
+IF answered < total_questions:
+    WARN: "{N} questions unanswered — using recommendations for blank entries"
 ```
-
-### State Storage for Custom Responses
-
-```yaml
-user_decisions:
-  clarifications:
-    - question: "{question_text}"
-      answer: "{CUSTOM_TEXT}"
-      response_type: "custom"  # vs "selected"
-      ba_recommended: "{original_recommendation}"
-      user_chose_recommended: false
-```
-
-### BA Update Integration
-
-When updating spec with custom responses:
-- Include full custom text in context
-- Mark as `[USER SPECIFIED]` in spec for visibility
 
 ---
 
 ## State Tracking
 
-After **EACH** batch, save to STATE_FILE:
+After parsing answers, save to STATE_FILE:
 
 ```yaml
 user_decisions:
   clarifications:
     - question: "{question_text}"
-      answer: "{user_selected_option}"
+      answer: "{resolved_answer}"
       ba_recommended: "{what BA recommended}"
       user_chose_recommended: true|false
-      response_type: "selected"|"custom"
-      batch: 1
+      response_type: "auto_resolved"|"user_override"|"custom"|"accepted_recommendation"
+      source: "{checklist_gap|edge_case|triangulation}"
+      severity: "{CRITICAL|HIGH|MEDIUM}"
+      auto_resolve_classification: "AUTO_RESOLVED"|"REQUIRES_USER"|null
       timestamp: "{now}"
-    - question: "{next_question}"
-      answer: "{answer}"
-      # ... etc
+      stage: 4
+      iteration: {N}
 
-phases:
+stages:
   clarification:
-    current_batch: {N}
-    total_batches: {M}
-    questions_answered: {count}
-    questions_remaining: {count}
-    status: "in_progress"|"completed"
-```
-
----
-
-## Error Handling for AskUserQuestion
-
-### Error Detection
-
-After EACH AskUserQuestion call, validate response:
-
-```
-IF response is null OR empty:
-  ERROR_TYPE = "NO_RESPONSE"
-
-IF response timeout (> 5 minutes no activity):
-  ERROR_TYPE = "TIMEOUT"
-
-IF response contains unexpected format:
-  ERROR_TYPE = "INVALID_FORMAT"
-```
-
-### Recovery Protocol
-
-```
-ON ERROR:
-  RETRY_COUNT = 0
-  MAX_RETRIES = 1
-
-  WHILE RETRY_COUNT < MAX_RETRIES:
-    -> Log to state file:
-      error_log:
-        - timestamp: "{now}"
-          error_type: {ERROR_TYPE}
-          question_batch: {current_batch}
-          retry_attempt: {RETRY_COUNT + 1}
-
-    -> Wait 2 seconds
-    -> Retry AskUserQuestion
-    -> RETRY_COUNT += 1
-
-    IF success:
-      -> Break loop, continue normal flow
-
-  IF still failing after retries:
-    -> Mark questions as NEEDS_MANUAL_INPUT
-    -> Offer recovery options
-```
-
-### Recovery Options Dialog
-
-```json
-{
-  "questions": [{
-    "question": "The interactive question flow encountered an error. How would you like to proceed?",
-    "header": "Recovery",
-    "options": [
-      {
-        "label": "Provide text answers (Recommended)",
-        "description": "I'll show you the questions and you can type your answers directly."
-      },
-      {
-        "label": "Skip these questions",
-        "description": "Continue with BA recommendations for unanswered questions."
-      },
-      {
-        "label": "Retry from beginning",
-        "description": "Start the clarification batch over."
-      }
-    ],
-    "multiSelect": false
-  }]
-}
-```
-
-### Handling Recovery Choices
-
-**If "Provide text answers":**
-- For each NEEDS_MANUAL_INPUT question:
-  - Display: "Question: {question_text}"
-  - Display: "BA Recommendation: {ba_recommended}"
-  - Prompt: "Your answer (or press Enter to accept recommendation):"
-  - Capture text input
-  - Update state file with answer
-
-**If "Skip these questions":**
-- For each NEEDS_MANUAL_INPUT:
-  - Set answer = ba_recommended
-  - Set user_chose_recommended = true (auto)
-  - Set skipped_due_to_error = true
-
-**If "Retry from beginning":**
-- Clear current_batch from state
-- Re-invoke clarification protocol
-
----
-
-## Graceful Degradation (Bulk Mode)
-
-```
-IF total_errors_in_session > 3:
-  -> Switch to "Bulk Mode":
-
-  Display:
-  ---
-  SWITCHING TO BULK CLARIFICATION MODE
-
-  Multiple interactive errors detected. Switching to bulk input.
-
-  Please review the following questions and provide answers:
-
-  ---
-  Q1: {question_1}
-  BA Recommendation: {recommendation_1}
-  Your answer: _____________
-
-  Q2: {question_2}
-  BA Recommendation: {recommendation_2}
-  Your answer: _____________
-
-  [... etc ...]
-  ---
-
-  Paste your answers below (format: Q1: answer, Q2: answer, ...)
-  Or type "ACCEPT ALL" to use all BA recommendations.
-  ---
-
-  -> Parse bulk response
-  -> Update state file
-  -> Continue workflow
+    status: "completed"
+    clarification_file_path: "specs/{FEATURE_DIR}/clarification-questions.md"
+    clarification_status: "answered"
+    questions_total: {N}
+    questions_auto_resolved: {N}
+    questions_user_answered: {N}
+    questions_accepted_recommendation: {N}
+    user_overrides: {N}
 ```
 
 ---
 
 ## Workflow Integration
 
-### Entry Point
+### Entry Point (First Run)
 
 Called by coordinator when checklist validation identifies gaps:
 1. Load spec and checklist
-2. Identify markers and low-coverage items
+2. Identify [NEEDS CLARIFICATION] markers and edge case questions
 3. Check already-answered in state file (NEVER re-ask)
-4. Generate questions with BA recommendations
-5. Present in batches of 4
-6. Save immediately after each batch
-7. Return to coordinator for spec update
+4. Run auto-resolve gate (see `auto-resolve-protocol.md`)
+5. Generate questions with BA recommendations
+6. Write `clarification-questions.md`
+7. Return `status: needs-user-input, pause_type: file_based`
+
+### Re-Entry (After User Edits)
+
+Called when user re-invokes after editing the question file:
+1. Read `clarification-questions.md`
+2. Parse answers using rules above
+3. Save to state file
+4. Return answers to coordinator for spec update
 
 ### Exit Conditions
 
-- All identified questions answered -> Return with success
-- User chose "Skip remaining" -> Return with partial
-- Unrecoverable error -> Return with error status
+- All questions answered (explicitly or via recommendation) -> Return with success
+- File not modified since generation -> Return with `needs-user-input` (user hasn't answered yet)
+- Parse errors -> Return with error status and specific parsing issues
 
 ---
 
@@ -336,8 +239,10 @@ Return to coordinator:
 
 | Variable | Value |
 |----------|-------|
-| CLARIFICATION_STATUS | completed, partial, or error |
-| QUESTIONS_ANSWERED | count |
-| QUESTIONS_SKIPPED | count |
+| CLARIFICATION_STATUS | completed, needs_user_input, or error |
+| QUESTIONS_TOTAL | count |
+| QUESTIONS_AUTO_RESOLVED | count |
+| QUESTIONS_USER_ANSWERED | count |
+| QUESTIONS_ACCEPTED_RECOMMENDATION | count |
+| USER_OVERRIDES | count |
 | MARKERS_RESOLVED | count |
-| ERRORS_ENCOUNTERED | count |

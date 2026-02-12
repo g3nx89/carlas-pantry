@@ -121,6 +121,35 @@ Every dispatch variable MUST have a defined fallback:
 
 ---
 
+## Coordinator Return Format Rules
+
+Coordinator summaries are the primary context passed between stages. Keep them compact.
+
+### Size Constraints
+
+| Field | Max Length | Content |
+|-------|-----------|---------|
+| `summary` (YAML) | 500 chars | Status + key metrics + outcome. No analysis or rationale. |
+| Context for Next Stage (markdown body) | 1000 chars | Only what the next stage needs to start. No prior-stage recaps. |
+
+### Anti-Pattern
+
+```
+# BAD — 4000 chars of analysis in summary
+summary: "Drafted spec with 12 user stories covering meal planning, recipe management,
+  shopping lists, and nutritional tracking. Self-critique revealed gaps in offline
+  sync handling (scored 15/20). MPA Challenge found 3 issues: ..."
+
+# GOOD — 200 chars of actionable status
+summary: "Spec drafted: 12 user stories, self-critique 15/20. MPA-Challenge GREEN (3 findings, all addressed)."
+```
+
+### Rule
+
+Detailed analysis belongs in **artifact files** (spec.md, test-plan.md, design-supplement.md), NOT in coordinator summaries. The orchestrator reads summaries for routing decisions, not for content review.
+
+---
+
 ## Summary Schema Validation
 
 After each coordinator returns, validate its summary:
@@ -154,12 +183,30 @@ Advance to next stage in sequence.
 ### `status: needs-user-input`
 Check `flags.pause_type`:
 
+**If `pause_type: file_based`:**
+- Read `flags.clarification_file` for the path to the question file
+- Notify user with a single `AskUserQuestion` call:
+  ```
+  question: "Clarification questions have been written to {clarification_file}. Edit the file with your answers, then select 'Continue' to resume."
+  header: "Questions"
+  options:
+    - label: "Continue (Recommended)"
+      description: "I've edited the clarification file with my answers"
+    - label: "Accept all recommendations"
+      description: "Use BA recommendations for all questions without editing"
+    - label: "Abort"
+      description: "Stop workflow"
+  ```
+- On "Continue": Re-dispatch the same stage with `ENTRY_TYPE = "re_entry_after_user_input"`
+- On "Accept all recommendations": Re-dispatch with `ENTRY_TYPE = "re_entry_after_user_input"` (blank answers default to recommendations per protocol)
+- On "Abort": Terminate workflow
+
 **If `pause_type: interactive`:**
 - Read `flags.question_context` for question details
 - Use `AskUserQuestion` to relay the question to the user
 - Map user's response via `flags.next_action_map` if present
 - Re-dispatch the same stage with `ENTRY_TYPE = "re_entry_after_user_input"` and user's answer in context
-- OR follow `next_action_map` to determine next stage (e.g., `"loop_clarify"` → re-dispatch Stage 3)
+- OR follow `next_action_map` to determine next stage (e.g., `"loop_clarify"` -> re-dispatch Stage 3)
 
 ### `status: failed`
 - Log the failure
@@ -207,11 +254,11 @@ ELSE:
 ### After Stage 5 (Design Artifacts)
 
 ```
-READ flags.design_brief_exists and flags.design_feedback_exists from Stage 5 summary
+READ flags.design_brief_exists and flags.design_supplement_exists from Stage 5 summary
 
 QUALITY CHECKS:
 1. design-brief.md exists (MANDATORY)
-2. design-feedback.md exists (MANDATORY)
+2. design-supplement.md exists (MANDATORY)
 
 IF either missing:
     CRITICAL ERROR — re-dispatch Stage 5

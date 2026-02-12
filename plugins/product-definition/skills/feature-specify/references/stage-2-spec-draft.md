@@ -152,6 +152,10 @@ Update state file:
 ```yaml
 current_stage: 2
 stage_status: "completed"
+input_document_paths:
+  - "{path to original user input file, if file-based}"
+  - "{path to research reports, if any}"
+  - "{path to any other input documents}"
 stages:
   spec_draft:
     status: completed
@@ -171,6 +175,8 @@ stages:
 ```
 
 ## Summary Contract
+
+> **Size limits:** `summary` max 500 chars, Context body max 1000 chars. Details in artifacts, not summaries.
 
 ```yaml
 ---

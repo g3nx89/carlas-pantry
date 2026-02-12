@@ -94,6 +94,16 @@ VALIDATE the following keys exist and have valid types:
 | validation.mpa.clink_implementability.enabled | boolean | true or false |
 | validation.mpa.clink_implementability.cli_name | string | non-empty, valid PAL CLI client name |
 | validation.mpa.clink_implementability.timeout_seconds | integer | >= 60 |
+| validation.mpa.clink_implementability.model_hint | string or null | null or non-empty string (PAL model name) |
+| validation.mpa.clink_implementability.use_thinking | boolean | true or false |
+| coherence.clink_model | string | non-empty (exact Gemini model name) |
+| coherence.clink_use_thinking | boolean | true or false |
+| auto_resolve.enabled | boolean | true or false |
+| auto_resolve.confidence_required | string | one of: high, medium, low |
+| auto_resolve.sources | array | non-empty, valid source types: prior_answers, context_document, accumulated_patterns |
+| auto_resolve.registry_file | string | non-empty, valid relative path |
+| auto_resolve.include_in_report | boolean | true or false |
+| auto_resolve.notify_user | boolean | true or false |
 
 CROSS-KEY VALIDATIONS (after individual key checks):
 - screen_narrative.max_lines > screen_narrative.target_lines (hard cap must exceed target)

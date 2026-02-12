@@ -245,19 +245,19 @@
 
 ---
 
-## 6. Technical Constraints
+## 6. Constraints & Boundaries
 
-### 6.1 Must Use (per Constitution)
+### 6.1 Operating Environment
 
-- Kotlin 2.0+ (K2 compiler)
-- Jetpack Compose (Material 3)
-- Hilt for DI
-- Coroutines/Flow for async
+- {Platform or environment constraint - e.g., Must work with intermittent connectivity}
+- {Environment constraint - e.g., Must support offline usage with data synchronization}
+- {Compatibility constraint - e.g., Must work across target platforms and browsers}
 
-### 6.2 Feature-Specific Constraints
+### 6.2 Integration Boundaries
 
-- {Constraint 1 - e.g., Must work offline}
-- {Constraint 2 - e.g., Must integrate with existing auth system}
+- {Integration boundary - e.g., Must integrate with existing authentication system}
+- {Integration boundary - e.g., Must support import/export from external calendar services}
+- {Data boundary - e.g., Must respect existing user data and preferences}
 
 ---
 
@@ -282,23 +282,27 @@
 
 ---
 
-## 8. Data Requirements
+## 8. Information Architecture
 
-### 8.1 Entities
+> Describe conceptual entities, their relationships, and lifecycle — no field names, data types, or schema definitions.
 
-```kotlin
-// Domain entity (technology-agnostic description)
-data class {EntityName}(
-    val id: String,
-    // {field descriptions}
-)
-```
+### 8.1 Core Concepts
 
-### 8.2 API Contracts
+| Concept | Description | Lifecycle |
+|---------|-------------|-----------|
+| {Concept 1 - e.g., Recipe} | {What it represents to the user} | {Created when... / Updated when... / Archived when...} |
+| {Concept 2 - e.g., Meal Plan} | {What it represents to the user} | {Lifecycle description} |
 
-| Endpoint | Method | Purpose | Request | Response |
-|----------|--------|---------|---------|----------|
-| `/api/v1/{resource}` | GET | {description} | {params} | {response shape} |
+### 8.2 Relationships
+
+- {Relationship - e.g., A meal plan contains one or more recipes}
+- {Relationship - e.g., A user can have multiple shopping lists, each derived from a meal plan}
+- {Ownership - e.g., Recipes belong to the user who created them but can be shared read-only}
+
+### 8.3 Information Flows
+
+- {Flow - e.g., When a user adds a recipe to a meal plan, ingredients are automatically aggregated into a shopping list}
+- {Flow - e.g., Changes to a recipe update all meal plans that include it}
 
 ---
 

@@ -35,7 +35,9 @@
 | `spec.md` | Feature specification | (fixed name) |
 | `spec-checklist.md` | Annotated checklist | (fixed name) |
 | `design-brief.md` | Screen/state inventory | (fixed name) |
-| `design-feedback.md` | Design analysis | (fixed name) |
+| `design-supplement.md` | Design analysis | (fixed name) |
+| `clarification-questions.md` | File-based clarification questions | (fixed name) |
+| `clarification-report.md` | Auto-resolve audit trail | (fixed name) |
 | `test-plan.md` | V-Model test strategy | (fixed name) |
 | `figma_context.md` | Figma design context | (fixed name) |
 | `.specify-state.local.md` | Workflow state | (fixed name) |
@@ -56,7 +58,7 @@
 | Setting | Path | Value |
 |---------|------|-------|
 | PAL rejection retries | `limits.pal_rejection_retries_max` | 2 |
-| Questions per AskUser batch | `limits.questions_per_batch` | 4 |
+| Questions per batch (deprecated) | `limits.questions_per_batch` | 4 (deprecated — file-based mode) |
 | Lock staleness hours | `limits.lock_staleness_hours` | 2 |
 | Max user stories | `limits.max_user_stories` | **null** (no limit) |
 | Max acceptance criteria | `limits.max_acceptance_criteria` | **null** (no limit) |
@@ -146,6 +148,22 @@
 
 **Minimum Models Required:** 2
 
+### Content Delivery (CRITICAL)
+
+| Setting | Path | Default | Description |
+|---------|------|---------|-------------|
+| Mode | `pal_consensus.content_delivery.mode` | `inline` | Always inline — never file paths |
+| Word limit | `pal_consensus.content_delivery.inline_word_limit` | 4000 | Specs larger than this are auto-summarized |
+
+### Response Validation
+
+| Setting | Path | Default | Description |
+|---------|------|---------|-------------|
+| Enabled | `pal_consensus.response_validation.enabled` | `true` | Detect non-substantive responses |
+| Min words | `pal_consensus.response_validation.min_response_words` | 50 | Responses shorter than this are flagged |
+| Patterns | `pal_consensus.response_validation.non_substantive_patterns` | (list) | Strings that indicate model couldn't read content |
+| Identical scores | `pal_consensus.response_validation.flag_identical_scores` | `true` | Flag responses with identical dimension scores |
+
 ### Stage 5 Evaluation Dimensions
 
 | Dimension | Weight | Criteria |
@@ -168,4 +186,4 @@
 | Figma unavailable | Full | Full | Full | Spec-only mode |
 | All unavailable | Skipped | Internal evaluation | Skipped | Spec-only mode |
 
-*Design artifacts (design-brief.md, design-feedback.md) are ALWAYS generated regardless of MCP availability.
+*Design artifacts (design-brief.md, design-supplement.md) are ALWAYS generated regardless of MCP availability.

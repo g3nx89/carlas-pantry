@@ -75,7 +75,7 @@ For EACH checklist item:
 ### State File Updates
 
 ```yaml
-phases:
+stages:
   checklist_validation:
     status: completed
     timestamp: "{now}"

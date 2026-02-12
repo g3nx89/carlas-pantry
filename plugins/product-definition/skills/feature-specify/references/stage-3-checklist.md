@@ -117,6 +117,8 @@ stages:
 
 ## Summary Contract
 
+> **Size limits:** `summary` max 500 chars, Context body max 1000 chars. Details in artifacts, not summaries.
+
 ```yaml
 ---
 stage: "checklist-validation"

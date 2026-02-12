@@ -37,8 +37,8 @@ The original phase-by-phase implementation has been consolidated into 7 stages. 
 | Stage 2: Spec Draft & Gates | Phases 2.0, 2.3, 2.5, 2.7 (BA draft, MPA-Challenge, gates) |
 | Stage 3: Checklist & Validation | Phases 3.0, 4.0 (checklist creation, BA validation) |
 | Stage 4: Edge Cases & Clarification | Phases 4.3, 4.5, 4.6 (EdgeCases, clarification, triangulation) |
-| Stage 5: PAL Validation & Design | Phases 5.0, 5.5 (PAL Consensus, design-brief, design-feedback) |
-| Stage 6: Test Strategy | Phase 5.7 (V-Model test plan) |
+| Stage 5: PAL Validation & Design | Phases 5.0, 5.5 (PAL Consensus, design-brief, design-supplement) |
+| Stage 6: Testability & Risk Assessment | Phase 5.7 (risk analysis, testability verification) |
 | Stage 7: Completion | Phase 6.0 (lock release, report, next steps) |
 
 **Excluded:** Phases 1.7 (Research Discovery) and 1.8 (Research Analysis) are not part of the skill workflow.

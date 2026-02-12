@@ -1,8 +1,8 @@
 # Design Narration Configuration
 # Plugin: product-definition | Skill: design-narration
 
-version: "1.6.1"
-last_updated: "2026-02-11"
+version: "1.8.0"
+last_updated: "2026-02-12"
 
 # =============================================================================
 # DIRECTORY STRUCTURE (User's working directory - NOT plugin directory)
@@ -21,7 +21,7 @@ directories:
 
 state:
   file_name: ".narration-state.local.md"
-  schema_version: 2
+  schema_version: 3
   lock_file: ".narration-lock"
   lock_stale_timeout_minutes: 60
   lock_freshness_check_minutes: 5  # Checkpoint integrity check: lock file must be within this many minutes
@@ -202,6 +202,8 @@ coherence:
   clink_threshold: 12                  # Activate clink pathway when screen_count > this value
   clink_cli: "gemini"                  # CLI client for clink dispatch (must be configured in PAL)
   clink_timeout_seconds: 600           # Max wait for clink coherence analysis
+  clink_model: "gemini-2.5-pro"        # Exact model for Gemini CLI (avoids flash-lite auto-routing)
+  clink_use_thinking: true             # Request thinking/reasoning mode if CLI supports it
 
 # =============================================================================
 # VALIDATION (MPA + PAL)
@@ -224,6 +226,8 @@ validation:
       enabled: true                    # Use clink/Codex CLI for developer-implementability agent
       cli_name: "codex"                # CLI client (must be configured in PAL)
       timeout_seconds: 300             # Max wait for clink dispatch
+      model_hint: null                 # Optional model override for Codex CLI (null = CLI default)
+      use_thinking: true               # Request reasoning mode if CLI supports it
 
   pal_consensus:
     enabled: true              # Set to false to skip PAL consensus even when MCP is available
@@ -245,6 +249,23 @@ validation:
     agent: "narration-validation-synthesis"
     model: "opus"
     source_dominance_max_pct: 60  # Max % of findings from a single MPA agent before bias check triggers
+
+# =============================================================================
+# AUTO-RESOLVE (Question Auto-Resolution)
+# =============================================================================
+
+# Automatically answers clarification questions when the answer is already
+# available in input documents, prior Q&A, or accumulated patterns.
+auto_resolve:
+  enabled: true                                    # Master toggle
+  confidence_required: "high"                      # Only auto-resolve high-confidence matches
+  sources:                                         # Ordered by priority
+    - prior_answers                                # decisions_audit_trail
+    - context_document                             # PRD, brief, screen descriptions
+    - accumulated_patterns                         # Patterns from completed screens
+  registry_file: "working/auto-resolved-questions.md"
+  include_in_report: true                          # Append to UX-NARRATIVE.md appendices
+  notify_user: true                                # Inline summary after auto-resolve
 
 # =============================================================================
 # MODEL ASSIGNMENTS
@@ -276,6 +297,16 @@ output:
   include_coherence_notes: true        # Cross-screen consistency findings
   include_decision_revision_log: true  # Audit trail of changed decisions
 
+  # Progressive disclosure (v1.8.0)
+  # When screen count exceeds threshold, output switches from monolithic UX-NARRATIVE.md
+  # to a compact index + per-screen files. Keeps context manageable for downstream coding agents.
+  progressive_disclosure:
+    enabled: true                          # false = always monolithic single-file output
+    screen_threshold: 8                    # Multi-file mode when screens >= this value
+    mode_override: null                    # "single-file" | "multi-file" | null (auto based on threshold)
+    screen_nav_header: true                # Add prev/next navigation links to screen files
+    decision_log_file: "decision-log.md"   # Standalone decision log filename (multi-file mode)
+
 # =============================================================================
 # TEMPLATES (Plugin-relative paths)
 # =============================================================================
@@ -285,3 +316,4 @@ templates:
   screen: "$CLAUDE_PLUGIN_ROOT/templates/screen-narrative-template.md"
   screen_descriptions: "$CLAUDE_PLUGIN_ROOT/templates/screen-descriptions-template.md"
   batch_questions: "$CLAUDE_PLUGIN_ROOT/templates/batch-questions-template.md"
+  narrative_index: "$CLAUDE_PLUGIN_ROOT/templates/ux-narrative-index-template.md"

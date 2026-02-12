@@ -105,8 +105,8 @@ Transforms Figma Desktop mockups into detailed UX/interaction narrative document
 
 | Skill | Purpose |
 |-------|---------|
-| `design-narration` | UX narrative generation from Figma mockups (v1.6.1) |
-| `feature-specify` | Technical specification generation (v1.0.0) |
+| `design-narration` | UX narrative generation from Figma mockups (v1.8.0) |
+| `feature-specify` | Technical specification generation (v1.1.0) |
 | `refinement` | PRD refinement orchestration |
 
 ## Directory Structures
@@ -189,7 +189,7 @@ If PAL tools are unavailable:
 | `narration-edge-case-auditor` | narrate | MPA: unusual conditions | sonnet |
 | `narration-validation-synthesis` | narrate | Merge MPA + PAL, prioritize fixes | opus |
 
-### Templates (18)
+### Templates (19)
 
 | Template | Purpose |
 |----------|---------|
@@ -204,11 +204,12 @@ If PAL tools are unavailable:
 | `spec-checklist.md` | Specification completeness checklist |
 | `spec-checklist-mobile.md` | Mobile-specific checklist |
 | `design-brief-template.md` | Design brief structure |
-| `design-feedback-template.md` | Design feedback format |
+| `design-supplement-template.md` | Design supplement format |
 | `figma_context-template.md` | Figma context capture |
 | `test-plan-template.md` | V-Model test plan |
 | `screen-narrative-template.md` | Per-screen narrative structure |
-| `ux-narrative-template.md` | Final UX narrative document |
+| `ux-narrative-template.md` | Final UX narrative document (single-file mode) |
+| `ux-narrative-index-template.md` | UX narrative index (multi-file mode) |
 | `batch-questions-template.md` | Batch mode consolidated Q&A document |
 | `screen-descriptions-template.md` | User input format for batch screen descriptions |
 
@@ -269,7 +270,7 @@ rm design-narration/.narration-state.local.md
 
 ## Version
 
-- **Plugin Version:** 2.1.0
+- **Plugin Version:** 2.2.0
 - **Schema Version:** 2
 
 ## License

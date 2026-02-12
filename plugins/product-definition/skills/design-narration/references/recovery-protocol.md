@@ -210,6 +210,7 @@ IF synthesis.md exists but validation.status != "completed":
 
 ```
 IF current_stage == 5:
+    READ state: output.mode (may be null if crash happened before Step 5.0c)
     CHECK: Does design-narration/UX-NARRATIVE.md exist?
 
     IF UX-NARRATIVE.md missing:
@@ -220,7 +221,7 @@ IF current_stage == 5:
     IF UX-NARRATIVE.md exists BUT lock file still present:
         # Assembly completed writing but crashed before cleanup
         READ UX-NARRATIVE.md
-        VERIFY: contains at least 1 screen narrative section AND validation summary
+        VERIFY: contains at least 1 screen narrative section OR screen inventory table
         IF valid:
             REMOVE lock file
             UPDATE state: current_stage = 5, mark workflow complete
@@ -228,6 +229,40 @@ IF current_stage == 5:
         IF invalid (empty or truncated):
             DELETE incomplete UX-NARRATIVE.md
             RE-RUN output assembly (per references/output-assembly.md)
+```
+
+### Stage 5 Recovery: Multi-File Mode Partial Assembly
+
+When `state.output.mode == "multi-file"`, additional recovery checks:
+
+```
+IF output.mode == "multi-file":
+    READ config: output.progressive_disclosure.screen_nav_header
+    READ config: output.progressive_disclosure.decision_log_file
+
+    # Check 1: UX-NARRATIVE.md exists but screen files lack nav headers
+    IF UX-NARRATIVE.md exists AND screen_nav_header == true:
+        SET screens_missing_nav = []
+        FOR each screen file in design-narration/screens/:
+            IF file does NOT start with "<!-- nav -->":
+                APPEND to screens_missing_nav
+        IF screens_missing_nav is non-empty:
+            # Nav headers were not applied — re-run from Step 5.2m
+            RE-RUN output assembly from Step 5.2m onward
+            NOTIFY user: "Recovered: {len(screens_missing_nav)} screen files missing navigation headers. Re-applying."
+
+    # Check 2: decision-log.md missing
+    IF design-narration/{decision_log_file} does NOT exist:
+        # Decision log was not extracted — re-run from Step 5.4m
+        RE-RUN output assembly from Step 5.4m onward
+        NOTIFY user: "Recovered: Decision log missing. Re-extracting from state."
+
+    # Check 3: Lock present with all artifacts complete
+    IF UX-NARRATIVE.md exists AND all screen files have nav headers AND decision-log exists AND lock present:
+        # Cleanup-only recovery
+        REMOVE lock file
+        UPDATE state: current_stage = 5, mark workflow complete
+        NOTIFY user: "Recovered: All multi-file artifacts present. Cleaned up lock file."
 ```
 
 ---

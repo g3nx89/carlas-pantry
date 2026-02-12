@@ -132,6 +132,11 @@ IF status == "error":
     IF "Stop": EXIT workflow
 
 IF questions is non-empty:
+    # Auto-resolve gate: filter out questions answerable from existing context
+    # See references/auto-resolve-protocol.md for full logic
+    RUN auto-resolve gate on questions
+    SET questions = returned user_questions[]  # Only questions that need user input
+
     WHILE questions remain:
         BATCH = next {maieutic_questions.max_per_batch} questions
 

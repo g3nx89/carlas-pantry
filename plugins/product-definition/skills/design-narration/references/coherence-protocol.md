@@ -39,6 +39,8 @@ READ config: coherence.clink_enabled
 READ config: coherence.clink_threshold
 READ config: coherence.clink_cli
 READ config: coherence.clink_timeout_seconds
+READ config: coherence.clink_model
+READ config: coherence.clink_use_thinking
 
 IF screen_count > clink_threshold AND clink_enabled:
     # Verify clink tool availability
@@ -53,14 +55,21 @@ IF screen_count > clink_threshold AND clink_enabled:
         # Also include accumulated patterns for baseline context
         SET patterns_yaml = state.patterns (compiled to YAML string)
 
-        # Dispatch via clink with inline prompt (no custom role)
+        # Dispatch via clink with explicit model and reasoning instructions
         CALL mcp__pal__clink:
             cli_name: "{clink_cli}"  # "gemini" from config
+            model: "{clink_model}"   # "gemini-2.5-pro" — prevents auto-routing to flash-lite
             absolute_file_paths: narrative_paths
             prompt: |
                 You are a Cross-Screen Coherence Auditor for UX narrative documents.
                 You have been given {screen_count} screen narrative files. Each file describes
                 a single app screen with its purpose, elements, behaviors, states, and navigation.
+
+                ## Reasoning Instructions
+
+                This is a complex multi-document analysis task. Think step by step.
+                For each consistency check, first list all screens that could be affected,
+                then compare them systematically. Do not skip screens or checks.
 
                 ## Your Task
 
@@ -230,6 +239,10 @@ You MUST write the coherence report upon completion.
 
 Read and execute the instructions in @$CLAUDE_PLUGIN_ROOT/agents/narration-coherence-auditor.md
 
+## Reasoning
+For complex cross-screen analysis, use `mcp__sequential-thinking__sequentialthinking` if available
+to structure your comparison systematically across all screens before writing findings.
+
 ## Input
 - Screens directory: design-narration/screens/
 - Screen files: {LIST_OF_SCREEN_FILES}
@@ -369,19 +382,48 @@ Before finalizing any mermaid diagram, verify:
 
 ---
 
-## Orchestrator: Handle Inconsistencies
+## Orchestrator: Auto-Resolve Gate (Inconsistencies)
 
-After receiving the coherence report:
+Before presenting inconsistencies to user, run the auto-resolve gate to filter out
+inconsistencies where the resolution is already implicit in prior answers or patterns.
+See `references/auto-resolve-protocol.md` for full logic.
 
 ```
 READ coherence-report.md
 
-IF inconsistencies_found == 0:
+IF inconsistencies_found > 0:
+    # Convert inconsistencies to question format for auto-resolve gate
+    SET pending_questions = []
+    FOR each inconsistency:
+        CONVERT to question: "{CHECK_TYPE}: {ISSUE_DESCRIPTION} — Screen A ({SCREEN_A}): {VALUE_A} vs Screen B ({SCREEN_B}): {VALUE_B}"
+        SET options: [suggested_fix, keep_A, keep_B, discuss]
+        APPEND to pending_questions
+
+    # Run auto-resolve gate (per references/auto-resolve-protocol.md)
+    RUN auto-resolve gate on pending_questions
+    SET user_inconsistencies = returned user_questions[]
+
+    # Update inconsistencies_found to reflect only user-facing ones
+    SET user_inconsistencies_count = len(user_inconsistencies)
+```
+
+---
+
+## Orchestrator: Handle Inconsistencies
+
+After the auto-resolve gate:
+
+```
+IF user_inconsistencies_count == 0 AND inconsistencies_found > 0:
+    NOTIFY user: "Cross-screen coherence check found {inconsistencies_found} inconsistencies — all auto-resolved from prior answers/patterns."
+    ADVANCE to Stage 4
+
+IF user_inconsistencies_count == 0 AND inconsistencies_found == 0:
     NOTIFY user: "Cross-screen coherence check passed. No inconsistencies found."
     ADVANCE to Stage 4
 
-IF inconsistencies_found > 0:
-    FOR each inconsistency (batch of up to {maieutic_questions.max_per_batch} via AskUserQuestion):
+IF user_inconsistencies_count > 0:
+    FOR each inconsistency in user_inconsistencies (batch of up to {maieutic_questions.max_per_batch} via AskUserQuestion):
         PRESENT:
             question: "[{CHECK_TYPE}] {ISSUE_DESCRIPTION}
             Screen A ({SCREEN_A}): {VALUE_A}

@@ -91,7 +91,7 @@ Include in summary context for orchestrator to display:
 1. **Review** spec.md with stakeholders
 2. **Review** test-plan.md for TDD preparation (if generated)
 3. **Run** `/sdd:02-plan` to create implementation plan
-4. **Address** any gaps from design-feedback.md
+4. **Address** any gaps from design-supplement.md
 
 ### Git Commands:
 git add specs/{FEATURE_DIR}/
@@ -99,6 +99,8 @@ git commit -m "spec({FEATURE_ID}): feature specification complete"
 ```
 
 ## Summary Contract
+
+> **Size limits:** `summary` max 500 chars, Context body max 1000 chars. Details in artifacts, not summaries.
 
 ```yaml
 ---

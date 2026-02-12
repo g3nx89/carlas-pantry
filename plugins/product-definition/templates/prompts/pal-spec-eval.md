@@ -5,6 +5,14 @@
 Multi-model consensus validation for feature specifications.
 This template defines the evaluation criteria and decision thresholds.
 
+## Specification Content
+
+The specification to evaluate is provided inline below. Do NOT attempt to read files from disk — all content needed for evaluation is included in this prompt.
+
+```
+{SPEC_CONTENT}
+```
+
 ## Evaluation Criteria (Score 1-4 each)
 
 ### Criterion 1: Business Value Clarity

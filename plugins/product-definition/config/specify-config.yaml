@@ -31,9 +31,9 @@ limits:
   # After this many rejections, escalates to user decision
   pal_rejection_retries_max: 2
 
-  # Maximum questions per AskUserQuestion batch
-  # AskUserQuestion tool constraint - do not increase (API limit)
-  questions_per_batch: 4
+  # DEPRECATED: questions_per_batch — replaced by file-based clarification (v2.2.1)
+  # Kept for backward compatibility; not used in file-based mode
+  questions_per_batch: 4  # deprecated
 
   # Lock file staleness threshold (hours)
   # Locks older than this are considered stale and auto-removed
@@ -243,6 +243,36 @@ research_discovery:
     questions: "specs/templates/research-questions-template.md"
     synthesis: "specs/templates/research-synthesis-template.md"
     report: "specs/templates/research-report-template.md"
+
+# =============================================================================
+# CLARIFICATION CONFIGURATION (v2.0)
+# =============================================================================
+# File-based clarification replaces interactive AskUserQuestion batching.
+# All questions written to a single file for offline editing.
+
+clarification:
+  # Clarification mode: file_based (write questions to file, user edits offline)
+  mode: "file_based"
+  version: "2.0.0"
+
+  # Output file for clarification questions
+  questions_file: "clarification-questions.md"
+
+  # ─────────────────────────────────────────────────────────────
+  # AUTO-RESOLVE GATE
+  # ─────────────────────────────────────────────────────────────
+  # Pre-filters questions answerable from existing input documents
+  # before writing to the question file.
+
+  auto_resolve:
+    enabled: true
+    confidence_required: "high"  # Only auto-resolve with high confidence
+    sources:
+      - "input_documents"   # Original user input, research reports
+      - "prior_decisions"   # Previous user_decisions from state file
+      - "spec_content"      # Already-drafted spec sections
+    registry_file: "clarification-report.md"
+    notify_user: true  # Always inform user of auto-resolutions
 
 # =============================================================================
 # COMPLEXITY TRIAGE (P3 - Future)
@@ -711,6 +741,34 @@ pal_consensus:
     min_models_for_consensus: 2  # At least 2 models must respond
     consensus_threshold: 0.67
 
+  # ─────────────────────────────────────────────────────────────
+  # CONTENT DELIVERY
+  # ─────────────────────────────────────────────────────────────
+  # External models cannot read local files. Spec content must be
+  # embedded inline in the PAL prompt.
+  content_delivery:
+    mode: "inline"                # Always inline — never file paths
+    inline_word_limit: 4000       # Specs larger than this are auto-summarized
+
+  # ─────────────────────────────────────────────────────────────
+  # RESPONSE VALIDATION
+  # ─────────────────────────────────────────────────────────────
+  # Detect non-substantive responses from models that failed to
+  # process the spec (e.g., "I cannot access this file").
+  response_validation:
+    enabled: true
+    min_response_words: 50        # Responses shorter than this are flagged
+    non_substantive_patterns:
+      - "cannot access"
+      - "file not found"
+      - "unable to read"
+      - "no file provided"
+      - "I don't have access"
+      - "I cannot open"
+      - "unable to access"
+    # Flag responses where all 5 dimension scores are identical
+    flag_identical_scores: true
+
   # Fallback behavior - require minimum 2 models for valid consensus
   fallback:
     on_model_unavailable: "continue"  # Continue with available models
@@ -747,7 +805,7 @@ design_artifacts:
   # Both files are ALWAYS required
   required_outputs:
     - "design-brief.md"    # Screen and state inventory (MANDATORY)
-    - "design-feedback.md" # Design analysis and recommendations (MANDATORY)
+    - "design-supplement.md" # Design analysis and recommendations (MANDATORY)
 
   # Generation triggers - BOTH agents run regardless of Figma
   generation:
@@ -759,7 +817,7 @@ design_artifacts:
           output: "design-brief.md"
         - agent: "gap-analyzer"
           mandatory: true
-          output: "design-feedback.md"
+          output: "design-supplement.md"
           mode: "spec-only"  # Analyze spec without Figma context
 
     # When Figma IS available
@@ -770,7 +828,7 @@ design_artifacts:
           output: "design-brief.md"
         - agent: "gap-analyzer"
           mandatory: true
-          output: "design-feedback.md"
+          output: "design-supplement.md"
           mode: "with-figma"  # Analyze spec WITH Figma context
 
   # Quality requirements
@@ -779,6 +837,92 @@ design_artifacts:
     require_state_matrix: true
     require_user_journeys: true
     require_edge_cases: true
+
+# =============================================================================
+# SPEC QUALITY: TECHNICAL LANGUAGE PROHIBITION
+# =============================================================================
+# Specifications must be technology-agnostic. These keywords are FORBIDDEN
+# in spec output. The BA agent scans for them during draft and update phases.
+
+spec_quality:
+  technical_keywords_forbidden:
+    # Framework / library names (multi-platform)
+    frameworks:
+      # Android
+      - "Room"
+      - "DataStore"
+      - "Hilt"
+      - "Compose"
+      - "ViewModel"
+      - "LiveData"
+      # iOS / macOS
+      - "SwiftUI"
+      - "UIKit"
+      - "AppKit"
+      - "CoreData"
+      - "Combine"
+      - "Alamofire"
+      # Web Frontend
+      - "React"
+      - "Redux"
+      - "Next.js"
+      - "Angular"
+      - "Vue"
+      - "Svelte"
+      - "Nuxt"
+      - "Remix"
+      # Web / API Backend
+      - "Express"
+      - "Fastify"
+      - "Django"
+      - "Flask"
+      - "FastAPI"
+      - "Rails"
+      - "Spring Boot"
+      - "Nest.js"
+      # Desktop
+      - "Electron"
+      - "Tauri"
+      - "WPF"
+      - "Windows Forms"
+      - ".NET MAUI"
+      # Cloud / BaaS
+      - "Firebase"
+      - "Supabase"
+      # Protocols
+      - "GraphQL"
+      - "gRPC"
+
+    # Implementation / code patterns
+    patterns:
+      - "data class"
+      - "interface {"
+      - "/api/v"
+      - "SELECT * FROM"
+      - "REST endpoint"
+      - "WebSocket"
+      - "async/await"
+      - "Coroutine"
+      - "Flow"
+      - "RxJava"
+      - "useState"
+      - "useEffect"
+      - "struct {"
+      - "goroutine"
+      - "Task.Run"
+
+    # Architecture terminology
+    architecture:
+      - "MVVM"
+      - "MVI"
+      - "Clean Architecture"
+      - "Repository pattern"
+      - "microservices"
+      - "CQRS"
+      - "event-driven"
+      - "monolith"
+      - "hexagonal"
+      - "DDD"
 
 # =============================================================================
 # TEST STRATEGY CONFIGURATION (v1.0)
@@ -795,227 +939,45 @@ design_artifacts:
 test_strategy:
   # Master switch for test strategy generation
   enabled: true
-  version: "1.0.0"
 
-  # ─────────────────────────────────────────────────────────────
-  # PHASE CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
-  phase: "5.7"  # After design feedback (5.5), before completion (6)
+  # Stage and checkpoint
+  stage: 6
   checkpoint: "TEST_STRATEGY"
 
-  # ─────────────────────────────────────────────────────────────
-  # AGENT CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
+  # Agent configuration
   agent:
     name: "qa-strategist"
     path: "$CLAUDE_PLUGIN_ROOT/agents/qa-strategist.md"
     model: "sonnet"
     sequential_thinking:
       enabled: true
-      min_thoughts: 8
-      max_thoughts: 12
+      thoughts: 4  # Risk, testability, journeys, synthesis
 
-  # ─────────────────────────────────────────────────────────────
-  # OUTPUT CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
+  # Output configuration
   output:
     file: "test-plan.md"
     template: "$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md"
-    required: true  # Test plan is MANDATORY
 
-  # ─────────────────────────────────────────────────────────────
-  # RISK ANALYSIS CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
-  risk_analysis:
-    enabled: true
-    categories:
-      - name: "network_failure"
-        severity_default: "high"
-        description: "What happens when network operations fail?"
-      - name: "permission_denial"
-        severity_default: "medium"
-        description: "How does the app handle permission denials?"
-      - name: "empty_states"
-        severity_default: "medium"
-        description: "What UI shows when data is absent?"
-      - name: "process_death"
-        severity_default: "high"
-        description: "What state needs restoration after process death?"
-      - name: "configuration_changes"
-        severity_default: "medium"
-        description: "What survives screen rotation and config changes?"
-      - name: "concurrency"
-        severity_default: "high"
-        description: "What operations can race? What are the consequences?"
-      - name: "data_edge_cases"
-        severity_default: "medium"
-        description: "Null, empty, boundary values, special characters?"
+  # Risk analysis categories (agent uses these for structured analysis)
+  risk_categories:
+    - "network_failure"
+    - "permission_denial"
+    - "empty_states"
+    - "state_transitions"
+    - "concurrency"
+    - "data_edge_cases"
 
-  # ─────────────────────────────────────────────────────────────
-  # TEST LEVEL CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
-  test_levels:
-    # Inner Loop - Automated in CI
-    unit_tests:
-      enabled: true
-      loop: "inner"
-      tdd_required: true  # Write tests BEFORE implementation
-      characteristics:
-        - "No external dependencies"
-        - "Fast execution (< 100ms)"
-        - "Deterministic results"
-      targets:
-        - "ViewModels/Controllers"
-        - "UseCases/Services"
-        - "Repositories (with mocks)"
-        - "Utility functions"
+  # Optional inputs that enhance analysis
+  optional_inputs:
+    mpa_edgecases: true   # Pull edge cases from Stage 4 MPA reports
+    design_supplement: true  # Use design-supplement.md for visual test targets
 
-    integration_tests:
-      enabled: true
-      loop: "inner"
-      tdd_required: false
-      characteristics:
-        - "Real dependencies (database, navigation)"
-        - "Component boundary testing"
-        - "State persistence verification"
-      targets:
-        - "ViewModel + Repository"
-        - "Repository + Database"
-        - "Screen + Navigation"
-        - "Cache + Network"
-
-    # Outer Loop - Agentic/Manual execution
-    e2e_tests:
-      enabled: true
-      loop: "outer"
-      screenshot_required: true
-      characteristics:
-        - "Full user journey"
-        - "Real device/emulator"
-        - "Screenshot evidence at checkpoints"
-      categories:
-        - "happy_path"
-        - "error_handling"
-        - "edge_cases"
-        - "error_recovery"
-
-    visual_tests:
-      enabled: true
-      loop: "outer"
-      tolerance_default: "strict"  # < 1% difference
-      tolerance_options:
-        strict: 0.01  # 1% max difference
-        flexible: 0.05  # 5% max (for animations)
-        relaxed: 0.10  # 10% max (for dynamic content)
-      source_of_truth:
-        primary: "figma"
-        fallback: "design-brief.md"
-
-  # ─────────────────────────────────────────────────────────────
-  # TRACEABILITY CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
-  traceability:
-    # Every AC MUST have at least one test
-    require_full_coverage: true
-    min_coverage_percentage: 100  # All ACs must be covered
-
-    # AC → Test mapping rules
-    mapping_rules:
-      - ac_type: "state_logic"
-        recommended_level: "unit"
-      - ac_type: "data_persistence"
-        recommended_level: "integration"
-      - ac_type: "user_journey"
-        recommended_level: "e2e"
-      - ac_type: "ui_appearance"
-        recommended_level: "visual"
-
-  # ─────────────────────────────────────────────────────────────
-  # VISUAL ORACLE CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
-  visual_oracles:
-    # When Figma context is available
-    figma_integration:
-      enabled: true
-      capture_states:
-        - "default"
-        - "loading"
-        - "error"
-        - "empty"
-        - "success"
-        - "disabled"
-
-    # When Figma is NOT available
-    design_brief_fallback:
-      enabled: true
-      reference_format: "design-brief.md section {section_name}"
-
-  # ─────────────────────────────────────────────────────────────
-  # EDGE CASE INTEGRATION
-  # ─────────────────────────────────────────────────────────────
-  edge_case_integration:
-    # Pull edge cases from MPA-EdgeCases phase (4.3)
-    from_mpa_edgecases: true
-    severity_to_test_level:
-      critical: "e2e"
-      high: "integration"
-      medium: "unit"
-      low: "unit"
-
-  # ─────────────────────────────────────────────────────────────
-  # TDD COMPLIANCE CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
-  tdd_compliance:
-    # Execution order for TDD workflow
-    execution_phases:
-      - phase: "pre_implementation"
-        description: "Write failing unit tests (TDD)"
-        test_levels: ["unit"]
-        expectation: "all_tests_fail"
-
-      - phase: "during_implementation"
-        description: "Implement and verify unit tests pass"
-        test_levels: ["unit"]
-        expectation: "tests_pass_incrementally"
-
-      - phase: "post_implementation"
-        description: "Run integration tests"
-        test_levels: ["integration"]
-        expectation: "all_tests_pass"
-
-      - phase: "acceptance"
-        description: "Execute E2E tests with screenshots"
-        test_levels: ["e2e"]
-        expectation: "screenshot_evidence"
-
-      - phase: "visual_approval"
-        description: "Compare against Figma oracles"
-        test_levels: ["visual"]
-        expectation: "design_sign_off"
-
-  # ─────────────────────────────────────────────────────────────
-  # QUALITY THRESHOLDS
-  # ─────────────────────────────────────────────────────────────
-  thresholds:
-    # Minimum tests per level (0 = no minimum)
-    min_unit_tests: 1
-    min_integration_tests: 0
-    min_e2e_tests: 1
-    min_visual_tests: 1
-
-    # Coverage requirements
-    ac_coverage_min: 100  # All ACs must have tests
-    risk_coverage_min: 80  # 80% of identified risks must have mitigations
-
-  # ─────────────────────────────────────────────────────────────
-  # SKIP CONDITIONS
-  # ─────────────────────────────────────────────────────────────
+  # Skip conditions
   skip_conditions:
-    # Test strategy can be skipped ONLY if explicitly requested
     allow_skip: false
     skip_reasons_allowed:
-      - "documentation_only_feature"  # Pure docs, no code
-      - "user_explicit_skip"  # User says skip
+      - "documentation_only_feature"
+      - "user_explicit_skip"
 
 # =============================================================================
 # SKILL ORCHESTRATOR CONFIGURATION (v1.0)
@@ -1090,4 +1052,6 @@ skill_orchestrator:
   # ─────────────────────────────────────────────────────────────
 
   coordinator_prompt_max: 8000  # Max tokens for coordinator prompt (approximate)
+  max_summary_length: 500       # Max chars for YAML summary field
+  max_context_for_next_stage: 1000  # Max chars for Context body in summary file
 

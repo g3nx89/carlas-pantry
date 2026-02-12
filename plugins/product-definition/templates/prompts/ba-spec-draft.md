@@ -43,6 +43,30 @@ Use templates 1-6 from @$CLAUDE_PLUGIN_ROOT/agents/ba-references/sequential-thin
 - Template 5: Non-Functional Requirements
 - Template 6: Synthesis
 
+## Technical Language Prohibition
+
+**CRITICAL: The specification MUST be technology-agnostic.**
+
+The spec describes WHAT the system does and WHY, never HOW it is implemented.
+
+**FORBIDDEN** (never use in specifications):
+- **Framework names**: Room, Hilt, Compose, ViewModel, SwiftUI, UIKit, CoreData, React, Redux, Next.js, Express, Django, Rails, Spring Boot, Angular, Vue, Electron, WPF, etc.
+- **Architecture patterns**: MVVM, MVI, Clean Architecture, Repository pattern, microservices, monolith, event-driven, CQRS
+- **Implementation details**: `data class`, `struct {}`, `interface {}`, `/api/v1/...`, `SELECT * FROM`, REST endpoints, GraphQL schemas, WebSocket, gRPC
+- **Concurrency primitives**: Coroutines, Flow, RxJava, async/await, goroutines, threads, workers, queues
+- **Storage specifics**: SQLite, PostgreSQL, MongoDB, Redis, S3, Firebase, Supabase
+
+**REQUIRED replacements:**
+| Instead of... | Write... |
+|---------------|----------|
+| "Database with ORM/DAO pattern" | "Local persistent storage with offline access" |
+| "REST API endpoint /api/v1/users" | "The system retrieves user information from the backend" |
+| "State management with reactive streams" | "The screen displays current state and responds to changes" |
+| "Dependency injection framework" | (omit — DI is an implementation choice, not a requirement) |
+| "Data model with typed fields" | "An item has a name, description, category, and creation date" |
+
+The full list of forbidden keywords is in `spec_quality.technical_keywords_forbidden` in config.
+
 ## Output Requirements
 
 1. Copy spec template:

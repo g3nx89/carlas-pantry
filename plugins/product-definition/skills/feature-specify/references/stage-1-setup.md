@@ -226,7 +226,7 @@ Context available:
 Create state file from template or update existing:
 
 ```yaml
-schema_version: 3
+schema_version: 4
 feature_id: "{NUMBER}-{SHORT_NAME}"
 feature_name: "{FEATURE_NAME}"
 user_input: "{USER_INPUT}"
@@ -269,7 +269,7 @@ flags:
 ## Self-Verification (MANDATORY before writing summary)
 
 BEFORE writing the summary file, verify:
-1. `specs/{FEATURE_DIR}/.specify-state.local.md` exists with `schema_version: 3`
+1. `specs/{FEATURE_DIR}/.specify-state.local.md` exists with `schema_version: 4`
 2. `specs/{FEATURE_DIR}/.specify.lock` exists with timestamp
 3. All workspace directories created (`analysis/`, `.stage-summaries/`)
 4. If Figma enabled: `figma_context.md` exists in feature directory

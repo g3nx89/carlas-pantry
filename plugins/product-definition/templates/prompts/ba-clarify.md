@@ -7,7 +7,8 @@
 ## Task
 
 Identify areas in the specification that need clarification and generate
-structured questions with BA recommendations for the user.
+structured questions with BA recommendations. Output as markdown for the
+`clarification-questions.md` file (file-based flow).
 
 ## Variables
 
@@ -18,6 +19,7 @@ structured questions with BA recommendations for the user.
 | SPEC_FILE | {value} |
 | CHECKLIST_FILE | {value} |
 | STATE_FILE | {value} |
+| AUTO_RESOLVE_REPORT | {value or "Not available"} |
 
 ## Clarification Sources
 
@@ -61,79 +63,45 @@ For EVERY question, the BA MUST:
 2. Add "(Recommended)" suffix to the label
 3. Include rationale in description
 
-**Example:**
-```json
-{
-  "question": "How should the app handle network errors during form submission?",
-  "header": "Error",
-  "options": [
-    {
-      "label": "Exponential backoff with retry (Recommended)",
-      "description": "BA Rationale: Industry standard for mobile. Reduces server load during outages while providing user feedback."
-    },
-    {
-      "label": "Immediate retry with limit",
-      "description": "Faster recovery but may overwhelm server. Good for low-latency requirements."
-    },
-    {
-      "label": "Show error and manual retry",
-      "description": "Simplest implementation. Gives user full control but may frustrate during intermittent issues."
-    }
-  ],
-  "multiSelect": false
-}
-```
+### Auto-Resolve Awareness
+
+If `{AUTO_RESOLVE_REPORT}` is available, exclude any questions already resolved
+in the auto-resolve report. Only generate questions classified as `REQUIRES_USER`.
 
 ## Output Format
 
-### Question Batch Structure
+Generate questions as markdown sections for `clarification-questions.md`:
 
-Generate questions as structured JSON compatible with AskUserQuestion:
+```markdown
+### Q-{NNN}: {question title} [REQUIRES_USER]
+**Source**: {checklist_gap | edge_case | spec_marker}  |  **Severity**: {CRITICAL | HIGH | MEDIUM}
+**Context**: {why this matters for the specification}
+**Recommendation**: {BA recommended answer with rationale}
+**Options**:
+1. {Option 1} (Recommended)
+2. {Option 2}: {trade-offs}
+3. {Option 3}: {when appropriate}
 
-```json
-{
-  "questions": [
-    {
-      "question": "{clear question ending with ?}",
-      "header": "{max 12 chars}",
-      "options": [
-        {
-          "label": "{option label} (Recommended)",
-          "description": "BA Rationale: {why this is recommended}"
-        },
-        {
-          "label": "{alternative 1}",
-          "description": "{trade-offs and implications}"
-        },
-        {
-          "label": "{alternative 2}",
-          "description": "{trade-offs and implications}"
-        }
-      ],
-      "multiSelect": false
-    }
-  ]
-}
+**Your answer** (leave blank to accept recommendation):
 ```
 
-### Batching Rules
+### Ordering Rules
 
-- Maximum 4 questions per AskUserQuestion invocation
-- Group related questions in same batch
-- Order by priority (P1 first)
+- Order by priority (P1 first, then P2, then P3)
+- Within same priority, order by severity (CRITICAL > HIGH > MEDIUM)
 
 ### State Tracking
 
-After EACH batch response, update state:
+After user answers are parsed (on re-invocation), update state:
 
 ```yaml
 user_decisions:
   clarifications:
-    - question: "{question_text}"
-      answer: "{user_selected_option}"
+    - question_id: "Q-{NNN}"
+      question: "{question_text}"
+      answer: "{user_answer_or_recommendation}"
       ba_recommended: "{what BA recommended}"
       user_chose_recommended: true|false
-      response_type: "selected"|"custom"
-      batch: {N}
+      response_type: "recommendation_accepted"|"user_provided"|"overridden"
       timestamp: "{now}"
 ```

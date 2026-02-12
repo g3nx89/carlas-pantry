@@ -89,3 +89,45 @@ IF state.schema_version == 2 OR state.schema_version is missing:
 ```
 
 All existing `user_decisions` and checkpoint data are preserved unchanged.
+
+---
+
+## State Migration (v3 to v4)
+
+v4 adds file-based clarification and auto-resolve fields. This is an **additive migration** —
+all new fields have null/empty defaults, so v3 state files continue to function.
+
+### New Fields
+
+```
+stages.clarification:
+  clarification_file_path: null        # NEW — path to clarification-questions.md
+  clarification_status: null           # NEW — pending_write | awaiting_user | answers_received | processed
+  auto_resolved_questions: []          # NEW — array of auto-resolved question records
+  auto_resolve_stats:                  # NEW — aggregated auto-resolve statistics
+    total_generated: 0
+    auto_resolved: 0
+    inferred: 0
+    requires_user: 0
+    user_overrides: 0
+```
+
+### Migration Procedure
+
+```
+IF state.schema_version == 3:
+    SET schema_version: 4
+    ADD stages.clarification.clarification_file_path: null
+    ADD stages.clarification.clarification_status: null
+    ADD stages.clarification.auto_resolved_questions: []
+    ADD stages.clarification.auto_resolve_stats: {total_generated: 0, auto_resolved: 0, inferred: 0, requires_user: 0, user_overrides: 0}
+    PRESERVE all existing fields unchanged
+    WRITE updated state file
+```
+
+### Compatibility Notes
+
+- v3 state files work without migration — coordinators treat missing fields as null/empty
+- Migration is triggered automatically when orchestrator detects `schema_version: 3`
+- `user_decisions.clarifications` array format is unchanged (still records per-question decisions)
+- The old `questions_answered` counter remains for backward compatibility alongside new fields

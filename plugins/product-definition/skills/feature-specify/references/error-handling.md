@@ -93,10 +93,10 @@ model_failures:
 3. Signal `needs-user-input` with gate failure details
 4. User decides: retry, proceed, or abort
 
-## Design Brief/Feedback Generation Failure
+## Design Brief/Supplement Generation Failure
 
 1. Log: "Agent {AGENT_NAME} failed to produce output"
-2. **CRITICAL:** design-brief.md and design-feedback.md are MANDATORY
+2. **CRITICAL:** design-brief.md and design-supplement.md are MANDATORY
 3. If agent fails: retry once
 4. If retry fails: set `status: failed` — do NOT skip mandatory outputs
 
@@ -136,4 +136,4 @@ When MCP tools are unavailable at startup (detected in Stage 1):
 3. **Minimum 2 for consensus** — PAL Consensus cannot proceed with < 2 models
 4. **Log everything** — All failures and recovery actions must be logged to state
 5. **Graceful degradation** — If MCP unavailable, fall back to internal capabilities
-6. **Mandatory outputs** — design-brief.md and design-feedback.md NEVER skipped, even on failure (retry required)
+6. **Mandatory outputs** — design-brief.md and design-supplement.md NEVER skipped, even on failure (retry required)

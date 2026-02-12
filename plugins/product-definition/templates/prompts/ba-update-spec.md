@@ -79,6 +79,7 @@ As a user, I want to reset my password via email link...
 2. **Only ADD new annotations** for newly clarified requirements
 3. **Track changes** in UPDATE_LOG section
 4. **Remove resolved markers** - No `[NEEDS CLARIFICATION]` should remain for answered questions
+5. **Preserve non-technical language** - After all updates, scan spec for technical terms from `spec_quality.technical_keywords_forbidden` in config. Replace any that leaked during clarification with behavioral/capability descriptions (e.g., "Room database" -> "local persistent storage")
 
 ## Output Requirements
 
@@ -97,13 +98,13 @@ Add to spec file:
 
 | Date | Change | Source |
 |------|--------|--------|
-| {today} | Integrated {N} clarification answers | Clarification Phase |
+| {today} | Integrated {N} clarification answers | Stage 4: Clarification |
 ```
 
 ### State File Updates
 
 ```yaml
-phases:
+stages:
   clarification:
     spec_updated: true
     timestamp: "{now}"

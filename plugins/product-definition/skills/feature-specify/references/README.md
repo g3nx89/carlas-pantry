@@ -10,7 +10,7 @@
 | `stage-2-spec-draft.md` | Dispatching Stage 2 — BA spec draft, MPA-Challenge ThinkDeep, incremental gates |
 | `stage-3-checklist.md` | Dispatching Stage 3 — platform detect, checklist creation, BA validation |
 | `stage-4-clarification.md` | Dispatching Stage 4 — MPA-EdgeCases, clarification protocol, MPA-Triangulation, spec update |
-| `stage-5-pal-design.md` | Dispatching Stage 5 — PAL Consensus, design-brief, design-feedback (MANDATORY) |
+| `stage-5-pal-design.md` | Dispatching Stage 5 — PAL Consensus, design-brief, design-supplement (MANDATORY) |
 | `stage-6-test-strategy.md` | Dispatching Stage 6 — V-Model test plan, AC traceability (optional, feature flag) |
 | `stage-7-completion.md` | Dispatching Stage 7 — lock release, completion report, next steps |
 | `checkpoint-protocol.md` | Any checkpoint — state update patterns and immutable decision rules |
@@ -18,7 +18,8 @@
 | `config-reference.md` | PAL tool usage — template variables, PAL patterns, scoring thresholds |
 | `thinkdeep-patterns.md` | Stages 2, 4 (ThinkDeep calls) — parameterized multi-model execution for Challenge, EdgeCases, Triangulation |
 | `figma-capture-protocol.md` | Stage 1 (Figma enabled) — connection selection, capture process, screenshot naming, error recovery |
-| `clarification-protocol.md` | Stage 4 (clarification dispatch) — batching, BA recommendations, custom responses, error recovery |
+| `clarification-protocol.md` | Stage 4 (clarification dispatch) — file-based Q&A, BA recommendations, answer parsing |
+| `auto-resolve-protocol.md` | Stage 4 (pre-question generation) — auto-resolve gate, classification, citation rules, exclusion rules |
 
 ## File Sizes
 
@@ -38,7 +39,8 @@
 | `config-reference.md` | ~250 | Template variables, limits, thresholds, feature flags, PAL params |
 | `thinkdeep-patterns.md` | ~200 | Parameterized execution for 3 ThinkDeep integration points |
 | `figma-capture-protocol.md` | ~240 | Figma connection selection, capture process (ReAct), screenshot naming, error handling |
-| `clarification-protocol.md` | ~335 | Batching rules, BA recommendations, custom responses, error recovery, graceful degradation |
+| `clarification-protocol.md` | ~250 | File-based Q&A format, BA recommendations, answer parsing rules, state tracking |
+| `auto-resolve-protocol.md` | ~190 | Auto-resolve gate logic, classification levels, exclusion rules, report format |
 
 ## Cross-References
 
@@ -60,7 +62,7 @@
 ### Internal Protocol References
 
 - `stage-1-setup.md` loads `figma-capture-protocol.md` for Figma capture (Step 1.9)
-- `stage-4-clarification.md` dispatches subagent with `clarification-protocol.md` (potentially twice: initial + triangulation)
+- `stage-4-clarification.md` loads `auto-resolve-protocol.md` (Step 4.1b) and `clarification-protocol.md` (Steps 4.2, 4.3)
 
 ### External References
 

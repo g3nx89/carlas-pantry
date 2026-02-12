@@ -1,7 +1,7 @@
 ---
 name: feature-specify
 description: Create or update feature specifications through guided analysis with Figma integration, PAL validation, and V-Model test strategy
-version: 1.0.0
+version: 1.1.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
 ---
 
@@ -20,7 +20,7 @@ Guided feature specification with codebase understanding, Figma integration, PAL
 2. **Resume Compliance**: NEVER re-ask questions from `user_decisions` — they are IMMUTABLE
 3. **Delegation Pattern**: Complex analysis → specialized agents (`business-analyst`, `design-brief-generator`, `gap-analyzer`, `qa-strategist`)
 4. **Progressive Disclosure**: Load templates ONLY when stage reached (reference via `@$CLAUDE_PLUGIN_ROOT/templates/prompts/`)
-5. **Batching Limit**: AskUserQuestion MAX 4 questions per call — clarification protocol handles batching
+5. **File-Based Clarification**: All clarification questions written to `clarification-questions.md` for offline editing — NO AskUserQuestion for clarification batches
 6. **BA Recommendation**: First option MUST be "(Recommended)" with rationale
 7. **Lock Protocol**: Always acquire lock at start, release at completion
 8. **Config Reference**: All limits and thresholds from `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
@@ -29,14 +29,15 @@ Guided feature specification with codebase understanding, Figma integration, PAL
 
 ### Mandatory Requirements
 11. **Design Brief MANDATORY**: `design-brief.md` MUST be generated for EVERY specification. NEVER skip.
-12. **Design Feedback MANDATORY**: `design-feedback.md` MUST be generated for EVERY specification. NEVER skip.
+12. **Design Supplement MANDATORY**: `design-supplement.md` MUST be generated for EVERY specification. NEVER skip.
 13. **No Question Limits**: There is NO maximum on clarification questions — ask EVERYTHING needed for complete spec.
 14. **No Story Limits**: There is NO maximum on user stories, acceptance criteria, or NFRs — capture ALL requirements.
 15. **No Iteration Limits**: Continue clarification loops until COMPLETE, not until a counter reaches max.
 
 ### PAL/Model Failure Rules
-16. **PAL Consensus Minimum**: Consensus requires **minimum 2 models**. If < 2 models available → **FAIL** and notify user.
+16. **PAL Consensus Minimum**: Consensus requires **minimum 2 substantive responses**. If < 2 → signal `needs-user-input` (NEVER self-assess).
 17. **No Model Substitution**: If a ThinkDeep model fails, **DO NOT** substitute with another model. ThinkDeep is for variety — substituting defeats the purpose.
+17b. **PAL Content Inline**: NEVER pass local file paths to external models. Embed spec content inline in the PAL prompt. External models cannot read local files.
 18. **User Notification MANDATORY**: When ANY PAL model fails or is unavailable, **ALWAYS** notify user.
 
 ### Graceful Degradation
@@ -50,6 +51,7 @@ Guided feature specification with codebase understanding, Figma integration, PAL
 24. **Iteration loop owned by orchestrator** — Stage 3 <-> Stage 4 until coverage >= 85% or user forces proceed
 25. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty (see `orchestrator-loop.md` → Variable Defaults)
 26. **Quality gates**: Orchestrator performs lightweight quality checks after Stages 2, 4, and 5 — non-blocking, notify user of issues
+27. **Summary size limits**: Coordinator summaries max 500 chars (YAML `summary` field), 1000 chars (Context for Next Stage body). Detailed analysis in artifact files, not summaries.
 
 ---
 
@@ -60,6 +62,8 @@ Guided feature specification with codebase understanding, Figma integration, PAL
 | Setting | Path | Default |
 |---------|------|---------|
 | Clarification questions | `limits.max_clarification_questions` | **null** (no limit) |
+| Clarification mode | `clarification.mode` | `file_based` |
+| Auto-resolve enabled | `clarification.auto_resolve.enabled` | `true` |
 | User stories | `limits.max_user_stories` | **null** (no limit) |
 | NFRs | `limits.max_nfrs` | **null** (no limit) |
 | PAL rejection retries max | `limits.pal_rejection_retries_max` | 2 |
@@ -110,12 +114,12 @@ You **MUST** consider the user input before proceeding (if not empty).
                           proceed               < 85%)               |
 +-------------------------------v-----------------------------------+
 |  Stage 5 (Coordinator): PAL VALIDATION & DESIGN                   |
-|  PAL Consensus, design-brief, design-feedback (MANDATORY)          |
+|  PAL Consensus, design-brief, design-supplement (MANDATORY)          |
 +-------------------------------+-----------------------------------+
                                 |
 +-------------------------------v-----------------------------------+
-|  Stage 6 (Coordinator): TEST STRATEGY [optional]                   |
-|  V-Model test plan, AC->Test traceability                          |
+|  Stage 6 (Coordinator): TESTABILITY & RISK ASSESSMENT [optional]   |
+|  Risk analysis, testability verification, test level guidance      |
 +-------------------------------+-----------------------------------+
                                 |
 +-------------------------------v-----------------------------------+
@@ -135,7 +139,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 | 3 | Checklist & Validation | Coordinator | `references/stage-3-checklist.md` | CHECKLIST_VALIDATION | No | No |
 | 4 | Edge Cases & Clarification | Coordinator | `references/stage-4-clarification.md` | CLARIFICATION | Yes (clarification Q&A) | Edge cases optional |
 | 5 | PAL Validation & Design | Coordinator | `references/stage-5-pal-design.md` | PAL_GATE | Yes (if PAL REJECTED) | PAL optional; design MANDATORY |
-| 6 | Test Strategy | Coordinator | `references/stage-6-test-strategy.md` | TEST_STRATEGY | Yes (if coverage gaps) | Yes (feature flag) |
+| 6 | Testability & Risk Assessment | Coordinator | `references/stage-6-test-strategy.md` | TEST_STRATEGY | Yes (if testability gaps) | Yes (feature flag) |
 | 7 | Completion | Coordinator | `references/stage-7-completion.md` | COMPLETE | No | No |
 
 ---
@@ -178,7 +182,7 @@ flags:
   pal_score: {N}                 # Stage 5 only
   pal_decision: "{APPROVED|CONDITIONAL|REJECTED}"  # Stage 5 only
   block_reason: null | "{reason}"
-  pause_type: null | "interactive"
+  pause_type: null | "interactive" | "file_based"
   next_action: null | "loop_checklist" | "proceed"
   question_context:              # Present when pause_type = interactive
     question: "{question text}"
@@ -194,23 +198,24 @@ flags:
 {What the next coordinator needs to know}
 ```
 
-### Interactive Pause Schema
+### Pause Type Schema
 
 - `interactive`: orchestrator reads `question_context`, calls `AskUserQuestion`, then re-dispatches the stage or maps the answer via `next_action_map`
+- `file_based`: orchestrator notifies user that a clarification file has been written, waits for user to re-invoke after editing, then re-dispatches stage with `re_entry_after_user_input`
 
 ---
 
 ## State Management
 
 **State file:** `specs/{FEATURE_DIR}/.specify-state.local.md`
-**Schema version:** 3 (stage-based)
+**Schema version:** 4 (stage-based, file-based clarification)
 **Lock file:** `specs/{FEATURE_DIR}/.specify.lock`
 **Summaries:** `specs/{FEATURE_DIR}/.stage-summaries/`
 
 State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE.
 
 **Top-level fields:**
-- `schema_version`: 3
+- `schema_version`: 4
 - `current_stage`: 1-7
 - `feature_id`: "{NUMBER}-{SHORT_NAME}"
 - `feature_name`: "{FEATURE_NAME}"
@@ -237,7 +242,9 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `specs/{FEATURE_DIR}/spec.md` | 2 | Feature specification |
 | `specs/{FEATURE_DIR}/spec-checklist.md` | 3 | Annotated checklist |
 | `specs/{FEATURE_DIR}/design-brief.md` | 5 | Screen and state inventory (MANDATORY) |
-| `specs/{FEATURE_DIR}/design-feedback.md` | 5 | Design analysis (MANDATORY) |
+| `specs/{FEATURE_DIR}/clarification-questions.md` | 4 | Clarification questions for offline editing |
+| `specs/{FEATURE_DIR}/clarification-report.md` | 4 | Auto-resolve audit trail and answer summary |
+| `specs/{FEATURE_DIR}/design-supplement.md` | 5 | Design analysis (MANDATORY) |
 | `specs/{FEATURE_DIR}/test-plan.md` | 6 | V-Model test strategy (optional) |
 | `specs/{FEATURE_DIR}/analysis/mpa-challenge*.md` | 2 | MPA Challenge ThinkDeep report |
 | `specs/{FEATURE_DIR}/analysis/mpa-edgecases*.md` | 4 | MPA Edge Cases ThinkDeep report |
@@ -255,15 +262,16 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `references/stage-2-spec-draft.md` | Spec draft, MPA-Challenge, incremental gates | Dispatching Stage 2 |
 | `references/stage-3-checklist.md` | Platform detect, checklist, BA validation | Dispatching Stage 3 |
 | `references/stage-4-clarification.md` | Edge cases, clarification, triangulation | Dispatching Stage 4 |
-| `references/stage-5-pal-design.md` | PAL Consensus, design-brief, design-feedback | Dispatching Stage 5 |
-| `references/stage-6-test-strategy.md` | V-Model test plan, AC traceability | Dispatching Stage 6 |
+| `references/stage-5-pal-design.md` | PAL Consensus, design-brief, design-supplement | Dispatching Stage 5 |
+| `references/stage-6-test-strategy.md` | Risk analysis, testability verification, test level guidance | Dispatching Stage 6 |
 | `references/stage-7-completion.md` | Lock release, completion report | Dispatching Stage 7 |
 | `references/checkpoint-protocol.md` | State update patterns | Any checkpoint |
 | `references/error-handling.md` | Error recovery, degradation | Any error condition |
 | `references/config-reference.md` | Key config values, ThinkDeep/PAL params | PAL tool usage |
 | `references/thinkdeep-patterns.md` | Parameterized ThinkDeep execution patterns | Stages 2, 4 (ThinkDeep calls) |
 | `references/figma-capture-protocol.md` | Figma connection, capture, screenshot naming | Stage 1 (Figma enabled) |
-| `references/clarification-protocol.md` | Batching, BA recommendations, error recovery | Stage 4 (clarification dispatch) |
+| `references/clarification-protocol.md` | File-based Q&A, BA recommendations, answer parsing | Stage 4 (clarification dispatch) |
+| `references/auto-resolve-protocol.md` | Auto-resolve gate, classification, citation rules | Stage 4 (pre-question-file generation) |
 
 ---
 
@@ -275,5 +283,5 @@ Rules 1-26 above MUST be followed. Key reminders:
 - Stage 1 is inline, all others are coordinator-delegated
 - State file user_decisions are IMMUTABLE
 - No artificial question/story/iteration limits
-- design-brief.md and design-feedback.md are MANDATORY — NEVER skip
+- design-brief.md and design-supplement.md are MANDATORY — NEVER skip
 - Quality gates after Stages 2, 4, and 5 — non-blocking but user-notified

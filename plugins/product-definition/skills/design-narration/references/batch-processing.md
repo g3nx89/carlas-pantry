@@ -165,6 +165,25 @@ CHECKPOINT state
 
 ---
 
+## Step 2B.2b: Auto-Resolve Gate (Batch Questions)
+
+Before writing the BATCH-QUESTIONS document, run the auto-resolve gate to filter out
+questions answerable from existing context. See `references/auto-resolve-protocol.md`.
+
+```
+# Run auto-resolve gate on consolidated questions
+RUN auto-resolve gate on consolidated_questions (from 2B.2 output)
+SET user_questions = returned user_questions[]  # Only questions that need user input
+SET auto_resolved_count = consolidated_question_count - len(user_questions)
+
+IF auto_resolved_count > 0:
+    # consolidated_question_count now reflects only user-facing questions
+    SET consolidated_question_count = len(user_questions)
+    # Notify handled by auto-resolve protocol (inline summary)
+```
+
+---
+
 ## Step 2B.3: Write BATCH-QUESTIONS Document
 
 ```
@@ -174,6 +193,7 @@ SET questions_file = batch_mode.working_directory + "/BATCH-QUESTIONS-" + zero_p
 READ consolidation summary body (markdown sections)
 READ template: $CLAUDE_PLUGIN_ROOT/templates/batch-questions-template.md
 
+# NOTE: Only user_questions[] (post auto-resolve) are included in the document
 ASSEMBLE BATCH-QUESTIONS document:
     - Fill template header: CYCLE_NUMBER, PRODUCT_NAME, SCREEN_COUNT, QUESTION_COUNT, dedup stats
     - Section 1: Cross-cutting [CROSS] questions from consolidation
