@@ -15,6 +15,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `agent-prompts.md` | Modifying agent prompt templates or adding new prompt types |
 | `auto-commit-dispatch.md` | Understanding shared auto-commit procedure, exclude pattern matching, or batch strategy |
 | `skill-resolution.md` | Understanding domain-specific skill resolution algorithm used by Stages 2, 4, 5 |
+| `clink-dispatch-procedure.md` | Understanding shared clink dispatch, timeout, parsing, fallback algorithm |
 
 ## By Task
 
@@ -43,14 +44,15 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | 210 | Dispatch loop, crash recovery, lock release, state migration, late notification handling |
-| `stage-1-setup.md` | 413 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), summary template |
-| `stage-2-execution.md` | 306 | Skill resolution, research context resolution (2.0a), phase loop, auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction |
-| `stage-3-validation.md` | 142 | Validation checks, constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format |
-| `stage-4-quality-review.md` | 261 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), severity reclassification, consolidation, auto-decision matrix, auto-commit on fix |
+| `stage-1-setup.md` | 450 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), CLI availability detection (1.7a), summary template |
+| `stage-2-execution.md` | 378 | Skill resolution, research context resolution (2.0a), phase loop, clink test author (Step 1.8), clink test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction |
+| `stage-3-validation.md` | 181 | Validation checks, clink spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format |
+| `stage-4-quality-review.md` | 340 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), clink multi-model review (4.2a), clink security reviewer (Option E), clink fix engineer (Option F), severity reclassification, consolidation, auto-decision matrix, auto-commit on fix |
 | `stage-5-documentation.md` | 249 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release |
 | `agent-prompts.md` | 358 | All 7 agent prompt templates (6 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, build verification, API verification, test quality, animation testing, pattern propagation |
 | `auto-commit-dispatch.md` | 61 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
+| `clink-dispatch-procedure.md` | 133 | Shared parameterized clink dispatch, timeout, parsing, variable injection convention, fallback procedure |
 
 ## Cross-References
 
@@ -80,3 +82,9 @@ Quick guide to when to read each reference file during skill development or debu
 - `config/implementation-config.yaml` `test_coverage.tautological_patterns` → referenced by `stage-3-validation.md` Section 3.2 check 11 and `agent-prompts.md` Quality Review Prompt step 5
 - `config/implementation-config.yaml` `severity.auto_decision` (`auto_accept_low_only`) → referenced by `stage-4-quality-review.md` Section 4.4 auto-decision logic
 - `config/implementation-config.yaml` `timestamps` → referenced by `stage-2-execution.md` Section 2.3 and all stage log templates
+- `clink-dispatch-procedure.md` → shared procedure referenced by `stage-2-execution.md` (Steps 1.8, 2.1a), `stage-3-validation.md` (Section 3.1a), `stage-4-quality-review.md` (Section 4.2a, 4.4)
+- `config/cli_clients/shared/severity-output-conventions.md` → injected into all clink role prompts at dispatch time by coordinators
+- `config/implementation-config.yaml` `clink_dispatch` → referenced by `clink-dispatch-procedure.md`, `stage-1-setup.md` Section 1.7a (CLI detection), and all stage files with clink integration points
+- `stage-1-setup.md` writes `cli_availability` to Stage 1 summary; consumed by Stages 2, 3, 4 coordinators for clink dispatch gating
+- Clink integration is orchestrator-transparent: only coordinators and Stage 1 (inline) read clink config; orchestrator never sees clink
+- `stage-2-execution.md` writes `augmentation_bugs_found` to Stage 2 summary flags (from clink test augmenter, Section 2.1a)

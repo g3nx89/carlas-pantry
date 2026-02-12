@@ -6,7 +6,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 2.1.0
+version: 2.2.0
 allowed-tools:
   # File operations
   - Read
@@ -204,6 +204,26 @@ When MCP tools (Ref, Context7, Tavily) are available, agents receive documentati
 
 Configuration: `config/implementation-config.yaml` under `research_mcp`.
 
+## Clink Integration (PAL MCP)
+
+When PAL clink (CLI-to-CLI bridge) is available and configured, coordinators can delegate specific tasks to external CLI agents (Codex, Gemini) for multi-model code generation, testing, validation, and review. This integration is:
+
+- **Zero-cost when disabled** — all clink options default to `enabled: false` in config; when disabled, no clink dispatch occurs and no CLI healthchecks run
+- **Orchestrator-transparent** — the orchestrator never invokes clink or reads clink config; all dispatch happens inside coordinator subagents and Stage 1 (inline)
+- **Opt-in per option** — each integration point (test author, multi-model review, spec validator, etc.) is independently toggleable
+- **Graceful degradation** — every clink dispatch has a fallback: native agent substitution or silent skip. CLI unavailability is detected in Stage 1 and propagated to all downstream stages
+
+**CLI availability detection** runs in Stage 1 (Section 1.7a): healthcheck commands verify which CLIs are installed, with results stored in `cli_availability` in the Stage 1 summary.
+
+**Injection points:**
+- Stage 2: Test Author (Option H — Codex generates TDD tests from specs), Test Augmenter (Option I — Gemini discovers untested edge cases)
+- Stage 3: Spec Validator (Option C — Gemini cross-validates implementation against specs in parallel with native validator)
+- Stage 4: Multi-Model Review (Option D — Gemini + Codex + Native reviewers with distinct focus areas), Security Reviewer (Option E — conditional OWASP audit via Codex), Fix Engineer (Option F — Codex fixes review findings)
+
+**Shared procedure:** All clink dispatches use the parameterized procedure in `references/clink-dispatch-procedure.md` for dispatch, timeout, output parsing, and fallback handling.
+
+Configuration: `config/implementation-config.yaml` under `clink_dispatch`. CLI role definitions: `config/cli_clients/`. Shared conventions: `config/cli_clients/shared/severity-output-conventions.md`.
+
 ## Reference Map
 
 | File | When to Read | Content |
@@ -217,6 +237,7 @@ Configuration: `config/implementation-config.yaml` under `research_mcp`.
 | `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, auto-commit prompt |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
+| `references/clink-dispatch-procedure.md` | Stages 2, 3, 4 (coordinator reads) | Shared parameterized clink dispatch, timeout, parsing, fallback procedure |
 
 ## Error Handling
 

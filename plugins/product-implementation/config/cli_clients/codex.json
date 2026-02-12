@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "name": "codex",
+  "command": "codex",
+  "additional_args": ["--dangerously-bypass-approvals-and-sandbox"],
+  "healthcheck": "codex --version",
+  "timeout_seconds_override": null,
+  "retry_override": null,
+  "roles": {
+    "test_author":          { "prompt_path": "codex_test_author.txt", "max_output_tokens": 12000 },
+    "correctness_reviewer": { "prompt_path": "codex_correctness_reviewer.txt", "max_output_tokens": 6000 },
+    "security_reviewer":    { "prompt_path": "codex_security_reviewer.txt", "max_output_tokens": 6000 },
+    "fix_engineer":         { "prompt_path": "codex_fix_engineer.txt", "max_output_tokens": 10000 }
+  }
+}

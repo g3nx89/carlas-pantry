@@ -218,6 +218,129 @@ auto_commit:
     - ".implementation-state.local.md"
     - ".stage-summaries/"
 
+# Clink dispatch configuration (PAL MCP integration)
+# All clink features are opt-in (enabled: false by default).
+# Native agent behavior is the default for every stage.
+# Requires: PAL MCP server configured, target CLI installed,
+#           config/cli_clients/ directory with role prompt files.
+#
+# NOTE: All clink agents (Codex, Gemini) share the same MCP servers as native Claude:
+#   Ref, Context7, Tavily, Sequential Thinking, Figma (desktop + API).
+#   MCP tools are available to clink agents automatically — no per-CLI configuration needed.
+#   See "MCP Tool Parity" in the Architecture Overview for details.
+clink_dispatch:
+
+  # --- GLOBAL SETTINGS ---
+
+  timeout_ms: 300000              # 5 minute default; per-option override available
+  timeout_action: "fallback"      # "fallback" (use native/skip) | "error" (halt with user prompt)
+  retry:
+    max_attempts: 1               # Number of retries on transient failure (0 = no retry)
+    backoff_ms: 5000              # Wait between retries
+
+  # MCP tool budgets per clink dispatch (advisory limits on MCP usage by clink agents).
+  # Injected into clink agent prompts by coordinators. These are prompt-based guidance,
+  # not programmatic hard caps — clink agents receive the budget as text instructions.
+  # Coordinators can verify compliance post-dispatch by counting MCP tool references in output.
+  # Structure mirrors research_mcp config for naming parity.
+  mcp_tool_budgets:
+    per_clink_dispatch:
+      ref:
+        max_searches: 3          # Max ref_search_documentation calls per dispatch
+        max_reads: 2             # Max ref_read_url calls per dispatch
+      context7:
+        max_queries: 2           # Max query-docs calls per dispatch (resolve-library-id is free)
+      tavily:
+        max_searches: 2          # Max tavily_search / tavily_research calls per dispatch
+      sequential_thinking:
+        max_chains: 1            # Max sequentialthinking chains per dispatch
+      figma:
+        max_calls: 0             # No clink role currently uses Figma; set >0 when UI roles are added
+
+  # --- STAGE 2 ---
+
+  stage2:
+    # Option A: Delegate per-phase code generation to external coding agent (Tier 3 — deferred)
+    phase_developer:
+      enabled: false
+      cli_name: "codex"
+      role: "phase_developer"
+      fallback_to_native: true
+
+    # Option B: Pre-implementation API/framework documentation research (Tier 3 — deferred)
+    api_researcher:
+      enabled: false
+      cli_name: "gemini"
+      role: "api_researcher"
+      max_tokens: 2000
+      trigger_keywords: ["API", "SDK", "migration", "v2", "upgrade", "new version"]
+
+    # Option H: Test-first generation from test-case specs (Tier 1)
+    test_author:
+      enabled: false
+      cli_name: "codex"
+      role: "test_author"
+      requires_test_cases: true     # Static prerequisite: only activate if test-cases/ exists
+      allow_developer_adjustments: true  # Developer can fix imports/setup in generated tests
+
+    # Option I: Post-implementation edge case test augmentation (Tier 1)
+    test_augmenter:
+      enabled: false
+      cli_name: "gemini"
+      role: "test_augmenter"
+      max_additional_tests: 10
+      focus: ["boundary", "error", "concurrency", "security"]
+
+  # --- STAGE 3 ---
+
+  stage3:
+    # Option C: Cross-model specification validation (Tier 2)
+    spec_validator:
+      enabled: false
+      cli_name: "gemini"
+      role: "spec_validator"
+      merge_strategy: "conservative"  # Use lower test count, flag disagreements
+
+  # --- STAGE 4 ---
+
+  stage4:
+    # Option D: Multi-model code review — replaces homogeneous 3-agent review (Tier 1)
+    multi_model_review:
+      enabled: false
+      reviewers:
+        - focus: "simplicity, DRY principles, and code elegance"
+          cli_name: "gemini"
+          role: "simplicity_reviewer"
+        - focus: "bugs, functional correctness, and edge case handling"
+          cli_name: "codex"
+          role: "correctness_reviewer"
+        - focus: "project conventions, abstractions, and pattern adherence"
+          cli_name: null              # null = native developer agent
+          role: null
+      # Option E: Conditional security reviewer (Tier 1)
+      conditional:
+        - focus: "security vulnerabilities, OWASP Top 10"
+          cli_name: "codex"
+          role: "security_reviewer"
+          domains: ["api", "web_frontend", "database"]
+
+    # Option F: Fix review findings with different model (Tier 2)
+    fix_engineer:
+      enabled: false
+      cli_name: "codex"
+      role: "fix_engineer"
+      fallback_to_native: true
+
+  # --- STAGE 5 ---
+
+  stage5:
+    # Option G: Documentation research before tech-writer dispatch (Tier 3 — deferred)
+    doc_researcher:
+      enabled: false
+      cli_name: "gemini"
+      role: "doc_researcher"
+      max_tokens: 1500
+
 # Timestamp format for stage logs, state checkpoints, and summaries
 timestamps:
   format: "ISO_8601"

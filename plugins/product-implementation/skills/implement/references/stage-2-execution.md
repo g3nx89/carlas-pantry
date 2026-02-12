@@ -19,10 +19,13 @@ artifacts_read:
 artifacts_written:
   - "tasks.md (updated with [X] marks)"
   - ".implementation-state.local.md (updated phases)"
+  - "test files (conditional — created by clink test author in Step 1.8 if enabled)"
+  - "test files (conditional — created by clink test augmenter in Section 2.1a if enabled)"
 agents:
   - "product-implementation:developer"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/clink-dispatch-procedure.md"
   - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
 ---
 
@@ -138,6 +141,41 @@ Extract from the current phase section in tasks.md:
 - **File targets**: Extract file paths from task descriptions
 - **Dependencies**: Tasks targeting the same file MUST run sequentially regardless of `[P]` marker
 
+### Step 1.8: Clink Test Author (Option H)
+
+> **Conditional**: Only runs when ALL of: `clink_dispatch.stage2.test_author.enabled` is `true`, `test_cases_available` is `true` (from Stage 1 summary), and `cli_availability.codex` is `true` (from Stage 1 summary). If any condition is false, skip to Step 2.
+
+Before launching the developer agent, generate executable tests from test-case specifications using an external coding agent. This creates TDD targets that the developer agent must make pass.
+
+#### Procedure
+
+1. **Identify relevant test-case specs**: Extract test IDs from current phase task descriptions. Map test IDs to spec files in `test-cases/{level}/` (e.g., `UT-001` → `test-cases/unit/UT-001.md`)
+2. **If no relevant specs found** for this phase: skip to Step 2 (developer writes its own tests)
+3. **Build prompt**: Read the role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_test_author.txt`. Inject variables:
+   - `{phase_name}` — current phase name
+   - `{test_case_specs}` — content of relevant test-case spec files
+   - `{plan_content}` — plan.md content
+   - `{contract_content}` — contract.md content (or fallback: `"Not available — infer interfaces from plan.md and task descriptions"`)
+   - `{data_model_content}` — data-model.md content (or fallback: `"Not available — infer data model from plan.md"`)
+   - `{FEATURE_DIR}`, `{PROJECT_ROOT}` — from Stage 1 summary
+4. **Dispatch**: Follow the Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+   - `cli_name="codex"`, `role="test_author"`
+   - `file_paths=[FEATURE_DIR/test-cases/, plan.md, contract.md, data-model.md, PROJECT_ROOT/src/]`
+   - `fallback_behavior="skip"` (developer writes its own tests)
+   - `expected_fields=["test_files_created", "total_assertions", "edge_cases_added", "interface_assumptions", "coverage_vs_plan"]`
+5. **Verify test files**: Check that test files were created on disk
+6. **Run test suite**: All new tests should FAIL (Red phase confirmation)
+   - If any test passes unexpectedly: log warning (may be tautological or testing existing functionality)
+   - If tests don't compile: pass compilation errors as `{test_compilation_notes}` to developer agent in Step 2
+7. **Update Step 2 prompt**: When pre-generated tests exist, modify `{context_summary}` for the developer agent to include:
+   - Pre-generated test file locations
+   - Instruction: "Pre-generated test files exist at: {list}. Make these tests PASS. You may adjust imports/setup but do NOT change assertions or remove tests."
+   - If compilation notes exist: include them as `{test_compilation_notes}`
+
+#### Write Boundaries
+
+The clink agent writes to test directories following the project's existing test file naming conventions. It MUST NOT write to source directories. The coordinator verifies post-dispatch that no source files were created or modified.
+
 ### Step 2: Launch Developer Agent
 
 Launch a single `developer` agent for the entire phase using the prompt template from `agent-prompts.md` (Section: Phase Implementation Prompt). The agent handles all tasks within the phase internally, including sequencing of parallel `[P]` tasks. Dispatch one agent per phase, not one agent per task.
@@ -209,6 +247,38 @@ Otherwise (`per_phase`, the default), follow the Auto-Commit Dispatch Procedure 
   - If `auto_commit.stage2_strategy` is `batch` and `auto_commit.enabled` is `true`: follow the Auto-Commit Dispatch Procedure in `auto-commit-dispatch.md` with `template_key` = `phase_batch`, `substitution_vars` = `{feature_name}` = FEATURE_NAME, `skip_target` = Section 2.3, `summary_field` = `commits_made` (single-element array)
   - Write Stage 2 summary and return to orchestrator
 
+## 2.1a Clink Test Augmenter (Option I)
+
+> **Conditional**: Only runs when ALL of: `clink_dispatch.stage2.test_augmenter.enabled` is `true`, `cli_availability.gemini` is `true` (from Stage 1 summary), and all phases have completed successfully. If any condition is false, skip to Section 2.2.
+
+After all phases complete but before writing the Stage 2 summary, run an edge case discovery pass using an external model with full visibility into all implemented code and tests.
+
+### Procedure
+
+1. **Collect modified files**: Gather all source files and test files modified or created during Stage 2 (from tasks.md `[X]` entries and any test files written in Step 1.8 or by developer agents)
+2. **Build prompt**: Read the role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_test_augmenter.txt`. Inject variables:
+   - `{modified_source_files}` — list of source files modified during Stage 2
+   - `{modified_test_files}` — list of test files modified during Stage 2
+   - `{max_additional_tests}` — from config `clink_dispatch.stage2.test_augmenter.max_additional_tests` (default: 10)
+   - `{focus_areas}` — from config `clink_dispatch.stage2.test_augmenter.focus` (default: `["boundary", "error", "concurrency", "security"]`)
+   - `{FEATURE_DIR}` — from Stage 1 summary
+3. **Dispatch**: Follow the Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+   - `cli_name="gemini"`, `role="test_augmenter"`
+   - `file_paths=[...modified_source_files, ...modified_test_files]`
+   - `fallback_behavior="skip"`
+   - `expected_fields=["tests_added", "bug_discoveries", "coverage_improvements", "top_risk_area"]`
+4. **Parse bug discoveries**: If the output contains a "Bug Discoveries" section with tests expected to FAIL:
+   - Run those specific tests and confirm actual failures
+   - Record confirmed bug discoveries in `augmentation_bugs_found` for the Stage 2 summary
+   - If all augmented tests PASS: record as coverage improvements (no bugs found)
+5. **Run full test suite**: Update `test_count_verified` with the post-augmentation count
+6. **If clink fails, CLI unavailable, or times out**: skip silently — no impact on main workflow
+
+### Output
+
+Adds to Stage 2 summary flags:
+- `augmentation_bugs_found: {count}` — number of confirmed bug discoveries from test augmentation (0 if skipped or no bugs found)
+
 ## 2.2 Execution Rules
 
 ### Dependency Rules
@@ -276,6 +346,7 @@ status: "completed"  # or "failed" if halted, or "needs-user-input" if user deci
 artifacts_written:
   - "tasks.md (updated with [X] marks)"
   - ".implementation-state.local.md"
+  - "augmented test files (conditional — from clink test augmenter Section 2.1a if enabled)"
 summary: |
   Executed {N}/{M} phases. {X} tasks completed, {Y} tasks remaining.
   All tests passing: {yes/no}.
@@ -285,6 +356,7 @@ flags:
   test_count_verified: {N}  # Verified test count from last phase's developer agent final test run (null if agent did not report)
   commits_made: ["sha1", "sha2"]  # Array: one SHA per phase (per_phase strategy) or single SHA (batch). Stages 4/5 use scalar commit_sha instead.
   research_urls_discovered: []  # URLs successfully read during research context resolution (Section 2.0a). Consumed by Stages 4/5 for session accumulation.
+  augmentation_bugs_found: 0    # Confirmed bug discoveries from clink test augmenter (Section 2.1a). 0 if skipped or no bugs found.
 ---
 ## Context for Next Stage
 

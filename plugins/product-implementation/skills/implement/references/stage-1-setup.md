@@ -32,6 +32,7 @@ git branch --show-current
 **Branch format:** `feature/<number-padded-to-3-digits>-<kebab-case-title>`
 
 **Variable derivation:**
+- `PROJECT_ROOT` = git repository root (via `git rev-parse --show-toplevel`)
 - `FEATURE_NAME` = part after `feature/` (e.g., `001-user-auth`)
 - `FEATURE_DIR` = `specs/{FEATURE_NAME}` (e.g., `specs/001-user-auth`)
 - `TASKS_FILE` = `{FEATURE_DIR}/tasks.md`
@@ -252,6 +253,36 @@ private_doc_urls:
 
 1 Ref call. Skipped when disabled or Ref unavailable.
 
+## 1.7a CLI Availability Detection (Clink)
+
+Detect which external CLI tools are available for clink dispatch. This step runs ONCE during Stage 1 and stores results for all downstream coordinators. It only executes when at least one clink option is enabled in config.
+
+### Procedure
+
+1. Read `clink_dispatch` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+2. Collect all unique `cli_name` values from enabled options across all stages (skip options where `enabled: false` or `cli_name` is `null`)
+3. If no enabled options have a `cli_name` → set `cli_availability: {}` and skip to Section 1.7
+4. For each unique `cli_name`:
+   a. Read `$CLAUDE_PLUGIN_ROOT/config/cli_clients/{cli_name}.json`
+   b. Extract the `healthcheck` command (e.g., `"codex --version"`)
+   c. Run the healthcheck command via Bash
+   d. If command succeeds (exit code 0): set `cli_availability[cli_name] = true`
+   e. If command fails or not found: set `cli_availability[cli_name] = false`, log warning: `"CLI '{cli_name}' not available — clink options using this CLI will fall back to native behavior"`
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+cli_availability:
+  codex: true
+  gemini: false
+```
+
+### Cost
+
+1 healthcheck command per unique enabled CLI (~1-2s total). Skipped entirely when no clink options are enabled.
+
 ## 1.7 Lock Acquisition
 
 Before initializing or resuming state, acquire the execution lock:
@@ -329,6 +360,9 @@ flags:
   block_reason: null
   test_cases_available: {true/false}
 detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from Section 1.6
+cli_availability:              # from Section 1.7a (empty {} if no clink options enabled)
+  codex: {true/false}
+  gemini: {true/false}
 mcp_availability:           # from Section 1.6a (all false if research_mcp.enabled is false)
   ref: {true/false}
   context7: {true/false}
@@ -341,6 +375,7 @@ private_doc_urls: [{list of private doc URLs}]  # from Section 1.6d
 ---
 ## Context for Next Stage
 
+- PROJECT_ROOT: {PROJECT_ROOT}
 - FEATURE_NAME: {FEATURE_NAME}
 - FEATURE_DIR: {FEATURE_DIR}
 - TASKS_FILE: {TASKS_FILE}
@@ -349,6 +384,7 @@ private_doc_urls: [{list of private doc URLs}]  # from Section 1.6d
 - Phases remaining: {list}
 - Resume from: {phase_name or "beginning"}
 - Detected domains: {list, e.g., ["kotlin", "compose", "api"] or [] if detection disabled}
+- CLI availability: {map, e.g., codex=true, gemini=false or "no clink options enabled"}
 - MCP availability: ref={true/false}, context7={true/false}, tavily={true/false} (or "all disabled" if research_mcp.enabled is false)
 - Extracted URLs: {count} documentation URLs from planning artifacts (or "disabled")
 - Resolved libraries: {count} Context7 library IDs pre-resolved (or "disabled")
@@ -404,6 +440,7 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] Expected file warnings: {list or "none"}
 - [{timestamp}] Test cases: {discovered N specs / not available}
 - [{timestamp}] Domain detection: {detected_domains list or "disabled"}
+- [{timestamp}] CLI availability: {map, e.g., codex=true, gemini=false or "no clink options enabled"}
 - [{timestamp}] MCP availability: ref={bool}, context7={bool}, tavily={bool} (or "research_mcp disabled")
 - [{timestamp}] URL extraction: {N} URLs extracted from planning artifacts (or "disabled/skipped")
 - [{timestamp}] Library pre-resolution: {N} libraries resolved via Context7 (or "disabled/skipped")

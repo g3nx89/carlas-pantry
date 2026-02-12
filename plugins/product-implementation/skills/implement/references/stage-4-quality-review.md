@@ -15,8 +15,9 @@ agents:
   - "product-implementation:developer"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/clink-dispatch-procedure.md"
   - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
-  - ".stage-summaries/stage-1-summary.md (for detected_domains)"
+  - ".stage-summaries/stage-1-summary.md (for detected_domains, cli_availability)"
 ---
 
 # Stage 4: Quality Review
@@ -130,6 +131,63 @@ Each reviewer agent should:
 4. If skill references are provided, consult them for domain-specific review criteria
 5. Produce findings in structured format
 
+## 4.2a Clink Multi-Model Review (Option D) with Security Reviewer (Option E)
+
+> **Conditional**: Only runs when `clink_dispatch.stage4.multi_model_review.enabled` is `true`. When enabled, this section **replaces** Section 4.2 as the review dispatch mechanism. When disabled, Section 4.2 is used (current behavior).
+
+Replace the homogeneous 3-agent native review with a multi-model review using different CLIs for different focus areas. Each model brings distinct reasoning strengths.
+
+### Reviewer Dispatch Matrix
+
+Read `cli_availability` from the Stage 1 summary. For each reviewer defined in `clink_dispatch.stage4.multi_model_review.reviewers`:
+
+| Reviewer | CLI | Role | Focus | Fallback |
+|----------|-----|------|-------|----------|
+| 1 | Gemini | `simplicity_reviewer` | Simplicity, DRY, unnecessary complexity | Native `developer` agent with same focus |
+| 2 | Codex | `correctness_reviewer` | Bugs, edge cases, race conditions | Native `developer` agent with same focus |
+| 3 | Native | (unchanged) | Project conventions, pattern adherence | N/A (always native) |
+
+### Dispatch Procedure
+
+1. **For each clink reviewer** (Reviewers 1 and 2):
+   - Check `cli_availability[cli_name]`
+   - If CLI is available: Build prompt from the corresponding role prompt file (e.g., `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_simplicity_reviewer.txt`). Inject variables:
+     - `{FEATURE_DIR}`, `{TASKS_FILE}` — from Stage 1 summary
+     - `{modified_files}` — file list from tasks.md `[X]` entries
+     - `{skill_references}` — resolved in Section 4.1a (or fallback text)
+   - Dispatch via Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+     - `fallback_behavior="native"`, `fallback_agent="product-implementation:developer"`, `fallback_prompt=` Quality Review Prompt from `agent-prompts.md` with the corresponding `{focus_area}`
+     - `expected_fields` per role (simplicity: `["files", "findings", "top_issue"]`; correctness: `["files", "findings", "top_risk", "data_flows_verified"]`)
+   - If CLI unavailable: immediately use the native `developer` agent with the same focus area
+
+2. **Reviewer 3** (conventions): Always dispatched as native `developer` agent using the Quality Review Prompt with focus area "project conventions, abstractions, and pattern adherence". This reviewer requires deep codebase context that clink agents lack.
+
+3. **All reviewers launch in parallel** (including conditional reviewers below).
+
+### Option E: Conditional Security Reviewer
+
+> **Conditional within D**: Only triggers when `detected_domains` (from Stage 1 summary) includes ANY of the domains listed in `clink_dispatch.stage4.multi_model_review.conditional[].domains` (default: `["api", "web_frontend", "database"]`).
+
+When triggered:
+- Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_security_reviewer.txt`. Inject variables:
+  - `{FEATURE_DIR}`, `{TASKS_FILE}` — from Stage 1 summary
+  - `{modified_files}` — file list from tasks.md `[X]` entries
+  - `{detected_domains}` — from Stage 1 summary
+- Dispatch via Shared Clink Dispatch Procedure with:
+  - `cli_name="codex"`, `role="security_reviewer"`
+  - `file_paths=[...files_with_findings, FEATURE_DIR]`
+  - `fallback_behavior="skip"` (base 3 reviewers still run)
+  - `expected_fields=["files", "findings", "top_risk", "owasp_categories"]`
+- Runs in parallel with Reviewers 1-3
+
+### Output Normalization
+
+All reviewers (clink and native) produce findings in `[{severity}] description -- file:line` format. The coordinator normalizes all outputs into the Section 4.3 consolidation format before deduplication and severity reclassification.
+
+### Dev-Skills Conditional Reviewers
+
+Conditional reviewers from `dev_skills.conditional_review` (Section 4.1a) still launch alongside. They are always dispatched as native `developer` agents regardless of whether Option D is enabled.
+
 ## 4.3 Finding Consolidation
 
 After all reviewers complete, consolidate findings:
@@ -209,8 +267,29 @@ If orchestrator provides a user-input file:
 
 ### On "Fix Now"
 
+#### Option F: Clink Fix Engineer
+
+> **Conditional**: When `clink_dispatch.stage4.fix_engineer.enabled` is `true` AND `cli_availability.codex` is `true` (from Stage 1 summary), use the clink fix engineer instead of the native developer agent. If conditions are not met, use the native path below.
+
+**Clink fix path:**
+1. Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_fix_engineer.txt`. Inject variables:
+   - `{findings_list}` — Critical + High findings from consolidated review
+   - `{baseline_test_count}` — from Stage 3 summary `flags.baseline_test_count`
+   - `{FEATURE_DIR}`, `{TASKS_FILE}` — from Stage 1 summary
+2. Dispatch via Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+   - `cli_name="codex"`, `role="fix_engineer"`
+   - `file_paths=[...files_with_findings]`
+   - `fallback_behavior="native"`, `fallback_agent="product-implementation:developer"`, `fallback_prompt=` Review Fix Prompt from `agent-prompts.md`
+   - `expected_fields=["findings", "tests", "regression", "patterns_fixed"]`
+3. Parse `test_count_post_fix` from output (regex: `test_count_post_fix:\s*(\d+)`)
+4. **Write boundaries**: The clink agent may only modify files listed in the findings. Verify no other files were changed.
+5. If clink fails, regression detected, or parsing fails → fall back to native developer agent (below)
+
+**Native fix path** (default, or fallback from clink):
 1. Launch a `developer` agent with the fix prompt template from `agent-prompts.md` (Section: Review Fix Prompt)
 2. Agent addresses Critical and High findings
+
+**Common steps (both paths):**
 3. After fixes, re-run a quick validation (tests pass, no regressions)
 4. **Test count cross-validation**: Compare the post-fix test count against `baseline_test_count` from the Stage 3 summary flags. If post-fix count < baseline, BLOCK: "Test count regression detected: {post_fix_count} < {baseline_test_count}. Fix agent may have broken or removed existing tests." The fix agent must resolve regressions before proceeding.
 5. **Write deferred findings**: Write remaining Medium + Low findings (those NOT addressed by the fix agent) to `{FEATURE_DIR}/review-findings.md`. This ensures lower-severity findings are tracked in a dedicated artifact even when the user chose "Fix now" for Critical + High issues only.

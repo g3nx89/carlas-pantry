@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "name": "gemini",
+  "command": "gemini",
+  "additional_args": ["--yolo"],
+  "healthcheck": "gemini --version",
+  "timeout_seconds_override": null,
+  "retry_override": null,
+  "roles": {
+    "spec_validator":      { "prompt_path": "gemini_spec_validator.txt", "max_output_tokens": 8000 },
+    "simplicity_reviewer": { "prompt_path": "gemini_simplicity_reviewer.txt", "max_output_tokens": 4000 },
+    "test_augmenter":      { "prompt_path": "gemini_test_augmenter.txt", "max_output_tokens": 6000 }
+  }
+}
