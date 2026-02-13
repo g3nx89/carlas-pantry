@@ -1,0 +1,55 @@
+# Skill Analyzer Configuration
+# Single source of truth for all configurable thresholds and parameters.
+# Reference files and SKILL.md should point here rather than hardcoding values.
+
+lenses:
+  default_count: 7
+  max_count: 11          # 7 default + 4 pre-defined optional
+  min_count: 2
+
+scoring:
+  weights:
+    # Default lens weights (must sum to 1.0)
+    structure: 0.20
+    prompt: 0.15
+    context: 0.15
+    writing: 0.10
+    effectiveness: 0.15
+    reasoning: 0.15
+    architecture: 0.10
+  optional:
+    per_lens_weight: 0.05
+    # When N optional lenses are active:
+    #   scale_factor = 1.0 - (N * per_lens_weight)
+    #   each default weight *= scale_factor
+    #   each optional lens weight = per_lens_weight
+    scaling_method: proportional
+
+thresholds:
+  # Target skill SKILL.md word count above which missing references/ is flagged
+  skill_too_large_words: 3000
+  # Maximum action items in the Modification Plan table
+  max_modification_plan_items: 15
+  # Maximum reference files each sub-agent reads from the target skill
+  max_reference_files_per_agent: 3
+
+token_budget:
+  per_agent:
+    min: 10000
+    max: 20000
+  total_default:         # 7 default lenses
+    min: 70000
+    max: 140000
+  total_max:             # 7 default + 4 optional lenses
+    min: 110000
+    max: 220000
+
+effort_estimates:
+  small_max_minutes: 15
+  medium_max_minutes: 60
+
+output:
+  # Intermediate analysis directory (dot-prefixed, gitignore recommended)
+  analysis_dir: ".skill-review"
+  # Final report filename
+  report_filename: "skill-review-report.md"
