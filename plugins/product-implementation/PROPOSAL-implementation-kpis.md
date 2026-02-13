@@ -3,7 +3,7 @@
 **Plugin:** product-implementation (skill: implement)
 **Data:** 2026-02-09
 **Versione:** Draft v2
-**Stato:** In revisione
+**Stato:** Phase 1 implemented in Stage 6 (Implementation Retrospective). Phase 2/3 remain future work.
 
 ---
 
@@ -23,7 +23,7 @@ Il framework è strutturato in 3 fasi per validare incrementalmente l'utilità d
 
 | Fase | Scope | Prerequisiti | KPI incluse |
 |------|-------|-------------|-------------|
-| **1 — MVP** | 5 KPI già estraibili da YAML strutturato esistente + Report Card minimale | Nessuna modifica ai template | 1.2, 1.3, 3.1, 3.2, 3.3 |
+| **1 — MVP** | 10 KPI estraibili da YAML strutturato esistente + Report Card + session transcript + narrative retrospective | Nessuna modifica ai template. **Implementato in Stage 6.** | 1.2, 1.3, 3.1, 3.2, 3.3, 5.1, 5.2, 5.3, 5.4, 5.5 |
 | **2 — Full** | +10 KPI che richiedono nuovi campi YAML nei summary template | Template changes (vedi sezione dedicata) | +1.1, 2.1–2.5, 3.4, 4.1–4.4 |
 | **3 — Aggregazione** | Cross-run analytics, correlazioni, trend | Aggregation tool o index file | Dashboard cross-run |
 
@@ -33,7 +33,7 @@ Il framework è strutturato in 3 fasi per validare incrementalmente l'utilità d
 
 ## Contesto Architetturale
 
-La skill `implement` esegue un workflow a 5 stage sequenziali:
+La skill `implement` esegue un workflow a 6 stage sequenziali:
 
 | Stage | Nome | Dati di qualità già prodotti |
 |-------|------|------------------------------|
@@ -42,6 +42,7 @@ La skill `implement` esegue un workflow a 5 stage sequenziali:
 | 3 | Completion Validation | Validation report (task %, test %, spec coverage, traceability) |
 | 4 | Quality Review | Finding count per severity, reviewer consensus |
 | 5 | Feature Documentation | Documentation file list, completeness assessment |
+| 6 | Implementation Retrospective | KPI Report Card, transcript analysis, narrative retrospective |
 
 Ogni stage produce un summary file con YAML frontmatter strutturato. Lo state file (`implementation-state.local.md`) traccia le decisioni utente e i contatori di recovery. Questi sono i punti di osservazione naturali per le KPI.
 
@@ -69,6 +70,11 @@ Ogni stage produce un summary file con YAML frontmatter strutturato. Lo state fi
 | 4.2 | Lock Conflict Rate | Risorse | Strutturato | 1 | Flag: stale lock overridden |
 | 4.3 | Conditional Reviewer Activation | Risorse | Richiede YAML | 2 | `conditional_reviewers_triggered / conditional_reviewers_possible` |
 | 4.4 | Context Size Indicator | Risorse | Richiede YAML | 2 | `phases_count * avg_tasks_per_phase` |
+| 5.1 | Autonomy Policy Level | Processo | Strutturato | 1 | `autonomy_policy` da Stage 1 summary |
+| 5.2 | Auto-Resolution Count | Processo | Strutturato | 1 | `count([AUTO-{policy}])` entries across stage logs |
+| 5.3 | Simplification Stats | Output | Strutturato | 1 | `simplification_stats` da Stage 2 summary |
+| 5.4 | UAT Results | Output | Strutturato | 1 | `uat_results` da Stage 2 summary |
+| 5.5 | Clink Augmentation Bugs | Output | Strutturato | 1 | `augmentation_bugs_found` da Stage 2 summary |
 
 **Legenda Qualità Dati:**
 - **Strutturato** — estraibile da campi YAML esistenti senza parsing
@@ -94,11 +100,12 @@ Misurano quanto fluido è il passaggio da input a output finito.
 
 #### 1.2 Rework Loop Count (Fase 1)
 
-- **Definizione:** Numero di cicli fix-and-retry in Stage 3 (validation) e Stage 4 (review)
+- **Definizione:** Numero di cicli fix-and-retry in Stage 3 (validation), Stage 4 (review), e Stage 5 (documentation)
 - **Formula:** `count(user_decisions.* == "fixed")`
   - `validation_outcome == "fixed"` → 1 rework loop in Stage 3
   - `review_outcome == "fixed"` → 1 rework loop in Stage 4
-- **Fonte dati:** `user_decisions.validation_outcome` e `user_decisions.review_outcome` nello state file
+  - `documentation_verification == "fixed"` → 1 rework loop in Stage 5
+- **Fonte dati:** `user_decisions.validation_outcome`, `user_decisions.review_outcome`, e `user_decisions.documentation_verification` nello state file
 - **Qualità dati:** Strutturato
 - **Target ideale:** 0
 - **Razionale target:** Rework indica che la prima esecuzione non ha soddisfatto i criteri. Zero rework significa che l'agent ha prodotto output corretto al primo tentativo.
@@ -450,7 +457,7 @@ resource_efficiency:
 
 ### Dove salvare
 
-`{FEATURE_DIR}/.implementation-report-card.md` accanto allo state file e ai summary.
+`{FEATURE_DIR}/.implementation-report-card.local.md` accanto allo state file e ai summary. Il suffisso `.local.md` indica che è un artifact di analisi locale escluso dall'auto-commit.
 
 ### Come generare
 
@@ -461,7 +468,7 @@ resource_efficiency:
 
 **Fase 2:** Il coordinator Stage 5 legge anche i summary Stage 3 e 4 per popolare i campi strutturati aggiunti con i Template Changes.
 
-**Alternativa futura:** Se la Report Card cresce in complessità, promuoverla a Stage 6 dedicato per separazione di responsabilità.
+**Nota:** La Report Card è stata promossa a Stage 6 dedicato (Implementation Retrospective) per separazione di responsabilità. Il coordinator Stage 6 compila la Report Card, estrae dati dalla session transcript, e dispatch il tech-writer per la composizione del retrospective narrativo.
 
 ---
 
@@ -509,12 +516,18 @@ L'opzione B è più potente ma richiede una skill dedicata. L'opzione A è suffi
 
 ## Prossimi Passi
 
-### Fase 1 (MVP)
+### Fase 1 (MVP) — IMPLEMENTED
 
-1. Aggiungere istruzioni al coordinator Stage 5 per generare la Report Card con le 5 KPI strutturate (1.2, 1.3, 3.1, 3.2, 3.3) + i campi null per le KPI di Fase 2
-2. Eseguire 5 run della skill implement raccogliendo le Report Card
-3. Verificare che i dati siano stabili e coerenti
-4. Valutare se le 5 KPI producono insight utili (criterio: almeno 1 KPI porta a un'azione di miglioramento)
+Phase 1 is implemented as Stage 6 (Implementation Retrospective) with:
+- 10 KPIs (original 5 + 5 new from autonomy policy, code simplification, UAT, and clink features)
+- Session transcript analysis (streaming extraction of tool usage, errors, timing from JSONL)
+- Narrative retrospective document composed by tech-writer agent
+- Machine-readable KPI Report Card (`.implementation-report-card.local.md`)
+
+**Remaining validation steps:**
+1. Eseguire 5 run della skill implement raccogliendo le Report Card
+2. Verificare che i dati siano stabili e coerenti
+3. Valutare se le 10 KPI producono insight utili (criterio: almeno 1 KPI porta a un'azione di miglioramento)
 
 ### Fase 2 (Full)
 

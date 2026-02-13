@@ -239,7 +239,7 @@ flags:
 ---
 ## Context for Next Stage
 
-Implementation complete. No further stages.
+Stage 6 (Implementation Retrospective) will analyze the full lifecycle — KPI compilation, session transcript analysis, and narrative retrospective.
 
 ## Documentation Files
 

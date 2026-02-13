@@ -12,7 +12,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 
 ## Architecture
 
-### 5-Stage Workflow
+### 6-Stage Workflow
 
 | Stage | Name | Dispatch | Agent(s) |
 |-------|------|----------|----------|
@@ -21,6 +21,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 | 3 | Completion Validation | Coordinator | developer |
 | 4 | Quality Review | Coordinator | 3x+ developer (parallel, conditionally extended) |
 | 5 | Feature Documentation | Coordinator | developer + tech-writer |
+| 6 | Implementation Retrospective | Coordinator | tech-writer |
 
 ### Agent Assignments
 
@@ -32,7 +33,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 
 - `skills/implement/SKILL.md` — Lean orchestrator dispatch table (entry point)
 - `skills/implement/references/orchestrator-loop.md` — Dispatch loop, crash recovery, state migration
-- `skills/implement/references/stage-{1-5}-*.md` — Stage-specific coordinator instructions
+- `skills/implement/references/stage-{1-6}-*.md` — Stage-specific coordinator instructions
 - `skills/implement/references/agent-prompts.md` — All agent prompt templates
 - `config/implementation-config.yaml` — Single source of truth for configurable values
 - `templates/implementation-state-template.local.md` — State file schema (v2)
@@ -68,6 +69,30 @@ The implement skill expects these files in the feature directory (produced by pr
 - Code simplification runs after each phase in Stage 2 (Step 3.5) when `code_simplification.enabled` is `true` in config. The simplifier never modifies test files and automatically rolls back if tests fail. Configuration lives in `config/implementation-config.yaml` under `code_simplification`
 - UAT mobile testing runs after each relevant phase in Stage 2 (Step 3.7) when both `uat_execution.enabled` and `clink_dispatch.stage2.uat_mobile_tester.enabled` are `true`. Requires Genymotion emulator running + mobile-mcp MCP server + Gemini CLI. Configuration lives in `config/implementation-config.yaml` under `uat_execution` and `clink_dispatch.stage2.uat_mobile_tester`. Role prompt in `config/cli_clients/gemini_uat_mobile_tester.txt`
 - Autonomy policy (`autonomy_policy` in config) controls how findings/failures are auto-resolved. Three levels: `full_auto` (fix everything), `balanced` (fix critical/high, defer medium), `critical_only` (fix only critical). Selected at Stage 1 startup via AskUserQuestion (or skipped if `default_level` is set). Policy flows through Stage 1 summary to all stages. Auto-resolved decisions are logged with `[AUTO-{policy}]` prefix. If auto-resolution fails, the system falls through to standard user escalation.
+- Stage 6 (Retrospective) runs post-lock-release as read-only analysis. It produces two artifacts: `.implementation-report-card.local.md` (machine-readable KPI Report Card) and `retrospective.md` (narrative document). Both are excluded from auto-commit except the retrospective itself. Configuration lives in `config/implementation-config.yaml` under `retrospective`.
+
+## Retrospective & KPI (Stage 6)
+
+Stage 6 generates a comprehensive implementation retrospective using a three-layer architecture:
+
+- **Data Layer**: KPI Report Card compiled inline from state file + stage summaries (10 Phase 1 KPIs)
+- **Behavior Layer**: Session transcript extraction via throwaway subagent (streaming Python script on JSONL, conditional)
+- **Presentation Layer**: Narrative retrospective composed by tech-writer agent from Report Card + transcript + summaries
+
+### Key Constraints
+
+- **Post-lock-release**: Stage 6 runs after Stage 5 releases the lock — no lock operations needed
+- **Conditional transcript analysis**: Gated by `retrospective.transcript_analysis.enabled`; if disabled or transcript not found, retrospective is KPI-and-summary-only
+- **Forward-compatible schema**: Report Card includes Phase 2 KPI fields as `null` placeholders
+- **Section toggles**: Each retrospective section can be individually disabled via `retrospective.sections` in config
+- **Local artifacts excluded**: `.implementation-report-card.local.md` and `transcript-extract.json` are excluded from auto-commit
+
+### Configuration
+
+- Master switch: `retrospective.enabled` (if `false`, Stage 6 writes minimal "skipped" summary)
+- Transcript analysis: `retrospective.transcript_analysis.*` (enabled, transcript_dir, extraction caps)
+- Section toggles: `retrospective.sections.*` (timeline, what_worked, what_didnt_work, etc.)
+- Auto-commit: `auto_commit.message_templates.retrospective` + exclude patterns for report card and transcript extract
 
 ## Dev-Skills Integration
 

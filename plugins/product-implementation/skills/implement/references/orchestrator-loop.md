@@ -12,7 +12,7 @@ IF state.version == 1 OR state.version is missing: MIGRATE to v2 (see Migration 
 READ config at $CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml
 BUILD dispatch_table from SKILL.md Stage Dispatch Table
 
-FOR stage IN [1, 2, 3, 4, 5]:
+FOR stage IN [1, 2, 3, 4, 5, 6]:
   IF state.stage_summaries[stage] != null: SKIP (already done)
 
   delegation = dispatch_table[stage].delegation
@@ -162,7 +162,7 @@ ON resume, IF state.version == 1 OR state.version is missing:
 
   # Reconstruct stage_summaries from existing checkpoint data:
   # Use current_stage to infer which stages completed (stages < current_stage)
-  FOR each stage IN [1, 2, 3, 4, 5] WHERE stage < state.current_stage:
+  FOR each stage IN [1, 2, 3, 4, 5, 6] WHERE stage < state.current_stage:
     IF file exists at {FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md:
       SET state.stage_summaries[stage] = path
     # (v1 sessions won't have summaries, but artifacts still exist - OK to continue)
@@ -181,7 +181,7 @@ FUNCTION RELEASE_LOCK:
 ```
 
 Called at:
-- Stage 5 completion (normal path)
+- Stage 5 completion (normal path) — Stage 6 runs post-lock-release (read-only analysis)
 - User chooses "abort" at any crash recovery or failure prompt
 - User chooses "stop here" at validation (Stage 3)
 

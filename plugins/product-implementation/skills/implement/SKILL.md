@@ -6,7 +6,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 2.2.0
+version: 2.3.0
 allowed-tools:
   # File operations
   - Read
@@ -81,6 +81,10 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 │        ↓                                              │
 │  ┌───────────┐                                        │
 │  │  Stage 5  │  Feature Documentation    (coordinator)│
+│  └─────┬─────┘                                        │
+│        ↓        lock released ↑                       │
+│  ┌───────────┐                                        │
+│  │  Stage 6  │  Implementation Retrospective (coord.) │
 │  └───────────┘                                        │
 │                                                       │
 └──────────────────────────────────────────────────────┘
@@ -99,6 +103,7 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 | 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 | Policy-gated | VALIDATION |
 | 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3 or code-review skill | stage-2, stage-3 | Policy-gated | QUALITY_REVIEW |
 | 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer` | stage-3, stage-4 | Policy-gated | DOCUMENTATION |
+| 6 | Coordinator | `stage-6-retrospective.md` | `tech-writer` | stage-1 through stage-5 | None | RETROSPECTIVE |
 
 All reference files are in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/`.
 
@@ -116,7 +121,7 @@ Execute Stage 1 inline. Read `$CLAUDE_PLUGIN_ROOT/skills/implement/references/st
 
 - **Path:** `{FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md`
 - **Template:** `$CLAUDE_PLUGIN_ROOT/templates/stage-summary-template.md`
-- **Size:** 20-60 lines (YAML frontmatter + markdown); Stage 1 may reach ~80 lines due to context loading duties
+- **Size:** 20-60 lines (YAML frontmatter + markdown); Stage 1 may reach ~80 lines due to context loading duties; Stage 6 ~40 lines
 - **Required YAML fields:** `stage`, `status`, `checkpoint`, `artifacts_written`, `summary`
 - **Critical section:** "Context for Next Stage" — this is what the next coordinator reads to understand state
 
@@ -139,7 +144,10 @@ On resume, use `current_stage`, `stage_summaries`, and `user_decisions` to deter
   - If value is `"stopped"` → halt (user previously chose to stop)
   - Otherwise → skip to Stage 4
 - If `current_stage` = 4 and `user_decisions.review_outcome` exists → skip to Stage 5
-- If `current_stage` = 5 and `user_decisions.documentation_outcome` exists → already complete, report status
+- If `current_stage` = 5 and `user_decisions.documentation_outcome` exists → skip to Stage 6
+- If `current_stage` = 6:
+  - If `stage_summaries["6"]` exists → already complete, report status
+  - Else → run Stage 6
 
 Stage completion is derived from `stage_summaries` (non-null = completed). The `current_stage` field tracks the next stage to execute.
 
@@ -149,7 +157,7 @@ Stage completion is derived from `stage_summaries` (non-null = completed). The `
 |-------|------|---------|
 | `product-implementation:developer` | Implementation, testing, validation, review | Stages 2, 3, 4, 5 |
 | `product-implementation:code-simplifier` | Code simplification, clarity, maintainability | Stage 2 |
-| `product-implementation:tech-writer` | Feature documentation, API guides, architecture updates | Stage 5 |
+| `product-implementation:tech-writer` | Feature documentation, API guides, architecture updates, retrospective | Stages 5, 6 |
 
 ## Severity Levels (Canonical)
 
@@ -173,7 +181,9 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `docs/` | Feature documentation, API guides, architecture updates (Stage 5) |
 | Module `README.md` files | Updated READMEs in folders affected by implementation (Stage 5) |
 | `.uat-evidence/` | UAT screenshots organized by phase (Step 3.7, conditional on UAT being enabled and relevant phases) |
-| Git commits | Auto-commits at phase completion (Stage 2, with simplified code when enabled), review fix (Stage 4), and documentation (Stage 5). Controlled by `auto_commit` and `code_simplification` in config. |
+| `retrospective.md` | Implementation retrospective narrative with KPI analysis, session behavior, and recommendations (Stage 6) |
+| `.implementation-report-card.local.md` | Machine-readable KPI Report Card with Phase 1 metrics and Phase 2 placeholders (Stage 6, excluded from auto-commit) |
+| Git commits | Auto-commits at phase completion (Stage 2, with simplified code when enabled), review fix (Stage 4), documentation (Stage 5), and retrospective (Stage 6). Controlled by `auto_commit` and `code_simplification` in config. |
 
 ## Dev-Skills Integration
 
@@ -262,10 +272,11 @@ Configuration: `config/implementation-config.yaml` under `autonomy_policy`.
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |
 | `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Skill resolution, review dimensions (base + conditional), finding consolidation, auto-decision matrix |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
-| `references/agent-prompts.md` | Stages 2-5 (coordinator reads) | All agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, code simplification, auto-commit prompt |
-| `references/auto-commit-dispatch.md` | Stages 2, 4, 5 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
+| `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | All 9 agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, code simplification, auto-commit, retrospective composition |
+| `references/auto-commit-dispatch.md` | Stages 2, 4, 5, 6 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
 | `references/clink-dispatch-procedure.md` | Stages 2, 3, 4 (coordinator reads) | Shared parameterized clink dispatch, timeout, parsing, fallback procedure |
+| `references/stage-6-retrospective.md` | Stage 6 (coordinator) | KPI Report Card, transcript extraction, retrospective composition |
 
 ## Error Handling
 
@@ -286,3 +297,4 @@ Configuration: `config/implementation-config.yaml` under `autonomy_policy`.
 4. Choose autonomy policy (Full Auto / Balanced / Minimal) when prompted — or set `autonomy_policy.default_level` in config to skip the question
 5. Monitor stage-by-stage progress (interruptions depend on chosen policy)
 6. Review documentation updates generated by tech-writer
+7. Review `retrospective.md` and `.implementation-report-card.local.md` for implementation analysis

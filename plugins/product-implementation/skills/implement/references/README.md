@@ -16,6 +16,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `auto-commit-dispatch.md` | Understanding shared auto-commit procedure, exclude pattern matching, or batch strategy |
 | `skill-resolution.md` | Understanding domain-specific skill resolution algorithm used by Stages 2, 4, 5 |
 | `clink-dispatch-procedure.md` | Understanding shared clink dispatch, timeout, parsing, fallback algorithm |
+| `stage-6-retrospective.md` | Debugging retrospective generation, KPI compilation, transcript extraction, or tech-writer dispatch |
 
 ## By Task
 
@@ -49,10 +50,11 @@ Quick guide to when to read each reference file during skill development or debu
 | `stage-3-validation.md` | 196 | Validation checks, clink spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, autonomy policy check (3.4) |
 | `stage-4-quality-review.md` | 357 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), clink multi-model review (4.2a), clink security reviewer (Option E), clink fix engineer (Option F), severity reclassification, consolidation, auto-decision matrix with autonomy policy extension (4.4), auto-commit on fix |
 | `stage-5-documentation.md` | 258 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release, autonomy policy check for incomplete tasks (5.1) |
-| `agent-prompts.md` | 433 | All 8 agent prompt templates (7 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, build verification, API verification, test quality, animation testing, pattern propagation, code simplification |
-| `auto-commit-dispatch.md` | 61 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
+| `agent-prompts.md` | 537 | All 9 agent prompt templates (8 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, build verification, API verification, test quality, animation testing, pattern propagation, code simplification, retrospective composition |
+| `auto-commit-dispatch.md` | 62 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
 | `clink-dispatch-procedure.md` | 133 | Shared parameterized clink dispatch, timeout, parsing, variable injection convention, fallback procedure |
+| `stage-6-retrospective.md` | 344 | KPI Report Card compilation (10 Phase 1 KPIs), session transcript extraction (conditional), retrospective composition via tech-writer, auto-commit, state update |
 
 ## Cross-References
 
@@ -77,7 +79,7 @@ Quick guide to when to read each reference file during skill development or debu
 - Stages 2, 3, 4 propagate verified test counts via summary flags: `test_count_verified` (Stage 2) → `baseline_test_count` (Stage 3) → `test_count_post_fix` (Stage 4)
 - `config/implementation-config.yaml` `severity.escalation_triggers` → referenced by `agent-prompts.md` Quality Review Prompt and `stage-4-quality-review.md` Section 4.3 reclassification pass
 - `config/implementation-config.yaml` `test_coverage.thresholds` → referenced by `agent-prompts.md` Completion Validation Prompt and `stage-3-validation.md` Section 3.2/3.3
-- `auto-commit-dispatch.md` → shared procedure referenced by `stage-2-execution.md` Step 4.5, `stage-4-quality-review.md` Section 4.4 step 6, `stage-5-documentation.md` Section 5.3a
+- `auto-commit-dispatch.md` → shared procedure referenced by `stage-2-execution.md` Step 4.5, `stage-4-quality-review.md` Section 4.4 step 6, `stage-5-documentation.md` Section 5.3a, `stage-6-retrospective.md` Section 6.5
 - `config/implementation-config.yaml` `auto_commit` → referenced by `auto-commit-dispatch.md` procedure, `agent-prompts.md` Auto-Commit Prompt, and all 3 calling stage files via the shared procedure
 - `config/implementation-config.yaml` `test_coverage.tautological_patterns` → referenced by `stage-3-validation.md` Section 3.2 check 11 and `agent-prompts.md` Quality Review Prompt step 5
 - `config/implementation-config.yaml` `severity.auto_decision` (`auto_accept_low_only`) → referenced by `stage-4-quality-review.md` Section 4.4 auto-decision logic
@@ -101,3 +103,11 @@ Quick guide to when to read each reference file during skill development or debu
 - `config/implementation-config.yaml` `autonomy_policy` → referenced by `stage-1-setup.md` Section 1.9a, `orchestrator-loop.md` (infrastructure failures), `stage-2-execution.md` (Steps 3.5, 3.7), `stage-3-validation.md` (Section 3.4), `stage-4-quality-review.md` (Section 4.4), `stage-5-documentation.md` (Section 5.1)
 - `stage-1-setup.md` writes `autonomy_policy` to Stage 1 summary; consumed by orchestrator and all downstream coordinators
 - Autonomy policy auto-resolution is logged with `[AUTO-{policy}]` prefix in all stage logs for traceability
+- `stage-6-retrospective.md` → uses `agent-prompts.md` Retrospective Composition Prompt, `auto-commit-dispatch.md` Section 6.5
+- `stage-6-retrospective.md` reads all 5 prior stage summaries for KPI compilation and narrative context
+- `stage-6-retrospective.md` reads `[AUTO-{policy}]` entries from all stage logs for KPI 5.2 (Auto-Resolution Count)
+- `config/implementation-config.yaml` `retrospective` → referenced by `stage-6-retrospective.md` Sections 6.1, 6.3, 6.4
+- `config/implementation-config.yaml` `auto_commit.message_templates.retrospective` → referenced by `stage-6-retrospective.md` Section 6.5 via shared auto-commit procedure
+- `config/implementation-config.yaml` `auto_commit.exclude_patterns` includes `.implementation-report-card` and `transcript-extract.json` for Stage 6 local artifacts
+- Stage 6 runs post-lock-release: lock was released in Stage 5, Stage 6 is read-only analysis
+- Stage 6 produces `.implementation-report-card.local.md` (KPI Report Card) and `retrospective.md` (narrative); transcript-extract.json is intermediate

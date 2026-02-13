@@ -1,9 +1,10 @@
 ---
-description: "Shared auto-commit dispatch procedure for Stage 2, 4, and 5 coordinators"
+description: "Shared auto-commit dispatch procedure for Stage 2, 4, 5, and 6 coordinators"
 referenced_by:
   - "stage-2-execution.md (Step 4.5)"
   - "stage-4-quality-review.md (Section 4.4 step 6)"
   - "stage-5-documentation.md (Section 5.3a)"
+  - "stage-6-retrospective.md (Section 6.5)"
 ---
 
 # Auto-Commit Dispatch Procedure

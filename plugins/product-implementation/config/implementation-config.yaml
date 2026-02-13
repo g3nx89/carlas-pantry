@@ -252,11 +252,14 @@ auto_commit:
     phase_batch: "feat({feature_name}): implement all phases"
     review_fix: "fix({feature_name}): address quality review findings"
     documentation: "docs({feature_name}): add feature documentation"
+    retrospective: "docs({feature_name}): add implementation retrospective"
   # Exclude patterns: substring-matched against the git-status-relative file path.
   # Example: ".stage-summaries/" matches "specs/001-feature/.stage-summaries/stage-1-summary.md"
   exclude_patterns:
     - ".implementation-state.local.md"
     - ".stage-summaries/"
+    - ".implementation-report-card"
+    - "transcript-extract.json"
 
 # Code simplification (Stage 2 post-phase)
 # When enabled, a code-simplifier agent runs after each phase's developer agent completes.
@@ -453,6 +456,28 @@ clink_dispatch:
       cli_name: "gemini"
       role: "doc_researcher"
       max_tokens: 1500
+
+# Implementation retrospective (Stage 6)
+# Generates a KPI Report Card and narrative retrospective document after all stages complete.
+# Stage 6 runs post-lock-release (read-only analysis). No lock operations needed.
+# Referenced by: stage-6-retrospective.md
+retrospective:
+  enabled: true                         # Set to false to skip Stage 6 entirely
+  transcript_analysis:
+    enabled: true                       # Set to false to skip session transcript extraction
+    transcript_dir: null                # null = auto-detect from ~/.claude/projects/
+    max_errors_extracted: 20            # Cap on tool errors in transcript extract
+    max_file_paths_extracted: 50        # Cap on files_most_accessed in transcript extract
+    extract_token_budget: 3000          # Approximate token budget for transcript-extract.json
+  sections:                             # Toggle retrospective document sections
+    timeline: true
+    what_worked: true
+    what_didnt_work: true
+    stage_breakdown: true
+    tool_analysis: true
+    code_quality_metrics: true
+    recommendations: true
+    raw_metrics: true
 
 # Timestamp format for stage logs, state checkpoints, and summaries
 timestamps:

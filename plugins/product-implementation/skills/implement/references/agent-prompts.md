@@ -1,6 +1,6 @@
 # Agent Prompt Templates
 
-All prompts in this file are used by the orchestrator to launch `developer` and `tech-writer` agents. Variables in `{braces}` MUST be prefilled by the orchestrator before dispatching.
+All 9 prompts in this file are used by the orchestrator to launch `developer` and `tech-writer` agents. Variables in `{braces}` MUST be prefilled by the orchestrator before dispatching.
 
 ---
 
@@ -431,3 +431,107 @@ Report exactly these fields at the end of your response:
 - `{exclude_patterns_formatted}` — Bullet list of exclude patterns from `auto_commit.exclude_patterns` in config, formatted as: `- .implementation-state.local.md\n- .stage-summaries/`
 
 **Agent behavior:** The general-purpose subagent runs git commands to stage and commit changed files, excluding internal state files. It reports structured output that the coordinator logs. On any failure, the subagent reports the error without retrying — the coordinator treats all failures as non-blocking warnings.
+
+---
+
+## Retrospective Composition Prompt
+
+Used in Stage 6 to launch the tech-writer agent for composing the implementation retrospective narrative from structured KPI data and transcript analysis.
+
+```markdown
+**Goal**: Compose a comprehensive implementation retrospective for feature {FEATURE_NAME}. Synthesize quantitative KPIs, session behavior analysis, and stage-by-stage outcomes into a narrative that identifies what worked, what didn't, and what to improve.
+
+FEATURE_NAME: {FEATURE_NAME}
+FEATURE_DIR: {FEATURE_DIR}
+
+## KPI Report Card Data
+
+{report_card_data}
+
+## Session Transcript Analysis
+
+{transcript_extract}
+
+## Stage Summaries
+
+{stage_summaries_compiled}
+
+## Sections Configuration
+
+{sections_config}
+
+## Output Instructions
+
+Write `{FEATURE_DIR}/retrospective.md` with these sections. Skip any section where `sections_config` has it set to `false`. The Executive Summary and KPI Report Card are ALWAYS included regardless of config.
+
+### 1. Executive Summary
+- 2-3 sentence verdict backed by KPI traffic lights
+- Highlight the most significant green and red KPIs
+- State autonomy policy used and its impact (auto-resolutions count)
+
+### 2. KPI Report Card
+- Render all Phase 1 KPIs as a markdown table: `| ID | KPI | Value | Traffic Light |`
+- Include a "Phase 2 (Future)" row with `—` values for forward-compatibility awareness
+- Add brief interpretation notes for non-obvious KPIs
+
+### 3. Implementation Timeline (if sections.timeline)
+- Stage-by-stage chronology with key events
+- Note any re-runs, user interventions, or auto-resolutions
+- Include timestamps if available from stage summaries
+
+### 4. What Worked Well (if sections.what_worked)
+- Synthesize evidence from: green KPIs, successful auto-resolutions, clean validation passes
+- If transcript available: highlight efficient tool usage patterns, low error rates
+- Cite specific stage summary data as evidence
+
+### 5. What Did Not Work Well (if sections.what_didnt_work)
+- Synthesize evidence from: red/yellow KPIs, rework loops, coordinator failures
+- If transcript available: highlight files read repeatedly (inefficiency), high error counts, context compressions
+- Cite specific stage summary data as evidence
+
+### 6. Stage-by-Stage Breakdown (if sections.stage_breakdown)
+- For each stage (1-5): outcome, key metrics, policy actions taken
+- Include validation findings summary, review findings summary, documentation gaps
+
+### 7. Session Behavior Analysis (if sections.tool_analysis AND transcript available)
+- Tool usage distribution (top 5 tools by count)
+- File access heatmap (most accessed files)
+- Repeatedly-read files (inefficiency signals — read 5+ times)
+- Subagent dispatch pattern
+- Context compression events (if any — indicates approaching context limits)
+- Longest turns (potential bottlenecks)
+
+### 8. Quality Metrics (if sections.code_quality_metrics)
+- Test count progression: Stage 2 verified → Stage 3 baseline → Stage 4 post-fix
+- Code simplification results (if available): phases simplified, lines reduced, rollbacks
+- UAT results (if available): phases tested, pass/fail, visual mismatches
+- Review findings by severity
+
+### 9. Recommendations (if sections.recommendations)
+- 3-5 actionable recommendations based on evidence
+- Categorize: Process improvements, Input quality, Config tuning
+- Reference specific KPIs or transcript evidence for each
+
+### 10. Appendix: Raw Data (if sections.raw_metrics)
+- Full KPI values table (machine-readable format)
+- Transcript extract summary (if available)
+- Stage summary flags compilation
+
+## Style Guidelines
+
+- Use concrete numbers and evidence — avoid vague assessments
+- Reference KPI IDs (e.g., "KPI 1.2") when discussing metrics
+- Use traffic light emoji for visual scanning: green circle, yellow circle, red circle
+- Keep the document scannable with headers, tables, and bullet points
+- Total document length: aim for 200-400 lines depending on sections enabled
+```
+
+**Variables:**
+- `{FEATURE_NAME}` — Feature identifier from Stage 1 summary. (required — always available)
+- `{FEATURE_DIR}` — Path to feature spec directory from Stage 1 summary. (required — always available)
+- `{report_card_data}` — Full content of `.implementation-report-card.local.md` YAML frontmatter (produced in Stage 6 Section 6.2). Contains all Phase 1 KPI values and traffic lights. (required — always produced before this prompt runs)
+- `{transcript_extract}` — Content of `.stage-summaries/transcript-extract.json` (produced in Stage 6 Section 6.3). Contains tool usage, errors, timing, and file access patterns. **Fallback if transcript analysis disabled or unavailable:** `"Transcript analysis not available — session behavior sections will be omitted."`
+- `{stage_summaries_compiled}` — Key excerpts from all 5 stage summaries: the `summary` and `flags` YAML sections from each, plus any `## Context for Next Stage` prose. Compiled by the Stage 6 coordinator (~200 tokens per stage, ~1000 tokens total). (required — always available)
+- `{sections_config}` — The `retrospective.sections` block from `config/implementation-config.yaml`, rendered as YAML. Controls which sections the tech-writer includes. **Fallback if config unavailable:** All sections enabled (default `true`).
+
+**Agent behavior:** The tech-writer agent reads the provided structured data (KPI Report Card, transcript extract, stage summaries), synthesizes findings across all three data sources, and produces a narrative retrospective document. The agent respects section toggles from `{sections_config}` — disabled sections are omitted entirely. When transcript data is unavailable, the agent omits session behavior sections and produces a KPI-and-summary-focused retrospective. The agent uses traffic light indicators, tables, and evidence-based language throughout.
