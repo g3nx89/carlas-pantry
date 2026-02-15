@@ -1,19 +1,20 @@
 ---
 name: genymotion-expert
-description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
-version: 1.3.0
+description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network, motion, biometrics) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", "test camera or media injection on Genymotion", "simulate fingerprint on Genymotion", "use gamepad with Genymotion", "forward physical device sensors to emulator", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
+version: 1.4.0
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
 # Genymotion Desktop Expert
 
-CLI-driven Android emulation and test automation with Genymotion Desktop. Covers GMTool device lifecycle, Genymotion Shell sensor simulation, and ADB integration for Kotlin/Jetpack Compose projects.
+CLI-driven Android emulation and test automation with Genymotion Desktop. Covers GMTool device lifecycle, Genymotion Shell sensor simulation, emulated features (GPS, battery, network, motion sensors, biometrics, camera injection, gamepad, disk I/O, phone/SMS, device identity), and ADB integration for Kotlin/Jetpack Compose projects.
 
 ## When to Use
 
 - Creating, starting, or managing Genymotion virtual devices via CLI
 - Running instrumented tests (Espresso, Compose UI, Maestro) against Genymotion
-- Simulating sensors: GPS, battery, network conditions, rotation, phone calls
+- Simulating sensors: GPS, battery, network, rotation, phone calls, motion sensors, biometrics
+- Configuring camera/media injection, gamepad support, or Device Link sensor forwarding
 - Automating device setup for local development or self-hosted CI
 - Troubleshooting ADB connections, boot failures, or test flakiness on Genymotion
 - Choosing between Genymotion Desktop, AVD, or Genymotion SaaS
@@ -105,9 +106,17 @@ genyshell -q -c "network setsignalstrength wifi good"
 
 # Rotation
 genyshell -q -c "rotation setangle 90"
+
+# Disk I/O (simulate low-end device at 50 MiB/s)
+genyshell -q -c "diskio setreadratelimit 51200"
+
+# Phone/SMS
+genyshell -q -c 'phone sms "+15551234567" "OTP: 847291"'
 ```
 
 Target a specific device by IP: `genyshell -r 192.168.56.101 -c "..."`.
+
+**GUI-only features** (v3.6.0+): Biometrics (fingerprint scenarios), Camera/Media Injection, Motion Sensors (accelerometer/gyroscope/magnetometer via yaw/pitch/roll sliders), Device Link (physical device sensor forwarding), and Gamepad are configurable only through the Genymotion Desktop UI. See `references/emulated-features.md` for full details, testing patterns, and ADB automation alternatives.
 
 ### Running Tests
 
@@ -161,7 +170,7 @@ Genymotion Shell path differs slightly — see `references/cli-reference.md` for
 ### When Genymotion Desktop is Right
 
 - Local development on Apple Silicon (native arm64 Android images)
-- Rich sensor simulation via Genymotion Shell scripting
+- Rich sensor simulation (GPS, battery, network, motion sensors, biometrics, camera injection)
 - Teams already invested in Genymotion ecosystem
 - Quick prototyping with the device link feature (forward real phone sensors)
 
@@ -218,6 +227,7 @@ Memory leaks are an officially acknowledged, unfixable limitation. Not suitable 
 
 | Topic | Reference File | When to Read |
 |-------|----------------|--------------|
+| Emulated features and sensors | `references/emulated-features.md` | Configuring GPS, battery, network, motion sensors, biometrics, camera injection, gamepad, disk I/O, phone/SMS, device identity |
 | GMTool and Genymotion Shell CLI | `references/cli-reference.md` | Looking up specific commands, options, error codes |
 | Test framework integration and reliability | `references/test-integration.md` | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |
 | CI/CD patterns and workflow recipes | `references/ci-and-recipes.md` | Configuring CI pipelines or writing automation scripts |
@@ -240,13 +250,25 @@ gmtool device -n <name> install app.apk  # Install APK
 ### Genymotion Shell Essentials
 
 ```bash
-genyshell -q -c "gps setlatitude <val>"         # GPS latitude (-90 to 90)
-genyshell -q -c "gps setlongitude <val>"        # GPS longitude (-180 to 180)
-genyshell -q -c "battery setlevel <0-100>"      # Battery level
-genyshell -q -c "battery setstatus <status>"    # charging|discharging|full
-genyshell -q -c "network setstatus wifi <on>"   # Network toggle
-genyshell -q -c "rotation setangle <deg>"       # 0, 90, 180, 270
-genyshell -r <IP> -c "<cmd>"                    # Target specific device
+genyshell -q -c "gps setlatitude <val>"              # GPS latitude (-90 to 90)
+genyshell -q -c "gps setlongitude <val>"             # GPS longitude (-180 to 180)
+genyshell -q -c "gps setaltitude <val>"              # Altitude (-10000 to 10000m)
+genyshell -q -c "gps setaccuracy <val>"              # Accuracy (0-200m)
+genyshell -q -c "gps setbearing <val>"               # Bearing (0-359.99 deg)
+genyshell -q -c "battery setmode manual|host"        # Battery control mode
+genyshell -q -c "battery setlevel <0-100>"           # Battery level
+genyshell -q -c "battery setstatus <status>"         # charging|discharging|notcharging|full
+genyshell -q -c "network setstatus wifi <on>"        # Network toggle
+genyshell -q -c "network setmobileprofile <profile>" # gsm|gprs|edge|umts|hsdpa|lte|5g
+genyshell -q -c "network setsignalstrength <i> <s>"  # Interface + none|poor|moderate|good|great
+genyshell -q -c "rotation setangle <deg>"            # 0, 90, 180, 270
+genyshell -q -c "diskio setreadratelimit <KB/s>"     # Disk I/O limit (0=unlimited)
+genyshell -q -c "phone sms <num> <msg>"              # Simulate incoming SMS
+genyshell -q -c "phone call <number>"                # Simulate incoming call
+genyshell -q -c "android setandroidid random"        # Randomize Android ID
+genyshell -q -c "android setdeviceid random"         # Randomize IMEI
+genyshell -r <IP> -c "<cmd>"                         # Target specific device
+genyshell -f <script.gys>                            # Execute script file
 ```
 
 ### Boot Wait Pattern

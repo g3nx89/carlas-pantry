@@ -447,21 +447,35 @@ GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
 "$GENYSHELL" -q -c "rotation setangle 0"
 ```
 
+## Emulated Features Overview
+
+> **Comprehensive reference**: See `emulated-features.md` for the full Feature Availability Matrix, testing patterns per feature, sensor state management rules, and the Testing Strategy decision matrix.
+
+Genymotion Desktop supports emulation of GPS, battery, network, rotation, phone/SMS, disk I/O, device identity (all via Genymotion Shell), plus motion sensors, biometrics, camera/media injection, gamepad, and advanced developer tools (GUI-only widgets). Features vary by version and license tier.
+
 ## Unsimulatable Features
 
-Genymotion cannot simulate these hardware and platform features. Plan physical device testing or alternative strategies for each.
+Features that Genymotion **cannot** simulate. Plan physical device testing or alternative strategies.
 
 | Feature | Why Not Simulatable | Testing Alternative |
 |---------|-------------------|---------------------|
 | Bluetooth | No virtual Bluetooth adapter in VM | Mock Bluetooth layer in app code; physical device for integration |
 | NFC | No virtual NFC controller | Mock NFC intents in instrumented tests; physical device for tap flows |
-| Real camera hardware | Virtual camera provides static image or host webcam feed only | Mock camera providers in tests; physical device for image quality |
-| Fingerprint / biometric | Biometric widget is UI-level only; does not exercise TEE or real biometric stack | Use `BiometricPrompt` test APIs with mock `CryptoObject`; physical device for end-to-end |
 | Thermal behavior | No thermal sensor simulation | Mock `PowerManager` and `ThermalStatus` callbacks |
 | Cellular radio (real) | Genymotion Shell simulates signal UI, not actual radio behavior | Sufficient for UI testing of degraded states; physical device for network stack |
 | SafetyNet / Play Integrity | Emulator is detected; attestation always fails | Physical device required; use `isTestDevice` flag during development |
 | Widevine L1 DRM | Emulator provides L3 at best | Physical device required for DRM-protected content playback |
-| Continuous accelerometer / gyroscope | No continuous motion simulation; rotation is discrete angles only | Use `rotation setangle` for orientation; mock `SensorManager` for continuous motion |
-| Barometer / proximity | Not exposed via Genymotion Shell | Mock at the Android API level in instrumented tests |
+| Barometer / proximity | Not exposed via Genymotion Shell or widgets | Mock at the Android API level in instrumented tests |
+
+## Partially Simulatable Features
+
+Features that Genymotion supports with limitations. Understand the boundaries for each.
+
+| Feature | What Works | Limitation | Alternative for Full Coverage |
+|---------|-----------|-----------|-------------------------------|
+| Motion sensors (v3.8.0+) | Yaw/pitch/roll sliders, 3D model, Device Link forwarding | GUI-only (not scriptable via Shell); no continuous motion injection for CI | Mock `SensorManager` in test code; Device Link for manual QA |
+| Biometrics (v3.6.0+, Android 13+) | 6 fingerprint scenarios (recognized, unrecognized, dirty, partial, insufficient, too fast) | GUI-only; does not exercise real TEE or cryptographic biometric stack | `BiometricPrompt` test APIs for CI; physical device for full TEE validation |
+| Camera (v3.3.0+) | Static image, video, or host webcam injection to front/back cameras | No depth data (LiDAR/ToF); no continuous autofocus simulation; GUI-only | Mock `CameraX`/`Camera2` providers in tests; physical device for camera quality |
+| Gamepad (v3.8.0+, Android 12+) | Xbox 360, PS5 (mac/linux), generic USB forwarding | GUI-only; PS5 not recognized on Windows without third-party tools | ADB `input keyevent KEYCODE_BUTTON_*` for automated input |
 
 **General rule**: If the feature requires hardware silicon not present in the VM (TEE, radio baseband, sensor fusion), it cannot be accurately simulated. Mock at the API boundary for unit/integration tests, and reserve physical devices for hardware-dependent acceptance tests.
