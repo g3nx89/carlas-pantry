@@ -4,7 +4,7 @@
 
 | File | Lines | Size | Purpose | When to Read |
 |------|-------|------|---------|--------------|
-| `emulated-features.md` | ~550 | ~22K | All emulated sensors and features: GPS, battery, network, motion sensors, biometrics, camera injection, gamepad, disk I/O, phone/SMS, device identity, baseband, advanced developer tools, sensor state management, testing strategy matrix | Configuring or testing any emulated feature; understanding feature availability and limitations |
+| `emulated-features.md` | ~1250 | ~48K | All emulated sensors and features: GPS (route replay), battery, network, motion sensors, biometrics, camera injection (UVC/webcam), gamepad, disk I/O, phone/SMS, device identity, baseband, clipboard, file upload/drag-and-drop, Device Link (touch/screen/sensors), advanced developer tools, sensor state management, testing strategy matrix, shell utility commands, feature detection (`genymotion capabilities`) | Configuring or testing any emulated feature; understanding feature availability and limitations |
 | `cli-reference.md` | 417 | 15K | GMTool and Genymotion Shell complete command reference | Looking up specific commands, options, error codes, ARM translation, proxy setup |
 | `ci-and-recipes.md` | 597 | 19K | CI/CD integration patterns and workflow recipe scripts | Configuring CI pipelines, writing automation scripts, parallel testing |
 | `test-integration.md` | ~480 | ~20K | Test framework integration, reliability patterns, and ADB patterns | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |

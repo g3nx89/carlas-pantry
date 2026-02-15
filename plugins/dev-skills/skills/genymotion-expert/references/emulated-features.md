@@ -24,9 +24,16 @@ Not all features are available on all versions or license tiers. Use this matrix
 | Gamepad | 3.8.0+ | Paid | 12+ | No (GUI only) |
 | Motion Sensors | 3.8.0+ | Paid | All | No (GUI only) |
 | Device Link | 3.8.0+ | Paid | All | No (GUI only) |
+| Clipboard | All | Free | All | No (built-in) |
+| File Upload / Drag-and-Drop | All | Free | All | No (use ADB push) |
+| Sound Volume | All | Free | All | No (use ADB) |
 | Capture (Screenshot/Video) | All | Free | All | No (use ADB) |
 
 **Key**: "Shell Commands" = automatable via `genyshell`. Features marked "GUI only" require the Genymotion Desktop UI widgets and cannot be scripted through Genymotion Shell. For automation of GUI-only features, use ADB alternatives where available (noted per feature below).
+
+### Programmatic Feature Detection
+
+Use `genymotion capabilities` in the Genymotion Shell to query which features are available on the current device as JSON. Useful in CI scripts to conditionally skip tests when a feature is unavailable (e.g., camera on free license, baseband on older images). See **Shell Utility Commands** at the end of this file for the full output format and a CI gating example.
 
 ---
 
@@ -49,13 +56,47 @@ The GPS widget simulates the device's location provider, replacing real satellit
 
 The GUI supports GPX and KML file import for route playback with play/pause and adjustable speed.
 
+**Supported file formats:**
+- **GPX** (`<trkpt>` elements with `lat`/`lon` attributes)
+- **KML** (Keyhole Markup Language, Google Earth format)
+
 **GPX file requirements:**
 - Minimum: latitude and longitude per trackpoint (`<trkpt lat="..." lon="...">`)
 - Elevation: defaults to 0m if missing from file
 - Timestamps: auto-incremented by 1 second if absent
 - Ordering: Genymotion sorts points chronologically regardless of file order
 
+**Replay controls (GUI):**
+- **Speed slider**: 1x to 5x real-time playback
+- **Seek slider**: fast-forward or rewind to any portion of the trace
+- **Play/Pause**: start, pause, and resume route playback
+
 **CLI route simulation**: GPX route playback is GUI-only. Simulate via scripted sequential commands — see `ci-and-recipes.md` Recipe 5 for a complete GPX parser script.
+
+**Script-based GPS animation** (for CI/CD):
+```bash
+#!/usr/bin/env bash
+# Read GPX waypoints and update GPS at realistic intervals
+# Adjust INTERVAL for simulated speed (lower = faster movement)
+INTERVAL=2  # seconds between updates
+
+genyshell -q -c "gps setstatus enabled"
+# Example: simulate walking a city block
+coords=(
+    "40.7128 -74.0060"   # Start
+    "40.7130 -74.0058"   # Step 1
+    "40.7132 -74.0055"   # Step 2
+    "40.7135 -74.0052"   # Step 3
+)
+for coord in "${coords[@]}"; do
+    read -r lat lon <<< "$coord"
+    genyshell -q -c "gps setlatitude $lat"
+    genyshell -q -c "gps setlongitude $lon"
+    sleep "$INTERVAL"
+done
+```
+
+**Tip**: For realistic movement, calculate the pause between updates based on the distance between waypoints and the desired speed. Abrupt coordinate jumps (no pause) cause "teleportation" that location-aware apps may reject or flag as GPS spoofing.
 
 ### Testing Patterns
 
@@ -307,26 +348,6 @@ When **Enable emulator window rotation** is toggled on, the emulator display rot
 
 **Testing tip**: Use this to verify that your app's orientation lock or responsive layout behaves correctly during physical rotation, not just discrete `rotation setangle` changes.
 
-### Device Link (Physical Device Sensor Forwarding)
-
-Device Link (v3.8.0+) forwards real sensor data from a physical Android device to the emulator:
-
-**Forwarded sensors:**
-- Accelerometer
-- Gyroscope
-- Magnetometer
-
-**Setup:**
-1. Connect a physical Android device to the host via USB
-2. Enable USB debugging on the physical device
-3. In the Motion Sensors widget, click **Setup device link**
-4. The physical device appears in "Available devices" — click **LINK DEVICE**
-5. Once linked, the 3D model syncs with the physical device's orientation in real-time
-
-**Calibration**: After linking, the emulator calibrates its reference frame to the physical device's current orientation. Hold the physical device steady during initial calibration for best results.
-
-**Disconnection**: Unlink by clicking the linked device entry. Sensor values freeze at the last received state.
-
 ### Automation Considerations
 
 Motion Sensors are **GUI-only** — no Genymotion Shell commands exist. For automated testing:
@@ -359,6 +380,44 @@ fun testShakeDetection() {
 **Tilt-based UI**: Adjust pitch and roll to test features that respond to device tilt (e.g., panoramic photo viewers, level tools).
 
 **Shake detection**: Rapidly toggle accelerometer values via the 3D model to simulate device shake. Verify the app triggers shake-to-undo or shake-to-refresh.
+
+---
+
+## Device Link (v3.8.0+, Paid)
+
+Device Link replaces the earlier "Remote Control" widget and provides three capabilities using a physical Android device as an emulation companion.
+
+### Capabilities
+
+| Feature | Description |
+|---------|-------------|
+| **Motion sensor forwarding** | Forward accelerometer, gyroscope, and magnetometer data from the physical device to the emulator |
+| **Touch forwarding** | Forward touch events from the physical device screen to the emulator — tap, swipe, and multi-touch gestures are replicated |
+| **Screen mirroring** | Mirror the emulator display onto the physical device screen for mobile-native interaction |
+
+Each capability can be independently enabled or disabled in the Device Link settings tab.
+
+### Setup
+
+1. Connect a physical Android device to the host via USB
+2. Enable USB debugging on the physical device
+3. In the Motion Sensors widget, click **Setup device link**
+4. The physical device appears in "Available devices" — click **LINK DEVICE**
+5. Once linked, the 3D model syncs with the physical device's orientation in real-time
+
+**Calibration**: After linking, the emulator calibrates its reference frame to the physical device's current orientation. Hold the physical device steady during initial calibration for best results.
+
+**Disconnection**: Unlink by clicking the linked device entry. Sensor values freeze at the last received state.
+
+### Use Cases
+
+- **QA testing with natural gestures**: Use touch forwarding to test the app with real finger interactions instead of mouse clicks
+- **AR/VR prototyping**: Forward real device motion to test orientation-dependent features
+- **Demo recording**: Mirror the emulator screen to a phone for live demos or screen recordings from the physical device
+
+### Automation Considerations
+
+Device Link is **GUI-only** — no Genymotion Shell commands exist. For automated sensor input, use the Motion Sensors widget sliders or mock SensorManager in test code (see Motion Sensors section above).
 
 ---
 
@@ -465,6 +524,19 @@ Media files placed in these directories are available in the injection widget:
 | Windows | `%LOCALAPPDATA%\Genymobile\Genymotion\media` |
 | Linux | `$HOME/.Genymobile/Genymotion/media` |
 | macOS | `$HOME/Applications/Genymotion.app/Contents/MacOS/media` |
+
+### Webcam Requirements
+
+- **UVC standard required**: Host webcams must support the USB Video Device Class (UVC) standard. Non-UVC webcams may not be detected
+- **Virtual webcams not supported**: OBS Virtual Camera and similar software-based cameras are **not supported** and are no longer compatible with Genymotion Desktop's camera API
+- **Multi-webcam**: If multiple webcams are connected, each can be independently assigned to front or back camera
+
+### `FEATURE_CAMERA` Behavior
+
+Android apps query `PackageManager.hasSystemFeature(FEATURE_CAMERA)` to detect camera availability. On Genymotion:
+- Returns `true` when camera/media injection is configured and connected
+- May return `false` if the host webcam connection failed at VM startup (e.g., webcam in use by another app)
+- **Workaround**: If the camera feature appears disabled, restart the VM with the webcam available and not in use by other applications
 
 ### Codec Requirements
 
@@ -933,11 +1005,90 @@ The Android Controls widget provides virtual buttons for hardware controls not p
 
 | Control | Description | Shortcut / ADB |
 |---------|-------------|----------------|
-| **Sound** | Volume adjustment | `adb shell media volume --set <0-15>` |
+| **Sound** | Volume adjustment (click widget to raise/lower) | `adb shell media volume --set <0-15> --stream 3` |
 | **Rotate** (v3.3.0+) | 90 left/right rotation | `rotation setangle` via genyshell |
 | **Pixel Perfect** | 1:1 pixel mapping (scrollbars if display > host screen) | GUI only |
 | **Navigation** | Recent apps, Home, Back | `adb shell input keyevent KEYCODE_APP_SWITCH/HOME/BACK` |
 | **Power** | Sleep mode; hold for power off | `adb shell input keyevent KEYCODE_POWER` |
+
+---
+
+## Clipboard
+
+Bidirectional clipboard sharing between the host and the virtual device. Enabled by default — no widget configuration needed.
+
+### How It Works
+
+- **Host → Device**: Copy text on the host, then long-press in an Android text field and tap **Paste**
+- **Device → Host**: Select text in the Android app, tap **Copy**, then paste normally on the host
+
+### Configuration
+
+Clipboard sharing can be disabled in **Genymotion > Settings > Global**. This is useful for:
+- Security testing (preventing clipboard data leakage between host and device)
+- Testing app behavior when clipboard access is restricted
+
+### ADB Alternative (Automatable)
+
+```bash
+# Type text directly into the focused input field (does not use clipboard)
+adb shell input text "text_to_type_here"
+
+# For actual clipboard operations, use a clipboard manager app
+adb shell am broadcast -a clipper.set -e text "Hello World"
+# (requires Clipper app or similar clipboard manager installed)
+
+# For instrumented tests, use AndroidX ClipboardManager APIs
+# to programmatically set/read clipboard content
+```
+
+### Testing Patterns
+
+**Clipboard-based sharing features:**
+1. Copy a deep link URL on the host
+2. Paste into the app's search or URL bar in the emulator
+3. Verify the app handles the pasted content correctly
+
+**Sensitive data clipboard testing:**
+1. Copy a password from a password field in the app
+2. Verify the clipboard is cleared after a timeout (Android 13+ auto-clears)
+3. Test that sensitive fields use `TYPE_TEXT_VARIATION_PASSWORD` input type and verify Android 13+ clipboard auto-clear behavior
+
+---
+
+## File Upload and Drag-and-Drop
+
+Transfer files from the host to the virtual device by dragging onto the emulator window or using the File Upload widget.
+
+### Behavior by File Type
+
+| File Type | Action | Destination |
+|-----------|--------|-------------|
+| `.apk` | Automatically installed as an app | App drawer |
+| `.zip` (flashable) | Flashed to device (must contain `/system` folder) | System partition |
+| Other files | Uploaded to device storage | `/sdcard/Download` |
+
+### File Upload Widget
+
+Click the File Upload widget in the toolbar to browse and select files from the host filesystem. Uploaded files appear in `/sdcard/Download` and can be accessed via the Amaze or File Explorer applications.
+
+### ADB Alternative (Automatable)
+
+```bash
+# Push any file to the device
+adb push local_file.txt /sdcard/Download/
+
+# Install APK via ADB
+adb install -r app-debug.apk
+
+# Push multiple files
+adb push ./test-assets/ /sdcard/Download/test-assets/
+```
+
+### Troubleshooting
+
+- **Drag-and-drop not working**: Usually occurs when Genymotion Desktop is running as root. Genymotion should be installed and run as a regular user
+- **APK not installing**: Check for ABI mismatch (`INSTALL_FAILED_NO_MATCHING_ABIS`) — see Anti-Patterns in SKILL.md
 
 ---
 
@@ -959,14 +1110,16 @@ Understanding how sensor state persists and resets is critical for reliable test
 
 ### Persistence Rules
 
-| Event | GPS | Battery | Network | Rotation | Identity | Disk I/O |
-|-------|-----|---------|---------|----------|----------|----------|
-| App restart | Persists | Persists | Persists | Persists | Persists | Persists |
-| Device reboot | Resets | Resets | Resets | Resets | Persists | Resets |
-| Factory reset | Resets | Resets | Resets | Resets | Resets | Resets |
-| VM stop/start | Resets* | Resets* | Resets* | Resets* | Persists | Resets* |
+| Event | GPS | Battery | Network | Rotation | Identity | Disk I/O | Camera* |
+|-------|-----|---------|---------|----------|----------|----------|---------|
+| App restart | Persists | Persists | Persists | Persists | Persists | Persists | Persists |
+| Device reboot | Resets | Resets | Resets | Resets | Persists | Resets | Persists |
+| Factory reset | Resets | Resets | Resets | Resets | Resets | Resets | Resets |
+| VM stop/start | Resets** | Resets** | Resets** | Resets** | Persists | Resets** | Persists |
 
-*Quick Boot may preserve some state if the VM was not cleanly shut down.
+*Camera input settings persist across reboots since v3.6.0.
+
+**Quick Boot may preserve some state if the VM was not cleanly shut down.
 
 ### Default Values After Boot
 
@@ -979,6 +1132,22 @@ Understanding how sensor state persists and resets is critical for reliable test
 | Android ID | Generated on first boot |
 | Device ID | `000000000000000` |
 | Disk I/O | Unlimited (0) |
+| Camera | Not configured (no input source) |
+| Clipboard | Enabled (bidirectional) |
+
+### Factory Reset via Shell
+
+For a complete reset to initial device state (removes all user data, apps, and settings):
+
+```bash
+# Interactive (prompts for confirmation)
+genyshell -q -c "devices factoryreset <device_ID>"
+
+# Force (no confirmation — use in CI)
+genyshell -q -c "devices factoryreset <device_ID> force"
+```
+
+**Warning**: Factory reset is destructive and requires a reboot. Use the lighter reset script below for between-suite cleanup.
 
 ### Reset Script for Test Suites
 
@@ -1026,9 +1195,53 @@ Decision matrix for choosing the right testing approach per feature.
 | Camera (live video) | Limited (host webcam) | Mock CameraX | Better |
 | Phone calls/SMS | Good (Shell control) | Also good | Unnecessary |
 | Disk I/O throttling | Best (Shell control) | N/A | Varies by device |
+| Clipboard sharing | Good (built-in) | N/A | Equivalent |
+| File upload/install | Good (drag-and-drop) | N/A | Equivalent |
 | Bluetooth | Not available | Required | Best |
 | NFC | Not available | Required | Best |
 | SafetyNet/Play Integrity | Not available | Mock for dev | Required for prod |
 | Widevine DRM | Not available (L3 only) | N/A | Required (L1) |
 | Thermal behavior | Not available | Mock PowerManager | Varies |
 | Barometer/proximity | Not available | Mock SensorManager | Best |
+
+---
+
+## Shell Utility Commands
+
+Genymotion Shell commands for diagnostics and maintenance:
+
+```bash
+genymotion capabilities       # JSON of available features on current device
+genymotion version            # Genymotion application version
+genymotion license            # Current license type and status
+genymotion clearcache         # Clear temporary files and logs
+devices list                  # List all virtual devices with status/IP
+devices ping                  # Check if current device is responsive
+devices refresh               # Refresh device list
+```
+
+**`genymotion capabilities` output example:**
+```json
+{
+  "accelerometer": true,
+  "baseband": true,
+  "battery": true,
+  "camera": true,
+  "deviceid": true,
+  "diskio": true,
+  "gps": true,
+  "network": true,
+  "remote_control": true,
+  "screencast": true
+}
+```
+
+Use `capabilities` in CI to gate feature-dependent tests:
+```bash
+# Skip camera tests if camera is not available (free license)
+HAS_CAMERA=$(genyshell -q -c "genymotion capabilities" | python3 -c "import sys,json; print(json.load(sys.stdin).get('camera', False))")
+if [ "$HAS_CAMERA" = "True" ]; then
+    ./gradlew connectedDebugAndroidTest \
+      -Pandroid.testInstrumentationRunnerArguments.annotation=com.example.test.CameraTest
+fi
+```

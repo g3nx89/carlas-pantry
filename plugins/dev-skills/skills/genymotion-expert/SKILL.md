@@ -1,7 +1,7 @@
 ---
 name: genymotion-expert
-description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network, motion, biometrics) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", "test camera or media injection on Genymotion", "simulate fingerprint on Genymotion", "use gamepad with Genymotion", "forward physical device sensors to emulator", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
-version: 1.4.0
+description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network, motion, biometrics) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", "test camera or media injection on Genymotion", "simulate fingerprint on Genymotion", "use gamepad with Genymotion", "forward physical device sensors to emulator", "use Device Link for touch forwarding or screen mirroring", "check genymotion capabilities", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
+version: 1.5.0
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
@@ -14,7 +14,7 @@ CLI-driven Android emulation and test automation with Genymotion Desktop. Covers
 - Creating, starting, or managing Genymotion virtual devices via CLI
 - Running instrumented tests (Espresso, Compose UI, Maestro) against Genymotion
 - Simulating sensors: GPS, battery, network, rotation, phone calls, motion sensors, biometrics
-- Configuring camera/media injection, gamepad support, or Device Link sensor forwarding
+- Configuring camera/media injection, gamepad support, Device Link (touch forwarding, screen mirroring, sensor forwarding)
 - Automating device setup for local development or self-hosted CI
 - Troubleshooting ADB connections, boot failures, or test flakiness on Genymotion
 - Choosing between Genymotion Desktop, AVD, or Genymotion SaaS
@@ -116,7 +116,9 @@ genyshell -q -c 'phone sms "+15551234567" "OTP: 847291"'
 
 Target a specific device by IP: `genyshell -r 192.168.56.101 -c "..."`.
 
-**GUI-only features** (v3.6.0+): Biometrics (fingerprint scenarios), Camera/Media Injection, Motion Sensors (accelerometer/gyroscope/magnetometer via yaw/pitch/roll sliders), Device Link (physical device sensor forwarding), and Gamepad are configurable only through the Genymotion Desktop UI. See `references/emulated-features.md` for full details, testing patterns, and ADB automation alternatives.
+**GUI-only features** (v3.6.0+): Biometrics (fingerprint scenarios), Camera/Media Injection, Motion Sensors (accelerometer/gyroscope/magnetometer via yaw/pitch/roll sliders), Device Link (sensor forwarding, touch forwarding, screen mirroring), and Gamepad are configurable only through the Genymotion Desktop UI. See `references/emulated-features.md` for full details, testing patterns, and ADB automation alternatives.
+
+**Feature detection**: Use `genyshell -q -c "genymotion capabilities"` to query available features as JSON. Useful in CI to gate tests when a feature requires a paid license.
 
 ### Running Tests
 
@@ -227,7 +229,7 @@ Memory leaks are an officially acknowledged, unfixable limitation. Not suitable 
 
 | Topic | Reference File | When to Read |
 |-------|----------------|--------------|
-| Emulated features and sensors | `references/emulated-features.md` | Configuring GPS, battery, network, motion sensors, biometrics, camera injection, gamepad, disk I/O, phone/SMS, device identity |
+| Emulated features and sensors | `references/emulated-features.md` | Configuring GPS, battery, network, motion sensors, biometrics, camera injection, gamepad, disk I/O, phone/SMS, device identity, clipboard, file upload, Device Link, feature detection |
 | GMTool and Genymotion Shell CLI | `references/cli-reference.md` | Looking up specific commands, options, error codes |
 | Test framework integration and reliability | `references/test-integration.md` | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |
 | CI/CD patterns and workflow recipes | `references/ci-and-recipes.md` | Configuring CI pipelines or writing automation scripts |
@@ -245,6 +247,7 @@ gmtool admin stopall                      # Stop all devices
 gmtool admin delete <name>               # Delete device
 gmtool device -n <name> adbconnect       # Connect to ADB
 gmtool device -n <name> install app.apk  # Install APK
+gmtool device -n <name> logcatdump ~/log.txt  # Dump logcat
 ```
 
 ### Genymotion Shell Essentials
@@ -269,6 +272,9 @@ genyshell -q -c "android setandroidid random"        # Randomize Android ID
 genyshell -q -c "android setdeviceid random"         # Randomize IMEI
 genyshell -r <IP> -c "<cmd>"                         # Target specific device
 genyshell -f <script.gys>                            # Execute script file
+genyshell -q -c "genymotion capabilities"            # JSON of available features
+genyshell -q -c "devices factoryreset <device_ID> force"  # Factory reset (destructive)
+genyshell -q -c "devices ping"                       # Check device responsive
 ```
 
 ### Boot Wait Pattern
