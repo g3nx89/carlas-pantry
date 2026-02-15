@@ -124,7 +124,7 @@ The `-h` flag produces an HTML call graph navigable in a browser — useful for 
 
 ## Heap Analysis
 
-> **Note:** For extended heap dump workflows (scripted leak investigation, baseline comparison, LeakCanary CLI), see `advanced-debugging.md`.
+> **Note:** For extended heap dump workflows (scripted leak investigation, baseline comparison, LeakCanary CLI), see `debug-ui-memory.md`.
 
 ```bash
 # Dump heap for a running process
