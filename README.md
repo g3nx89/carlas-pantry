@@ -10,7 +10,7 @@ A curated marketplace of Claude Code plugins for product development workflows.
 | [product-planning](plugins/product-planning) | Transform specifications into implementation plans, tasks, and test strategies using SDD patterns | product-development |
 | [product-implementation](plugins/product-implementation) | Execute implementation plans from product-planning, orchestrating TDD cycles, code generation, quality review, documentation, and implementation retrospective with KPI framework | product-development |
 | [meta-skills](plugins/meta-skills) | Meta-skills for mastering Claude Code, MCP servers, and agentic workflows | productivity |
-| [dev-skills](plugins/dev-skills) | Skills to support software design and development activities | development |
+| [dev-skills](plugins/dev-skills) | 22 skills for software design and development — mobile (Android, Compose, Kotlin), web (frontend, accessibility, scroll), database, API, architecture, code quality, QA, and Figma integration | development |
 
 ## Installation
 

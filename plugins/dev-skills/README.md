@@ -1,8 +1,8 @@
 # dev-skills
 
-A collection of 21 skills supporting software design, development, and quality assurance activities.
+A collection of 22 skills supporting software design, development, and quality assurance activities.
 
-**Version:** 1.0.0 (see `.claude-plugin/plugin.json`)
+**Version:** 1.1.0 (see `.claude-plugin/plugin.json`)
 
 ## Installation
 
@@ -22,6 +22,7 @@ Use this index to select the appropriate skill based on your task. Skills are op
 |--------|-------|------------------|
 | **Mobile** | `mobile-design` | mobile app, React Native, Flutter, iOS, Android, touch UI |
 | **Mobile** | `android-expert` | Android navigation, permissions, lifecycle, Manifest |
+| **Mobile** | `android-cli-testing` | ADB, emulator CLI, logcat, dumpsys, Perfetto, CI testing |
 | **Mobile** | `compose-expert` | Composable, Compose UI, remember, recomposition |
 | **Kotlin** | `kotlin-expert` | StateFlow, sealed class, @Immutable, DSL builder |
 | **Kotlin** | `kotlin-coroutines` | callbackFlow, supervisorScope, Flow operators |
@@ -65,6 +66,17 @@ Use this index to select the appropriate skill based on your task. Skills are op
 **Covers:** Type-safe navigation, Accompanist permissions, Material3 theming, edge-to-edge UI, lifecycle effects, platform APIs.
 
 **Delegates to:** `compose-expert` (shared UI), `kotlin-expert` (language patterns), `gradle-expert` (build issues)
+
+---
+
+#### `android-cli-testing`
+**When to use:** Android testing and debugging from the CLI without Android Studio.
+
+**Triggers:** "run Android tests from CLI", "debug with ADB", "set up emulator for CI", "launch headless emulator", "capture logcat", "profile performance", "dumpsys", "Perfetto traces", "screenrecord", "port forwarding", "USB debugging"
+
+**Covers:** ADB commands (logcat, dumpsys, app management, input simulation), SDK Emulator CLI (sdkmanager, avdmanager, emulator flags), performance profiling (Perfetto, gfxinfo, method tracing), CI/CD pipeline patterns, physical device debugging, OEM considerations.
+
+**Delegates to:** `genymotion-expert` (Genymotion emulation), `android-expert` (navigation, permissions), `gradle-expert` (build issues)
 
 ---
 
@@ -297,6 +309,7 @@ When triggers overlap, prefer the more specialized skill:
 | General Skill | Specific Skill | Choose Specific When |
 |---------------|----------------|----------------------|
 | `mobile-design` | `android-expert` | Android platform features |
+| `mobile-design` | `android-cli-testing` | CLI testing/debugging |
 | `mobile-design` | `compose-expert` | Compose UI patterns |
 | `frontend-design` | `scroll-experience` | Scroll/parallax effects |
 | `frontend-design` | `accessibility-auditor` | WCAG/a11y focus |
@@ -309,6 +322,8 @@ When triggers overlap, prefer the more specialized skill:
 | User Request | Primary Skill | May Delegate To |
 |--------------|---------------|-----------------|
 | "Build Android app with Compose" | `android-expert` | `compose-expert`, `kotlin-expert` |
+| "Debug Android app with ADB" | `android-cli-testing` | `android-expert` |
+| "Set up emulator for CI" | `android-cli-testing` | `genymotion-expert` |
 | "Create a React dashboard" | `frontend-design` | `accessibility-auditor` |
 | "Design database for e-commerce" | `database-schema-designer` | `database-design` |
 | "Implement this Figma design" | `figma-implement-design` | `figma-code-connect-components` |
