@@ -247,3 +247,158 @@ For multi-instance CI, use `--read-only` for instances after the first.
 ### Emulator vs Device Discrepancies
 
 Tests passing on emulator but failing on device (and vice versa) is common. Key differences: touch responsiveness, GPU rendering fidelity, font smoothing, OEM skin behavior, network stack (emulator is simulated), timing (CI emulators are typically slower). **Always disable animations in CI.** **Mock network layer for stability** -- emulator networking does not reproduce real carrier/WiFi behavior reliably.
+
+## Pre-Flight Validation Checklist
+
+Run these checks before any CI test execution to catch environment issues early. An agent can execute this sequence autonomously to verify readiness.
+
+### SDK and Build Tools
+
+```bash
+# Verify SDK components installed
+sdkmanager --list_installed 2>/dev/null | grep -E "build-tools|platform-tools|platforms;android"
+
+# Verify Gradle wrapper present and executable
+[ -x "./gradlew" ] && echo "Gradle wrapper OK" || echo "FAIL: ./gradlew missing or not executable"
+
+# Verify ANDROID_HOME / ANDROID_SDK_ROOT set
+[ -n "$ANDROID_HOME" ] && echo "ANDROID_HOME=$ANDROID_HOME" || echo "WARN: ANDROID_HOME not set"
+```
+
+### Emulator Readiness
+
+```bash
+# Verify emulator binary available
+command -v emulator >/dev/null && echo "Emulator OK" || echo "FAIL: emulator not on PATH"
+
+# List available AVDs
+avdmanager list avd -c
+
+# Verify system image installed for target API
+sdkmanager --list_installed 2>/dev/null | grep "system-images;android-34"
+
+# Verify hardware acceleration (KVM on Linux, HVF on macOS)
+emulator -accel-check 2>&1
+# Expected: "accel: 0" (KVM usable) or "HAXM version ... is installed"
+```
+
+### ADB and Device Connectivity
+
+```bash
+# Verify ADB responsive
+adb version >/dev/null 2>&1 && echo "ADB OK" || echo "FAIL: ADB not available"
+
+# Check connected devices/emulators
+DEVICES=$(adb devices | grep -c -E "device$|emulator")
+echo "Connected devices: $DEVICES"
+
+# If emulator running, verify boot complete
+adb shell getprop sys.boot_completed 2>/dev/null | grep -q "1" && \
+  echo "Device booted" || echo "WARN: Device not fully booted"
+
+# Verify animations disabled
+for scale in window_animation_scale transition_animation_scale animator_duration_scale; do
+  VAL=$(adb shell settings get global $scale 2>/dev/null)
+  [ "$VAL" = "0" ] || [ "$VAL" = "0.0" ] || echo "WARN: $scale = $VAL (should be 0)"
+done
+```
+
+### Test APK Buildability
+
+```bash
+# Quick compile check (no test execution)
+./gradlew assembleDebug assembleDebugAndroidTest --dry-run 2>&1 | tail -5
+# If --dry-run succeeds, task graph is valid
+
+# Verify test APK exists (after build)
+TEST_APK=$(find . -path "*/outputs/apk/androidTest/debug/*.apk" | head -1)
+[ -n "$TEST_APK" ] && echo "Test APK: $TEST_APK" || echo "WARN: No test APK found"
+```
+
+### Full Pre-Flight Script
+
+```bash
+#!/bin/bash
+# pre-flight.sh — Run before CI test execution
+ERRORS=0
+check() { if ! eval "$1" >/dev/null 2>&1; then echo "FAIL: $2"; ERRORS=$((ERRORS+1)); else echo "OK: $2"; fi }
+
+check "command -v adb"          "ADB on PATH"
+check "command -v emulator"     "Emulator on PATH"
+check "[ -x ./gradlew ]"       "Gradle wrapper executable"
+check "[ -n \$ANDROID_HOME ]"  "ANDROID_HOME set"
+check "emulator -accel-check 2>&1 | grep -q 'is installed\|accel: 0'" "HW acceleration"
+check "adb devices | grep -qE 'device$|emulator'" "Device connected"
+check "adb shell getprop sys.boot_completed | grep -q 1" "Device booted"
+
+[ $ERRORS -eq 0 ] && echo "Pre-flight PASSED" || { echo "Pre-flight FAILED ($ERRORS errors)"; exit 1; }
+```
+
+## Coverage Threshold Enforcement
+
+Parse JaCoCo XML reports to enforce coverage gates in CI without external tools. For JaCoCo setup and merging, see `test-coverage-gmd.md`.
+
+### Parse JaCoCo XML
+
+```bash
+# JaCoCo XML location (after running coverage task)
+# ./gradlew createDebugCoverageReport
+JACOCO_XML="app/build/reports/coverage/androidTest/debug/report.xml"
+
+# Extract overall line coverage percentage
+LINE_COV=$(xmllint --xpath \
+  'string(//counter[@type="LINE"]/@covered)' "$JACOCO_XML")
+LINE_MISS=$(xmllint --xpath \
+  'string(//counter[@type="LINE"]/@missed)' "$JACOCO_XML")
+LINE_PCT=$(python3 -c "print(f'{$LINE_COV / ($LINE_COV + $LINE_MISS) * 100:.1f}')")
+echo "Line coverage: ${LINE_PCT}%"
+
+# Extract branch coverage
+BRANCH_COV=$(xmllint --xpath \
+  'string(//counter[@type="BRANCH"]/@covered)' "$JACOCO_XML")
+BRANCH_MISS=$(xmllint --xpath \
+  'string(//counter[@type="BRANCH"]/@missed)' "$JACOCO_XML")
+BRANCH_PCT=$(python3 -c "print(f'{$BRANCH_COV / ($BRANCH_COV + $BRANCH_MISS) * 100:.1f}')")
+echo "Branch coverage: ${BRANCH_PCT}%"
+```
+
+### Threshold Gate Script
+
+```bash
+#!/bin/bash
+# coverage-gate.sh — Fail CI if coverage below threshold
+MIN_LINE=70
+MIN_BRANCH=50
+JACOCO_XML="${1:-app/build/reports/coverage/androidTest/debug/report.xml}"
+
+extract() {
+  COV=$(xmllint --xpath "string(//counter[@type=\"$1\"]/@covered)" "$JACOCO_XML")
+  MISS=$(xmllint --xpath "string(//counter[@type=\"$1\"]/@missed)" "$JACOCO_XML")
+  python3 -c "print(f'{$COV / ($COV + $MISS) * 100:.1f}')"
+}
+
+LINE_PCT=$(extract LINE)
+BRANCH_PCT=$(extract BRANCH)
+
+echo "Line coverage:   ${LINE_PCT}% (min: ${MIN_LINE}%)"
+echo "Branch coverage: ${BRANCH_PCT}% (min: ${MIN_BRANCH}%)"
+
+FAIL=0
+python3 -c "exit(0 if $LINE_PCT >= $MIN_LINE else 1)" || { echo "FAIL: Line coverage below ${MIN_LINE}%"; FAIL=1; }
+python3 -c "exit(0 if $BRANCH_PCT >= $MIN_BRANCH else 1)" || { echo "FAIL: Branch coverage below ${MIN_BRANCH}%"; FAIL=1; }
+
+exit $FAIL
+```
+
+### Per-Package Coverage Breakdown
+
+```bash
+# List coverage by package (top-level report element children)
+xmllint --xpath '//package' "$JACOCO_XML" 2>/dev/null | \
+  grep -o 'name="[^"]*"' | sed 's/name="//;s/"//' | while read pkg; do
+    COV=$(xmllint --xpath "string(//package[@name=\"$pkg\"]/counter[@type=\"LINE\"]/@covered)" "$JACOCO_XML")
+    MISS=$(xmllint --xpath "string(//package[@name=\"$pkg\"]/counter[@type=\"LINE\"]/@missed)" "$JACOCO_XML")
+    PCT=$(python3 -c "print(f'{$COV / ($COV + $MISS) * 100:.1f}')" 2>/dev/null || echo "N/A")
+    echo "$pkg: ${PCT}%"
+  done
+```

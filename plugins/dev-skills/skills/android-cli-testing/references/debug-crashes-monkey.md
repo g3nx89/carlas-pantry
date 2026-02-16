@@ -175,3 +175,84 @@ DispatchPointer action codes: 0=DOWN, 1=UP, 2=MOVE. Combine for taps, swipes, lo
 - Check monkey exit code (non-zero = error)
 - Grep output for `CRASH:` or `ANR:`
 - Correlate with `anr/`, `tombstones/`, and logcat
+
+## Automated Crash Diagnosis Flow
+
+Agent autonomy pattern for crash triage. Execute this sequence after any test failure, monkey crash, or CI alert to classify and diagnose crashes without human intervention.
+
+### Step 1: Detect Crash Type from Logcat
+
+```bash
+# Capture recent crash-related logcat
+adb logcat -d -b crash -b main --pid=$(pidof -s com.example.app 2>/dev/null || echo 0) > crash_logcat.txt
+
+# Classify crash type
+if grep -q "FATAL EXCEPTION" crash_logcat.txt; then
+  echo "TYPE: Java/Kotlin crash"
+elif grep -q "ANR in" crash_logcat.txt; then
+  echo "TYPE: ANR (Application Not Responding)"
+elif grep -q "SIGSEGV\|SIGABRT\|SIGFPE\|SIGBUS" crash_logcat.txt; then
+  echo "TYPE: Native crash"
+else
+  echo "TYPE: Unknown — check full logcat"
+fi
+```
+
+### Step 2: Extract and Diagnose by Type
+
+**Java/Kotlin crash**:
+```bash
+# Extract exception chain — find root cause (last "Caused by")
+grep -A 30 "FATAL EXCEPTION" crash_logcat.txt | \
+  grep -E "Exception|Error|Caused by|at com\." | head -20
+# Root cause is the LAST "Caused by" line
+ROOT=$(grep "Caused by" crash_logcat.txt | tail -1)
+echo "Root cause: $ROOT"
+```
+
+**ANR**:
+```bash
+# Pull ANR traces
+adb shell "cat /data/anr/traces.txt" > anr_traces.txt 2>/dev/null || \
+  adb shell "cp /data/anr/traces.txt /sdcard/ && cat /sdcard/traces.txt" > anr_traces.txt
+
+# Identify blocked thread — look for "main" thread state
+grep -A 20 '"main"' anr_traces.txt | head -25
+# Key indicators: BLOCKED, WAITING, TIMED_WAITING on main thread
+# Look for: "held by thread" to find lock contention
+```
+
+**Native crash**:
+```bash
+# Pull latest tombstone
+LATEST=$(adb shell "ls -t /data/tombstones/ 2>/dev/null | head -1")
+if [ -n "$LATEST" ]; then
+  adb pull "/data/tombstones/$LATEST" tombstone.txt
+  # Symbolicate with ndk-stack
+  ndk-stack -sym app/build/intermediates/merged_native_libs/debug/out/lib/arm64-v8a \
+    -dump tombstone.txt
+fi
+```
+
+### Step 3: Correlate with Test Context
+
+```bash
+# If crash happened during monkey test, find the seed for reproducibility
+grep -o "\-s [0-9]*" monkey.log 2>/dev/null
+# Re-run with same seed: adb shell monkey -p <pkg> -s <seed> -v <count>
+
+# If crash happened during instrumented test, identify the failing test
+# Parse JUnit XML — see test-result-parsing.md for full parsing recipes
+grep -B1 '<error' build/outputs/androidTest-results/**/*.xml 2>/dev/null | \
+  grep 'testcase' | sed 's/.*classname="\([^"]*\)".*name="\([^"]*\)".*/\1#\2/'
+```
+
+### Decision Matrix
+
+| Crash Type | Primary Artifact | Secondary Check | Next Reference |
+|------------|-----------------|-----------------|----------------|
+| Java crash | Logcat exception chain | Stack trace → source line | (fix code directly) |
+| ANR | `/data/anr/traces.txt` | `dumpsys activity activities` | debug-ui-memory.md (if memory) |
+| Native crash | Tombstone + `ndk-stack` | `adb logcat -b crash` | (NDK debugging) |
+| OOM crash | `dumpsys meminfo` | Heap dump analysis | debug-ui-memory.md |
+| Monkey crash | Monkey log + seed | Re-run with same seed | (reproduce and fix) |

@@ -306,3 +306,25 @@ adb shell dumpsys connectivity        # Network connections
 adb shell settings put secure location_providers_allowed +gps   # Enable GPS
 adb shell settings put secure location_providers_allowed -gps   # Disable GPS
 ```
+
+## Benchmarking and Baseline Profiles
+
+For comprehensive benchmark workflows (Microbenchmark module setup, Macrobenchmark deep dive with CompilationMode/StartupTimingMetric/FrameTimingMetric, startup measurement scripts, benchmark regression detection with JSON parsing, and APK size tracking), see `benchmark-cli.md`.
+
+### Quick Baseline Profile Verification
+
+After generating or installing a Baseline Profile, verify it is active:
+
+```bash
+# Check profile-guided compilation status
+adb shell dumpsys package com.example.app | grep -A5 "dexopt"
+# Look for: [status=speed-profile]
+
+# Force recompile with profile
+adb shell cmd package compile -m speed-profile -f com.example.app
+
+# Verify profile rules are loaded
+adb shell cmd package dump-profiles com.example.app
+```
+
+See `benchmark-cli.md` for full Baseline Profile generation, A/B comparison, and CI integration.

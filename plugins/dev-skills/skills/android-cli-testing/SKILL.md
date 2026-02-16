@@ -1,7 +1,7 @@
 ---
 name: android-cli-testing
-description: This skill should be used when the user asks to "run Android tests from CLI", "debug Android app with ADB", "set up emulator for CI", "launch headless emulator", "capture logcat output", "profile Android performance", "use adb shell commands", "wait for emulator boot", "run instrumented tests", "set up wireless debugging", "capture Perfetto traces", "check frame jank", "manage AVDs from command line", "disable animations for testing", "configure emulator for CI/CD", "use dumpsys for debugging", "capture bugreport", "record screen with adb", "set up port forwarding", "run am instrument", "set up USB debugging", "run Espresso tests from Gradle", "filter tests by class or annotation", "set up test sharding", "use Android Test Orchestrator", "run Compose UI tests", "set up Paparazzi screenshot tests", "use Roborazzi", "run Maestro flows", "generate code coverage with JaCoCo", "use Gradle Managed Devices", "inspect SQLite database from CLI", "read SharedPreferences from CLI", "run monkey testing", "detect memory leaks from CLI", "analyze ANR traces", "simulate Doze mode", "set up GitHub Actions for Android", "set up GitLab CI for Android", or mentions ADB, avdmanager, sdkmanager, emulator CLI, dumpsys, screenrecord, Espresso, Compose testing, UIAutomator, Maestro, Robolectric, Paparazzi, Roborazzi, JaCoCo, monkey, StrictMode, or Android CLI debugging. Covers Android SDK Emulator CLI, ADB testing/debugging, test frameworks (Espresso, Compose, Appium, Maestro), advanced debugging, physical device profiling, and CI/CD pipeline patterns. Delegates Genymotion-specific workflows to genymotion-expert.
-version: 2.5.0
+description: This skill should be used when the user asks to "run Android tests from CLI", "debug Android app with ADB", "set up emulator for CI", "launch headless emulator", "capture logcat output", "profile Android performance", "use adb shell commands", "wait for emulator boot", "run instrumented tests", "set up wireless debugging", "capture Perfetto traces", "check frame jank", "manage AVDs from command line", "disable animations for testing", "configure emulator for CI/CD", "use dumpsys for debugging", "capture bugreport", "record screen with adb", "set up port forwarding", "run am instrument", "set up USB debugging", "run Espresso tests from Gradle", "filter tests by class or annotation", "set up test sharding", "use Android Test Orchestrator", "run Compose UI tests", "set up Paparazzi screenshot tests", "use Roborazzi", "run Maestro flows", "generate code coverage with JaCoCo", "use Gradle Managed Devices", "inspect SQLite database from CLI", "read SharedPreferences from CLI", "run monkey testing", "detect memory leaks from CLI", "analyze ANR traces", "simulate Doze mode", "set up GitHub Actions for Android", "set up GitLab CI for Android", "parse JUnit XML test results", "detect flaky Android tests", "run Android benchmarks from CLI", "generate Baseline Profile", "track APK size", "measure Android startup time", "detect benchmark regressions", "enforce coverage thresholds", "pre-flight CI validation", "diagnose Android crashes from CLI", or mentions ADB, avdmanager, sdkmanager, emulator CLI, dumpsys, screenrecord, Espresso, Compose testing, UIAutomator, Maestro, Robolectric, Paparazzi, Roborazzi, JaCoCo, monkey, StrictMode, Microbenchmark, Macrobenchmark, Baseline Profiles, apkanalyzer, or Android CLI debugging. Covers Android SDK Emulator CLI, ADB testing/debugging, test frameworks (Espresso, Compose, Appium, Maestro), test result parsing, benchmarking, advanced debugging, physical device profiling, and CI/CD pipeline patterns. Delegates Genymotion-specific workflows to genymotion-expert.
+version: 2.6.0
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
@@ -67,10 +67,13 @@ CLI-driven Android testing and debugging without Android Studio. Covers ADB, And
 | Crashes & monkey testing | `references/debug-crashes-monkey.md` | ANR traces, tombstones, ndk-stack, crash testing, monkey |
 | System simulation | `references/debug-system-simulation.md` | Doze, battery, density, locale, dark mode, multi-window |
 | Performance profiling | `references/performance-profiling.md` | Perfetto, gfxinfo, method tracing, heap analysis, Macrobenchmark |
-| CI pipeline config | `references/ci-pipeline-config.md` | Test tiers, emulator recommendations, GMD CI, determinism, flaky quarantine, Firebase |
+| Benchmark CLI | `references/benchmark-cli.md` | Microbenchmark, Macrobenchmark, startup measurement, Baseline Profiles, APK size, regression detection |
+| Test result parsing | `references/test-result-parsing.md` | JUnit XML parsing, failure triage, flaky detection, iterative debugging loop, CI integration |
+| CI pipeline config | `references/ci-pipeline-config.md` | Test tiers, emulator recommendations, GMD CI, determinism, flaky quarantine, Firebase, pre-flight, coverage gates |
 | Device setup & OEM | `references/device-setup-oem.md` | Physical device CLI setup, multi-device, OEM quirks, ADB reliability |
 | GUI walkthroughs | `references/gui-walkthroughs.md` | Device GUI operations (Developer Options, USB debugging, OEM toggles) |
 | Workflow recipes | `references/workflow-recipes.md` | End-to-end scripts, GitHub Actions, GitLab CI |
+| Deep search prompts | `references/deep-search-prompts.md` | Browser-based research prompts for further skill enrichment |
 | Boot wait script | `scripts/wait-for-boot.sh` | CI emulator setup, reliable boot detection with timeout |
 
 ## Essentials
@@ -100,6 +103,14 @@ Run Espresso/Compose tests via Gradle (`./gradlew connectedDebugAndroidTest`) wi
 ### Screenshot Testing
 
 Record and verify golden images with Paparazzi (JVM, no device) or Roborazzi (Robolectric). See `references/test-robolectric-screenshots.md`.
+
+### Test Result Parsing
+
+After test runs, parse JUnit XML results to extract failures, classify crash types, detect flaky tests via re-run comparison, and generate PR comment summaries. Enables autonomous test → diagnose → fix → re-run loops. See `references/test-result-parsing.md`.
+
+### Benchmarking
+
+Run Microbenchmarks (tight code loops), Macrobenchmarks (startup, scroll jank), and startup measurement (`am start -W`) from CLI. Generate and verify Baseline Profiles, track APK size, and detect benchmark regressions via JSON comparison. **Physical device required** for meaningful results. See `references/benchmark-cli.md`.
 
 ### Performance Profiling
 
