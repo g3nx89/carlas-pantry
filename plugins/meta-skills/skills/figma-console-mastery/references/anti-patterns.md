@@ -2,7 +2,7 @@
 
 > **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 
-This reference catalogs the most common failures, anti-patterns, and hard constraints encountered when working with the Figma Console MCP. Each entry includes a clear recovery path. For correct patterns, see `plugin-api.md`. For design rules, see `design-rules.md`.
+This reference catalogs the most common failures, anti-patterns, and hard constraints encountered when working with the Figma Console MCP. Each entry includes a clear recovery path. For correct patterns, see `plugin-api.md`. For design rules, see `design-rules.md`. For GUI-only recovery steps (plugin setup, cache refresh, CDP launch), see `gui-walkthroughs.md`.
 
 ---
 
@@ -53,17 +53,16 @@ The server tries WebSocket first (ports 9223-9232), then falls back to CDP (port
 **Diagnostic sequence for connection failures:**
 
 1. Call `figma_get_status` to determine current connection state
-2. Check if Desktop Bridge Plugin is running in the target file
-3. Verify no port conflicts with other MCP instances
-4. Try `figma_reconnect` before restarting Figma
+2. Try `figma_reconnect` before manual intervention
+3. If still disconnected, load `gui-walkthroughs.md` and guide the user through the relevant setup steps
 
 | Error | Cause | Recovery |
 |-------|-------|---------|
-| `Failed to connect to Figma Desktop` | No transport available (neither WebSocket nor CDP) | Import and run the Desktop Bridge Plugin in Figma; or restart Figma with `--remote-debugging-port=9222` |
-| `EADDRINUSE` port conflict | Multiple MCP instances competing for same port (pre-v1.10.0) | Update to v1.10.0+ for automatic port fallback (9223-9232). Re-import Desktop Bridge after update |
-| `Variables cache empty` | Plugin cache not populated or stale | Close and reopen the Desktop Bridge plugin in Figma |
-| `No plugin UI found` | Desktop Bridge Plugin not running in current file | Open target file in Figma, then Plugins > Development > run Desktop Bridge |
-| `ECONNREFUSED localhost:9222` | CDP not available | Informational if WebSocket works. For CDP: quit Figma, relaunch with `--remote-debugging-port=9222` |
+| `Failed to connect to Figma Desktop` | No transport available (neither WebSocket nor CDP) | Guide user through plugin setup — see `gui-walkthroughs.md` (Initial Setup + Per-Session sections) |
+| `EADDRINUSE` port conflict | Multiple MCP instances competing for same port (pre-v1.10.0) | Update to v1.10.0+ for automatic port fallback (9223-9232). Guide user through re-import — see `gui-walkthroughs.md` (Post-Update section) |
+| `Variables cache empty` | Plugin cache not populated or stale | Guide user through cache refresh — see `gui-walkthroughs.md` (Cache Refresh section) |
+| `No plugin UI found` | Desktop Bridge Plugin not running in current file | Guide user through activation — see `gui-walkthroughs.md` (Per-Session section) |
+| `ECONNREFUSED localhost:9222` | CDP not available | Informational if WebSocket works. For CDP setup, see `gui-walkthroughs.md` (Alternative Transport section) |
 
 ---
 
@@ -81,6 +80,7 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 | Not using try-catch in `figma_execute` | Errors are swallowed silently by the plugin sandbox | Wrap all code in try-catch; return error messages explicitly |
 | Using `figma_get_file_data` on large files | Response exceeds token limits, gets truncated | Use `figma_get_file_for_plugin` for optimized output |
 | Not discovering before creating | Duplicate components or missed existing assets | Always `figma_search_components` before creating new components |
+| Non-idempotent creation scripts | Re-running a script creates duplicate nodes every time | Before creating a named node, check: `const existing = figma.currentPage.findOne(n => n.name === "Target"); if (existing) return { id: existing.id, reused: true }`. Only create if not found |
 
 ---
 
@@ -145,9 +145,9 @@ Comprehensive reference including detection method and recovery steps. Use `figm
 
 | Error | Cause | Detection | Recovery |
 |-------|-------|-----------|----------|
-| `Failed to connect to Figma Desktop` | No transport available | `figma_get_status` returns disconnected | Run Desktop Bridge Plugin; or restart Figma with `--remote-debugging-port=9222` |
-| `EADDRINUSE` | Multiple MCP instances on same port | Server startup fails | Update to v1.10.0+ (auto port fallback 9223-9232). Re-import Desktop Bridge |
-| `Variables cache empty` | Plugin cache not populated/stale | `figma_get_variables` returns empty | Close and reopen Desktop Bridge plugin |
+| `Failed to connect to Figma Desktop` | No transport available | `figma_get_status` returns disconnected | Guide user through `gui-walkthroughs.md` (Initial Setup + Per-Session) |
+| `EADDRINUSE` | Multiple MCP instances on same port | Server startup fails | Update to v1.10.0+. Guide user through `gui-walkthroughs.md` (Post-Update) |
+| `Variables cache empty` | Plugin cache not populated/stale | `figma_get_variables` returns empty | Guide user through `gui-walkthroughs.md` (Cache Refresh) |
 | Silent failure in `figma_execute` | JS error in Plugin API code | Screenshot shows no change; no visible error | Wrap in try-catch. Check `figma_get_console_logs`. Validate with screenshot after every execute |
 | Text not appearing | `loadFontAsync` not called before `.characters` | Screenshot shows empty text node | Always `await figma.loadFontAsync()` before setting text |
 | Library variable ID resolution failure | Variable IDs from library components need async resolution | Variable binding fails silently | Use `getVariableByIdAsync()` for ID resolution |
@@ -157,7 +157,7 @@ Comprehensive reference including detection method and recovery steps. Use `figm
 | Claude Code SSE transport bug | Known bug in Claude Code native `--transport sse` | Connection fails in Claude Code | Use `mcp-remote` workaround: `npx -y mcp-remote@latest https://...` |
 | `figma_navigate` does not navigate | WebSocket-only mode lacks browser-level navigation | Tool returns file info instead of navigating | Expected behavior in WebSocket mode. Ensure correct file is already open. Use CDP transport for actual navigation |
 | Truncated responses on large files | File data exceeds response size | Response appears incomplete | Use `figma_get_file_for_plugin` instead of `figma_get_file_data`. Use filtered variable queries. Target specific nodes rather than entire file |
-| `No plugin UI found` | Desktop Bridge Plugin not running | `figma_get_status` shows no plugin connection | Open target Figma file, then Plugins > Development > run Desktop Bridge plugin |
+| `No plugin UI found` | Desktop Bridge Plugin not running | `figma_get_status` shows no plugin connection | Guide user through `gui-walkthroughs.md` (Per-Session) |
 
 ---
 

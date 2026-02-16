@@ -277,7 +277,7 @@ Cap visual validation at **3 iteration cycles maximum**. After 3 attempts, accep
 
 ## MCP Apps (Experimental)
 
-MCP Apps require `ENABLE_MCP_APPS=true` environment variable (v1.7.0+).
+MCP Apps require `ENABLE_MCP_APPS=true` environment variable (v1.7.0+). For setup instructions, see `gui-walkthroughs.md` (Enabling MCP Apps section).
 
 ### Token Browser
 

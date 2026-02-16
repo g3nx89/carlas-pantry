@@ -23,7 +23,9 @@ The Figma Console MCP server (Southleft) exposes **56+ tools** in Local mode (~2
 | Desktop Bridge Plugin | Installed and active (WebSocket ports 9223-9232) |
 | Local mode | Required for all creation/mutation tools |
 
-**Gate check**: Call `figma_get_status` before any operation. If transport shows `"not connected"`, the Bridge Plugin is not active.
+**Gate check**: Call `figma_get_status` before any operation. If transport shows `"not connected"`, the Bridge Plugin is not active — load `references/gui-walkthroughs.md` and guide the user through the setup steps.
+
+**GUI-only operations**: Some tasks require direct interaction with the Figma Desktop application (plugin setup, activation, cache refresh, node selection, CDP transport, MCP Apps configuration). These have no MCP or CLI equivalent. See `references/gui-walkthroughs.md` for full step-by-step instructions. **When a task requires the user to interact with the Figma Desktop UI**, load `references/gui-walkthroughs.md` and relay the step-by-step instructions to the user.
 
 ## Quick Start
 
@@ -37,7 +39,7 @@ The Figma Console MCP server (Southleft) exposes **56+ tools** in Local mode (~2
 **Complex workflows** — load references as needed:
 ```
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md  # Which tool to call
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api.md     # Writing figma_execute code
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api.md     # Writing figma_execute code (nodes, auto-layout, text, colors, images, components, variables)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md   # Design decisions + M3 specs
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes.md        # Core code recipes (layouts, components, composition)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-m3.md     # M3 component recipes
@@ -69,6 +71,31 @@ Every design session follows four phases:
 2. Verify: alignment, spacing, proportions, visual hierarchy
 3. Fix issues found, re-screenshot
 4. `figma_generate_component_doc` → document created components
+
+## Decision Matrix — Which Path to Take
+
+Before picking a tool, determine the execution path through three gates:
+
+| Gate | Question | Path | Primary Tool |
+|------|----------|------|-------------|
+| **G1: Exists?** | Is the element a standard atom (Button, Badge, Icon) likely in the Team Library? | **INSTANTIATE** | `figma_search_components` → `figma_instantiate_component` |
+| **G2: Create?** | Is the request a novel layout, page, or composite organism not in the library? | **EXECUTE** | `figma_execute` (Plugin API code) |
+| **G3: Modify?** | Is the intent to alter properties of an existing node (color, padding, text)? | **MODIFY** | `figma_get_selection` → `figma_execute` or specialized tool |
+
+**Always evaluate G1 first.** Creating a button from scratch when one exists in the library wastes tokens, breaks design system consistency, and loses the instance-master link.
+
+## Audit & Refactoring Protocol (Alternative Session)
+
+When the goal is to analyze and fix an existing design rather than create new elements:
+
+1. **Select target** — ask the user to select the frame or page to audit
+2. **Scan** — `figma_get_file_for_plugin({ selectionOnly: true })` to get the node tree JSON
+3. **Analyze** — look for deviations: hardcoded colors (no `boundVariables`), non-4px spacing, missing auto-layout, generic layer names
+4. **Report** — use `figma_post_comment` or `figma_set_description` to annotate findings directly in the file
+5. **Fix** — apply patches via `figma_execute`, targeting specific node IDs: `const n = await figma.getNodeByIdAsync("ID"); n.fills = [...]`
+6. **Validate** — `figma_capture_screenshot` on the patched nodes to confirm corrections
+
+For automated health scoring, use `figma_audit_design_system` which returns a 0-100 scorecard across naming, tokens, components, accessibility, consistency, and coverage.
 
 ## Tool Selection Decision Tree
 
@@ -115,25 +142,17 @@ Need to validate or debug?
 └── Document component? → figma_generate_component_doc
 ```
 
-## Quick Reference
+## Quick Reference — Core Tools
 
-| Tool | Purpose | Key Params |
-|------|---------|------------|
-| `figma_get_status` | Verify connection | None |
-| `figma_navigate` | Open file/page | `url` |
-| `figma_get_design_system_summary` | Survey tokens, components, styles | `fileUrl` |
-| `figma_get_variables` | Extract variable values | `fileUrl`, `format` |
-| `figma_search_components` | Find library components | `query` |
-| `figma_instantiate_component` | Place component instance | `component_key`, `variant_properties` |
-| `figma_execute` | Run Plugin API code | `code` (JavaScript) |
-| `figma_set_fills` | Set fill colors | `nodeId`, fill props |
-| `figma_set_text` | Update text content | node ID, text |
-| `figma_setup_design_tokens` | Create full token system | `name`, `modes`, `variables` |
-| `figma_batch_create_variables` | Create up to 100 variables | `collectionId`, `variables` |
-| `figma_move_node` | Reposition/reparent node | `nodeId`, `x`, `y` |
-| `figma_resize_node` | Change dimensions | `nodeId`, `width`, `height` |
-| `figma_take_screenshot` | Visual validation | None |
-| `figma_get_console_logs` | Debug execution errors | None |
+| Tool | Purpose |
+|------|---------|
+| `figma_get_status` | Verify connection (always first) |
+| `figma_search_components` | Find library components before creating |
+| `figma_instantiate_component` | Place component with variant properties |
+| `figma_execute` | Run Plugin API code (power tool) |
+| `figma_take_screenshot` | Visual validation (max 3 cycles) |
+
+**Full tool reference** (all 56+ tools with parameters and pitfalls): `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md`
 
 ## Essential Rules
 
@@ -144,6 +163,7 @@ Need to validate or debug?
 3. **Load fonts before setting text** — `await figma.loadFontAsync({family, style})` before any `.characters` assignment
 4. **Set `layoutMode` before layout properties** — padding, spacing, constraints all require auto-layout to be active first
 5. **Validate with screenshots** — take a screenshot after every creation step (max 3 fix cycles)
+6. **Check before creating (idempotency)** — before creating a named node, check if it already exists: `figma.currentPage.findOne(n => n.name === "Target")`. Re-running a script must not produce duplicates
 
 ### AVOID
 
@@ -162,13 +182,13 @@ Need to validate or debug?
 # Tool selection guidance — which of the 56+ tools to call and when
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md
 
-# Plugin API reference — writing figma_execute code (auto-layout, text, colors, components, variables)
+# Plugin API reference — writing figma_execute code (node creation, auto-layout, text, colors, components, variables)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api.md
 
 # Design rules — MUST/SHOULD/AVOID rules, dimensions, typography, M3 specs
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md
 
-# Ready-to-use code recipes — cards, buttons, inputs, layouts, composition, chaining
+# Ready-to-use code recipes — cards, buttons, inputs, toast, navbar, sidebar, form, data table, empty state, full page composition, chaining
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes.md
 
 # Material Design 3 component recipes — M3 Button, Card, Top App Bar, TextField, Dialog, Snackbar, Bottom Nav, Elevation
@@ -176,13 +196,16 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-m3.md
 
 # Error catalog and anti-patterns — debugging, recovery, hard constraints
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md
+
+# GUI walkthrough instructions — setup, plugin activation, cache refresh, node selection, CDP transport
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/gui-walkthroughs.md
 ```
 
 ## Troubleshooting Quick Index
 
 | Symptom | Quick Fix |
 |---------|-----------|
-| `figma_get_status` shows not connected | Verify Desktop Bridge Plugin is running in Figma |
+| `figma_get_status` shows not connected | Guide user through plugin setup — see `references/gui-walkthroughs.md` |
 | `figma_execute` returns empty/error | Wrap in async IIFE with try-catch; return plain data, not nodes |
 | Font loading error | Call `figma.loadFontAsync({family, style})` before setting `.characters` |
 | Layout properties silently ignored | Set `layoutMode = 'VERTICAL'` or `'HORIZONTAL'` BEFORE padding/spacing |
@@ -192,50 +215,6 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.
 | Batch variable call fails | Verify `collectionId` is valid; max 100 per batch call |
 
 **Full reference**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md`
-
-## Architecture Reference
-
-```
-AI Agent (Claude Desktop/Code/Cursor/Windsurf)
-  ↓ (stdio transport)
-Local MCP Server (Node.js, dist/local.js)
-  ↓ (WebSocket on port 9223–9232, preferred)
-  ↓ (CDP on port 9222, fallback)
-Desktop Bridge Plugin (running in Figma Desktop)
-  ↓ (Plugin API)
-Figma Design Environment
-```
-
-**Transport priority**: WebSocket first (Desktop Bridge Plugin, port 9223). Fallback: CDP (port 9222, requires Figma launched with `--remote-debugging-port=9222`). Both transports can be active simultaneously — all 56+ tools work identically through either. Multi-instance support (v1.10.0) scans ports 9223–9232.
-
-## Prompting Guidance
-
-### Good prompts — specific and actionable
-
-- "Design a login card with email and password fields, a 'Forgot password?' link, and a primary Sign In button. Use 32px padding, 16px border radius, and subtle shadow."
-- "Build a dashboard header using the Avatar component for the user profile, Button components for actions, and Badge components for notifications."
-- "Create a settings page with a sidebar navigation, a main content area with form fields, and a sticky footer with Save and Cancel buttons."
-- "Create a new color collection called 'Brand Colors' with Light and Dark modes. Add a primary color variable with value #3B82F6 for Light and #60A5FA for Dark."
-
-### Chaining patterns summary
-
-| Pattern | Flow |
-|---------|------|
-| **Component composition** | Search library → find components → instantiate with variants → arrange in auto-layout → validate |
-| **Brand-new design** | Create custom frames via `figma_execute` → apply tokens → build component → apply auto-layout → validate |
-| **Iterative refinement** | Receive feedback → modify via `figma_execute` → screenshot → verify → loop (max 3 cycles) |
-| **Design system bootstrap** | `figma_setup_design_tokens` → create components using tokens → document with `figma_set_description` → audit with Dashboard |
-
-## Version Compatibility
-
-| Version | Key Additions |
-|---------|---------------|
-| **v1.3.0** | `figma_execute` (design creation via Plugin API), variable CRUD |
-| **v1.5.0** | 20+ node manipulation tools, component property management, `figma_search_components`, `figma_instantiate_component` |
-| **v1.7.0** | MCP Apps, `figma_batch_create/update_variables`, `figma_setup_design_tokens`, `figma_check_design_parity` |
-| **v1.8.0** | WebSocket Bridge transport (CDP-free), `figma_get_selection`, `figma_get_design_changes` |
-| **v1.9.0** | Figma Comments tools, improved port conflict detection |
-| **v1.10.0** | Multi-instance support (ports 9223–9232), multi-connection plugin, `ENABLE_MCP_APPS` env var |
 
 ## When NOT to Use This Skill
 
