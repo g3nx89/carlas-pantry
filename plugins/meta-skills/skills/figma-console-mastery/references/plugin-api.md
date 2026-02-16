@@ -105,6 +105,128 @@
 
 **`width` and `height` are READ-ONLY.** Always use `resize(w, h)`. `resizeWithoutConstraints(w, h)` is faster (skips child constraint propagation).
 
+### Node Creation Patterns
+
+Quick-reference snippets for common node types. See the table above for the full method list.
+
+**Rectangle** — shape with fill and rounded corners:
+```javascript
+const rect = figma.createRectangle()
+rect.name = "Card Background"
+rect.resize(200, 120)
+rect.fills = [figma.util.solidPaint('#E8DEF8')]
+rect.cornerRadius = 12
+figma.currentPage.appendChild(rect)
+```
+
+**Ellipse** — perfect circle:
+```javascript
+const circle = figma.createEllipse()
+circle.name = "Avatar"
+circle.resize(48, 48)  // equal width/height = circle
+circle.fills = [figma.util.solidPaint('#6750A4')]
+```
+
+**Line** — horizontal rule with stroke:
+```javascript
+const line = figma.createLine()
+line.name = "Divider"
+line.resize(320, 0)  // height MUST be 0
+line.strokes = [figma.util.solidPaint('#CAC4D0')]
+line.strokeWeight = 1
+```
+
+**Vector** — custom shape from SVG path data:
+```javascript
+const vec = figma.createVector()
+vec.name = "Checkmark"
+vec.vectorPaths = [{ windingRule: 'NONZERO', data: 'M 4 11 L 9 16 L 20 5' }]
+vec.strokes = [figma.util.solidPaint('#1B5E20')]
+vec.strokeWeight = 2
+```
+
+**Group** — wrap existing nodes (no `createGroup`):
+```javascript
+// nodes must already share the same parent
+const group = figma.group([nodeA, nodeB], figma.currentPage)
+group.name = "Grouped Items"
+// group auto-resizes to fit children; x/y/resize not needed
+```
+
+**Section** — canvas organizer:
+```javascript
+const section = figma.createSection()
+section.name = "Home Screen"
+section.resize(800, 600)
+section.fills = [figma.util.solidPaint('#F5F5F5')]
+```
+
+**Boolean Operations** — use `figma.union()` / `figma.subtract()`, NOT `createBooleanOperation()`:
+```javascript
+// operands are consumed (removed from parent and placed inside the result)
+const merged = figma.union([shapeA, shapeB], figma.currentPage)
+merged.name = "Combined Shape"
+
+const cutout = figma.subtract([base, hole], figma.currentPage)
+cutout.name = "Icon Cutout"
+// also: figma.intersect(), figma.exclude()
+```
+
+**SVG Import** — returns a FrameNode containing vector children:
+```javascript
+const svgNode = figma.createNodeFromSvg(
+  '<svg width="24" height="24"><path d="M12 2L2 22h20z" fill="#6750A4"/></svg>'
+)
+svgNode.name = "Triangle Icon"
+// override colors on the imported vectors
+svgNode.findAll(n => n.type === 'VECTOR').forEach(v => { v.fills = [figma.util.solidPaint('#1D1B20')] })
+```
+
+**Page** — new page (auto-appended to document):
+```javascript
+const page = figma.createPage()
+page.name = "Prototypes"
+// switch to it: figma.currentPage = page
+```
+
+**Convert Frame to Component** — `figma.createComponentFromNode()`:
+```javascript
+// turns any existing frame into a component, preserving children and layout
+const comp = figma.createComponentFromNode(existingFrame)
+comp.name = "Card"  // now usable as a component with createInstance()
+```
+
+### Inside-Out Construction Pattern
+
+Build from leaf nodes inward to containers. Create children first, configure them, then create the parent frame and `appendChild`. This prevents dimension collapse: an auto-layout frame with `'AUTO'` sizing starts at 0×0 if empty, and children added later may not trigger immediate recalculation.
+
+```javascript
+// CORRECT — Inside-Out: children ready before container
+const icon = figma.createRectangle()
+icon.name = "Icon"
+icon.resize(24, 24)
+
+const label = figma.createText()
+label.fontName = { family: "Inter", style: "Medium" }  // Font must already be loaded
+label.characters = "Submit"
+label.fontSize = 14
+
+const button = figma.createFrame()
+button.name = "Button"
+button.layoutMode = "HORIZONTAL"
+button.primaryAxisSizingMode = "AUTO"
+button.counterAxisSizingMode = "AUTO"
+button.itemSpacing = 8
+button.paddingLeft = 16; button.paddingRight = 16
+button.paddingTop = 10; button.paddingBottom = 10
+
+button.appendChild(icon)
+button.appendChild(label)
+// Button now auto-sizes around its children correctly
+```
+
+For complex builds (full pages), use Outside-In with explicit sizing: create the page shell with FIXED dimensions first, then populate with children. Inside-Out is best for components and molecules.
+
 ---
 
 ## Auto-Layout System
@@ -255,12 +377,8 @@ node.fills = [{
   ]
 }]
 
-// ImagePaint
+// ImagePaint — see "Image Handling" section below for full details
 const image = figma.createImage(uint8ArrayBytes)
-node.fills = [{ type: 'IMAGE', scaleMode: 'FILL', imageHash: image.hash }]
-
-// Async image from URL (alternative)
-const image = await figma.createImageAsync('https://example.com/photo.jpg')
 node.fills = [{ type: 'IMAGE', scaleMode: 'FILL', imageHash: image.hash }]
 ```
 
@@ -321,6 +439,49 @@ node.strokeAlign = 'INSIDE'  // 'CENTER' | 'INSIDE' | 'OUTSIDE'
 node.strokeTopWeight = 0; node.strokeBottomWeight = 1  // Per-side (Frame/Rect only)
 node.dashPattern = [10, 5]  // [dash, gap]
 ```
+
+---
+
+## Image Handling
+
+Images in Figma are a paint type (`ImagePaint`), not a standalone node. Apply them as fills on shapes or frames.
+
+### From URL (async)
+
+```javascript
+const rect = figma.createRectangle()
+rect.name = "Hero Image"
+rect.resize(375, 200)
+
+const image = await figma.createImageAsync('https://example.com/photo.jpg')
+rect.fills = [{
+  type: 'IMAGE',
+  scaleMode: 'FILL',  // 'FILL' | 'FIT' | 'CROP' | 'TILE'
+  imageHash: image.hash
+}]
+```
+
+### From bytes (Uint8Array)
+
+```javascript
+const image = figma.createImage(uint8ArrayBytes)
+rect.fills = [{
+  type: 'IMAGE',
+  scaleMode: 'FIT',
+  imageHash: image.hash
+}]
+```
+
+### Scale Modes
+
+| Mode | Behavior |
+|------|----------|
+| `'FILL'` | Cover entire shape, cropping excess |
+| `'FIT'` | Fit within shape, may leave empty space |
+| `'CROP'` | User-defined crop region |
+| `'TILE'` | Repeat pattern |
+
+**Gotcha:** `createImageAsync(url)` requires network access from the plugin context. In Console MCP's Desktop Bridge environment, this works if the URL is publicly accessible. For private images, convert to `Uint8Array` externally and use `createImage(bytes)`.
 
 ---
 
