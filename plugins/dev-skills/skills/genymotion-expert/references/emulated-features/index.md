@@ -46,6 +46,7 @@ Use `genymotion capabilities` in the Genymotion Shell to query which features ar
 | `device-config.md` | Device Identity + Disk I/O + Rotation |
 | `sensor-management.md` | Persistence rules, reset scripts, conflicts |
 | `gui-features.md` | Motion Sensors + Biometrics + Camera + Gamepad + Device Link |
+| `gui-walkthroughs.md` | Step-by-step GUI instructions for operations without CLI alternatives |
 | `controls-and-tools.md` | Advanced Dev Tools + Capture + Controls + Clipboard + File Upload + Open GApps |
 
 ---

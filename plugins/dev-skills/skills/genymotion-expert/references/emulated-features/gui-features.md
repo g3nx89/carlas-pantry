@@ -2,7 +2,7 @@
 
 Features that require the Genymotion Desktop GUI and cannot be scripted through Genymotion Shell. Each section includes automation alternatives where available.
 
-> **Cross-references:** For sensor persistence rules, see `sensor-management.md`. For feature availability, see `index.md`.
+> **Cross-references:** For sensor persistence rules, see `sensor-management.md`. For feature availability, see `index.md`. For step-by-step GUI instructions to relay to the user, see `gui-walkthroughs.md`.
 
 ---
 
@@ -31,7 +31,7 @@ fun testShakeDetection() {
 }
 ```
 
-**Option 3 — Device Link**: Connect a physical device and physically manipulate it. Best for manual QA validation of motion-heavy features (AR, compass, games).
+**Option 3 — Device Link**: Connect a physical device and physically manipulate it. Best for manual QA validation of motion-heavy features (AR, compass, games). For slider controls, sensor readouts, and rotation sync toggle, see `gui-walkthroughs.md` (Motion Sensors section).
 
 ### Testing Patterns
 
@@ -55,7 +55,7 @@ Each capability can be independently enabled/disabled. Setup requires USB-connec
 
 **Use cases**: QA testing with natural gestures (touch forwarding), AR/VR prototyping (motion forwarding), demo recording (screen mirroring).
 
-**Automation**: Device Link is **GUI-only** — no Genymotion Shell commands exist. For automated sensor input, use discrete `rotation setangle` commands or mock SensorManager in test code (see Motion Sensors section above).
+**Automation**: Device Link is **GUI-only** — no Genymotion Shell commands exist. For automated sensor input, use discrete `rotation setangle` commands or mock SensorManager in test code (see Motion Sensors section above). For USB linking setup and calibration steps, see `gui-walkthroughs.md` (Device Link section).
 
 ---
 
@@ -76,7 +76,7 @@ The Biometrics widget simulates fingerprint recognition scenarios for testing `B
 
 ### Automation (Recommended for CI)
 
-Biometrics are **GUI-only** — no Genymotion Shell commands exist. Use `BiometricPrompt` test APIs:
+Biometrics are **GUI-only** — no Genymotion Shell commands exist. For fingerprint enrollment and scenario testing steps, see `gui-walkthroughs.md` (Biometrics sections). For CI automation, use `BiometricPrompt` test APIs:
 
 ```kotlin
 // Use AndroidX Biometric testing library
@@ -92,7 +92,7 @@ androidTestImplementation("androidx.biometric:biometric:1.2.0-alpha05")
 
 ## Camera and Media Injection (v3.3.0+, Paid)
 
-The Camera widget replaces the virtual device's camera and microphone inputs with host webcam, image files, or video files (front/back independently). GUI-only — not available via Genymotion Shell. Camera input settings persist across reboots since v3.6.0.
+The Camera widget replaces the virtual device's camera and microphone inputs with host webcam, image files, or video files (front/back independently). GUI-only — not available via Genymotion Shell. Camera input settings persist across reboots since v3.6.0. For input source configuration, webcam requirements, and testing walkthroughs (QR, facial recognition, AR, voice), see `gui-walkthroughs.md` (Camera sections).
 
 ### Media File Storage Paths
 
@@ -125,7 +125,7 @@ adb push qr_code.png /sdcard/DCIM/Camera/
 
 ## Gamepad (v3.8.0+, Android 12+, Paid)
 
-The Gamepad feature forwards host-connected game controllers (Xbox 360, PS5 DualSense on macOS/Linux, generic USB) to the Android emulator. Controllers appear as standard Android gamepad input devices. GUI-only — no shell commands.
+The Gamepad feature forwards host-connected game controllers (Xbox 360, PS5 DualSense on macOS/Linux, generic USB) to the Android emulator. Controllers appear as standard Android gamepad input devices. GUI-only — no shell commands. For controller compatibility table and widget setup, see `gui-walkthroughs.md` (Gamepad section).
 
 ### Automation via ADB
 

@@ -2,7 +2,7 @@
 
 Minor features and developer utilities with ADB alternatives for automation.
 
-> **Cross-references:** For feature availability, see `index.md`. For sensor persistence, see `sensor-management.md`.
+> **Cross-references:** For feature availability, see `index.md`. For sensor persistence, see `sensor-management.md`. For step-by-step clipboard toggle instructions, see `gui-walkthroughs.md`.
 
 ---
 

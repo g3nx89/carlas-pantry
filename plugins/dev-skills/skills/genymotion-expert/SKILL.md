@@ -116,7 +116,7 @@ genyshell -q -c 'phone sms "+15551234567" "OTP: 847291"'
 
 Target a specific device by IP: `genyshell -r 192.168.56.101 -c "..."`.
 
-**GUI-only features** (v3.6.0+): Biometrics (fingerprint scenarios), Camera/Media Injection, Motion Sensors (accelerometer/gyroscope/magnetometer via yaw/pitch/roll sliders), Device Link (sensor forwarding, touch forwarding, screen mirroring), and Gamepad are configurable only through the Genymotion Desktop UI. See `references/emulated-features/gui-features.md` for full details, testing patterns, and ADB automation alternatives.
+**GUI-only features** (v3.6.0+): Biometrics (fingerprint scenarios), Camera/Media Injection, Motion Sensors (accelerometer/gyroscope/magnetometer via yaw/pitch/roll sliders), Device Link (sensor forwarding, touch forwarding, screen mirroring), and Gamepad are configurable only through the Genymotion Desktop UI. See `references/emulated-features/gui-features.md` for full details, testing patterns, and ADB automation alternatives. **When a GUI-only task cannot use ADB alternatives**, load `references/emulated-features/gui-walkthroughs.md` and relay the step-by-step instructions to the user.
 
 **Feature detection**: Use `genyshell -q -c "genymotion capabilities"` to query available features as JSON. Useful in CI to gate tests when a feature requires a paid license.
 
@@ -239,6 +239,7 @@ Memory leaks are an officially acknowledged, unfixable limitation. Not suitable 
 | Device Identity, Disk I/O, Rotation | `references/emulated-features/device-config.md` | Android ID, IMEI, disk throttling, orientation |
 | Sensor state persistence and reset | `references/emulated-features/sensor-management.md` | Persistence rules, reset scripts, conflicts |
 | GUI-only features (motion, biometrics, camera, gamepad, device link) | `references/emulated-features/gui-features.md` | Features requiring GUI + their automation alternatives |
+| GUI walkthrough instructions | `references/emulated-features/gui-walkthroughs.md` | Guiding user through GUI-only operations step-by-step |
 | Controls and developer tools | `references/emulated-features/controls-and-tools.md` | ADB alternatives for dev tools, capture, controls |
 | GMTool and Genymotion Shell CLI | `references/cli-reference.md` | Looking up specific commands, options, error codes |
 | Test framework integration and reliability | `references/test-integration.md` | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |
