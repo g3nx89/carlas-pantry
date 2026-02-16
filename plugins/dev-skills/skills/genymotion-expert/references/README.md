@@ -4,24 +4,37 @@
 
 | File | Lines | Size | Purpose | When to Read |
 |------|-------|------|---------|--------------|
-| `emulated-features.md` | ~1250 | ~48K | All emulated sensors and features: GPS (route replay), battery, network, motion sensors, biometrics, camera injection (UVC/webcam), gamepad, disk I/O, phone/SMS, device identity, baseband, clipboard, file upload/drag-and-drop, Device Link (touch/screen/sensors), advanced developer tools, sensor state management, testing strategy matrix, shell utility commands, feature detection (`genymotion capabilities`) | Configuring or testing any emulated feature; understanding feature availability and limitations |
+| `emulated-features/index.md` | 120 | ~5K | Feature Availability Matrix, Testing Strategy decision matrix, Shell Utility Commands, feature file dispatch table | Checking which features exist, choosing test approach, feature detection |
+| `emulated-features/gps.md` | 93 | ~4K | GPS parameters, route simulation (GPX/KML), geofencing and bearing testing patterns | GPS coordinates, route playback, location testing |
+| `emulated-features/battery.md` | 61 | ~2K | Battery modes, states, critical thresholds, drain/charge scripts | Battery level simulation, power state testing |
+| `emulated-features/network.md` | 90 | ~4K | Network interface control, mobile profiles (2G-5G), signal strength, Baseband GSM state | WiFi/mobile simulation, offline testing, roaming |
+| `emulated-features/phone-sms.md` | 98 | ~4K | Phone calls, SMS, baseband GSM call management, RSSI/signal quality | OTP testing, call interruption, telephony simulation |
+| `emulated-features/device-config.md` | 162 | ~6K | Device Identity (Android ID, IMEI), Disk I/O Throttling, Rotation | Device fingerprinting, storage performance testing, orientation |
+| `emulated-features/sensor-management.md` | 72 | ~3K | Persistence rules, default values, factory reset, reset script, potential conflicts | Between-suite cleanup, understanding state lifecycle |
+| `emulated-features/gui-features.md` | 144 | ~5K | Motion Sensors, Biometrics, Camera/Media Injection, Gamepad, Device Link | GUI-only features and their automation alternatives |
+| `emulated-features/controls-and-tools.md` | 175 | ~6K | Advanced Developer Tools, Capture, Android Controls, Other Controls, Clipboard, File Upload, Open GApps | ADB alternatives for dev tools, media controls, file transfer |
 | `cli-reference.md` | 417 | 15K | GMTool and Genymotion Shell complete command reference | Looking up specific commands, options, error codes, ARM translation, proxy setup |
-| `ci-and-recipes.md` | 597 | 19K | CI/CD integration patterns and workflow recipe scripts | Configuring CI pipelines, writing automation scripts, parallel testing |
-| `test-integration.md` | ~480 | ~20K | Test framework integration, reliability patterns, and ADB patterns | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |
+| `ci-and-recipes.md` | ~595 | 19K | CI/CD integration patterns and workflow recipe scripts | Configuring CI pipelines, writing automation scripts, parallel testing |
+| `test-integration.md` | ~446 | ~20K | Test framework integration, reliability patterns, and ADB patterns | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |
 
 ## Cross-References Between Files
 
 | Source File | References To | Topic |
 |-------------|---------------|-------|
-| `emulated-features.md` | `cli-reference.md` | Genymotion Shell command syntax referenced for each feature |
-| `emulated-features.md` | `ci-and-recipes.md` | Recipe 5 (GPX route playback) and Recipe 6 (network degradation) |
-| `emulated-features.md` | `test-integration.md` | Test Stability Checklist for animation disabling via ADB |
+| `emulated-features/index.md` | All `emulated-features/*.md` files | Feature File Map dispatch table |
+| `emulated-features/gps.md` | `sensor-management.md`, `ci-and-recipes.md` | Persistence rules, Recipe 5 GPX route playback |
+| `emulated-features/gps.md` | `gui-features.md` | Motion Sensors for bearing (compass) alternatives |
+| `emulated-features/network.md` | `sensor-management.md`, `ci-and-recipes.md` | Persistence rules, Recipe 6 network degradation |
+| `emulated-features/gui-features.md` | `sensor-management.md` | Persistence rules for camera settings |
+| `emulated-features/controls-and-tools.md` | `test-integration.md`, `cli-reference.md` | Test Stability Checklist, GApps flash commands |
+| `emulated-features/sensor-management.md` | `ci-and-recipes.md` | Recipe 2 parallel testing with cleanup |
 | `cli-reference.md` | `ci-and-recipes.md` | Boot-wait pattern used in CI recipes |
 | `ci-and-recipes.md` | `cli-reference.md` | GMTool commands used in recipes |
-| `test-integration.md` | `emulated-features.md` | Feature Availability Matrix and Testing Strategy decision matrix |
-| `test-integration.md` | `ci-and-recipes.md` | Recipe 2 for complete parallel testing with cleanup and result aggregation |
-| `test-integration.md` | `cli-reference.md` | Genymotion Shell sensor commands for reset scripts |
-| `test-integration.md` | SKILL.md | Concurrent instance limits referenced in Memory Overuse flakiness pattern |
+| `test-integration.md` | `emulated-features/index.md` | Feature Availability Matrix and Testing Strategy |
+| `test-integration.md` | `emulated-features/sensor-management.md` | Canonical sensor reset script |
+| `test-integration.md` | `ci-and-recipes.md` | Recipe 2 for parallel testing |
+| `test-integration.md` | `cli-reference.md` | Genymotion Shell sensor commands |
+| `test-integration.md` | SKILL.md | Concurrent instance limits in Memory Overuse pattern |
 
 ## Canonical Definitions
 

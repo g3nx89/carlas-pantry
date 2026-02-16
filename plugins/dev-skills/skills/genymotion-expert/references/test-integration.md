@@ -244,32 +244,6 @@ maestro test --format junit flows/ --output report.xml
 maestro test flow.yaml -d 192.168.56.101:5555
 ```
 
-## Genymotion Gradle Plugin (Legacy)
-
-The official plugin (`com.genymotion:plugin:1.4`) wraps gmtool for automated device lifecycle during `connectedAndroidTest`:
-
-```groovy
-buildscript {
-    dependencies { classpath 'com.genymotion:plugin:1.4' }
-}
-apply plugin: 'genymotion'
-
-genymotion {
-    config {
-        genymotionPath = "/opt/genymotion/"
-        taskLaunch = "connectedAndroidTest"
-    }
-    devices {
-        testPhone {
-            template "Google Pixel 3 - 10.0 - API 29 - 1080x2160"
-            deleteWhenFinish false   // Preserve device between runs
-        }
-    }
-}
-```
-
-**Important**: This plugin (v1.4, last published 2017) may have compatibility issues with modern AGP versions. For current projects, scripting with gmtool directly is more reliable. Gradle Managed Devices (first-party, modern) has largely absorbed this niche.
-
 ## System Inspection Commands
 
 Useful for debugging test state, verifying sensor simulation, and diagnosing failures:
@@ -436,20 +410,11 @@ Before running tests on Genymotion:
 
 ## Sensor State Persistence
 
-Genymotion Shell sensor values (GPS, battery, network) persist for the lifetime of the running VM. They survive app restarts but are reset on device reboot. Factory reset also clears them. Between test suites, explicitly reset sensor state (see `cli-reference.md` for the full Genymotion Shell command reference):
-
-```bash
-GENYSHELL="${GENYMOTION_PATH:-/opt/genymotion}/genymotion-shell"
-"$GENYSHELL" -q -c "gps setstatus disabled"
-"$GENYSHELL" -q -c "battery setmode host"
-"$GENYSHELL" -q -c "network setstatus wifi enabled"
-"$GENYSHELL" -q -c "network setsignalstrength wifi great"
-"$GENYSHELL" -q -c "rotation setangle 0"
-```
+Genymotion Shell sensor values (GPS, battery, network) persist for the lifetime of the running VM. They survive app restarts but are reset on device reboot. Factory reset also clears them. Between test suites, explicitly reset sensor state using the canonical reset script in `emulated-features/sensor-management.md` (Reset Script for Test Suites) — it covers GPS, battery, network (WiFi + mobile), mobile profile, rotation, and disk I/O.
 
 ## Emulated Features Overview
 
-> **Comprehensive reference**: See `emulated-features.md` for the full Feature Availability Matrix, testing patterns per feature, sensor state management rules, and the Testing Strategy decision matrix.
+> **Comprehensive reference**: See `emulated-features/index.md` for the Feature Availability Matrix and Testing Strategy decision matrix. Per-feature details are in individual files under `emulated-features/`.
 
 Genymotion Desktop supports emulation of GPS, battery, network, rotation, phone/SMS, disk I/O, device identity (all via Genymotion Shell), plus motion sensors, biometrics, camera/media injection, gamepad, and advanced developer tools (GUI-only widgets). Features vary by version and license tier.
 

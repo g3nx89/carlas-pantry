@@ -503,10 +503,7 @@ ensure_adb_connection() {
 
 ## VPN Interference
 
-Host VPN can block routing to the `192.168.56.x` host-only subnet. If ADB connections fail when VPN is active:
-- Configure VPN split-tunneling to exclude `192.168.56.0/24`
-- Or disable VPN during test execution
-- Bridge mode (VirtualBox only) may avoid this issue by placing the device on the physical network
+Host VPN can block routing to the `192.168.56.x` host-only subnet. Configure VPN split-tunneling to exclude `192.168.56.0/24`, or disable VPN during test execution.
 
 ## Host System Stability
 

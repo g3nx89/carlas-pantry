@@ -116,7 +116,7 @@ genyshell -q -c 'phone sms "+15551234567" "OTP: 847291"'
 
 Target a specific device by IP: `genyshell -r 192.168.56.101 -c "..."`.
 
-**GUI-only features** (v3.6.0+): Biometrics (fingerprint scenarios), Camera/Media Injection, Motion Sensors (accelerometer/gyroscope/magnetometer via yaw/pitch/roll sliders), Device Link (sensor forwarding, touch forwarding, screen mirroring), and Gamepad are configurable only through the Genymotion Desktop UI. See `references/emulated-features.md` for full details, testing patterns, and ADB automation alternatives.
+**GUI-only features** (v3.6.0+): Biometrics (fingerprint scenarios), Camera/Media Injection, Motion Sensors (accelerometer/gyroscope/magnetometer via yaw/pitch/roll sliders), Device Link (sensor forwarding, touch forwarding, screen mirroring), and Gamepad are configurable only through the Genymotion Desktop UI. See `references/emulated-features/gui-features.md` for full details, testing patterns, and ADB automation alternatives.
 
 **Feature detection**: Use `genyshell -q -c "genymotion capabilities"` to query available features as JSON. Useful in CI to gate tests when a feature requires a paid license.
 
@@ -184,8 +184,6 @@ Genymotion Shell path differs slightly — see `references/cli-reference.md` for
 - **SafetyNet/Play Integrity** → Physical devices only
 - **Accurate ARM behavior on x86 hosts** → AVD with ARM images or physical devices
 
-**Industry trend**: Since Google's Project Marble improvements (2018+), AVD reached performance parity with Genymotion. The community trend is migration from Genymotion Desktop to AVD for CI/CD, driven by AVD's headless mode, Docker support, and zero licensing cost. Genymotion SaaS remains competitive for managed cloud device farms.
-
 **Genymotion Desktop has no headless mode** — it requires GPU and a display. On Linux CI servers, use `xvfb-run` as a workaround (see `references/ci-and-recipes.md`). This is the fundamental constraint for CI/CD.
 
 ## Anti-Patterns
@@ -229,7 +227,15 @@ Memory leaks are an officially acknowledged, unfixable limitation. Not suitable 
 
 | Topic | Reference File | When to Read |
 |-------|----------------|--------------|
-| Emulated features and sensors | `references/emulated-features.md` | Configuring GPS, battery, network, motion sensors, biometrics, camera injection, gamepad, disk I/O, phone/SMS, device identity, clipboard, file upload, Device Link, feature detection |
+| Feature availability and testing strategy | `references/emulated-features/index.md` | Checking which features exist, choosing test approach |
+| GPS and location simulation | `references/emulated-features/gps.md` | GPS coordinates, route simulation, geofencing |
+| Battery simulation | `references/emulated-features/battery.md` | Battery levels, charging states, thresholds |
+| Network and baseband simulation | `references/emulated-features/network.md` | WiFi/mobile profiles, signal strength, GSM state |
+| Phone calls and SMS | `references/emulated-features/phone-sms.md` | Incoming calls, SMS, baseband telephony |
+| Device Identity, Disk I/O, Rotation | `references/emulated-features/device-config.md` | Android ID, IMEI, disk throttling, orientation |
+| Sensor state persistence and reset | `references/emulated-features/sensor-management.md` | Persistence rules, reset scripts, conflicts |
+| GUI-only features (motion, biometrics, camera, gamepad, device link) | `references/emulated-features/gui-features.md` | Features requiring GUI + their automation alternatives |
+| Controls and developer tools | `references/emulated-features/controls-and-tools.md` | ADB alternatives for dev tools, capture, controls |
 | GMTool and Genymotion Shell CLI | `references/cli-reference.md` | Looking up specific commands, options, error codes |
 | Test framework integration and reliability | `references/test-integration.md` | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |
 | CI/CD patterns and workflow recipes | `references/ci-and-recipes.md` | Configuring CI pipelines or writing automation scripts |
