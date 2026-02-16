@@ -20,9 +20,10 @@ Index of reference files for the `android-cli-testing` skill. See the Reference 
 | debug-system-simulation.md | 205 | 1,050 | 7.1K | Doze, battery, density, locale, dark mode, multi-window |
 | performance-profiling.md | 308 | 1,400 | 10K | Perfetto, gfxinfo, method tracing, heap analysis, Macrobenchmark |
 | ci-pipeline-config.md | 249 | 1,120 | 8.5K | Test tiers, emulator config, GMD CI, determinism, flaky quarantine, Firebase |
-| device-setup-oem.md | 210 | 1,174 | 8.1K | Physical device setup, multi-device, OEM quirks, device selection |
+| device-setup-oem.md | 215 | 1,124 | 7.9K | Physical device CLI setup, multi-device, OEM quirks, ADB reliability |
+| gui-walkthroughs.md | 193 | 1,045 | 7.0K | GUI-only device operations: Developer Options, USB debugging, OEM toggles |
 | workflow-recipes.md | 439 | 1,380 | 11K | End-to-end scripts, GitHub Actions, GitLab CI |
-| **Total** | **3,692** | **14,648** | **117K** | |
+| **Total** | **3,890** | **16,643** | **131K** | |
 
 ## Cross-References
 
@@ -44,7 +45,8 @@ Arrows show which files reference which. Each file links to its closest siblings
 | debug-system-simulation.md | debug-data-storage.md, debug-crashes-monkey.md |
 | performance-profiling.md | debug-ui-memory.md |
 | ci-pipeline-config.md | device-setup-oem.md, workflow-recipes.md, test-espresso-compose.md |
-| device-setup-oem.md | ci-pipeline-config.md, adb-connection-apps.md |
+| device-setup-oem.md | ci-pipeline-config.md, adb-connection-apps.md, gui-walkthroughs.md |
+| gui-walkthroughs.md | device-setup-oem.md, adb-connection-apps.md |
 | workflow-recipes.md | (none) |
 
 ## File Groups
@@ -57,3 +59,4 @@ Files cluster into six functional groups. Within each group, sibling cross-refer
 - **Debugging**: debug-data-storage.md, debug-ui-memory.md, debug-crashes-monkey.md, debug-system-simulation.md
 - **Performance**: performance-profiling.md
 - **CI/CD**: ci-pipeline-config.md, device-setup-oem.md, workflow-recipes.md
+- **GUI Walkthroughs**: gui-walkthroughs.md

@@ -1,8 +1,8 @@
 # Physical Device Setup and OEM Reference
 
-Physical device configuration, multi-device management, self-hosted runner setup, OEM-specific considerations (Samsung, Xiaomi, Huawei), device selection strategy, and power user tricks.
+Physical device CLI configuration, multi-device management, self-hosted runner setup, OEM-specific CLI workarounds, and ADB reliability.
 
-> For CI pipeline configuration and emulator setup, see `ci-pipeline-config.md`. For ADB connection management, see `adb-connection-apps.md`.
+> For CI pipeline configuration and emulator setup, see `ci-pipeline-config.md`. For ADB connection management, see `adb-connection-apps.md`. For GUI-only device operations (Developer Options, USB debugging enable, OEM toggles), see `gui-walkthroughs.md`.
 
 ## Self-Hosted Runner: Physical Device Keep-Awake
 
@@ -76,13 +76,11 @@ adb_all shell settings put global transition_animation_scale 0
 
 ## Physical Device Setup
 
-### USB Debugging
+### RSA Key Locations
 
-Enable Developer Options: **Settings > About Phone > tap "Build number" 7 times**. Then enable USB debugging in Developer Options.
+RSA keys stored at `~/.android/adbkey` (private) and `~/.android/adbkey.pub` (public). Device stores authorized keys at `/data/misc/adb/adb_keys`.
 
-RSA keys stored at `~/.android/adbkey` (private) and `~/.android/adbkey.pub` (public). Device stores authorized keys at `/data/misc/adb/adb_keys`. On first connect, accept RSA dialog on device ("Always allow from this computer").
-
-**7-day authorization timeout**: Even with "Always allow," authorization expires after 7 days. Fix: enable **"Disable ADB Authorization Timeout"** in Developer Options.
+**GUI-only prerequisite**: Enabling Developer Options, USB debugging, and RSA key acceptance require device GUI interaction. **When these are needed**, load `gui-walkthroughs.md` and relay the step-by-step instructions to the user.
 
 ### Linux udev Rules (Required for USB Without Root)
 
@@ -91,8 +89,7 @@ RSA keys stored at `~/.android/adbkey` (private) and `~/.android/adbkey.pub` (pu
 lsusb    # e.g., "ID 18d1:d002 Google Inc." -> vendor 18d1
 
 # Create rules file:
-sudo nano /etc/udev/rules.d/51-android.rules
-# Add: SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", MODE="0666", GROUP="plugdev"
+echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", MODE="0666", GROUP="plugdev"' | sudo tee /etc/udev/rules.d/51-android.rules
 
 # Apply:
 sudo chmod a+r /etc/udev/rules.d/51-android.rules
@@ -104,66 +101,76 @@ adb kill-server && adb start-server
 
 ### Wireless Debugging (Android 11+)
 
-No initial USB required, TLS encrypted, new pairing flow with 6-digit code, dynamic ports, mDNS discovery, remembers paired devices.
+TLS encrypted, dynamic ports, mDNS discovery, remembers paired devices.
 
 ```bash
-# 1. On device: Developer Options > Wireless debugging > enable
-# 2. Tap "Pair device with pairing code" -- note IP:port and code
-# 3. PAIR (one-time):
+# PAIR (one-time, requires pairing code from device GUI):
 adb pair 192.168.1.100:37885     # Enter 6-digit code
-# 4. CONNECT (using CONNECTION port, DIFFERENT from pairing port):
+
+# CONNECT (using CONNECTION port, DIFFERENT from pairing port):
 adb connect 192.168.1.100:41913
 ```
 
-**Tradeoffs**: USB is significantly faster for APK installs (~480 Mbps vs ~50-100 Mbps WiFi) and more stable. Wireless is convenient for UI testing and untethered debugging. Can use both simultaneously.
+**GUI-only prerequisite**: Enabling Wireless debugging and obtaining the pairing code/port require device GUI interaction. **When needed**, load `gui-walkthroughs.md` and relay the instructions.
+
+USB is significantly faster for APK installs (~480 Mbps vs ~50-100 Mbps WiFi). Wireless is convenient for UI testing. Can use both simultaneously.
 
 ## OEM Considerations
 
 ### Samsung
 
-- Knox restrictions can block ADB installs
-- Aggressive "Sleeping apps" and "Deep sleeping apps" kill background processes -- add test app to "Never sleeping apps"
-- Samsung-specific logcat tags: `SamsungAlarmManager`, `SDHMS`
+- Samsung-specific logcat tags for debugging: `SamsungAlarmManager`, `SDHMS`
+- Knox restrictions can block ADB installs entirely (enterprise/carrier devices) — see `gui-walkthroughs.md` for Knox troubleshooting
+- **GUI-only**: Aggressive "Sleeping apps" kills background processes — user must add test app to "Never sleeping apps" list. Load `gui-walkthroughs.md` for steps
 
 ### Xiaomi (MIUI/HyperOS)
 
-- Requires **extra "Install via USB" toggle** beyond standard USB debugging (may need Mi Account)
-- Also enable "USB debugging (Security settings)"
-- Every `adb install` may show confirmation popup
-- Disable "MIUI Optimization" in Developer Options for standard behavior
+- **GUI-only**: Requires extra toggles beyond standard USB debugging: "Install via USB" and "USB debugging (Security settings)". Without these, every `adb install` shows a confirmation popup. Load `gui-walkthroughs.md` for steps
+- Newer devices lack Google Play Services (HMS only)
 
 ### Huawei
 
 - Newer devices lack Google Play Services (HMS only)
-- Aggressive power management -- set app to "Manage manually" in Settings > Battery > App launch
+- **GUI-only**: Aggressive power management kills background apps — user must set app to "Manage manually" in battery settings. Load `gui-walkthroughs.md` for steps
 
 ### Google Pixel
 
-- Closest to AOSP, most predictable, fastest updates
-- **Recommended as primary development device**
+- Closest to AOSP, most predictable — recommended as primary development device
 - No extra toggles or restrictions
 
-### Background Kill Severity (Most to Least Aggressive)
+### Background Kill Severity
 
-Samsung > OnePlus > Huawei > Xiaomi > Nokia > Pixel
-
-Reference: dontkillmyapp.com
-
-## Device Selection Strategy
-
-- **Minimum** (2 devices): Pixel + budget Samsung/Xiaomi (~$500)
-- **Moderate** (4 devices): Pixel + Samsung flagship + Xiaomi mid-range + budget device (~$1,500)
-- Cover at least 3 density buckets, include notch/cutout and punch-hole devices, mix 60Hz and 120Hz displays, include one low-RAM device (3-4GB)
+Samsung > OnePlus > Huawei > Xiaomi > Nokia > Pixel (reference: dontkillmyapp.com)
 
 ## Anti-Patterns and Pitfalls
 
 ### ADB Reliability Traps
 
-**Connection drops**: USB3 ports cause frequent disconnects (especially Samsung); USB2 is more stable. Screen lock timeout causes ADB to lose authorization -- extend or disable timeout. Recovery: `adb kill-server && adb start-server`.
+**Connection drops**: USB3 ports cause frequent disconnects (especially Samsung); USB2 is more stable. Screen lock timeout causes ADB to lose authorization — extend or disable timeout. Recovery: `adb kill-server && adb start-server`.
 
-**Zombie servers**: Multiple tools (Android Studio, CLI, Genymotion) spawn separate ADB servers fighting for port 5037. `adb kill-server` may fail silently. Manual fix: `lsof -i :5037` to find occupying process, `kill -9 <PID>`, then restart.
+**Zombie servers**: Multiple tools (Android Studio, CLI, Genymotion) spawn separate ADB servers fighting for port 5037. `adb kill-server` may fail silently. Fix:
 
-**"Unauthorized" state**: Check device screen for RSA dialog (screen must be unlocked), toggle USB debugging off/on, revoke all USB authorizations and reconnect, or delete `~/.android/adbkey*` and restart server.
+```bash
+lsof -i :5037              # Find occupying process
+kill -9 <PID>              # Kill it
+adb start-server           # Restart clean
+```
+
+**"Unauthorized" state**: Troubleshoot via CLI first, then escalate to GUI if needed:
+
+```bash
+# 1. Check if device is visible
+adb devices -l
+
+# 2. Restart ADB server
+adb kill-server && adb start-server
+
+# 3. If still unauthorized, delete host keys and reconnect
+rm ~/.android/adbkey*
+adb start-server
+```
+
+If CLI steps fail, load `gui-walkthroughs.md` for RSA key re-authorization steps on the device.
 
 **Version mismatch**: Cryptic failures when client and server versions differ. Common when multiple ADB binaries exist on PATH. Fix: `which -a adb` to find all binaries, ensure single canonical `$ANDROID_HOME/platform-tools/adb`.
 
@@ -171,12 +178,10 @@ Reference: dontkillmyapp.com
 
 ## Local Device Farm Tools
 
-For scaling beyond single-device CI, third-party orchestrators distribute tests across multiple connected devices or emulators:
+For scaling beyond single-device CI:
 
 - **Flank** (open-source, Firebase Test Lab compatible): `flank android run` — parallelizes test shards across devices, supports YAML config, produces JUnit XML. Also works with local devices via `--local-result-dir`.
 - **Spoon** (Square, legacy): `java -jar spoon-runner.jar --apk app.apk --test-apk test.apk` — runs tests on all connected devices, generates HTML report with per-device screenshots. Less actively maintained; prefer Flank or GMD for new projects.
-
-Both tools complement GMD (which manages emulator lifecycle) by adding cross-device orchestration and reporting.
 
 ## Power User Tricks
 

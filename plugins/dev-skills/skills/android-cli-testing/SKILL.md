@@ -68,7 +68,8 @@ CLI-driven Android testing and debugging without Android Studio. Covers ADB, And
 | System simulation | `references/debug-system-simulation.md` | Doze, battery, density, locale, dark mode, multi-window |
 | Performance profiling | `references/performance-profiling.md` | Perfetto, gfxinfo, method tracing, heap analysis, Macrobenchmark |
 | CI pipeline config | `references/ci-pipeline-config.md` | Test tiers, emulator recommendations, GMD CI, determinism, flaky quarantine, Firebase |
-| Device setup & OEM | `references/device-setup-oem.md` | Physical device setup, multi-device, OEM quirks, device selection, power tips |
+| Device setup & OEM | `references/device-setup-oem.md` | Physical device CLI setup, multi-device, OEM quirks, ADB reliability |
+| GUI walkthroughs | `references/gui-walkthroughs.md` | Device GUI operations (Developer Options, USB debugging, OEM toggles) |
 | Workflow recipes | `references/workflow-recipes.md` | End-to-end scripts, GitHub Actions, GitLab CI |
 | Boot wait script | `scripts/wait-for-boot.sh` | CI emulator setup, reliable boot detection with timeout |
 
@@ -110,7 +111,11 @@ Inspect databases/SharedPreferences via `run-as` + `sqlite3` (see `references/de
 
 ### CI/CD Pipelines
 
-End-to-end GitHub Actions and GitLab CI templates in `references/workflow-recipes.md`. CI strategy, GMD configuration, flaky test quarantine, and Firebase Test Lab in `references/ci-pipeline-config.md`. Physical device setup and OEM quirks in `references/device-setup-oem.md`.
+End-to-end GitHub Actions and GitLab CI templates in `references/workflow-recipes.md`. CI strategy, GMD configuration, flaky test quarantine, and Firebase Test Lab in `references/ci-pipeline-config.md`. Physical device CLI setup and OEM quirks in `references/device-setup-oem.md`.
+
+### Physical Device GUI Operations
+
+Some physical device setup tasks (enabling Developer Options, USB debugging, OEM-specific toggles) require manual GUI interaction and cannot be automated via CLI. **When a GUI-only task is needed**, load `references/gui-walkthroughs.md` and relay the step-by-step instructions to the user. The agent should inform the user that the operation requires manual device interaction and guide them through each step.
 
 ## Anti-Patterns
 
