@@ -2,7 +2,7 @@
 
 The Battery widget controls the power state reported to the Android system.
 
-> **Cross-references:** For sensor persistence rules and reset scripts, see `sensor-management.md`.
+> **Cross-references:** For sensor persistence rules and reset scripts, see `sensor-management.md`. For feature availability, see `index.md`.
 
 ## Modes
 

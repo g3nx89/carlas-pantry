@@ -12,7 +12,7 @@ The Motion Sensors widget emulates accelerometer, gyroscope, and magnetometer vi
 
 ### Automation Alternatives
 
-**Option 1 — Discrete rotation** (limited but automatable):
+**Option 1 — Discrete rotation** (limited but automatable — see `device-config.md` Rotation section for full details):
 ```bash
 genyshell -q -c "rotation setangle 0"    # Portrait
 genyshell -q -c "rotation setangle 90"   # Landscape left

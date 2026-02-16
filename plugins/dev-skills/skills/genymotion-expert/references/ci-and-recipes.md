@@ -221,6 +221,8 @@ exit $TEST_RESULT
 
 ### Recipe 2: Multi-Device Parallel Testing with Sharding
 
+> For sensor reset between suites, see `emulated-features/sensor-management.md`.
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
@@ -402,6 +404,8 @@ done
 
 ### Recipe 5: GPX Route Playback
 
+> For GPS parameters and testing patterns, see `emulated-features/gps.md`.
+
 GPX route playback is GUI-only. Simulate via scripted sequential GPS commands:
 
 ```bash
@@ -434,6 +438,8 @@ echo "Route complete."
 ```
 
 ### Recipe 6: Network Flakiness Simulation (Progressive Degradation)
+
+> For network profiles and signal levels, see `emulated-features/network.md`.
 
 Simulates a user entering a zone of poor connectivity and then recovering:
 

@@ -2,7 +2,7 @@
 
 Network simulation (v3.3.0+, paid) for WiFi and mobile data interfaces, plus Baseband (v3.5.0+, paid) for SIM card and operator data.
 
-> **Cross-references:** For sensor persistence rules and reset scripts, see `sensor-management.md`. For network degradation recipe, see `ci-and-recipes.md` Recipe 6.
+> **Cross-references:** For sensor persistence rules and reset scripts, see `sensor-management.md`. For feature availability, see `index.md`. For network degradation recipe, see `ci-and-recipes.md` Recipe 6.
 
 ## Interface Control
 

@@ -2,7 +2,7 @@
 
 The Phone widget simulates incoming calls and text messages. Messages appear as notifications and in the Messaging app.
 
-> **Cross-references:** For sensor persistence rules, see `sensor-management.md`. For GSM voice/data state, see also `network.md` Baseband section.
+> **Cross-references:** For sensor persistence rules, see `sensor-management.md`. For feature availability, see `index.md`. For GSM voice/data state, see also `network.md` Baseband section.
 
 ## Basic Commands
 

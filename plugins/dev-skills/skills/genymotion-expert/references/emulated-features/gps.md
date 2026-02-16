@@ -2,7 +2,7 @@
 
 The GPS widget simulates the device's location provider, replacing real satellite positioning data.
 
-> **Cross-references:** For sensor persistence rules and reset scripts, see `sensor-management.md`. For CI route playback recipe, see `ci-and-recipes.md` Recipe 5.
+> **Cross-references:** For sensor persistence rules and reset scripts, see `sensor-management.md`. For feature availability, see `index.md`. For CI route playback recipe, see `ci-and-recipes.md` Recipe 5.
 
 ## Parameters
 

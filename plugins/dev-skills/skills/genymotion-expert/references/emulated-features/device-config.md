@@ -2,7 +2,7 @@
 
 Device-level configuration features: Device Identity, Disk I/O Throttling, and Rotation.
 
-> **Cross-references:** For sensor persistence rules and reset scripts, see `sensor-management.md`. For motion sensors and continuous rotation, see `gui-features.md`.
+> **Cross-references:** For sensor persistence rules and reset scripts, see `sensor-management.md`. For feature availability, see `index.md`. For motion sensors and continuous rotation, see `gui-features.md`.
 
 ---
 
