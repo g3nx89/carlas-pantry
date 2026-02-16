@@ -241,24 +241,25 @@ adb shell getprop ro.product.cpu.abilist
 
 ### Google Play Services (GApps)
 
-Genymotion 2.10+ includes a one-click Open GApps installer widget in the toolbar. For CLI/automation:
+> **Full installation guide**: See `emulated-features/controls-and-tools.md` (Google Play Services section) for step-by-step GUI and CLI instructions, verification commands, caveats, and a dependency matrix showing when Play Services are needed.
+
+Quick CLI reference:
 
 ```bash
-# Download appropriate x86 Open GApps nano package from opengapps.org
-# Flash via gmtool:
+# Flash via gmtool (recommended)
 gmtool device -n "DeviceName" flash open_gapps-x86-11.0-nano-*.zip
+adb reboot
 
-# Or via adb:
+# Or via adb push + flash script
 adb push open_gapps.zip /sdcard/Download/
 adb shell "/system/bin/flash-archive.sh /sdcard/Download/open_gapps.zip"
 adb reboot
 ```
 
-**Limitations:**
+**Key rules:**
 - GApps version must exactly match the Android version
 - OpenGApps website does not have packages for Android 12+ — use the built-in widget for newer versions
 - Install ARM translation (if needed) *before* GApps
-- For CI, use `deleteWhenFinish false` in the Gradle plugin or use snapshot/clone to preserve the installed state
 
 ### Error Codes
 

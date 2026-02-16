@@ -1,6 +1,6 @@
 ---
 name: genymotion-expert
-description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network, motion, biometrics) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", "test camera or media injection on Genymotion", "simulate fingerprint on Genymotion", "use gamepad with Genymotion", "forward physical device sensors to emulator", "use Device Link for touch forwarding or screen mirroring", "check genymotion capabilities", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
+description: This skill should be used when the user asks to "set up Genymotion emulator", "create a Genymotion device", "run tests on Genymotion", "simulate sensors (GPS, battery, network, motion, biometrics) on emulator", "use gmtool commands", "use genyshell commands", "configure Genymotion for CI", "run Espresso or Compose UI tests on Genymotion", "debug ADB connection issues with Genymotion", "set up parallel testing with Genymotion", "test camera or media injection on Genymotion", "simulate fingerprint on Genymotion", "use gamepad with Genymotion", "forward physical device sensors to emulator", "use Device Link for touch forwarding or screen mirroring", "check genymotion capabilities", "install Google Play Services on Genymotion", "install GApps on emulator", "Google Play Store missing on Genymotion", or mentions Genymotion Desktop, GMTool, or Genymotion Shell in an Android testing context.
 version: 1.5.0
 allowed-tools: Read, Glob, Grep, Bash
 ---
@@ -146,6 +146,10 @@ Genymotion uses NAT mode by default. The special address **`10.0.3.2`** reaches 
 **Security**: ADB over TCP (port 5555) is unauthenticated. On shared or untrusted networks, restrict the host-only adapter with firewall rules or use NAT mode exclusively. See `references/cli-reference.md` for bridged mode security implications.
 
 ## Critical Configuration
+
+### Google Play Services
+
+**Not installed by default.** Genymotion ships AOSP images without Google proprietary software. Apps using Maps, Firebase, Google Sign-In, or In-App Billing require Google Play Services. Install via the Open GApps toolbar widget (free, no license needed, Android 4.4+) or via `gmtool device flash`. See `references/emulated-features/controls-and-tools.md` for the full installation guide, CLI commands, and caveats.
 
 ### ADB Version Alignment
 

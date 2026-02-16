@@ -164,12 +164,68 @@ adb push ./test-assets/ /sdcard/Download/test-assets/
 
 ---
 
-## Open GApps
+## Google Play Services (Open GApps)
 
-One-click minimal Google Play Services installation via the toolbar widget.
+**Google Play Services and Play Store are NOT installed by default** on Genymotion virtual devices. Genymotion ships AOSP Android images without Google proprietary software. Apps that depend on Google Play Services (Maps, Firebase, Google Sign-In, In-App Billing, FCM push notifications) will crash or degrade without them.
 
-**Process**: Downloads compatible GApps package, flashes to device, requires reboot.
+Installation is straightforward via the built-in Open GApps widget (available since Genymotion 2.10+, Android 4.4+). **No paid license required** — works on the free edition.
 
-**CLI alternative** (for automation): See `cli-reference.md` Google Play Services section for `gmtool device flash` commands.
+### GUI Installation (Recommended)
+
+1. Start the virtual device
+2. Click the **Open GApps** button in the right-side toolbar (cloud icon with a triangle)
+3. Read the disclaimer and click **Accept**
+4. Wait for the automatic download and flash (progress shown in the toolbar)
+5. Click **Restart now** when prompted (or restart later via `adb reboot`)
+6. After reboot, Google Play Store appears in the App Drawer
+7. Sign in with a Google account to use Play Store and Play Services
+
+### CLI Installation (for Automation)
+
+```bash
+# Method 1: gmtool flash (recommended)
+# Download the matching Open GApps nano package for your device's Android version and ABI
+gmtool device -n "DeviceName" flash open_gapps-x86-11.0-nano-*.zip
+adb reboot
+
+# Method 2: adb push + flash script
+adb push open_gapps.zip /sdcard/Download/
+adb shell "/system/bin/flash-archive.sh /sdcard/Download/open_gapps.zip"
+adb reboot
+```
+
+### Verification
+
+```bash
+# Confirm Google Play Services is installed and its version
+adb shell pm list packages | grep google
+# Expected: package:com.google.android.gms (Play Services)
+#           package:com.android.vending (Play Store)
+
+# Check Play Services version
+adb shell dumpsys package com.google.android.gms | grep versionName
+```
+
+### Important Caveats
+
+| Caveat | Detail |
+|--------|--------|
+| **Android 12+ packages** | opengapps.org does NOT provide packages for Android 12+. Use the built-in widget — it handles these versions automatically |
+| **Manual download unsupported** | Installing GApps manually from opengapps.org is unsupported and may corrupt the device. Always use the built-in widget or `gmtool flash` |
+| **ARM translation ordering** | If ARM translation is needed, install it BEFORE GApps. GApps detects available ABIs during installation |
+| **Version match required** | GApps package version must exactly match the device's Android version |
+| **CI auto-updates** | Disable Play Store auto-updates in CI to prevent flaky tests: `adb shell pm disable-user com.android.vending` |
+| **Golden master pattern** | For CI, install GApps once on a "golden master" device, then clone it. Avoids repeating the flash+reboot on every run (see `ci-and-recipes.md` Recipe 4) |
+
+### When Google Play Services Are Needed
+
+| App Dependency | Requires Play Services? | Alternative Without Play Services |
+|---------------|------------------------|----------------------------------|
+| Google Maps SDK | Yes | Use OSM/MapLibre, or install GApps |
+| Firebase (Analytics, Crashlytics, FCM) | Yes | Firebase falls back gracefully for some features; FCM requires Play Services |
+| Google Sign-In | Yes | Use alternative OAuth flows or install GApps |
+| In-App Billing | Yes | No alternative — install GApps |
+| SafetyNet / Play Integrity | Yes, but fails on emulators regardless | Physical device required |
+| AdMob | Yes | Test ads may work partially without it |
 
 **Disclaimer**: GApps are provided by the Open GApps project. Genymotion states: "We assume no liability whatsoever resulting from the download, install and use of Open GApps."

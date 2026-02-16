@@ -12,7 +12,7 @@
 | `emulated-features/device-config.md` | 162 | ~6K | Device Identity (Android ID, IMEI), Disk I/O Throttling, Rotation | Device fingerprinting, storage performance testing, orientation |
 | `emulated-features/sensor-management.md` | 72 | ~3K | Persistence rules, default values, factory reset, reset script, potential conflicts | Between-suite cleanup, understanding state lifecycle |
 | `emulated-features/gui-features.md` | 144 | ~5K | Motion Sensors, Biometrics, Camera/Media Injection, Gamepad, Device Link | GUI-only features and their automation alternatives |
-| `emulated-features/controls-and-tools.md` | 175 | ~6K | Advanced Developer Tools, Capture, Android Controls, Other Controls, Clipboard, File Upload, Open GApps | ADB alternatives for dev tools, media controls, file transfer |
+| `emulated-features/controls-and-tools.md` | ~230 | ~9K | Advanced Developer Tools, Capture, Android Controls, Other Controls, Clipboard, File Upload, Google Play Services (Open GApps) installation guide | ADB alternatives for dev tools, media controls, file transfer, GApps installation |
 | `cli-reference.md` | 417 | 15K | GMTool and Genymotion Shell complete command reference | Looking up specific commands, options, error codes, ARM translation, proxy setup |
 | `ci-and-recipes.md` | ~595 | 19K | CI/CD integration patterns and workflow recipe scripts | Configuring CI pipelines, writing automation scripts, parallel testing |
 | `test-integration.md` | ~446 | ~20K | Test framework integration, reliability patterns, and ADB patterns | Setting up Espresso, Compose, Maestro, Appium; diagnosing test flakiness |
@@ -26,7 +26,7 @@
 | `emulated-features/gps.md` | `gui-features.md` | Motion Sensors for bearing (compass) alternatives |
 | `emulated-features/network.md` | `sensor-management.md`, `ci-and-recipes.md` | Persistence rules, Recipe 6 network degradation |
 | `emulated-features/gui-features.md` | `sensor-management.md` | Persistence rules for camera settings |
-| `emulated-features/controls-and-tools.md` | `test-integration.md`, `cli-reference.md` | Test Stability Checklist, GApps flash commands |
+| `emulated-features/controls-and-tools.md` | `test-integration.md`, `cli-reference.md`, `ci-and-recipes.md` | Test Stability Checklist, GApps flash commands, Golden master pattern (Recipe 4) |
 | `emulated-features/sensor-management.md` | `ci-and-recipes.md` | Recipe 2 parallel testing with cleanup |
 | `cli-reference.md` | `ci-and-recipes.md` | Boot-wait pattern used in CI recipes |
 | `ci-and-recipes.md` | `cli-reference.md` | GMTool commands used in recipes |
