@@ -142,8 +142,11 @@ Some physical device setup tasks (enabling Developer Options, USB debugging, OEM
 | Let flaky tests block the PR gate | Quarantine with `@FlakyTest`; run in nightly job |
 | Omit `-s <serial>` with multiple devices | Always specify serial in multi-device setups |
 | Rely on global state between tests | Use Orchestrator or explicit teardown |
+| Run benchmarks on emulators | Use physical devices — emulator numbers are not meaningful |
+| Trust Gradle exit code alone for test results | Parse JUnit XML — build errors and test failures differ |
+| Use `am start -W` as sole CI startup metric | Use Macrobenchmark with JSON output for regression tracking |
 
-> Domain-specific anti-patterns in `test-coverage-gmd.md`, `debug-system-simulation.md`, and `ci-pipeline-config.md`.
+> Domain-specific anti-patterns in `test-coverage-gmd.md`, `debug-system-simulation.md`, `ci-pipeline-config.md`, and `benchmark-cli.md`.
 
 ## Quick Reference
 

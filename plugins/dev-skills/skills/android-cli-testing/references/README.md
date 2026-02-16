@@ -16,17 +16,17 @@ Index of reference files for the `android-cli-testing` skill. See the Reference 
 | test-coverage-gmd.md | 229 | 664 | 6.1K | JaCoCo setup/merging, GMD definition/groups/CI properties |
 | debug-data-storage.md | 187 | 771 | 5.9K | StrictMode, SQLite/Room, SQL tracing, SharedPreferences |
 | debug-ui-memory.md | 176 | 739 | 5.6K | UIAutomator dump, window state, Compose semantics, memory leaks, heap dumps |
-| test-result-parsing.md | 317 | 1,586 | 16K | JUnit XML parsing, failure triage, flaky detection, iterative debugging, CI integration |
-| benchmark-cli.md | 437 | 1,587 | 16K | Microbenchmark, Macrobenchmark, startup measurement, Baseline Profiles, APK size, regression detection |
-| debug-crashes-monkey.md | 258 | 1,221 | 12K | ANR traces, tombstones, ndk-stack, crash testing, monkey, automated crash diagnosis |
+| test-result-parsing.md | 317 | 1,595 | 13K | JUnit XML parsing, failure triage, flaky detection, iterative debugging, CI integration |
+| benchmark-cli.md | 443 | 1,628 | 13K | Microbenchmark, Macrobenchmark, startup measurement, Baseline Profiles, APK size, regression detection |
+| debug-crashes-monkey.md | 258 | 1,221 | 8.1K | ANR traces, tombstones, ndk-stack, crash testing, monkey, automated crash diagnosis |
 | debug-system-simulation.md | 205 | 1,050 | 7.1K | Doze, battery, density, locale, dark mode, multi-window |
-| performance-profiling.md | 330 | 1,506 | 12K | Perfetto, gfxinfo, method tracing, heap analysis, Macrobenchmark, Baseline Profile verification |
-| ci-pipeline-config.md | 404 | 1,814 | 16K | Test tiers, emulator config, GMD CI, determinism, flaky quarantine, Firebase, pre-flight, coverage gates |
+| performance-profiling.md | 305 | 1,375 | 10K | Perfetto, gfxinfo, method tracing, heap analysis, Baseline Profile verification |
+| ci-pipeline-config.md | 405 | 1,852 | 14K | Test tiers, emulator config, GMD CI, determinism, flaky quarantine, Firebase, pre-flight, coverage gates |
 | device-setup-oem.md | 215 | 1,124 | 7.9K | Physical device CLI setup, multi-device, OEM quirks, ADB reliability |
-| gui-walkthroughs.md | 193 | 1,045 | 7.0K | GUI-only device operations: Developer Options, USB debugging, OEM toggles |
+| gui-walkthroughs.md | 193 | 1,053 | 6.9K | GUI-only device operations: Developer Options, USB debugging, OEM toggles |
 | workflow-recipes.md | 439 | 1,380 | 11K | End-to-end scripts, GitHub Actions, GitLab CI |
-| deep-search-prompts.md | 249 | 2,467 | 20K | Browser-based research prompts for skill enrichment (flaky tests, CI, benchmarks, ADB, coverage, a11y) |
-| **Total** | **4,846** | **22,075** | **195K** | |
+| deep-search-prompts.md | 249 | 2,467 | 18K | Browser-based research prompts for skill enrichment (flaky tests, CI, benchmarks, ADB, coverage, a11y) |
+| **Total** | **5,133** | **23,487** | **220K** | |
 
 ## Cross-References
 
@@ -49,7 +49,7 @@ Arrows show which files reference which. Each file links to its closest siblings
 | debug-crashes-monkey.md | debug-ui-memory.md, debug-system-simulation.md, test-result-parsing.md |
 | debug-system-simulation.md | debug-data-storage.md, debug-crashes-monkey.md |
 | performance-profiling.md | debug-ui-memory.md, benchmark-cli.md |
-| ci-pipeline-config.md | device-setup-oem.md, workflow-recipes.md, test-espresso-compose.md, test-coverage-gmd.md |
+| ci-pipeline-config.md | device-setup-oem.md, workflow-recipes.md, test-espresso-compose.md, test-coverage-gmd.md, test-result-parsing.md |
 | device-setup-oem.md | ci-pipeline-config.md, adb-connection-apps.md, gui-walkthroughs.md |
 | gui-walkthroughs.md | device-setup-oem.md, adb-connection-apps.md |
 | deep-search-prompts.md | (none) |

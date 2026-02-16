@@ -55,7 +55,7 @@ Android test tasks (`connectedDebugAndroidTest`, GMD tasks) produce JUnit XML re
 # Find all JUnit XML files
 find . -path "*/androidTest-results/**/*.xml" -o -path "*/test-results/**/*.xml" | sort
 
-# Count pass/fail/skip across all suites
+# Count pass/fail/skip across all suites (requires bash 4+ with globstar, or use find piping)
 grep -h '<testsuite' build/outputs/androidTest-results/**/*.xml | \
   awk -F'"' '{for(i=1;i<=NF;i++){if($i~/tests=/){t+=$(i+1)}if($i~/failures=/){f+=$(i+1)}if($i~/errors=/){e+=$(i+1)}if($i~/skipped=/){s+=$(i+1)}}}END{printf "Total: %d  Pass: %d  Fail: %d  Error: %d  Skip: %d\n",t,t-f-e-s,f,e,s}'
 
@@ -279,7 +279,7 @@ ARTIFACTS=(
 if [ $TEST_EXIT_CODE -ne 0 ]; then
   mkdir -p ci-artifacts
   for path in "${ARTIFACTS[@]}"; do
-    find . -path "*/$path*" -exec cp --parents {} ci-artifacts/ \;
+    find . -path "*/$path*" -exec rsync -R {} ci-artifacts/ \;
   done
 fi
 ```

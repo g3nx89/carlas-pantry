@@ -362,7 +362,7 @@ while IFS=$'\t' read baseline current; do
   NAME=$(echo "$baseline" | cut -d, -f1,2)
   BASE_VAL=$(echo "$baseline" | cut -d, -f3)
   CURR_VAL=$(echo "$current" | cut -d, -f3)
-  PCT=$(python3 -c "print(f'{($CURR_VAL - $BASE_VAL) / $BASE_VAL * 100:.1f}')")
+  PCT=$(python3 -c "import sys; b,c=float(sys.argv[1]),float(sys.argv[2]); print(f'{(c-b)/b*100:.1f}')" "$BASE_VAL" "$CURR_VAL")
   echo "$NAME: ${BASE_VAL} → ${CURR_VAL} (${PCT}%)"
 done
 ```
@@ -372,8 +372,14 @@ done
 ```bash
 # Fail if any benchmark regresses more than 15%
 THRESHOLD=15
-REGRESSIONS=$(compare_benchmarks baseline.json current.json | \
-  awk -F'[(%)]' '{if ($2 > '"$THRESHOLD"') print}')
+REGRESSIONS=$(paste <(extract_medians baseline.json) <(extract_medians current.json) | \
+while IFS=$'\t' read base curr; do
+  NAME=$(echo "$base" | cut -d, -f1,2)
+  BASE_VAL=$(echo "$base" | cut -d, -f3)
+  CURR_VAL=$(echo "$curr" | cut -d, -f3)
+  PCT=$(python3 -c "import sys; b,c=float(sys.argv[1]),float(sys.argv[2]); print(f'{(c-b)/b*100:.1f}')" "$BASE_VAL" "$CURR_VAL")
+  echo "$NAME: ${BASE_VAL} -> ${CURR_VAL} (${PCT}%)"
+done | awk -F'[(%)]' '{if ($2 > '"$THRESHOLD"') print}')
 
 if [ -n "$REGRESSIONS" ]; then
   echo "Benchmark regressions detected (>${THRESHOLD}% slower):"

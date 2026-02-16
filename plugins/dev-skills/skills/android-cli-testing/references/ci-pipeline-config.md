@@ -164,7 +164,7 @@ jobs:
           -Pandroid.testInstrumentationRunnerArguments.numRetries=2
 ```
 
-See `test-espresso-compose.md` for `@FlakyTest` annotation usage.
+See `test-espresso-compose.md` for `@FlakyTest` annotation usage. See `test-result-parsing.md` for flaky test detection via re-run comparison and root cause diagnosis.
 
 ## Firebase Test Lab (CLI Integration)
 
@@ -256,7 +256,7 @@ Run these checks before any CI test execution to catch environment issues early.
 
 ```bash
 # Verify SDK components installed
-sdkmanager --list_installed 2>/dev/null | grep -E "build-tools|platform-tools|platforms;android"
+sdkmanager --list --installed 2>/dev/null | grep -E "build-tools|platform-tools|platforms;android"
 
 # Verify Gradle wrapper present and executable
 [ -x "./gradlew" ] && echo "Gradle wrapper OK" || echo "FAIL: ./gradlew missing or not executable"
@@ -275,7 +275,7 @@ command -v emulator >/dev/null && echo "Emulator OK" || echo "FAIL: emulator not
 avdmanager list avd -c
 
 # Verify system image installed for target API
-sdkmanager --list_installed 2>/dev/null | grep "system-images;android-34"
+sdkmanager --list --installed 2>/dev/null | grep "system-images;android-34"
 
 # Verify hardware acceleration (KVM on Linux, HVF on macOS)
 emulator -accel-check 2>&1
@@ -330,6 +330,7 @@ check "[ -n \$ANDROID_HOME ]"  "ANDROID_HOME set"
 check "emulator -accel-check 2>&1 | grep -q 'is installed\|accel: 0'" "HW acceleration"
 check "adb devices | grep -qE 'device$|emulator'" "Device connected"
 check "adb shell getprop sys.boot_completed | grep -q 1" "Device booted"
+check "[ \$(df -h \$ANDROID_HOME 2>/dev/null | awk 'NR==2{print \$4}' | sed 's/G//') -gt 10 ] 2>/dev/null || true" "Disk space >10GB free"
 
 [ $ERRORS -eq 0 ] && echo "Pre-flight PASSED" || { echo "Pre-flight FAILED ($ERRORS errors)"; exit 1; }
 ```

@@ -239,48 +239,23 @@ adb shell settings put global animator_duration_scale 0
 
 Converting state params to lambda params (`() -> State`) eliminates unnecessary recompositions. Profile impact via `dumpsys gfxinfo` frame timing before and after the change.
 
-## Macrobenchmark and Baseline Profiles
+## Macrobenchmark, Baseline Profiles, and APK Size
 
-### Jetpack Macrobenchmark
+For comprehensive coverage of Macrobenchmark (module setup, CompilationMode, metrics), Microbenchmark, Baseline Profile generation/verification, APK size tracking with `apkanalyzer`/`bundletool`, and benchmark regression detection, see `benchmark-cli.md`.
 
-Macrobenchmark measures high-level app performance metrics (cold startup, scrolling jank, animations) using real instrumentation:
+Quick commands for common tasks:
 
 ```bash
-# Run macrobenchmark tests (requires separate :macrobenchmark module)
+# Run macrobenchmark tests
 ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
 
-# Run on a specific device
-ANDROID_SERIAL=emulator-5554 ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
-```
-
-Macrobenchmark tests are instrumentation tests with a special test runner. They output JSON/CSV metrics (startup time, frame timing) to `build/outputs/`. Integrate into CI to catch regressions (e.g., fail build if startup exceeds threshold).
-
-### Baseline Profiles
-
-Baseline Profiles pre-compile hot code paths to optimize app startup and scrolling:
-
-```bash
-# Generate Baseline Profile (requires :macrobenchmark module with profile generation tests)
+# Generate Baseline Profile
 ./gradlew :app:generateReleaseBaselineProfile
 
-# The generated profile is embedded in the APK/AAB automatically
-# Output: app/src/main/generated/baselineProfiles/baseline-prof.txt
-```
-
-CI workflow: run `generateReleaseBaselineProfile` on every release build to ensure the profile stays up-to-date. Community talks (Android Dev Summit) report 20-40% startup improvements from Baseline Profiles.
-
-### APK Size Monitoring
-
-```bash
-# Analyze APK size and method count
-apkanalyzer apk summary app-release.apk
-apkanalyzer dex references app-release.apk
-
-# Track size in CI: compare against previous build
+# APK size and method count
 apkanalyzer apk file-size app-release.apk
+apkanalyzer dex references app-release.apk
 ```
-
-Combine with Dexcount Gradle plugin to fail builds when method count or APK size exceeds thresholds.
 
 ## Sensor and Hardware Capabilities
 
