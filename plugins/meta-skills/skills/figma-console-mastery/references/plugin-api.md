@@ -258,6 +258,10 @@ node.fills = [{
 // ImagePaint
 const image = figma.createImage(uint8ArrayBytes)
 node.fills = [{ type: 'IMAGE', scaleMode: 'FILL', imageHash: image.hash }]
+
+// Async image from URL (alternative)
+const image = await figma.createImageAsync('https://example.com/photo.jpg')
+node.fills = [{ type: 'IMAGE', scaleMode: 'FILL', imageHash: image.hash }]
 ```
 
 ### The Clone/Spread Pattern (CRITICAL)
@@ -396,7 +400,17 @@ node.fills = [boundPaint]
 frame.setExplicitVariableModeForCollection(collection, darkModeId)
 
 // Scoping
-colorVar.scopes = ['ALL_FILLS']  // 'ALL_SCOPES', 'TEXT_FILL', 'STROKE_COLOR', etc.
+// Variable scoping — controls where the variable appears in Figma's UI
+colorVar.scopes = ['ALL_FILLS']
+// Available scopes: 'ALL_SCOPES', 'TEXT_CONTENT', 'CORNER_RADIUS', 'WIDTH_HEIGHT',
+// 'GAP', 'ALL_FILLS', 'FRAME_FILL', 'SHAPE_FILL', 'TEXT_FILL', 'STROKE_COLOR',
+// 'STROKE_FLOAT', 'EFFECT_FLOAT', 'EFFECT_COLOR', 'OPACITY', 'FONT_FAMILY',
+// 'FONT_STYLE', 'FONT_WEIGHT', 'FONT_SIZE', 'LINE_HEIGHT', 'LETTER_SPACING',
+// 'PARAGRAPH_SPACING', 'PARAGRAPH_INDENT'
+
+// Resolve value for a specific consumer node (respects mode inheritance)
+const resolved = variable.resolveForConsumer(node)
+// { value: { r: 0.4, g: 0.6, b: 1 }, resolvedType: 'COLOR' }
 
 // Retrieve existing
 const collections = await figma.variables.getLocalVariableCollectionsAsync()
@@ -458,6 +472,65 @@ const hero = figma.currentPage.findOne(n => n.name === "hero-section")
 // Optimized search for large documents
 figma.skipInvisibleInstanceChildren = true
 const frames = figma.currentPage.findAllWithCriteria({ types: ['FRAME'] })
+```
+
+---
+
+## Performance Optimization
+
+### Search Performance
+
+```javascript
+// CRITICAL: Set before any search operations on large documents
+figma.skipInvisibleInstanceChildren = true
+
+// Prefer type-filtered search (hundreds of times faster than findAll)
+const frames = figma.currentPage.findAllWithCriteria({ types: ['FRAME'] })
+const texts = figma.currentPage.findAllWithCriteria({ types: ['TEXT'] })
+
+// AVOID: Unfiltered search scans every node including invisible instance children
+// const allNodes = figma.currentPage.findAll()  // slow on large documents
+```
+
+### Batch Viewport Updates
+
+```javascript
+// CORRECT: Collect all created nodes, update viewport once
+const createdNodes = []
+for (const item of items) {
+  const node = figma.createFrame()
+  // ... configure node
+  createdNodes.push(node)
+}
+figma.viewport.scrollAndZoomIntoView(createdNodes)  // single call at end
+
+// AVOID: Calling scrollAndZoomIntoView per node in a loop
+```
+
+### Dynamic Page Loading
+
+```javascript
+// Pages other than currentPage may not have children loaded
+const otherPage = figma.root.children.find(p => p.name === "Components")
+if (otherPage) {
+  await otherPage.loadAsync()  // load children before accessing
+  const components = otherPage.findAllWithCriteria({ types: ['COMPONENT'] })
+}
+```
+
+### Font Check Before Loading
+
+```javascript
+// Check for missing fonts on user-created text nodes before loading
+if (textNode.hasMissingFont) {
+  // Font file is not installed — loadFontAsync will fail
+  // Handle gracefully: skip modification or notify user
+} else {
+  // Safe to load and modify
+  await Promise.all(
+    textNode.getRangeAllFontNames(0, textNode.characters.length).map(figma.loadFontAsync)
+  )
+}
 ```
 
 > For complete working code recipes (cards, buttons, inputs, M3 components, composition patterns), see `recipes.md` and `recipes-m3.md`. For common mistakes and fixes, see `anti-patterns.md`.

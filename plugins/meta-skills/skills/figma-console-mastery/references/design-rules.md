@@ -200,6 +200,11 @@ This reference consolidates mandatory rules, recommended practices, anti-pattern
 | Outline | #79747E | (0.475, 0.455, 0.494) |
 | Surface Container | #F3EDF7 | (0.953, 0.929, 0.969) |
 | Surface Container High | #ECE6F0 | (0.925, 0.902, 0.941) |
+| Surface Container Low | #F7F2FA | (0.969, 0.949, 0.980) |
+| On Surface Variant | #49454F | (0.286, 0.271, 0.310) |
+| Inverse Surface | #313033 | (0.192, 0.188, 0.200) |
+| Inverse On Surface | #F4EFF4 | (0.957, 0.937, 0.957) |
+| Inverse Primary | #D0BCFF | (0.816, 0.737, 1.0) |
 
 ### M3 Button Specifications
 

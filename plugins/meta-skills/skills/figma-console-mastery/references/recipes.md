@@ -644,7 +644,182 @@ figma_set_description(nodeId, "Filled button component. Uses Primary color token
 
 **Next**: Run `figma_audit_design_system` to validate token coverage and component documentation.
 
-> For Material Design 3 component recipes (M3 Button, M3 Card, M3 Top App Bar, M3 Elevation Shadows), see `recipes-m3.md`.
+> For Material Design 3 component recipes (M3 Button, Card, Top App Bar, TextField, Bottom Navigation, Dialog, Snackbar, Elevation Shadows), see `recipes-m3.md`.
+
+---
+
+## Advanced Recipes
+
+### Recipe: Variable Binding to Nodes
+
+**Goal**: Bind design token variables to node properties so colors and spacing update automatically when modes change (e.g., Light to Dark).
+
+**Code**:
+
+```javascript
+(async () => {
+  try {
+    await figma.loadFontAsync({ family: "Inter", style: "Regular" })
+
+    // Create a variable collection with Light and Dark modes
+    const collection = figma.variables.createVariableCollection("Brand")
+    collection.renameMode(collection.modes[0].modeId, "Light")
+    const darkModeId = collection.addMode("Dark")
+
+    // Create color variables
+    const primaryColor = figma.variables.createVariable("primary", collection, "COLOR")
+    primaryColor.setValueForMode(collection.modes[0].modeId, { r: 0.404, g: 0.314, b: 0.643 })
+    primaryColor.setValueForMode(darkModeId, { r: 0.816, g: 0.737, b: 1.0 })
+
+    const onPrimaryColor = figma.variables.createVariable("on-primary", collection, "COLOR")
+    onPrimaryColor.setValueForMode(collection.modes[0].modeId, { r: 1, g: 1, b: 1 })
+    onPrimaryColor.setValueForMode(darkModeId, { r: 0.220, g: 0.118, b: 0.447 })
+
+    // Create spacing variable
+    const spacingMd = figma.variables.createVariable("spacing-md", collection, "FLOAT")
+    spacingMd.setValueForMode(collection.modes[0].modeId, 16)
+    spacingMd.setValueForMode(darkModeId, 16)
+
+    // Create a button and bind variables to it
+    const btn = figma.createFrame()
+    btn.name = "Token-Bound-Button"
+    btn.layoutMode = "HORIZONTAL"
+    btn.primaryAxisSizingMode = "AUTO"
+    btn.counterAxisSizingMode = "AUTO"
+    btn.primaryAxisAlignItems = "CENTER"
+    btn.counterAxisAlignItems = "CENTER"
+    btn.cornerRadius = 20
+
+    // Bind COLOR variable to fills
+    const boundFill = figma.variables.setBoundVariableForPaint(
+      { type: 'SOLID', color: { r: 0, g: 0, b: 0 } },
+      'color',
+      primaryColor
+    )
+    btn.fills = [boundFill]
+
+    // Bind FLOAT variable to padding
+    btn.setBoundVariable('paddingTop', spacingMd)
+    btn.setBoundVariable('paddingBottom', spacingMd)
+    btn.setBoundVariable('paddingLeft', spacingMd)
+    btn.setBoundVariable('paddingRight', spacingMd)
+
+    // Add label with bound text color
+    const label = figma.createText()
+    label.fontName = { family: "Inter", style: "Regular" }
+    label.characters = "Bound Button"
+    label.fontSize = 14
+    const boundTextFill = figma.variables.setBoundVariableForPaint(
+      { type: 'SOLID', color: { r: 0, g: 0, b: 0 } },
+      'color',
+      onPrimaryColor
+    )
+    label.fills = [boundTextFill]
+    btn.appendChild(label)
+
+    figma.currentPage.appendChild(btn)
+    return JSON.stringify({
+      success: true,
+      buttonId: btn.id,
+      collectionId: collection.id,
+      variables: {
+        primary: primaryColor.id,
+        onPrimary: onPrimaryColor.id,
+        spacingMd: spacingMd.id
+      }
+    })
+  } catch (error) {
+    return JSON.stringify({ success: false, error: error.message })
+  }
+})()
+```
+
+**Returns**: `{ success: true, buttonId: "...", collectionId: "...", variables: {...} }`
+
+**Next**: Switch mode with `frame.setExplicitVariableModeForCollection(collection, darkModeId)` to see colors update automatically.
+
+### Recipe: SVG Import and Styling
+
+**Goal**: Import an SVG string as a Figma node and apply custom fills.
+
+**Code**:
+
+```javascript
+(async () => {
+  try {
+    const svgString = '<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+    const svgNode = figma.createNodeFromSvg(svgString)
+    svgNode.name = "Icon/Layers"
+    svgNode.resize(24, 24)
+
+    // Override fills on all vector children
+    for (const child of svgNode.findAll()) {
+      if ('strokes' in child && child.strokes.length > 0) {
+        child.strokes = [{ type: 'SOLID', color: { r: 0.404, g: 0.314, b: 0.643 } }]
+      }
+      if ('fills' in child && child.fills.length > 0) {
+        child.fills = [{ type: 'SOLID', color: { r: 0.404, g: 0.314, b: 0.643 } }]
+      }
+    }
+
+    figma.currentPage.appendChild(svgNode)
+    return JSON.stringify({ success: true, id: svgNode.id, name: svgNode.name })
+  } catch (error) {
+    return JSON.stringify({ success: false, error: error.message })
+  }
+})()
+```
+
+**Returns**: `{ success: true, id: "...", name: "Icon/Layers" }`
+
+**Next**: Resize for different icon sizes (16, 20, 24, 32px) or convert to a component with `figma.createComponentFromNode(svgNode)`.
+
+### Recipe: Mixed-Style Rich Text
+
+**Goal**: Create a text node with multiple styles -- bold title, colored highlight, and underlined link -- using range functions.
+
+**Code**:
+
+```javascript
+(async () => {
+  try {
+    await Promise.all([
+      figma.loadFontAsync({ family: "Inter", style: "Regular" }),
+      figma.loadFontAsync({ family: "Inter", style: "Bold" }),
+    ])
+
+    const text = figma.createText()
+    text.fontName = { family: "Inter", style: "Regular" }
+    text.characters = "Welcome to Figma! Learn more about design tokens here."
+    text.fontSize = 16
+    text.lineHeight = { value: 24, unit: "PIXELS" }
+
+    // "Welcome to Figma!" in bold (chars 0-18)
+    text.setRangeFontName(0, 18, { family: "Inter", style: "Bold" })
+    text.setRangeFontSize(0, 18, 20)
+
+    // "design tokens" in accent color (chars 40-53)
+    text.setRangeFills(40, 53, [{ type: 'SOLID', color: { r: 0.404, g: 0.314, b: 0.643 } }])
+
+    // "here" underlined with hyperlink (chars 54-58... adjust based on actual text)
+    const hereStart = text.characters.indexOf("here")
+    const hereEnd = hereStart + 4
+    text.setRangeTextDecoration(hereStart, hereEnd, "UNDERLINE")
+    text.setRangeFills(hereStart, hereEnd, [{ type: 'SOLID', color: { r: 0.2, g: 0.4, b: 1 } }])
+    text.setRangeHyperlink(hereStart, hereEnd, { type: "URL", value: "https://help.figma.com/hc/en-us/articles/15339657135383-Guide-to-variables-in-Figma" })
+
+    figma.currentPage.appendChild(text)
+    return JSON.stringify({ success: true, id: text.id })
+  } catch (error) {
+    return JSON.stringify({ success: false, error: error.message })
+  }
+})()
+```
+
+**Returns**: `{ success: true, id: "..." }`
+
+**Next**: Read styled segments with `text.getStyledTextSegments(['fontName', 'fontSize', 'fills'])` to inspect the applied styles.
 
 ---
 

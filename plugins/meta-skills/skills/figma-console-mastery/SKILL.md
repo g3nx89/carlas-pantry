@@ -171,7 +171,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.m
 # Ready-to-use code recipes — cards, buttons, inputs, layouts, composition, chaining
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes.md
 
-# Material Design 3 component recipes — M3 Button, Card, Top App Bar, Elevation Shadows
+# Material Design 3 component recipes — M3 Button, Card, Top App Bar, TextField, Dialog, Snackbar, Bottom Nav, Elevation
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-m3.md
 
 # Error catalog and anti-patterns — debugging, recovery, hard constraints
@@ -192,6 +192,50 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.
 | Batch variable call fails | Verify `collectionId` is valid; max 100 per batch call |
 
 **Full reference**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md`
+
+## Architecture Reference
+
+```
+AI Agent (Claude Desktop/Code/Cursor/Windsurf)
+  ↓ (stdio transport)
+Local MCP Server (Node.js, dist/local.js)
+  ↓ (WebSocket on port 9223–9232, preferred)
+  ↓ (CDP on port 9222, fallback)
+Desktop Bridge Plugin (running in Figma Desktop)
+  ↓ (Plugin API)
+Figma Design Environment
+```
+
+**Transport priority**: WebSocket first (Desktop Bridge Plugin, port 9223). Fallback: CDP (port 9222, requires Figma launched with `--remote-debugging-port=9222`). Both transports can be active simultaneously — all 56+ tools work identically through either. Multi-instance support (v1.10.0) scans ports 9223–9232.
+
+## Prompting Guidance
+
+### Good prompts — specific and actionable
+
+- "Design a login card with email and password fields, a 'Forgot password?' link, and a primary Sign In button. Use 32px padding, 16px border radius, and subtle shadow."
+- "Build a dashboard header using the Avatar component for the user profile, Button components for actions, and Badge components for notifications."
+- "Create a settings page with a sidebar navigation, a main content area with form fields, and a sticky footer with Save and Cancel buttons."
+- "Create a new color collection called 'Brand Colors' with Light and Dark modes. Add a primary color variable with value #3B82F6 for Light and #60A5FA for Dark."
+
+### Chaining patterns summary
+
+| Pattern | Flow |
+|---------|------|
+| **Component composition** | Search library → find components → instantiate with variants → arrange in auto-layout → validate |
+| **Brand-new design** | Create custom frames via `figma_execute` → apply tokens → build component → apply auto-layout → validate |
+| **Iterative refinement** | Receive feedback → modify via `figma_execute` → screenshot → verify → loop (max 3 cycles) |
+| **Design system bootstrap** | `figma_setup_design_tokens` → create components using tokens → document with `figma_set_description` → audit with Dashboard |
+
+## Version Compatibility
+
+| Version | Key Additions |
+|---------|---------------|
+| **v1.3.0** | `figma_execute` (design creation via Plugin API), variable CRUD |
+| **v1.5.0** | 20+ node manipulation tools, component property management, `figma_search_components`, `figma_instantiate_component` |
+| **v1.7.0** | MCP Apps, `figma_batch_create/update_variables`, `figma_setup_design_tokens`, `figma_check_design_parity` |
+| **v1.8.0** | WebSocket Bridge transport (CDP-free), `figma_get_selection`, `figma_get_design_changes` |
+| **v1.9.0** | Figma Comments tools, improved port conflict detection |
+| **v1.10.0** | Multi-instance support (ports 9223–9232), multi-connection plugin, `ENABLE_MCP_APPS` env var |
 
 ## When NOT to Use This Skill
 

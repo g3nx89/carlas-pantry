@@ -30,6 +30,7 @@ These tools work in all modes (Local and Remote SSE). Always call `figma_get_sta
 | `figma_get_status` | **Always first.** Gate check before any operation. Verify transport, port, mode | None | Connection status, transport type (WebSocket/CDP), port, active instances | In multi-instance mode, verify connection to the correct file |
 | `figma_navigate` | Open a specific Figma file or page by URL | `url` (string, required) | Opens file in Figma or returns connected file info | WebSocket-only mode cannot perform browser-level navigation; returns file info with guidance instead. CDP required for actual navigation |
 | `figma_list_open_files` | List all currently open Figma files to confirm target file is active | None | Array of open file identifiers with names and URLs | Use during Preflight to verify the correct file is connected before operations |
+| `figma_reconnect` | Re-establish connection to Figma Desktop when transport is lost | None | Reconnection status | Try this before restarting Figma. Faster recovery than full restart |
 
 ---
 
@@ -94,11 +95,36 @@ All node manipulation tools require **Local mode** (v1.5.0+). These provide dedi
 | `figma_rename_node` | Rename a node in the layer panel | `nodeId`, `name` | Confirmation | -- |
 | `figma_delete_node` | Remove a node and its children | `nodeId` | Confirmation | Irreversible |
 | `figma_clone_node` | Duplicate a node | `nodeId` | Cloned node info | -- |
+| `figma_reorder_node` | Change z-order / layer order of a node | `nodeId` (string), `position` (`"front"`, `"back"`, or integer index) | Updated layer order | Affects visual stacking, not auto-layout flow order |
 | `figma_create_child` | Add a child node to a parent | Parent and child parameters | Created child info | -- |
 | `figma_set_fills` | Set fill colors on a node | `nodeId`, fill properties | Confirmation | -- |
 | `figma_set_strokes` | Set stroke properties on a node | `nodeId`, stroke properties | Confirmation | -- |
 | `figma_set_text` | Update text content | Node identifier, text content | Confirmation | -- |
 | `figma_set_instance_properties` | Update component instance properties | Instance identifier, properties | Confirmation | Property names must match component definitions |
+
+---
+
+## Component Property Tools
+
+Component property tools (local mode, v1.5.0+) manage boolean, text, and instance-swap properties on components without requiring raw `figma_execute` code.
+
+| Tool | When to Use | Key Params | Output | Pitfalls |
+|------|-------------|------------|--------|----------|
+| `figma_add_component_property` | Add a boolean, text, or instance-swap property to a component | Component identifier, property name, type (`BOOLEAN` / `TEXT` / `INSTANCE_SWAP`), default value | Created property info | Property type cannot be changed after creation |
+| `figma_edit_component_property` | Modify an existing component property (name, default value) | Component identifier, property name, new values | Confirmation | Renaming a property updates all instances referencing it |
+| `figma_delete_component_property` | Remove a component property | Component identifier, property name | Confirmation | Irreversible -- instances lose the property override |
+| `figma_get_component_details` | Get detailed component info including properties, variants, and nested structure | Component identifier | Full component details with property definitions, variant list, and layer structure | More detailed than `figma_get_component` with `"metadata"` format |
+
+---
+
+## Design System Audit Tools
+
+These tools provide automated analysis and direct access to design system data (local mode, v1.7.0+).
+
+| Tool | When to Use | Key Params | Output | Pitfalls |
+|------|-------------|------------|--------|----------|
+| `figma_audit_design_system` | Run automated health check on the design system | `fileUrl` (optional) | Scorecard with findings across naming, tokens, components, accessibility, consistency, coverage | May take several seconds on large files |
+| `figma_get_token_values` | Get resolved token values for specific variables or collections | Variable/collection identifiers | Resolved values per mode | Use for targeted value lookups; prefer `figma_get_variables` with `format="filtered"` for broader queries |
 
 ---
 
@@ -264,6 +290,16 @@ MCP Apps require `ENABLE_MCP_APPS=true` environment variable (v1.7.0+).
 - **Trigger prompt**: "Audit the design system" or "show me design system health"
 - **What it shows**: Lighthouse-style health scorecard (0-100) across 6 categories: Naming, Tokens, Components, Accessibility, Consistency, Coverage. Expandable findings with severity indicators and diagnostic locations
 - **Requires**: `ENABLE_MCP_APPS=true`
+
+### MCP App Management Tools
+
+These tools control the MCP App interfaces programmatically:
+
+| Tool | When to Use | Key Params | Output |
+|------|-------------|------------|--------|
+| `figma_browse_tokens` | Open the interactive Token Browser app | None | Token Browser UI |
+| `token_browser_refresh` | Refresh the Token Browser with latest variable data | None | Updated token display |
+| `ds_dashboard_refresh` | Refresh the Design System Dashboard with latest audit data | None | Updated dashboard scores |
 
 ---
 

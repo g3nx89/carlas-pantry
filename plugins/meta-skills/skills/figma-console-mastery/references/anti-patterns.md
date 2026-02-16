@@ -84,6 +84,23 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 
 ---
 
+## Performance Anti-Patterns
+
+These patterns cause slow execution or excessive resource usage, especially on large Figma files.
+
+| Anti-Pattern | Problem | Solution |
+|-------------|---------|---------|
+| `scrollAndZoomIntoView()` per node in a loop | Triggers viewport reflow on every iteration, compounding rendering cost | Collect all nodes in an array, call `figma.viewport.scrollAndZoomIntoView(allNodes)` once at the end |
+| `findAll()` on large documents | Scans every node including invisible instance children; can take seconds on complex files | Use `figma.currentPage.findAllWithCriteria({ types: ['FRAME'] })` for type-filtered search (hundreds of times faster) |
+| Not setting `skipInvisibleInstanceChildren` | Instance children inside collapsed/hidden instances are included in searches and iterations | Set `figma.skipInvisibleInstanceChildren = true` before any `findAll` or `findAllWithCriteria` call |
+| `figma_get_file_data` on large files | Response can exceed 25K token limit, causing truncation or errors | Use `figma_get_file_for_plugin` for optimized output, or target specific nodes with `figma_capture_screenshot` |
+| `figma_get_variables` with `format: "full"` | Full variable dump auto-summarizes above 25K tokens, losing detail | Start with `format: "summary"`, then use `format: "filtered"` with `collection`, `namePattern`, or `mode` parameters for specific data |
+| Full-canvas `figma_take_screenshot` on complex files | Rendering the entire canvas is slow and captures unrelated content | Use `figma_capture_screenshot` with a specific `nodeId` for targeted validation |
+
+> For the correct performance patterns (code examples), see the Performance Optimization section in `plugin-api.md`.
+
+---
+
 ## Hard Constraints
 
 These are platform-level limitations that cannot be worked around. Understanding them prevents wasted effort attempting impossible operations.
