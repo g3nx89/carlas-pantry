@@ -86,9 +86,9 @@ Before picking a tool, determine the execution path through three gates:
 
 **Always evaluate G1 first.** Creating a button from scratch when one exists in the library wastes tokens, breaks design system consistency, and loses the instance-master link.
 
-## Audit & Refactoring Protocol (Alternative Session)
+## Quick Audit Protocol (Alternative Session)
 
-When the goal is to analyze and fix an existing design rather than create new elements:
+When the goal is to spot-fix specific deviations in an existing design rather than create new elements:
 
 1. **Select target** — ask the user to select the frame or page to audit
 2. **Scan** — `figma_get_file_for_plugin({ selectionOnly: true })` to get the node tree JSON
@@ -98,6 +98,75 @@ When the goal is to analyze and fix an existing design rather than create new el
 6. **Validate** — `figma_capture_screenshot` on the patched nodes to confirm corrections
 
 For automated health scoring, use `figma_audit_design_system` which returns a 0-100 scorecard across naming, tokens, components, accessibility, consistency, and coverage.
+
+> For comprehensive structural conversion of freehand designs into best-practice-compliant structures, use the Design Restructuring Workflow below instead.
+
+## Design Restructuring Workflow (Alternative Session)
+
+When the goal is to convert a freehand/unstructured design into a well-structured, best-practice-compliant design with auto-layout, components, naming conventions, and tokens. This is a collaborative, multi-phase process that uses Socratic questioning to define structure with the user rather than guessing.
+
+**Load**: `recipes-restructuring.md` (required), `recipes-foundation.md` (Tier 1), `design-rules.md` (for M3 specs and spacing rules)
+
+### Phase 1 — Analyze
+
+1. **Preflight** — `figma_get_status` → `figma_list_open_files` → `figma_navigate` to target page
+2. **Screenshot** — `figma_take_screenshot` to capture the current state (before)
+3. **Node tree scan** — `figma_get_file_for_plugin({ selectionOnly: true })` or full page scan
+4. **Deep analysis** — run the Deep Node Tree Analysis recipe via `figma_execute` to catalog all deviations (missing auto-layout, hardcoded colors, non-4px spacing, generic names, flat hierarchies)
+5. **Pattern detection** — run the Repeated Pattern Detection recipe to find component candidates
+6. **Design system inventory** — `figma_get_design_system_summary` + `figma_get_variables(format="summary")` to understand available tokens and components
+7. **Health baseline** — `figma_audit_design_system` for a 0-100 health score
+8. **Compile findings** — structure the analysis results into a clear summary for Phase 2
+
+> **Early exit**: If Phase 1 finds zero deviations across all categories, report "This design is already well-structured" with the health score and skip to Phase 5 for a final polish check.
+
+### Phase 2 — Plan (Socratic)
+
+Present the Phase 1 findings to the user and ask targeted Socratic questions. Use the question templates from `recipes-restructuring.md` (Socratic Questions section), filling in placeholders with actual data from Phase 1.
+
+**Question categories** (ask in order, skip categories with no findings):
+1. **Component Boundaries** — which repeated patterns should become components?
+2. **Naming & Hierarchy** — what are the semantic sections? How should the layer tree be organized?
+3. **Interaction Patterns** — which elements are interactive and need state variants?
+4. **Token Strategy** — should a token system be created? Which colors to tokenize?
+5. **Layout Direction** — confirm ambiguous auto-layout directions
+
+**Output**: A confirmed conversion checklist with user-approved decisions. **Do not proceed to Phase 3 until the user approves the plan.**
+
+### Phase 3 — Structure
+
+Apply structural fixes in this order (innermost containers first, working outward):
+
+1. **Reparent** — group logically related children using the Reparent Children recipe
+2. **Auto-layout** — convert frames using the Convert Frame to Auto-Layout recipe (innermost-out order)
+3. **Sizing modes** — set `layoutSizingHorizontal`/`layoutSizingVertical` (`FILL` for containers, `HUG` for content)
+4. **Snap spacing** — run the Snap Spacing to 4px Grid recipe on the entire tree
+5. **Rename** — apply semantic slash names using the Batch Rename recipe with user-approved naming from Phase 2
+6. **Validate** — `figma_take_screenshot` after each major structural change (max 3 fix cycles)
+
+> **ID tracking**: Several recipes in Phases 3-4 create new nodes that replace originals (Extract Component, Replace with Library Instance, Reparent). Track new node IDs from recipe outputs — do not rely on IDs from the Phase 1 analysis after structural changes.
+
+### Phase 4 — Componentize
+
+1. **Library-first check** — `figma_search_components` for each element type identified in Phase 2
+2. **Replace with instances** — use the Replace Element with Library Instance recipe for any existing library matches
+3. **Extract new components** — use the Extract Component from Frame recipe for user-confirmed new components
+4. **Create variants** — if the user confirmed variant sets, use the Create Variant Set recipe
+5. **Document** — `figma_set_description` on each new component with purpose and usage notes
+6. **Validate** — `figma_take_screenshot` to confirm visual integrity after componentization
+
+### Phase 5 — Polish
+
+1. **Token binding** — bind hardcoded colors to tokens using Batch Token Binding recipe
+   - If no tokens exist: offer to create them using Design System Bootstrap recipe from `recipes-advanced.md`, or skip if user prefers
+2. **Accessibility check** — verify contrast ratios, touch target sizes (48x48 minimum), text readability
+3. **Final health score** — re-run `figma_audit_design_system` and compare to Phase 1 baseline
+4. **Before/after summary** — present the improvement metrics:
+   - Health score: {before} → {after}
+   - Auto-layout coverage: {before_pct}% → {after_pct}%
+   - Token-bound colors: {before_count} → {after_count}
+   - Named layers: {before_pct}% → {after_pct}%
+   - Components used: {before_count} → {after_count}
 
 ## Tool Selection Decision Tree
 
@@ -199,6 +268,9 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-compon
 # Advanced patterns — composition, variable binding, SVG import, rich text, full page assembly, chaining
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-advanced.md
 
+# Restructuring patterns — analysis, auto-layout conversion, componentization, token binding, naming, Socratic questions
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-restructuring.md
+
 # Material Design 3 component recipes — M3 Button, Card, Top App Bar, TextField, Dialog, Snackbar, Bottom Nav, Elevation
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-m3.md
 
@@ -212,7 +284,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/gui-walkthroug
 ### Loading Tiers
 
 **Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code)
-**Tier 2 — By task:** `recipes-components.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md`
+**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md`
 **Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md`
 
 ## Troubleshooting Quick Index

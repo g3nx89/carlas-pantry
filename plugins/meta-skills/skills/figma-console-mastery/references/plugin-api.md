@@ -196,6 +196,16 @@ const comp = figma.createComponentFromNode(existingFrame)
 comp.name = "Card"  // now usable as a component with createInstance()
 ```
 
+**Import Remote Component by Key** — `figma.importComponentByKeyAsync()`:
+```javascript
+// imports a library component by its key (from figma_search_components) and creates an instance
+const component = await figma.importComponentByKeyAsync("abc123def456")
+const instance = component.createInstance()
+instance.x = 100
+instance.y = 100
+figma.currentPage.appendChild(instance)
+```
+
 ### Inside-Out Construction Pattern
 
 Build from leaf nodes inward to containers. Create children first, configure them, then create the parent frame and `appendChild`. This prevents dimension collapse: an auto-layout frame with `'AUTO'` sizing starts at 0×0 if empty, and children added later may not trigger immediate recalculation.
