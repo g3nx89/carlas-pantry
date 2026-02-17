@@ -11,18 +11,19 @@
 
 | Section | Recipe | Line |
 |---------|--------|-----:|
-| **Analysis** | Deep Node Tree Analysis | 31 |
-| | Repeated Pattern Detection | 147 |
-| **Structural** | Convert Frame to Auto-Layout | 224 |
-| | Reparent Children into New Container | 311 |
-| | Snap Spacing to 4px Grid | 373 |
-| **Componentization** | Extract Component from Frame | 435 |
-| | Replace Element with Library Instance | 474 |
-| | Create Variant Set from Existing Elements | 528 |
-| **Token Binding** | Bind Color Token to Existing Node | 581 |
-| | Batch Token Binding | 638 |
-| **Naming** | Batch Rename with Semantic Slash Convention | 710 |
-| **Socratic Questions** | Question Templates by Category | 770 |
+| **Analysis** | Deep Node Tree Analysis | 32 |
+| | Repeated Pattern Detection | 148 |
+| | Visual Blueprint Extraction | 221 |
+| **Structural** | Convert Frame to Auto-Layout | 386 |
+| | Reparent Children into New Container | 473 |
+| | Snap Spacing to 4px Grid | 535 |
+| **Componentization** | Extract Component from Frame | 597 |
+| | Replace Element with Library Instance | 636 |
+| | Create Variant Set from Existing Elements | 690 |
+| **Token Binding** | Bind Color Token to Existing Node | 743 |
+| | Batch Token Binding | 800 |
+| **Naming** | Batch Rename with Semantic Slash Convention | 872 |
+| **Socratic Questions** | Question Templates by Category | 932 |
 
 ---
 
@@ -216,6 +217,167 @@
 **Returns**: `{ success: true, patternsFound: N, patterns: [{ fingerprint, count, nodes }] }`
 
 **Next**: Present patterns to the user with Socratic questions about which should become components. Use the node IDs in the Extract Component recipe.
+
+### Recipe: Visual Blueprint Extraction
+
+**Goal**: Perform a read-only scan of a selected frame and capture ALL visual properties needed to faithfully reproduce the design — dimensions, fills (including gradients), strokes, corner radii, opacity, layout properties, absolute bounds, and complete text styles. Returns a hierarchical JSON blueprint that mirrors the node tree structure.
+
+**Used by both paths**: Path A uses the blueprint as a "before" reference to verify visual fidelity after each structural change. Path B uses it as the creation blueprint for reconstruction from scratch.
+
+**Code**:
+
+```javascript
+(async () => {
+  try {
+    const root = await figma.getNodeByIdAsync("ROOT_ID_HERE")
+    if (!root) return JSON.stringify({ success: false, error: "Node not found" })
+
+    function extractFills(node) {
+      if (!("fills" in node) || !Array.isArray(node.fills)) return []
+      return node.fills.map(f => {
+        if (f.type === "SOLID") {
+          return {
+            type: "SOLID",
+            color: { r: Math.round(f.color.r * 255), g: Math.round(f.color.g * 255), b: Math.round(f.color.b * 255) },
+            opacity: f.opacity !== undefined ? f.opacity : 1,
+            visible: f.visible !== false
+          }
+        }
+        if (f.type === "GRADIENT_LINEAR" || f.type === "GRADIENT_RADIAL" || f.type === "GRADIENT_ANGULAR") {
+          return {
+            type: f.type,
+            gradientStops: (f.gradientStops || []).map(s => ({
+              position: s.position,
+              color: { r: Math.round(s.color.r * 255), g: Math.round(s.color.g * 255), b: Math.round(s.color.b * 255), a: s.color.a }
+            })),
+            visible: f.visible !== false
+          }
+        }
+        return { type: f.type, visible: f.visible !== false }
+      })
+    }
+
+    function extractStrokes(node) {
+      if (!("strokes" in node) || !Array.isArray(node.strokes)) return []
+      return node.strokes.map(s => ({
+        type: s.type,
+        color: s.color ? { r: Math.round(s.color.r * 255), g: Math.round(s.color.g * 255), b: Math.round(s.color.b * 255), a: s.color.a } : null,
+        opacity: s.opacity !== undefined ? s.opacity : 1
+      }))
+    }
+
+    function extractEffects(node) {
+      if (!("effects" in node) || !Array.isArray(node.effects)) return []
+      return node.effects.map(e => {
+        const data = { type: e.type, visible: e.visible !== false }
+        if (e.color) {
+          data.color = { r: Math.round(e.color.r * 255), g: Math.round(e.color.g * 255), b: Math.round(e.color.b * 255), a: e.color.a }
+        }
+        if (e.offset) data.offset = e.offset
+        if (e.radius !== undefined) data.radius = e.radius
+        if (e.spread !== undefined) data.spread = e.spread
+        return data
+      })
+    }
+
+    function extractNode(node) {
+      const data = {
+        id: node.id, name: node.name, type: node.type,
+        visible: node.visible !== false,
+        width: Math.round(node.width), height: Math.round(node.height),
+        x: Math.round(node.x), y: Math.round(node.y),
+        rotation: node.rotation || 0,
+        opacity: node.opacity !== undefined ? node.opacity : 1,
+        blendMode: node.blendMode || "NORMAL",
+        fills: extractFills(node),
+        strokes: extractStrokes(node),
+        strokeWeight: node.strokeWeight || 0,
+        strokeAlign: node.strokeAlign || "INSIDE",
+        effects: extractEffects(node),
+        cornerRadius: typeof node.cornerRadius === "number" ? node.cornerRadius : 0,
+        cornerSmoothing: node.cornerSmoothing || 0
+      }
+
+      // Per-corner radius (when corners differ)
+      if ("topLeftRadius" in node && typeof node.cornerRadius !== "number") {
+        data.topLeftRadius = node.topLeftRadius
+        data.topRightRadius = node.topRightRadius
+        data.bottomLeftRadius = node.bottomLeftRadius
+        data.bottomRightRadius = node.bottomRightRadius
+      }
+
+      // Clipping and layout positioning
+      if ("clipsContent" in node) data.clipsContent = node.clipsContent
+      if ("layoutPositioning" in node) data.layoutPositioning = node.layoutPositioning
+
+      // Layout properties (frames only)
+      if ("layoutMode" in node) {
+        data.layoutMode = node.layoutMode || null
+        data.itemSpacing = node.itemSpacing
+        data.paddingTop = node.paddingTop
+        data.paddingBottom = node.paddingBottom
+        data.paddingLeft = node.paddingLeft
+        data.paddingRight = node.paddingRight
+        data.primaryAxisSizingMode = node.primaryAxisSizingMode
+        data.counterAxisSizingMode = node.counterAxisSizingMode
+        data.primaryAxisAlignItems = node.primaryAxisAlignItems
+        data.counterAxisAlignItems = node.counterAxisAlignItems
+        data.layoutSizingHorizontal = node.layoutSizingHorizontal
+        data.layoutSizingVertical = node.layoutSizingVertical
+      }
+
+      // Instance metadata (for library component mapping in Path B)
+      if (node.type === "INSTANCE") {
+        try {
+          data.mainComponentKey = node.mainComponent?.key || null
+          data.componentProperties = node.componentProperties || {}
+        } catch (_) { data.mainComponentKey = null }
+      }
+
+      // Text-specific properties
+      if (node.type === "TEXT") {
+        data.characters = node.characters
+        data.fontSize = node.fontSize
+        data.fontName = node.fontName
+        data.textAlignHorizontal = node.textAlignHorizontal
+        data.lineHeight = node.lineHeight
+        data.letterSpacing = node.letterSpacing
+        data.textAutoResize = node.textAutoResize
+        try {
+          data.styledSegments = node.getStyledTextSegments(
+            ["fontName", "fontSize", "fills", "textDecoration"]
+          ).map(seg => ({
+            start: seg.start, end: seg.end,
+            characters: node.characters.slice(seg.start, seg.end),
+            fontName: seg.fontName, fontSize: seg.fontSize,
+            fills: seg.fills, textDecoration: seg.textDecoration
+          }))
+        } catch (_) { data.styledSegments = [] }
+      }
+
+      // Recurse into children
+      if ("children" in node && node.children.length > 0) {
+        data.children = node.children.map(child => extractNode(child))
+      }
+
+      return data
+    }
+
+    const blueprint = extractNode(root)
+    return JSON.stringify({ success: true, rootId: root.id, rootName: root.name, blueprint })
+  } catch (error) {
+    return JSON.stringify({ success: false, error: error.message })
+  }
+})()
+```
+
+**Returns**: `{ success: true, rootId: "...", rootName: "...", blueprint: { id, name, type, visible, width, height, x, y, rotation, opacity, blendMode, fills, strokes, strokeAlign, effects, cornerRadius, cornerSmoothing, clipsContent, layoutMode, layoutSizing*, children: [...] } }`
+
+Additional per-type fields: INSTANCE → `mainComponentKey`, `componentProperties`. TEXT → `characters`, `fontSize`, `fontName`, `textAlignHorizontal`, `lineHeight`, `letterSpacing`, `textAutoResize`, `styledSegments`. Per-corner radius when corners differ: `topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius`.
+
+**Note**: The blueprint JSON can be large for complex designs. For screens with 200+ nodes, scope the extraction to individual sections (pass section frame IDs) and merge the results. Text nodes include `styledSegments` for mixed-style content (via `getStyledTextSegments`).
+
+**Next**: For Path A, save the blueprint as the fidelity reference — compare screenshots against it after each structural change. For Path B, feed the blueprint into creation recipes from `recipes-foundation.md`, `recipes-components.md`, and `recipes-advanced.md` to reconstruct the design from scratch.
 
 ---
 
@@ -769,7 +931,31 @@
 
 ### Question Templates by Category
 
-These templates are filled with data from the Deep Node Tree Analysis (Phase 1) and presented to the user during the Socratic planning phase (Phase 2). Placeholders in `{braces}` are replaced with actual values from the analysis.
+These templates are filled with data from the Deep Node Tree Analysis and Visual Blueprint Extraction (Phase 1) and presented to the user during the Socratic planning phase (Phase 2). Placeholders in `{braces}` are replaced with actual values from the analysis.
+
+**Derived placeholders**: `{auto_layout_pct}` is not directly in the analysis output — compute as `(totalFrames - missingAutoLayout) / totalFrames * 100` from the Deep Node Tree Analysis summary.
+
+#### Restructuring Approach
+
+Always ask this FIRST — before all other Socratic questions — to determine which path to take:
+
+> The Phase 1 analysis found **{deviation_count} deviations** across **{total_nodes} nodes** ({health_score}/100 health score). The design currently has:
+>
+> - Auto-layout coverage: {auto_layout_pct}% of frames
+> - Hardcoded colors: {hardcoded_color_count} fills unbound from tokens
+> - Generic layer names: {generic_name_count} nodes
+> - Component candidates: {pattern_count} repeated patterns
+>
+> **Two restructuring paths are available:**
+>
+> **Path A — In-place modification**: The existing node tree is modified directly. Frames get auto-layout, components are extracted in-place, colors are bound to tokens. The screen stays on the same canvas position with the same root node ID. Visual fidelity is verified after each structural change against the blueprint snapshot.
+>
+> **Path B — Reconstruction**: A new screen is built from scratch, visually faithful to the current design but using proper auto-layout, real components, and tokens from the start. The original design is preserved for reference. Best when the existing structure is too deeply flattened or inconsistent to patch incrementally.
+>
+> **Questions:**
+> 1. Which path do you prefer: **in-place modification (Path A)** or **reconstruction from scratch (Path B)**?
+> 2. *(If Path B)* Should the original design be kept on the same page (moved to a separate section) or archived to a separate Figma page?
+> 3. *(If Path B)* Are there specific components from the team library that the new screen should use, or should the reconstruction build custom components that match the visual appearance?
 
 #### Component Boundaries
 

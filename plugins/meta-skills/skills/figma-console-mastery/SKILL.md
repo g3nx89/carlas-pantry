@@ -105,7 +105,7 @@ For automated health scoring, use `figma_audit_design_system` which returns a 0-
 
 When the goal is to convert a freehand/unstructured design into a well-structured, best-practice-compliant design with auto-layout, components, naming conventions, and tokens. This is a collaborative, multi-phase process that uses Socratic questioning to define structure with the user rather than guessing.
 
-**Load**: `recipes-restructuring.md` (required), `recipes-foundation.md` (Tier 1), `design-rules.md` (for M3 specs and spacing rules)
+**Load**: `recipes-restructuring.md` (required for all paths), `recipes-foundation.md` (Tier 1), `design-rules.md` (for M3 specs and spacing rules). Path B (Reconstruction) additionally requires: `recipes-components.md`, `recipes-advanced.md` (Shell Injection, full-page assembly patterns).
 
 ### Phase 1 — Analyze
 
@@ -125,6 +125,7 @@ When the goal is to convert a freehand/unstructured design into a well-structure
 Present the Phase 1 findings to the user and ask targeted Socratic questions. Use the question templates from `recipes-restructuring.md` (Socratic Questions section), filling in placeholders with actual data from Phase 1.
 
 **Question categories** (ask in order, skip categories with no findings):
+0. **Restructuring Approach** — Path A (in-place) or Path B (reconstruction)? Always ask first.
 1. **Component Boundaries** — which repeated patterns should become components?
 2. **Naming & Hierarchy** — what are the semantic sections? How should the layer tree be organized?
 3. **Interaction Patterns** — which elements are interactive and need state variants?
@@ -133,40 +134,75 @@ Present the Phase 1 findings to the user and ask targeted Socratic questions. Us
 
 **Output**: A confirmed conversion checklist with user-approved decisions. **Do not proceed to Phase 3 until the user approves the plan.**
 
-### Phase 3 — Structure
+---
 
-Apply structural fixes in this order (innermost containers first, working outward):
+### Path A — In-Place Modification
 
-1. **Reparent** — group logically related children using the Reparent Children recipe
-2. **Auto-layout** — convert frames using the Convert Frame to Auto-Layout recipe (innermost-out order)
-3. **Sizing modes** — set `layoutSizingHorizontal`/`layoutSizingVertical` (`FILL` for containers, `HUG` for content)
-4. **Snap spacing** — run the Snap Spacing to 4px Grid recipe on the entire tree
-5. **Rename** — apply semantic slash names using the Batch Rename recipe with user-approved naming from Phase 2
-6. **Validate** — `figma_take_screenshot` after each major structural change (max 3 fix cycles)
+Use when the user chose Path A in Phase 2. Modifies the existing node tree directly. **Primary constraint: visual fidelity** — the design must look identical after restructuring.
 
-> **ID tracking**: Several recipes in Phases 3-4 create new nodes that replace originals (Extract Component, Replace with Library Instance, Reparent). Track new node IDs from recipe outputs — do not rely on IDs from the Phase 1 analysis after structural changes.
+### Phase 3A — Structure
 
-### Phase 4 — Componentize
+1. **Extract blueprint** — run the Visual Blueprint Extraction recipe on the original design as a "before" reference snapshot for visual fidelity verification
+2. **Reparent** — group logically related children using the Reparent Children recipe (innermost containers first, working outward)
+3. **Auto-layout** — convert frames using the Convert Frame to Auto-Layout recipe (innermost-out order)
+4. **Sizing modes** — set `layoutSizingHorizontal`/`layoutSizingVertical` (`FILL` for containers, `HUG` for content)
+5. **Snap spacing** — run the Snap Spacing to 4px Grid recipe on the entire tree
+6. **Rename** — apply semantic slash names using the Batch Rename recipe with user-approved naming from Phase 2
+7. **Visual fidelity check** — `figma_take_screenshot` after each major structural change and compare against the blueprint. If a change shifts element positions, dimensions, or spacing, adjust until the visual output matches the original (max 3 fix cycles per change)
+
+> **ID tracking**: Several recipes in Phases 3A-4A create new nodes that replace originals (Extract Component, Replace with Library Instance, Reparent). Track new node IDs from recipe outputs — do not rely on IDs from the Phase 1 analysis after structural changes.
+
+### Phase 4A — Componentize
 
 1. **Library-first check** — `figma_search_components` for each element type identified in Phase 2
-2. **Replace with instances** — use the Replace Element with Library Instance recipe for any existing library matches
+2. **Replace with instances** — use the Replace Element with Library Instance recipe for any existing library matches. Fidelity constraint: replacement must preserve size, color, and position of the original element
 3. **Extract new components** — use the Extract Component from Frame recipe for user-confirmed new components
 4. **Create variants** — if the user confirmed variant sets, use the Create Variant Set recipe
 5. **Document** — `figma_set_description` on each new component with purpose and usage notes
 6. **Validate** — `figma_take_screenshot` to confirm visual integrity after componentization
 
-### Phase 5 — Polish
+> After Phase 4A, proceed to **Phase 5 — Polish** below.
+
+---
+
+### Path B — Reconstruction
+
+Use when the user chose Path B in Phase 2. Builds a new screen from scratch, visually faithful to the original. **Primary constraint: visual fidelity** — the new screen must look identical to the freehand original.
+
+### Phase 3B — Extract Blueprint + Build New Screen
+
+1. **Archive original** — if the user requested preservation, use `figma_move_node` to relocate the original frame to a reference section or separate page
+2. **Extract blueprint** — run the Visual Blueprint Extraction recipe on the original frame to capture all visual properties as a hierarchical JSON blueprint
+3. **Map to creation recipes** — using the blueprint, identify which elements map to which creation recipes:
+   - Structural containers → `recipes-foundation.md` (Page Container, Horizontal Row, Wrap Layout)
+   - Recognized UI patterns → `recipes-components.md` (Card, Button, Input, Navbar, Sidebar, Modal, etc.)
+   - Multi-region page shells → `recipes-advanced.md` (Shell Injection pattern)
+   - Custom elements with no recipe match → `figma_execute` with properties from blueprint
+4. **Build root container** — create the new screen root using Page Container recipe, matching blueprint `width`/`height`
+5. **Build layer by layer** — reconstruct from outermost container inward, applying auto-layout to every container from the start; use blueprint `layoutMode`, `itemSpacing`, and `padding*` values as targets (snapping to 4px grid)
+6. **Reproduce visual properties** — apply `fills`, `cornerRadius`, `strokeWeight`, `opacity` from blueprint to each constructed node; for text nodes, apply `fontSize`, `fontName`, `lineHeight`, `letterSpacing`, `textAlignHorizontal`, and `characters`
+7. **Integrate library components** — `figma_search_components` for each UI pattern; prefer library instances over custom builds where library components match the blueprint appearance
+8. **Name semantically** — apply slash-convention names to all nodes as they are created (not as a post-processing step); use blueprint `name` values as starting hints, improved with user-approved naming from Phase 2
+9. **Validate** — `figma_take_screenshot` after each major section is built and compare against the original screenshot from Phase 1 (max 3 fix cycles per section)
+
+> Reconstruction is a single phase because building from scratch inherently applies auto-layout, components, and proper naming simultaneously. After Phase 3B, proceed directly to **Phase 5 — Polish** below.
+
+---
+
+### Phase 5 — Polish (Shared: Both Paths)
 
 1. **Token binding** — bind hardcoded colors to tokens using Batch Token Binding recipe
    - If no tokens exist: offer to create them using Design System Bootstrap recipe from `recipes-advanced.md`, or skip if user prefers
 2. **Accessibility check** — verify contrast ratios, touch target sizes (48x48 minimum), text readability
 3. **Final health score** — re-run `figma_audit_design_system` and compare to Phase 1 baseline
-4. **Before/after summary** — present the improvement metrics:
+4. **Visual fidelity report** — compare the final result against the Phase 1 blueprint snapshot and flag any deviations (>2px position shift, different fill colors, missing elements)
+5. **Before/after summary** — present the improvement metrics:
    - Health score: {before} → {after}
    - Auto-layout coverage: {before_pct}% → {after_pct}%
    - Token-bound colors: {before_count} → {after_count}
    - Named layers: {before_pct}% → {after_pct}%
    - Components used: {before_count} → {after_count}
+   - Visual fidelity: {deviation_count} deviations flagged
 
 ## Tool Selection Decision Tree
 
