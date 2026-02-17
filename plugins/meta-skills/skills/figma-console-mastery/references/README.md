@@ -4,12 +4,12 @@
 
 | File | Lines | Purpose | Load When |
 |------|------:|---------|-----------|
-| `tool-playbook.md` | 369 | Tool selection across 56+ tools, workflows, three-server comparison (Console / figma-use / Official), component property tools, design system audit tools | Choosing which tool to call |
+| `tool-playbook.md` | 373 | Tool selection across 56+ tools, workflows, three-server comparison (Console / figma-use / Official), component property tools, design system audit tools | Choosing which tool to call |
 | `plugin-api.md` | 707 | Plugin API reference for `figma_execute` code (node creation, auto-layout, text, colors, images, components, variables, performance optimization) | Writing `figma_execute` code |
-| `design-rules.md` | 295 | MUST/SHOULD/AVOID rules, dimensions, typography, M3 specs, QA checklist | Making design decisions |
+| `design-rules.md` | 299 | MUST/SHOULD/AVOID rules, dimensions, typography, M3 specs, QA checklist | Making design decisions |
 | `recipes-foundation.md` | 298 | Foundation patterns (IIFE wrapper, font preloading, node references, structured data) and layout recipes (page container, horizontal row, wrap layout, absolute badge) | Writing ANY `figma_execute` code (Tier 1 — always load) |
 | `recipes-components.md` | 1077 | Component recipes: card, button, input, toast, navbar, sidebar, form, data table, empty state, modal, dashboard header, component variant set | Building specific UI components (Tier 2 — by task) |
-| `recipes-advanced.md` | 783 | Composition patterns (shell injection, library composition, design system bootstrap), advanced recipes (variable binding, SVG import, rich text), full page composition, chaining patterns | Assembling multi-component layouts, full pages, or advanced patterns (Tier 3 — by need) |
+| `recipes-advanced.md` | 854 | Composition patterns (shell injection, library composition, design system bootstrap), advanced recipes (variable binding, SVG import, rich text), full page composition, chaining patterns, handoff preparation | Assembling multi-component layouts, full pages, advanced patterns, or code handoff (Tier 3 — by need) |
 | `recipes-restructuring.md` | 1022 | Restructuring recipes: deep node tree analysis, repeated pattern detection, visual blueprint extraction (full visual properties + effects + instance metadata), convert to auto-layout, reparent children, snap spacing, extract component, replace with library instance, variant sets, token binding, batch rename, Socratic question templates (restructuring approach, component boundaries, naming, interaction, tokens, layout) | Restructuring a freehand design — Path A (in-place) or Path B (reconstruction) (Tier 2 — by task) |
 | `recipes-m3.md` | 703 | Material Design 3 recipes: M3 Button, Card, Top App Bar, TextField, Bottom Nav, Dialog, Snackbar, Elevation Shadows | Building M3-specific components |
 | `anti-patterns.md` | 192 | Error catalog, debugging, hard constraints, rate limiting, performance anti-patterns, idempotency | Debugging or reviewing output |
@@ -63,3 +63,5 @@ Each topic lives in exactly one canonical file:
 | figma_diff_*, figma_query, boolean ops, vector paths, arrange | `figma-use-diffing.md` |
 | Three-server comparison (Console / figma-use / Official) | `tool-playbook.md` |
 | Two-server decision matrix (figma-use vs figma-console) | `figma-use-overview.md` |
+| Handoff preparation pattern and naming audit recipe | `recipes-advanced.md` |
+| Code-readiness SHOULD rules (#11-14) | `design-rules.md` |

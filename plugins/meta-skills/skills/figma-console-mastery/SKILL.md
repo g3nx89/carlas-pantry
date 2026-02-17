@@ -7,7 +7,7 @@ description: This skill should be used when the user asks to "create a Figma des
 
 > **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 >
-> **Scope**: Design creation via Console MCP + figma-use MCP (JSX rendering, analysis, diffing). For design-to-code translation, see dev-skills `figma-implement-design`.
+> **Scope**: Design creation via Console MCP + figma-use MCP (JSX rendering, analysis, diffing), plus Code Handoff Protocol for preparing designs for downstream code implementation. For the design-to-code pipeline after handoff, see the Downstream Workflow section.
 
 ## Overview
 
@@ -218,6 +218,54 @@ Use when the user chose Path B in Phase 2. Builds a new screen from scratch, vis
    - Components used: {before_count} → {after_count}
    - Visual fidelity: {deviation_count} deviations flagged
 
+## Code Handoff Protocol (Post-Session)
+
+When the design session is complete and the design will be implemented as code,
+run this protocol to prepare the Figma artifact for downstream consumption by the
+coding agent. The coding agent uses `get_design_context` (Official MCP) to extract
+framework-ready specs (React, SwiftUI, Compose, etc.) and the `implement-design`
+Agent Skill to translate them into production code.
+
+**How this compensates for missing Code Connect**: `get_design_context` returns
+component names, variant properties, and descriptions. The naming conventions below
+ensure these names match the codebase, allowing the coding agent to identify the
+correct code component without Code Connect bidirectional mappings. This is
+best-effort alignment — not equivalent to Code Connect. For full bidirectional
+mapping of custom components, an Organization/Enterprise plan is required.
+
+**Load**: `recipes-advanced.md` (Handoff Preparation Pattern)
+
+1. **Naming audit** — run the Handoff Naming Audit recipe via `figma_execute` to
+   check all components for non-PascalCase names and uppercase variant property keys
+2. **Fix naming** — rename components to match the target codebase's component
+   naming convention (typically PascalCase: `ProductCard`, not `product card`
+   or `Frame 42`); rename variant property keys to lowercase (`size`, `variant`,
+   `state`)
+3. **Exception descriptions** — `figma_set_description` ONLY where the Figma name
+   must differ from the code name:
+   ```
+   Code name: CallToActionButton
+   Note: Figma name "CTA Button" differs for brevity
+   ```
+4. **Token alignment** — verify variable/token names correspond to the codebase
+   token system (e.g., `color/primary/500` → `--color-primary-500`)
+5. **UI kit preference** — where possible, compose with M3/Apple/SDS library
+   components that have automatic Code Connect on Professional+ plans
+6. **Health check** — `figma_audit_design_system` for final naming, token, and
+   consistency scores
+
+> **Multi-platform**: the component name is the cross-platform contract. The coding
+> agent for each platform searches its own codebase for a component matching the
+> Figma name. `get_design_context` handles framework-specific translation. For
+> components where platform names diverge (e.g., Figma `BottomNavigation` vs
+> SwiftUI `TabView`), use step 3 exception descriptions with platform-specific
+> code names.
+
+> **Scope**: this protocol prepares the Figma artifact for downstream consumption.
+> Actual code generation is performed by the `implement-design` Agent Skill via Official MCP.
+> For plan-specific availability of downstream tools, see `tool-playbook.md`
+> (Complementary Workflow).
+
 ## Tool Selection Decision Tree
 
 ```
@@ -379,10 +427,20 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-diff
 
 ## When NOT to Use This Skill
 
-- **Design-to-code translation** — use dev-skills `figma-implement-design` (Official Figma MCP)
-- **Code Connect mappings** — use dev-skills `figma-code-connect-components`
-- **Design system rules for code** — use dev-skills `figma-create-design-system-rules`
 - **FigJam diagrams** — not supported by Console MCP or figma-use
 - **Figma REST API / OAuth setup** — outside scope (Console MCP uses local Desktop Bridge)
 - **Remote SSE mode creation** — most creation tools require Local mode
-- **figma-use without CDP** — JSX rendering, analysis, and diffing tools require Figma Desktop launched with `--remote-debugging-port=9222`
+- **figma-use without CDP** — JSX rendering, analysis, and diffing tools require
+  Figma Desktop launched with `--remote-debugging-port=9222`
+
+## Downstream Workflow (After This Skill)
+
+> **Downstream compatibility**: Verified against Official Figma MCP Agent Skills (February 2026)
+
+After completing the Code Handoff Protocol, the coding agent uses Official Figma
+MCP Agent Skills to translate designs into code. For plan-specific rate limits and
+tool availability, see `tool-playbook.md` (Three-Server Comparison).
+
+- **Generate CLAUDE.md rules** → `figma:create-design-system-rules` (any paid plan, Dev/Full seat)
+- **Implement design as code** → `figma:implement-design` Agent Skill via `get_design_context` (any paid plan, Dev/Full seat)
+- **Code Connect mappings** → `figma:code-connect-components` — automatic for UI kit components (Professional+); custom components require Organization/Enterprise

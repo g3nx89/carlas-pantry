@@ -358,12 +358,16 @@ Three Figma MCP servers serve complementary roles. For full figma-use tool inven
 
 ### Complementary Workflow
 
-All three servers work together across five phases:
+All three servers work together across six phases:
 
 1. **Analysis phase** — figma-use (`figma_analyze_*` for clusters, colors, spacing; `figma_query` for XPath discovery)
 2. **Design creation phase** — Console MCP (`figma_execute`, component instantiation, variable management) + figma-use (`figma_render` for complex multi-node compositions)
 3. **Validation phase** — figma-use (`figma_diff_visual` for pixel comparison, `figma_diff_create` for property diffs) + Console MCP (`figma_check_design_parity`, screenshots, debugging)
-4. **Code generation phase** — Official MCP (`get_design_context` for framework-ready code, `get_variable_defs` for token references)
-5. **Documentation phase** — Console MCP (`figma_generate_component_doc`, `figma_set_description`)
+4. **Handoff phase** — Console MCP (naming audit, `figma_set_description` for exceptions, `figma_generate_component_doc`) — see SKILL.md Code Handoff Protocol
+5. **Code generation phase** — Official MCP (`get_design_context` for framework-ready code, `get_variable_defs` for token references, `create_design_system_rules` for CLAUDE.md rules)
+6. **Documentation phase** — Console MCP (`figma_generate_component_doc`, `figma_set_description`)
 
-> **Rate limit note**: Official MCP Starter/View/Collab seats get only 6 tool calls per month. Dev/Full seats on paid plans get per-minute rate limits matching Tier 1 REST API. Console MCP and figma-use have no artificial rate limits (both run locally).
+> **Plan-aware notes**:
+> - Official MCP `get_design_context` is available on all paid plans with Dev/Full seat (Professional: 15/min, 200/day).
+> - Code Connect is automatic for UI kit components (M3, Apple, SDS) on Professional+. Custom component Code Connect requires Organization/Enterprise.
+> - Console MCP and figma-use have no plan restrictions (local execution).

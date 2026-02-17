@@ -10,16 +10,18 @@
 
 | Section | Recipe | Line |
 |---------|--------|-----:|
-| **Composition** | Shell Injection (Multi-Region Pages) | 28 |
-| | Compose Library Components into Layout | 96 |
-| | Design System Bootstrap | 163 |
-| **Advanced** | Variable Binding to Nodes | 235 |
-| | SVG Import and Styling | 323 |
-| | Mixed-Style Rich Text | 360 |
-| **Full Page** | Settings Page (End-to-End Multi-Call) | 410 |
-| **Chaining** | Component Composition Pattern | 742 |
-| | Iterative Refinement Pattern | 754 |
-| | Design System Bootstrap Pattern | 769 |
+| **Composition** | Shell Injection (Multi-Region Pages) | 30 |
+| | Compose Library Components into Layout | 98 |
+| | Design System Bootstrap | 165 |
+| **Advanced** | Variable Binding to Nodes | 237 |
+| | SVG Import and Styling | 325 |
+| | Mixed-Style Rich Text | 362 |
+| **Full Page** | Settings Page (End-to-End Multi-Call) | 412 |
+| **Chaining** | Component Composition Pattern | 744 |
+| | Iterative Refinement Pattern | 756 |
+| | Design System Bootstrap Pattern | 771 |
+| | Handoff Preparation Pattern | 783 |
+| | Handoff Naming Audit | 798 |
 
 ---
 
@@ -777,6 +779,75 @@ Limit to a maximum of 3 refinement cycles. If the design is not correct after 3 
 | 3 | `figma_set_description` | Document each component with usage notes |
 | 4 | `figma_audit_design_system` | Validate token coverage and naming consistency |
 | 5 | `ds_dashboard_refresh` | Update the Design System Dashboard |
+
+### Handoff Preparation Pattern
+
+**Flow**: naming audit → fix naming → exception descriptions → token alignment check → health check
+
+Prepares custom components for consumption by the coding agent via `get_design_context` (Official MCP). Implements the naming-convention-as-contract strategy: component names are the cross-platform mapping key, descriptions are used only for naming exceptions. See SKILL.md Code Handoff Protocol for the full workflow.
+
+| Step | Tool | Action |
+|------|------|--------|
+| 1 | `figma_execute` | Run the Handoff Naming Audit recipe — check for non-PascalCase names and uppercase variant property keys |
+| 2 | `figma_execute` | Rename components and variant property keys to match codebase conventions |
+| 3 | `figma_set_description` | Add code-name exception notes only where Figma name must differ from code name |
+| 4 | `figma_execute` | Verify token names align with codebase token system |
+| 5 | `figma_search_components` | Prefer UI kit components (M3, Apple, SDS) for automatic Code Connect on Professional+ |
+| 6 | `figma_audit_design_system` | Final health check — naming, tokens, consistency scores |
+
+### Recipe: Handoff Naming Audit
+
+**Goal**: Scan all components on the current page and report naming issues that would hinder downstream code mapping via `get_design_context`. Checks PascalCase component names and lowercase variant property keys. This provides code-readiness-specific analysis beyond the general naming score in `figma_audit_design_system`.
+
+**Code**:
+
+```javascript
+(async () => {
+  try {
+    const components = figma.currentPage.findAll(n =>
+      n.type === 'COMPONENT' || n.type === 'COMPONENT_SET'
+    )
+    const issues = []
+    for (const comp of components) {
+      // Check PascalCase per slash segment
+      const segments = comp.name.split('/')
+      for (const seg of segments) {
+        if (!/^[A-Z][a-zA-Z0-9]*$/.test(seg.trim())) {
+          issues.push({ id: comp.id, name: comp.name, issue: 'not-pascal-case', segment: seg })
+          break
+        }
+      }
+      // Check variant property keys (lowercase)
+      if (comp.type === 'COMPONENT_SET') {
+        const propDefs = comp.componentPropertyDefinitions
+        if (propDefs) {
+          for (const [key, def] of Object.entries(propDefs)) {
+            if (def.type === 'VARIANT' && key !== key.toLowerCase()) {
+              issues.push({ id: comp.id, name: comp.name,
+                issue: 'uppercase-variant-key', key })
+            }
+          }
+        }
+      }
+    }
+    const capped = issues.slice(0, 50)
+    return JSON.stringify({
+      total_components: components.length,
+      issues_found: issues.length,
+      details: capped,
+      truncated: issues.length > 50
+    })
+  } catch(error) { return JSON.stringify({ error: error.message }) }
+})()
+```
+
+**Next**: Fix issues reported by this audit, then proceed with steps 3-6 of the Handoff Preparation Pattern.
+
+> **Note**: The PascalCase check requires segments to start with an uppercase
+> letter. Size tokens like `2XL` or all-caps abbreviations like `CTA` will be
+> flagged. Review flagged items manually — not all flags are naming errors.
+
+> **Multi-platform note**: this recipe does not include platform-specific paths or prop mappings. The naming convention is the cross-platform contract — the coding agent for each platform searches its own codebase for a component matching the Figma name. For components where platform names diverge, use `figma_set_description` with platform-specific code names.
 
 ---
 
