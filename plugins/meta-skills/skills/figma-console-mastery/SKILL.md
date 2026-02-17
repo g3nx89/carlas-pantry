@@ -1,13 +1,13 @@
 ---
 name: figma-console-mastery
-description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", or when developing skills/commands that use the Figma Console MCP server. Provides tool selection, Plugin API patterns, design rules, and selective reference loading for the figma-console-mcp server.
+description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "render JSX in Figma", "use figma_render", "use figma-use MCP", "analyze Figma design", "diff Figma designs", "query Figma nodes with XPath", or when developing skills/commands that use the Figma Console or figma-use MCP servers. Provides tool selection, Plugin API patterns, JSX rendering, design analysis, visual diffing, design rules, and selective reference loading for both MCP servers.
 ---
 
 # Figma Console Mastery
 
 > **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 >
-> **Scope**: Design CREATION via Console MCP. For design-to-code translation, see dev-skills `figma-implement-design`.
+> **Scope**: Design creation via Console MCP + figma-use MCP (JSX rendering, analysis, diffing). For design-to-code translation, see dev-skills `figma-implement-design`.
 
 ## Overview
 
@@ -20,8 +20,15 @@ The Figma Console MCP server (Southleft) exposes **56+ tools** in Local mode (~2
 | Requirement | Check |
 |-------------|-------|
 | Figma Desktop App | Running with file open |
-| Desktop Bridge Plugin | Installed and active (WebSocket ports 9223-9232) |
-| Local mode | Required for all creation/mutation tools |
+| Desktop Bridge Plugin | Installed and active (WebSocket ports 9223-9232) — Console MCP |
+| Local mode | Required for all creation/mutation tools (Console MCP) |
+
+**figma-use prerequisites** (needed only for JSX rendering, analysis, diffing, XPath queries):
+
+| Requirement | Check |
+|-------------|-------|
+| Figma Desktop with CDP | Launched with `--remote-debugging-port=9222` |
+| figma-use server | Running (pre-1.0, v0.11.3) — `http://localhost:38451/mcp` |
 
 **Gate check**: Call `figma_get_status` before any operation. If transport shows `"not connected"`, the Bridge Plugin is not active — load `references/gui-walkthroughs.md` and guide the user through the setup steps.
 
@@ -36,9 +43,15 @@ The Figma Console MCP server (Southleft) exposes **56+ tools** in Local mode (~2
 - **Create custom** → `figma_execute(code="(async () => { ... })()")`
 - **Validate** → `figma_take_screenshot`
 
+**JSX rendering tasks** — use figma-use for complex multi-node compositions:
+- **Render JSX** → `figma_render(jsx, x, y, parent)` — 2-4x fewer tokens than equivalent `figma_execute`
+- **Analyze design** → `figma_analyze_clusters`, `figma_analyze_colors`, `figma_analyze_typography`, `figma_analyze_spacing`
+- **Diff designs** → `figma_diff_visual`, `figma_diff_create`, `figma_diff_apply`
+- **Query nodes** → `figma_query(xpath)` — XPath 3.1 for structured node discovery
+
 **Complex workflows** — load references as needed:
 ```
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md  # Which tool to call
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md  # Which tool to call (three-server comparison)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api.md     # Writing figma_execute code (nodes, auto-layout, text, colors, images, components, variables)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md   # Design decisions + M3 specs
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-foundation.md  # Foundation patterns + layouts (always needed for figma_execute)
@@ -81,10 +94,11 @@ Before picking a tool, determine the execution path through three gates:
 | Gate | Question | Path | Primary Tool |
 |------|----------|------|-------------|
 | **G1: Exists?** | Is the element a standard atom (Button, Badge, Icon) likely in the Team Library? | **INSTANTIATE** | `figma_search_components` → `figma_instantiate_component` |
-| **G2: Create?** | Is the request a novel layout, page, or composite organism not in the library? | **EXECUTE** | `figma_execute` (Plugin API code) |
+| **G2: Create?** | Is the request a novel layout, page, or composite organism not in the library? | **EXECUTE** or **RENDER** | `figma_execute` for &lt;5 nodes or when recipe exists; `figma_render` for 5+ nodes when figma-use available |
 | **G3: Modify?** | Is the intent to alter properties of an existing node (color, padding, text)? | **MODIFY** | `figma_get_selection` → `figma_execute` or specialized tool |
+| **G4: Analyze/Diff?** | Is the goal to audit, analyze, compare, or query existing designs? | **ANALYZE** | `figma_analyze_*` / `figma_diff_*` / `figma_query` |
 
-**Always evaluate G1 first.** Creating a button from scratch when one exists in the library wastes tokens, breaks design system consistency, and loses the instance-master link.
+**Always evaluate G1 first.** G2 splits: use `figma_execute` when a Plugin API recipe exists or the element has fewer than 5 nodes; prefer `figma_render` (JSX) when composing 5+ nodes and figma-use is available (2-4x fewer tokens, 1 call). G4 analysis/diff tools require figma-use CDP connection. Creating a button from scratch when one exists in the library wastes tokens, breaks design system consistency, and loses the instance-master link.
 
 ## Quick Audit Protocol (Alternative Session)
 
@@ -247,6 +261,19 @@ Need to validate or debug?
 ├── Console errors?     → figma_get_console_logs / figma_watch_console
 ├── Design-code parity? → figma_check_design_parity
 └── Document component? → figma_generate_component_doc
+
+figma-use available? (CDP on port 9222)
+├── Complex multi-node UI?  → figma_render (JSX, 1 call for N nodes)
+├── Analyze clusters?       → figma_analyze_clusters
+├── Analyze colors?         → figma_analyze_colors
+├── Analyze typography?     → figma_analyze_typography
+├── Analyze spacing?        → figma_analyze_spacing
+├── Accessibility snapshot? → figma_analyze_snapshot
+├── Visual pixel diff?      → figma_diff_visual
+├── Property diff?          → figma_diff_create → figma_diff_apply
+├── XPath query?            → figma_query
+├── Boolean operation?      → figma_boolean_union / subtract / intersect / exclude
+└── Icon from Iconify?      → figma_create_icon / inline <Icon> in JSX
 ```
 
 ## Quick Reference — Core Tools
@@ -315,13 +342,25 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.
 
 # GUI walkthrough instructions — setup, plugin activation, cache refresh, node selection, CDP transport
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/gui-walkthroughs.md
+
+# figma-use: server overview, tool inventory, decision matrix, setup, performance
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-overview.md
+
+# figma-use: JSX rendering patterns, shorthand props, translation table, CSS Grid, icons
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-jsx-patterns.md
+
+# figma-use: figma_analyze_* tools, dual-server analysis workflow
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-analysis.md
+
+# figma-use: diffing, XPath queries, boolean ops, vector paths, arrange, icons, storybook
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-diffing.md
 ```
 
 ### Loading Tiers
 
 **Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code)
-**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md`
-**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md`
+**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-overview.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md`
+**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `figma-use-diffing.md`
 
 ## Troubleshooting Quick Index
 
@@ -343,6 +382,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/gui-walkthroug
 - **Design-to-code translation** — use dev-skills `figma-implement-design` (Official Figma MCP)
 - **Code Connect mappings** — use dev-skills `figma-code-connect-components`
 - **Design system rules for code** — use dev-skills `figma-create-design-system-rules`
-- **FigJam diagrams** — not supported by Console MCP
+- **FigJam diagrams** — not supported by Console MCP or figma-use
 - **Figma REST API / OAuth setup** — outside scope (Console MCP uses local Desktop Bridge)
 - **Remote SSE mode creation** — most creation tools require Local mode
+- **figma-use without CDP** — JSX rendering, analysis, and diffing tools require Figma Desktop launched with `--remote-debugging-port=9222`

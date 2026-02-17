@@ -303,42 +303,67 @@ These tools control the MCP App interfaces programmatically:
 
 ---
 
-## Console MCP vs Official Figma MCP
+## Three-Server Comparison
+
+Three Figma MCP servers serve complementary roles. For full figma-use tool inventory and decision matrix, see `figma-use-overview.md`.
 
 ### At a Glance
 
-Console MCP provides **56+ tools** with full CRUD capabilities. The Official Figma MCP provides **12 tools** focused on design-to-code translation.
+| Dimension | Console MCP (Southleft) | figma-use | Official Figma MCP |
+|-----------|------------------------|-----------|-------------------|
+| **Tools** | 56+ | 115+ | 12 |
+| **Transport** | WebSocket Desktop Bridge (ports 9223-9232) | CDP (`--remote-debugging-port=9222`) | REST API (cloud) |
+| **Plugin install** | Required (Desktop Bridge) | None (CDP direct) | None (API key) |
+| **Modes** | Local + Remote SSE | Local only (CDP) | Cloud only |
+| **Rate limits** | None (local) | None (local) | Starter: 6/month; Dev: per-minute |
+| **Status** | Stable (v1.10.0) | Pre-1.0 (v0.11.3) | Stable |
+| **Complex UI efficiency** | N calls for N nodes | 1 call for N nodes (JSX) | Read-only |
 
-### What Official Offers That Console Does Not
+### What Each Server Excels At
 
-- `get_design_context` -- Returns structured code representation (React + Tailwind by default, customizable to Vue/HTML/iOS) from selected layers
-- `get_code_connect_map` / `add_code_connect_map` -- Maps Figma components to codebase components
-- Code Connect suggestions and mappings -- AI-prompted Code Connect setup
-- `generate_diagram` -- Creates FigJam diagrams from Mermaid syntax
-- `get_figjam` -- Reads FigJam diagram content
-- `create_design_system_rules` -- Generates a rules file for agents with design system and tech stack context
-- Agent Skills -- Packaged workflow instructions as plugins for Claude Code, Cursor
+- **Console MCP**: Full Plugin API access (`figma_execute`), variable CRUD, interactive MCP Apps, component documentation, design-code parity, plugin debugging, Remote SSE for cloud/CI
+- **figma-use**: JSX rendering (2-4x fewer tokens, 1 call for complex trees), dedicated analysis commands (clusters, colors, typography, spacing, snapshot), visual diffing (pixel + property + JSX), XPath 3.1 queries, boolean operations, 150K+ Iconify icons, CSS Grid, vector path manipulation
+- **Official MCP**: Design-to-code translation (`get_design_context`), Code Connect mappings, FigJam diagrams, design system rules generation, Agent Skills
 
-### What Console Offers That Official Does Not
+### What Only Console Offers
 
-- Design creation and modification via `figma_execute` (full Plugin API access)
-- Variable CRUD (create, read, update, delete design tokens)
+- `figma_execute` — arbitrary Plugin API code execution
+- Variable CRUD (create, update, delete tokens without Enterprise plan)
 - Plugin debugging (real-time console log capture)
-- Project-wide design system extraction (complete system overview)
-- Design-code parity checking (scored diff reports)
-- Component documentation generation (platform-agnostic markdown)
-- 20+ node manipulation tools (move, resize, delete, rename, clone)
 - Interactive MCP Apps (Token Browser, Design System Dashboard)
-- Figma Comments (post, retrieve, clean up design feedback)
-- Variables without Enterprise plan (Desktop Bridge bypasses REST API restriction)
+- Design-code parity checking (scored diff reports)
+- Component documentation generation
+- Remote SSE mode for cloud/CI environments
+
+### What Only figma-use Offers
+
+- JSX rendering via `figma_render` (entire node tree in single call)
+- Dedicated `figma_analyze_*` commands (clusters, colors, typography, spacing, snapshot)
+- Visual diffing (`figma_diff_visual`, `figma_diff_create`, `figma_diff_apply`, `figma_diff_jsx`)
+- XPath 3.1 queries (`figma_query` with fontoxpath)
+- Boolean operations (union, subtract, intersect, exclude)
+- Vector path manipulation (get, set, move, scale, flip SVG paths)
+- Arrange algorithms (grid, row, column, squarify, binary treemap)
+- 150K+ Iconify icons (standalone + JSX inline)
+- JSX round-trip editing (`figma_export_jsx` → edit → `figma_render`)
+- Comment-driven agent workflows (watch, resolve, target_node)
+
+### What Only Official Offers
+
+- `get_design_context` — structured code representation (React, Vue, HTML, iOS)
+- `get_code_connect_map` / `add_code_connect_map` — component-to-code mappings
+- `generate_diagram` — FigJam from Mermaid syntax
+- `create_design_system_rules` — rules file for AI agents
+- Agent Skills — packaged workflow plugins for Claude Code, Cursor
 
 ### Complementary Workflow
 
-Both servers are designed to work together:
+All three servers work together across five phases:
 
-1. **Design creation phase** -- Console MCP (`figma_execute`, component instantiation, variable management)
-2. **Code generation phase** -- Official MCP (`get_design_context` for framework-ready code, `get_variable_defs` for token references)
-3. **Validation phase** -- Console MCP (`figma_check_design_parity`, screenshots, debugging)
-4. **Documentation phase** -- Console MCP (`figma_generate_component_doc`, `figma_set_description`)
+1. **Analysis phase** — figma-use (`figma_analyze_*` for clusters, colors, spacing; `figma_query` for XPath discovery)
+2. **Design creation phase** — Console MCP (`figma_execute`, component instantiation, variable management) + figma-use (`figma_render` for complex multi-node compositions)
+3. **Validation phase** — figma-use (`figma_diff_visual` for pixel comparison, `figma_diff_create` for property diffs) + Console MCP (`figma_check_design_parity`, screenshots, debugging)
+4. **Code generation phase** — Official MCP (`get_design_context` for framework-ready code, `get_variable_defs` for token references)
+5. **Documentation phase** — Console MCP (`figma_generate_component_doc`, `figma_set_description`)
 
-> **Rate limit note**: Official MCP Starter/View/Collab seats get only 6 tool calls per month. Dev/Full seats on paid plans get per-minute rate limits matching Tier 1 REST API. Console MCP has no artificial rate limits beyond underlying Figma API constraints.
+> **Rate limit note**: Official MCP Starter/View/Collab seats get only 6 tool calls per month. Dev/Full seats on paid plans get per-minute rate limits matching Tier 1 REST API. Console MCP and figma-use have no artificial rate limits (both run locally).
