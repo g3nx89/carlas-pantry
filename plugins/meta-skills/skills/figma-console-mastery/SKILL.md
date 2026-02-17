@@ -87,6 +87,8 @@ Every design session follows four phases:
 3. Fix issues found, re-screenshot
 4. `figma_generate_component_doc` → document created components
 
+> **ST trigger**: When a screenshot-fix cycle in Phase 4 reveals unexpected misalignment, activate ST with the Iterative Refinement template from [`st-integration.md#template-iterative-refinement`]. TAO Loop: predict → screenshot → compare → revise if mismatch (max 3 cycles).
+
 ## Decision Matrix — Which Path to Take
 
 Before picking a tool, determine the execution path through three gates:
@@ -132,6 +134,8 @@ When the goal is to convert a freehand/unstructured design into a well-structure
 7. **Health baseline** — `figma_audit_design_system` for a 0-100 health score
 8. **Compile findings** — structure the analysis results into a clear summary for Phase 2
 
+> **ST trigger**: If Phase 1 found deviations in 3+ categories, activate ST with a 7-thought estimate. Use the Phase 1 Analysis template from [`st-integration.md#template-phase-1-analysis`] to structure hypothesis tracking across the 8 analysis steps.
+
 > **Early exit**: If Phase 1 finds zero deviations across all categories, report "This design is already well-structured" with the health score and skip to Phase 5 for a final polish check.
 
 ### Phase 2 — Plan (Socratic)
@@ -148,6 +152,8 @@ Present the Phase 1 findings to the user and ask targeted Socratic questions. Us
 
 **Output**: A confirmed conversion checklist with user-approved decisions. **Do not proceed to Phase 3 until the user approves the plan.**
 
+> **ST trigger**: Use Fork-Join to evaluate Path A vs Path B before presenting to the user. Branch `path-a-eval` and `path-b-eval` from a synthesis thought, analyze trade-offs against Phase 1 findings, then synthesize a recommendation. See [`st-integration.md#template-path-ab-fork-join`].
+
 ---
 
 ### Path A — In-Place Modification
@@ -163,6 +169,8 @@ Use when the user chose Path A in Phase 2. Modifies the existing node tree direc
 5. **Snap spacing** — run the Snap Spacing to 4px Grid recipe on the entire tree
 6. **Rename** — apply semantic slash names using the Batch Rename recipe with user-approved naming from Phase 2
 7. **Visual fidelity check** — `figma_take_screenshot` after each major structural change and compare against the blueprint. If a change shifts element positions, dimensions, or spacing, adjust until the visual output matches the original (max 3 fix cycles per change)
+
+> **ST trigger**: During visual fidelity checks, use the TAO Loop: Thought (predict expected state) → Action (`figma_take_screenshot`) → Thought (compare against blueprint). If deviation detected, use `isRevision: true` before planning the fix. See [`st-integration.md#template-visual-fidelity-loop`].
 
 > **ID tracking**: Several recipes in Phases 3A-4A create new nodes that replace originals (Extract Component, Replace with Library Instance, Reparent). Track new node IDs from recipe outputs — do not rely on IDs from the Phase 1 analysis after structural changes.
 
@@ -207,6 +215,8 @@ Use when the user chose Path B in Phase 2. Builds a new screen from scratch, vis
 
 1. **Token binding** — bind hardcoded colors to tokens using Batch Token Binding recipe
    - If no tokens exist: offer to create them using Design System Bootstrap recipe from `recipes-advanced.md`, or skip if user prefers
+
+> **ST trigger**: When creating a token system via Design System Bootstrap, activate ST with checkpoint thoughts at each phase boundary (Tokens → Components → Documentation). See [`st-integration.md#template-design-system-bootstrap-checkpoint`].
 2. **Accessibility check** — verify contrast ratios, touch target sizes (48x48 minimum), text readability
 3. **Final health score** — re-run `figma_audit_design_system` and compare to Phase 1 baseline
 4. **Visual fidelity report** — compare the final result against the Phase 1 blueprint snapshot and flag any deviations (>2px position shift, different fill colors, missing elements)
@@ -253,6 +263,8 @@ mapping of custom components, an Organization/Enterprise plan is required.
    components that have automatic Code Connect on Professional+ plans
 6. **Health check** — `figma_audit_design_system` for final naming, token, and
    consistency scores
+
+> **ST trigger**: When the naming audit (step 1) surfaces >5 issues with ambiguous false positives (CTA, 2XL, etc.), activate ST with a TAO Loop to reason through each flagged item: classify as true positive, false positive, or ambiguous. See [`st-integration.md#template-naming-audit-reasoning`].
 
 > **Multi-platform**: the component name is the cross-platform contract. The coding
 > agent for each platform searches its own codebase for a component matching the
@@ -402,13 +414,50 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-anal
 
 # figma-use: diffing, XPath queries, boolean ops, vector paths, arrange, icons, storybook
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-diffing.md
+
+# Sequential Thinking integration — thought chain templates for restructuring, handoff, iterative refinement
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/st-integration.md
 ```
 
 ### Loading Tiers
 
 **Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code)
 **Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-overview.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md`
-**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `figma-use-diffing.md`
+**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `figma-use-diffing.md` | `st-integration.md`
+
+## Sequential Thinking Integration (Optional)
+
+> **Prerequisite**: `mcp__sequential-thinking__sequentialthinking` MCP server must be available.
+> **Cross-skill reference**: See `sequential-thinking-mastery` skill for full ST documentation.
+
+When a Figma workflow involves multi-step diagnostic chains, branching decisions, or iterative fix loops, Sequential Thinking can externalize the reasoning into an auditable, revisable thought chain. ST is **never required** — all workflows function identically without it.
+
+### When to Activate ST
+
+| Trigger | Example | ST Pattern |
+|---------|---------|------------|
+| Path A/B decision in restructuring | Phase 2 Socratic planning with ambiguous findings | Fork-Join |
+| Iterative screenshot-fix cycle | Phase 3/4 validation revealing unexpected misalignment | TAO Loop + Revision |
+| Multi-step diagnostic analysis | Phase 1 producing deviations across 3+ categories | Hypothesis Tracking |
+| Code Handoff naming audit | Step 1 surfaces >5 ambiguous flags (CTA, 2XL, etc.) | TAO Loop |
+
+### When to SKIP ST
+
+- Simple create-screenshot-confirm flows (G1/G2 paths with <3 steps)
+- Quick Audit with zero deviations found
+- Single-tool operations (status check, navigate, search)
+
+### Integration Rules
+
+1. **TAO Loop**: Alternate `sequentialthinking` calls with Figma tool calls — never batch all thinking before all actions
+2. **Checkpoint at phase boundary**: Before transitioning between phases, emit a checkpoint thought summarizing findings
+3. **Revision on contradiction**: When `figma_take_screenshot` reveals a result contradicting the previous thought, use `isRevision: true`
+4. **Circuit breaker at 15**: If a thought chain exceeds 15 steps within a single phase, checkpoint and request user guidance
+5. **Max 3 fix cycles**: The existing max-3-screenshot-fix-cycles rule supersedes ST's dynamic horizon — never extend fix loops beyond 3
+
+> Full rule set (6 rules including evidence-based progression): see `st-integration.md` Integration Rules Summary.
+
+**Thought chain templates**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/st-integration.md`
 
 ## Troubleshooting Quick Index
 

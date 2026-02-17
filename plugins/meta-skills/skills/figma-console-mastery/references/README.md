@@ -18,6 +18,7 @@
 | `figma-use-jsx-patterns.md` | 365 | JSX rendering via `figma_render`, shorthand props reference, Plugin API → JSX translation table, CSS Grid, Iconify icons, complex single-call composition, round-trip editing, common gotchas | Rendering JSX in Figma, complex multi-node compositions (Tier 2 — by task) |
 | `figma-use-analysis.md` | 257 | Dedicated `figma_analyze_*` commands (clusters, colors, typography, spacing, snapshot), restructuring workflow integration, dual-server analysis workflow | Analyzing or auditing existing designs without writing code (Tier 2 — by task) |
 | `figma-use-diffing.md` | 298 | Visual/property/JSX diffing, XPath 3.1 queries (`figma_query`), boolean operations, vector path manipulation, arrange algorithms, Storybook export, comment-driven workflows | Diffing designs, XPath queries, boolean ops, vector paths, specialty operations (Tier 3 — by need) |
+| `st-integration.md` | 537 | Sequential Thinking thought chain templates (Phase 1 Analysis, Path A/B Fork-Join, Visual Fidelity Loop, Naming Audit Reasoning, Iterative Refinement, Design System Bootstrap Checkpoint), activation protocol, suppress conditions, session protocol mapping | ST server available and workflow complexity warrants structured reasoning (Tier 3 — by need) |
 
 ## Cross-References
 
@@ -37,6 +38,7 @@
 | `figma-use-jsx-patterns.md` | `figma-use-overview.md`, `recipes-foundation.md`, `recipes-components.md`, `recipes-advanced.md`, `plugin-api.md`, `design-rules.md` |
 | `figma-use-analysis.md` | `figma-use-overview.md`, `recipes-restructuring.md`, `figma-use-diffing.md` |
 | `figma-use-diffing.md` | `figma-use-overview.md`, `figma-use-analysis.md`, `figma-use-jsx-patterns.md`, `recipes-restructuring.md` |
+| `st-integration.md` | `recipes-restructuring.md`, `recipes-advanced.md`, `tool-playbook.md` |
 
 ## Content Ownership (Deduplication)
 
@@ -65,3 +67,4 @@ Each topic lives in exactly one canonical file:
 | Two-server decision matrix (figma-use vs figma-console) | `figma-use-overview.md` |
 | Handoff preparation pattern and naming audit recipe | `recipes-advanced.md` |
 | Code-readiness SHOULD rules (#11-14) | `design-rules.md` |
+| ST thought chain templates for Figma workflows | `st-integration.md` |
