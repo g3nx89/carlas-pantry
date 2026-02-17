@@ -18,20 +18,17 @@ claude plugins add carlas-pantry/meta-skills
 claude plugins enable meta-skills
 ```
 
-## Available Commands
-
-*Coming soon*
-
 ## Available Skills
 
-*Coming soon*
-
-## Roadmap
-
-- [ ] MCP server diagnostic skill
-- [ ] Claude Code configuration optimizer
-- [ ] Workflow pattern library
-- [ ] Best practices guide
+| Skill | Description |
+|-------|-------------|
+| `figma-console-mastery` | Design creation via Console MCP (56+ tools) + figma-use MCP (JSX, analysis, diffing), with Code Handoff Protocol and optional Sequential Thinking integration |
+| `sequential-thinking-mastery` | Structured reasoning via ST MCP — TAO Loop, Fork-Join, Revision, Checkpoint patterns |
+| `research-mcp-mastery` | Web research and documentation lookup via research MCP servers |
+| `mobile-mcp-mastery` | Mobile app automation and testing via mobile MCP servers |
+| `pal-mcp-mastery` | Multi-model consensus via PAL (GPT, Gemini, etc.) for second opinions |
+| `deep-reasoning-escalation` | Escalation prompts for complex reasoning requiring external deep-thinking models |
+| `skill-analyzer` | Analyze and audit skill quality, structure, and progressive disclosure |
 
 ## License
 
