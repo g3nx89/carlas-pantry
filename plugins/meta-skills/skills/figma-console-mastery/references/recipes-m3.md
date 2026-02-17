@@ -3,7 +3,7 @@
 > **Compatibility**: Verified against Figma Console MCP v1.10.0 (February 2026)
 >
 > For M3 spec values (colors, typography, dimensions), see `design-rules.md`. For Plugin API details, see `plugin-api.md`. For common errors, see `anti-patterns.md`.
-> For core recipes (foundation patterns, layouts, generic components, composition), see `recipes.md`.
+> For core recipes (foundation patterns, layouts, generic components, composition), see `recipes-foundation.md`, `recipes-components.md`, and `recipes-advanced.md`.
 
 ---
 

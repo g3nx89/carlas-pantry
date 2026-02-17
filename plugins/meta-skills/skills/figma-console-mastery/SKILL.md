@@ -41,8 +41,10 @@ The Figma Console MCP server (Southleft) exposes **56+ tools** in Local mode (~2
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md  # Which tool to call
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api.md     # Writing figma_execute code (nodes, auto-layout, text, colors, images, components, variables)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md   # Design decisions + M3 specs
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes.md        # Core code recipes (layouts, components, composition)
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-m3.md     # M3 component recipes
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-foundation.md  # Foundation patterns + layouts (always needed for figma_execute)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-components.md  # Component code recipes (cards, buttons, forms, tables, etc.)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-advanced.md    # Composition, variable binding, full page assembly, chaining
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-m3.md          # M3 component recipes
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md  # Errors and debugging
 ```
 
@@ -188,8 +190,14 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api.md
 # Design rules — MUST/SHOULD/AVOID rules, dimensions, typography, M3 specs
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md
 
-# Ready-to-use code recipes — cards, buttons, inputs, toast, navbar, sidebar, form, data table, empty state, full page composition, chaining
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes.md
+# Foundation patterns + layouts — ALWAYS load when writing figma_execute code
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-foundation.md
+
+# Component recipes — cards, buttons, inputs, toast, navbar, sidebar, form, data table, empty state, modal
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-components.md
+
+# Advanced patterns — composition, variable binding, SVG import, rich text, full page assembly, chaining
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-advanced.md
 
 # Material Design 3 component recipes — M3 Button, Card, Top App Bar, TextField, Dialog, Snackbar, Bottom Nav, Elevation
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-m3.md
@@ -200,6 +208,12 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.
 # GUI walkthrough instructions — setup, plugin activation, cache refresh, node selection, CDP transport
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/gui-walkthroughs.md
 ```
+
+### Loading Tiers
+
+**Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code)
+**Tier 2 — By task:** `recipes-components.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md`
+**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md`
 
 ## Troubleshooting Quick Index
 

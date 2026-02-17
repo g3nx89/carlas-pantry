@@ -2,7 +2,7 @@
 
 > **Compatibility**: Verified against Figma Plugin API via Figma Console MCP v1.10.0 (February 2026)
 
-> For M3 specs to use in code, see `design-rules.md`. For complete working recipes, see `recipes.md`. For error recovery, see `anti-patterns.md`.
+> For M3 specs to use in code, see `design-rules.md`. For complete working recipes, see `recipes-foundation.md`, `recipes-components.md`, and `recipes-advanced.md`. For error recovery, see `anti-patterns.md`.
 
 ---
 
@@ -694,4 +694,4 @@ if (textNode.hasMissingFont) {
 }
 ```
 
-> For complete working code recipes (cards, buttons, inputs, M3 components, composition patterns), see `recipes.md` and `recipes-m3.md`. For common mistakes and fixes, see `anti-patterns.md`.
+> For complete working code recipes (cards, buttons, inputs, M3 components, composition patterns), see `recipes-components.md`, `recipes-advanced.md`, and `recipes-m3.md`. For common mistakes and fixes, see `anti-patterns.md`.

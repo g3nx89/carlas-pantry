@@ -4,7 +4,7 @@
 
 This reference consolidates mandatory rules, recommended practices, anti-patterns, standard dimensions, typography scales, and QA checklists for making design decisions when creating or modifying Figma designs programmatically.
 
-> For working code implementing M3 components, see `recipes.md`.
+> For working code implementing M3 components, see `recipes-components.md` and `recipes-m3.md`.
 > For Plugin API code patterns, see `plugin-api.md`.
 
 ---
