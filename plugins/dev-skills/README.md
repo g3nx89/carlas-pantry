@@ -2,7 +2,7 @@
 
 A collection of 22 skills supporting software design, development, and quality assurance activities.
 
-**Version:** 1.1.0 (see `.claude-plugin/plugin.json`)
+**Version:** 1.2.0 (see `.claude-plugin/plugin.json`)
 
 ## Installation
 
@@ -22,7 +22,7 @@ Use this index to select the appropriate skill based on your task. Skills are op
 |--------|-------|------------------|
 | **Mobile** | `mobile-design` | mobile app, React Native, Flutter, iOS, Android, touch UI |
 | **Mobile** | `android-expert` | Android navigation, permissions, lifecycle, Manifest |
-| **Mobile** | `android-cli-testing` | ADB, emulator CLI, logcat, dumpsys, Perfetto, CI testing |
+| **Mobile** | `android-cli-testing` | ADB, emulator CLI, logcat, dumpsys, Perfetto, benchmarks, APK analysis, a11y testing, CI |
 | **Mobile** | `compose-expert` | Composable, Compose UI, remember, recomposition |
 | **Kotlin** | `kotlin-expert` | StateFlow, sealed class, @Immutable, DSL builder |
 | **Kotlin** | `kotlin-coroutines` | callbackFlow, supervisorScope, Flow operators |
@@ -72,9 +72,9 @@ Use this index to select the appropriate skill based on your task. Skills are op
 #### `android-cli-testing`
 **When to use:** Android testing and debugging from the CLI without Android Studio.
 
-**Triggers:** "run Android tests from CLI", "debug with ADB", "set up emulator for CI", "launch headless emulator", "capture logcat", "profile performance", "dumpsys", "Perfetto traces", "screenrecord", "port forwarding", "USB debugging"
+**Triggers:** "run Android tests from CLI", "debug with ADB", "set up emulator for CI", "capture logcat", "profile performance", "dumpsys", "Perfetto traces", "run benchmarks", "track APK size", "accessibility testing", "detect memory leaks", "Marathon", "Flank", "Kover", "JaCoCo"
 
-**Covers:** ADB commands (logcat, dumpsys, app management, input simulation), SDK Emulator CLI (sdkmanager, avdmanager, emulator flags), performance profiling (Perfetto, gfxinfo, method tracing), CI/CD pipeline patterns, physical device debugging, OEM considerations.
+**Covers:** ADB commands (logcat, dumpsys, hidden commands, settings database), SDK Emulator CLI (avdmanager, emulator flags, CI optimization), test frameworks (Espresso, Compose, Maestro, Robolectric, Paparazzi, Roborazzi), benchmarking (Micro/Macrobenchmark, Baseline Profiles, regression detection), APK size analysis (apkanalyzer, bundletool, R8, CI tracking), performance profiling (Perfetto SQL, gfxinfo, method tracing), memory leak detection (SharkCli, procstats, CI integration), accessibility testing (ATF, TalkBack, touch targets, contrast), coverage (JaCoCo, Kover, diff coverage), CI/CD pipelines (GitHub Actions, GitLab CI, Firebase Test Lab, device farms).
 
 **Delegates to:** `genymotion-expert` (Genymotion emulation), `android-expert` (navigation, permissions), `gradle-expert` (build issues)
 
