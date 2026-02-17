@@ -130,6 +130,31 @@ hw.cpu.ncore=4
 hw.cpu.arch=x86_64
 ```
 
+### Optimal AVD Hardware Profile for CI
+
+Override default config.ini values for CI runners where resources are constrained and headless rendering is the norm.
+
+| Setting | CI Value | Rationale |
+|---------|----------|-----------|
+| `hw.ramSize` | 2048 | 2GB sufficient; 4GB wastes runner memory |
+| `vm.heapSize` | 512 | Enough for most apps; reduce if OOM-killing runner |
+| `hw.cpu.ncore` | 2 | Match typical runner allocation (2-4 cores) |
+| `hw.lcd.density` | 240 (hdpi) | Lower density = less GPU work |
+| `hw.lcd.width` | 1080 | Standard; don't go higher |
+| `hw.lcd.height` | 1920 | Standard; don't go higher |
+| `disk.dataPartition.size` | 2G | Minimum viable; increase for large test data |
+| `hw.gpu.enabled` | yes | Required for swiftshader_indirect |
+| `hw.gpu.mode` | swiftshader_indirect | Software rendering for headless CI |
+
+```bash
+# Create CI-optimized AVD, then override config
+avdmanager create avd -n ci-test \
+  -k "system-images;android-31;aosp_atd;x86_64" \
+  --device "pixel_2"
+
+# Then edit ~/.android/avd/ci-test.avd/config.ini with CI values above
+```
+
 ## Emulator Command Flags
 
 **Location**: `$ANDROID_HOME/emulator/emulator`
@@ -142,14 +167,40 @@ emulator -list-avds              # List available AVDs
 
 ### Headless/CI Flags
 
-| Flag | Purpose |
-|------|---------|
-| `-no-window` | Run without display window |
-| `-no-audio` / `-noaudio` | Disable audio |
-| `-no-boot-anim` | Skip boot animation (saves seconds) |
-| `-no-snapshot` | Disable snapshot load AND save entirely |
-| `-no-snapshot-load` | Cold boot, but save state on exit |
-| `-no-snapshot-save` | Quick boot if possible, don't save on exit |
+```bash
+# Recommended CI launch command
+emulator @ci-test \
+  -no-window \
+  -no-boot-anim \
+  -no-snapshot-load \
+  -gpu swiftshader_indirect \
+  -noaudio \
+  -camera-back none \
+  -camera-front none \
+  -no-metrics
+```
+
+| Flag | Purpose | Impact |
+|------|---------|--------|
+| `-no-window` | Run without display window | Reduces CPU/memory; required on runners without display |
+| `-no-audio` / `-noaudio` | Disable audio | Eliminates audio driver errors on headless runners |
+| `-no-boot-anim` | Skip boot animation | Saves 5-10s boot time |
+| `-gpu swiftshader_indirect` | Software GPU rendering | Stable on headless Linux; `-gpu host` fails without display |
+| `-camera-back none` | Disable rear camera | Avoids camera subsystem initialization overhead |
+| `-camera-front none` | Disable front camera | Same as above; both should be `none` in CI |
+| `-no-metrics` | Disable metrics reporting | Prevents network calls to Google during test runs |
+| `-no-snapshot` | Disable snapshot load AND save entirely | Clean cold boot every time |
+| `-no-snapshot-load` | Cold boot, but save state on exit | Avoids corrupted snapshot hangs; good for snapshot generation |
+| `-no-snapshot-save` | Quick boot if possible, don't save on exit | Faster shutdown; use with cached snapshots to avoid overwriting the clean snapshot |
+
+**Disable animations after boot (critical for flakiness):** See SKILL.md > Boot Wait for the three `animation_scale` commands. Or in `build.gradle`:
+```groovy
+android {
+    testOptions {
+        animationsDisabled = true
+    }
+}
+```
 
 ### GPU Modes (`-gpu mode`)
 
@@ -288,6 +339,19 @@ sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
 6. ATD images boot faster with fewer background services
 
 **Host requirements**: Minimum 8GB RAM (16GB recommended). Emulator RAM 2048-4096MB. VM heap 256-512MB. At least 2 CPU cores (`hw.cpu.ncore=4` in config.ini). SSD strongly recommended.
+
+## API-Level Known Bugs and Workarounds
+
+| API Level | Issue | Workaround |
+|-----------|-------|------------|
+| 30 | DNS resolution failures | `emulator -dns-server 8.8.8.8,8.8.4.4` |
+| 31 | x86_64 launch failure on some hosts | Use `google_apis` target instead of `default`; issue #266 |
+| 32+ | Slow DNS (4s per lookup) | `-dns-server 8.8.8.8,8.8.4.4` and/or set `net.dns1` via `setprop` |
+| 33 | Intermittent boot hangs in CI | Increase boot timeout to 600s; use cold boot (`-no-snapshot-load`); retry step |
+| 34 | Degraded perf pushing large files | Fixed in emulator 34.x; update cmdline-tools to latest |
+| 35 | Quick-boot kernel crash (Windows/WHPX) | Linux+KVM unaffected; use cold boot on Windows |
+
+**Safest API levels for CI:** 30 (with DNS fix), 31, 34 (with latest emulator). Avoid API 33 if boot reliability is critical.
 
 ## Known Limitations
 

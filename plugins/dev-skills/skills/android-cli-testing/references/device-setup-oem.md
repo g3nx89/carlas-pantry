@@ -142,7 +142,7 @@ USB is significantly faster for APK installs (~480 Mbps vs ~50-100 Mbps WiFi). W
 
 Samsung > OnePlus > Huawei > Xiaomi > Nokia > Pixel (reference: dontkillmyapp.com)
 
-## Anti-Patterns and Pitfalls
+## Anti-Patterns
 
 ### ADB Reliability Traps
 

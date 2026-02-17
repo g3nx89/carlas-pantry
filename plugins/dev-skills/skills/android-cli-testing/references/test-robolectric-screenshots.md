@@ -45,9 +45,33 @@ Global configuration via `src/test/resources/robolectric.properties`:
 sdk=30
 ```
 
-### Compose + Robolectric Gotchas
+### Compose + Robolectric Compatibility (2024-2025)
 
-- Use `@LooperMode(PAUSED)` and run queued tasks explicitly
+**What works (full support):**
+- Compose semantics tree assertions
+- Click, scroll, text input actions
+- State management / ViewModel tests
+- Navigation tests with `TestNavHostController`
+- Screenshot capture via Roborazzi (with visual caveats)
+- `createComposeRule()` and `createAndroidComposeRule<ComponentActivity>()`
+- `StateRestorationTester` for `rememberSaveable` verification
+- `runComposeUiTest { }` (JUnit-free entry point, stable in Compose 1.7+)
+
+**What does NOT work or has issues:**
+- `captureToImage()` times out with native graphics (Robolectric issue #8071)
+- Elevation shadows not rendered in screenshots (#8081)
+- Density changes via `ShadowDisplay` not reflected in Compose (#8476)
+- Pixel-perfect rendering differs from devices (font hinting, anti-aliasing)
+- Hardware-accelerated Canvas operations may behave differently
+- CameraX, Google Maps, and hardware-dependent APIs do not work
+- `SwipeUp` bug in Compose 1.7 on Robolectric
+
+**Shadow limitations:**
+- `ShadowDisplay` density changes are ignored by Compose layout
+- No shadow support for elevation-based Material Design visuals in screenshots
+- Font anti-aliasing uses JVM rendering, not device rendering -- screenshots will never be pixel-identical to device output
+
+**Configuration gotchas:**
 - Must use `testImplementation` (not `androidTestImplementation`) for Compose testing artifact
 - Requires `isIncludeAndroidResources = true` in testOptions:
   ```kotlin
@@ -57,11 +81,44 @@ sdk=30
     }
   }
   ```
-- Known `SwipeUp` bug in Compose 1.7 on Robolectric
-- CameraX, Google Maps, and hardware-dependent APIs do not work on Robolectric
+- Add `@Config(sdk = [34])` to pin SDK level. Robolectric 4.11+ supports SDK 34
+- Enable native graphics with `@GraphicsMode(GraphicsMode.Mode.NATIVE)` for screenshot tests
 - AndroidX Room: use Robolectric's in-memory database for testing
 - Large Compose suites may leak resources and slow down over time
 - Move complex `LaunchedEffect`/`DisposableEffect` async flows to instrumented tests (see `test-espresso-compose.md`)
+
+### State Restoration Testing (JVM)
+
+Verify `rememberSaveable` survives activity recreation without a device:
+
+```kotlin
+@get:Rule val composeTestRule = createComposeRule()
+
+@Test
+fun stateRestoredAfterRecreation() {
+    val restorationTester = StateRestorationTester(composeTestRule)
+
+    restorationTester.setContent { CounterScreen() }
+
+    // Modify state
+    composeTestRule.onNodeWithText("Increment").performClick()
+    composeTestRule.onNodeWithText("Count: 1").assertExists()
+
+    // Simulate process death / config change
+    restorationTester.emulateSavedInstanceStateRestore()
+
+    // Verify state survived
+    composeTestRule.onNodeWithText("Count: 1").assertExists()
+}
+```
+
+CLI:
+
+```bash
+./gradlew :app:testDebugUnitTest --tests "*.StateRestorationTest"
+```
+
+**Gotcha:** `StateRestorationTester` only tests `rememberSaveable`. It does NOT test ViewModel `SavedStateHandle` persistence. For ViewModel state, use `ViewModelScenario` (added in lifecycle 2.9+). Use `setContent` on the `restorationTester`, not on `composeTestRule` directly.
 
 ### Molecule (Compose State Testing on JVM)
 
@@ -133,7 +190,53 @@ android {
 }
 ```
 
+#### Compose Test Rule Integration
+
+Roborazzi integrates directly with Compose test rules on Robolectric:
+
+```kotlin
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class ScreenshotTest {
+    @get:Rule val composeTestRule = createComposeRule()
+
+    @Test
+    fun profileScreen_snapshot() {
+        composeTestRule.setContent { ProfileScreen() }
+        composeTestRule.onRoot().captureRoboImage(
+            filePath = "src/test/snapshots/ProfileScreen.png"
+        )
+    }
+}
+```
+
+**Gotcha:** Always annotate screenshot test classes with `@GraphicsMode(GraphicsMode.Mode.NATIVE)` for proper rendering. Shadows (elevation) do NOT render in screenshots. Font anti-aliasing differs from real devices. For animated previews, use `@RoboComposePreviewOptions` with `ManualClockOptions` to capture at specific timestamps.
+
+#### Preview-Based Screenshot Generation
+
+Zero-test-code approach -- auto-generates screenshot tests from `@Preview` functions:
+
+```kotlin
+// build.gradle.kts
+roborazzi {
+    @OptIn(ExperimentalRoborazziApi::class)
+    generateComposePreviewRobolectricTests {
+        enable = true
+        packages = listOf("com.example.ui")
+    }
+}
+```
+
 CLI:
+
+```bash
+# Record preview-based screenshots (JVM-only)
+./gradlew recordRoborazziJvm
+```
+
+This scans specified packages for `@Preview` composables and generates screenshot tests automatically. Useful for large design systems where writing individual test files is impractical.
+
+#### CLI Commands
 
 ```bash
 # Record new screenshots
@@ -147,9 +250,6 @@ CLI:
 
 # Clear all stored screenshots
 ./gradlew clearRoborazziDebug
-
-# Compose Previews integration (JVM-only)
-./gradlew recordRoborazziJvm
 ```
 
 Property-based mode control (alternative to task names):
@@ -165,7 +265,21 @@ Property-based mode control (alternative to task names):
 ./gradlew testDebugUnitTest -Proborazzi.test.compare=true
 ```
 
-Output paths: `build/outputs/roborazzi/` (recorded images), `build/outputs/roborazzi/diffs` (diff images from compare/verify).
+Output paths: `build/outputs/roborazzi/` (recorded images), `build/outputs/roborazzi/diffs` (diff images from compare/verify). HTML report at `build/reports/roborazzi/index.html`.
+
+### Google Compose Preview Screenshot Testing
+
+Separate from Roborazzi. Generates screenshots only from `@Preview` functions -- no interaction support.
+
+```bash
+# Record
+./gradlew :app:updateDebugScreenshotTest
+
+# Verify
+./gradlew :app:validateDebugScreenshotTest
+```
+
+**Gotcha:** Google's tool is preview-only with no click/scroll simulation. Roborazzi supports interaction-based multi-frame capture. Choose based on whether you need interaction in screenshots.
 
 ### Shot (Karumi, Instrumentation-Based)
 
@@ -181,4 +295,128 @@ Device/emulator required. Less Compose-specific than Paparazzi/Roborazzi.
 |------|----------------|-------|-----------------|----------|
 | Paparazzi | No (JVM) | Fast | Good | Library modules, preview snapshots |
 | Roborazzi | No (Robolectric) | Fast | Good | Full app screenshots with DI |
+| Google Preview Screenshots | No (JVM) | Fast | Preview-only | @Preview validation, no interaction |
 | Shot | Yes | Slow | Basic | Legacy view-based screenshots |
+
+## Multi-Module Compose Test Fixtures
+
+Share test utilities across modules via Gradle test fixtures:
+
+```kotlin
+// :core:ui module build.gradle.kts
+plugins {
+    id("com.android.library")
+}
+
+android {
+    // Enable test fixtures (AGP 8.5.1+)
+    testFixtures { enable = true }
+}
+
+// :core:ui/src/testFixtures/kotlin/ComposeTestHelpers.kt
+fun ComposeTestRule.assertScreenDisplayed(tag: String) {
+    onNodeWithTag(tag).assertIsDisplayed()
+}
+
+fun ComposeTestRule.waitAndAssert(text: String, timeoutMillis: Long = 5_000) {
+    waitUntilAtLeastOneExists(hasText(text), timeoutMillis)
+    onNodeWithText(text).assertIsDisplayed()
+}
+
+// :feature:profile module build.gradle.kts
+dependencies {
+    testImplementation(testFixtures(project(":core:ui")))
+}
+```
+
+### Preview Parameter Providers for Tests
+
+Reuse `@Preview` parameter providers to generate test data across modules:
+
+```kotlin
+// :core:ui/src/testFixtures/kotlin/PreviewProviders.kt
+class ThemePreviewProvider : PreviewParameterProvider<Boolean> {
+    override val values = sequenceOf(true, false)
+}
+
+class LocalePreviewProvider : PreviewParameterProvider<Locale> {
+    override val values = sequenceOf(Locale.US, Locale.JAPAN, Locale.GERMANY)
+}
+
+// Usage in screenshot tests (any module)
+@RunWith(ParameterizedRobolectricTestRunner::class)
+class ThemedScreenshotTest(private val darkMode: Boolean) {
+    companion object {
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters
+        fun params() = listOf(true, false)
+    }
+
+    @get:Rule val composeTestRule = createComposeRule()
+
+    @Test
+    fun screen_inTheme() {
+        composeTestRule.setContent {
+            AppTheme(darkTheme = darkMode) { ProfileScreen() }
+        }
+        composeTestRule.onRoot().captureRoboImage(
+            filePath = "src/test/snapshots/Profile_dark$darkMode.png"
+        )
+    }
+}
+```
+
+CLI:
+
+```bash
+./gradlew :feature:profile:testDebugUnitTest
+```
+
+**Gotcha:** AGP test fixtures support landed in 8.5.1. Version 8.9+ auto-includes kotlin-stdlib. Implementation dependencies of fixtures do NOT leak into consuming module's test compile classpath (good for isolation). Place only shared builders, matchers, and assertion extensions in `testFixtures` -- keep test-specific logic in each module's `src/test`.
+
+## Experimental and Recent APIs (Compose 1.7-1.8, 2025)
+
+| API | Status | What It Does |
+|-----|--------|-------------|
+| `runComposeUiTest { }` | Stable 1.7+ | JUnit-free test entry point, suspend-compatible |
+| `MultiModalInjectionScope` | Stable 1.8 | `performKeyInput`, `performRotaryScrollInput` |
+| `waitUntilAtLeastOneExists` | Stable 1.4+ | Replaces manual `waitUntil` polling |
+| `ComposePreviewScreenshot` | Experimental | Google's preview-based screenshot plugin |
+| `ViewModelScenario` | lifecycle 2.9+ | Process death simulation for ViewModels |
+
+**Experimental API reduction:** Compose 1.8 reduced experimental APIs from 172 to 70 (59% decrease). Most testing APIs are now stable.
+
+### runComposeUiTest (JUnit-Free)
+
+Multiplatform-compatible entry point that runs without JUnit rules:
+
+```kotlin
+@OptIn(ExperimentalTestApi::class)
+@Test fun myTest() = runComposeUiTest {
+    setContent { MyComposable() }
+    onNodeWithText("Hello").assertExists()
+}
+```
+
+Runs as a standard JVM test on Robolectric. Accepts suspend blocks since Compose 1.7+.
+
+### ViewModelScenario (Process Death for ViewModels)
+
+Tests ViewModel `SavedStateHandle` persistence (complements `StateRestorationTester` which only covers `rememberSaveable`):
+
+```kotlin
+// Requires lifecycle 2.9+
+@Test
+fun viewModel_survivesProcessDeath() {
+    val scenario = ViewModelScenario(MyViewModel::class)
+    scenario.onViewModel { vm ->
+        vm.updateState("test value")
+    }
+    scenario.recreate()
+    scenario.onViewModel { vm ->
+        assertEquals("test value", vm.state.value)
+    }
+}
+```
+
+CLI: `./gradlew :app:testDebugUnitTest --tests "*.ViewModelScenarioTest"`

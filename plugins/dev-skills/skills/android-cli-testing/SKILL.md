@@ -1,7 +1,7 @@
 ---
 name: android-cli-testing
-description: This skill should be used when the user asks to "run Android tests from CLI", "debug Android app with ADB", "set up emulator for CI", "launch headless emulator", "capture logcat output", "profile Android performance", "use adb shell commands", "wait for emulator boot", "run instrumented tests", "set up wireless debugging", "capture Perfetto traces", "check frame jank", "manage AVDs from command line", "disable animations for testing", "configure emulator for CI/CD", "use dumpsys for debugging", "capture bugreport", "record screen with adb", "set up port forwarding", "run am instrument", "set up USB debugging", "run Espresso tests from Gradle", "filter tests by class or annotation", "set up test sharding", "use Android Test Orchestrator", "run Compose UI tests", "set up Paparazzi screenshot tests", "use Roborazzi", "run Maestro flows", "generate code coverage with JaCoCo", "use Gradle Managed Devices", "inspect SQLite database from CLI", "read SharedPreferences from CLI", "run monkey testing", "detect memory leaks from CLI", "analyze ANR traces", "simulate Doze mode", "set up GitHub Actions for Android", "set up GitLab CI for Android", "parse JUnit XML test results", "detect flaky Android tests", "run Android benchmarks from CLI", "generate Baseline Profile", "track APK size", "measure Android startup time", "detect benchmark regressions", "enforce coverage thresholds", "pre-flight CI validation", "diagnose Android crashes from CLI", or mentions ADB, avdmanager, sdkmanager, emulator CLI, dumpsys, screenrecord, Espresso, Compose testing, UIAutomator, Maestro, Robolectric, Paparazzi, Roborazzi, JaCoCo, monkey, StrictMode, Microbenchmark, Macrobenchmark, Baseline Profiles, apkanalyzer, or Android CLI debugging. Covers Android SDK Emulator CLI, ADB testing/debugging, test frameworks (Espresso, Compose, Appium, Maestro), test result parsing, benchmarking, advanced debugging, physical device profiling, and CI/CD pipeline patterns. Delegates Genymotion-specific workflows to genymotion-expert.
-version: 2.6.0
+description: This skill should be used when the user asks to "run Android tests from CLI", "debug Android app with ADB", "set up emulator for CI", "launch headless emulator", "capture logcat output", "profile Android performance", "use adb shell commands", "wait for emulator boot", "run instrumented tests", "set up wireless debugging", "capture Perfetto traces", "check frame jank", "manage AVDs from command line", "disable animations for testing", "configure emulator for CI/CD", "use dumpsys for debugging", "capture bugreport", "record screen with adb", "set up port forwarding", "run am instrument", "set up USB debugging", "run Espresso tests from Gradle", "filter tests by class or annotation", "set up test sharding", "use Android Test Orchestrator", "run Compose UI tests", "set up Paparazzi screenshot tests", "use Roborazzi", "run Maestro flows", "generate code coverage with JaCoCo", "use Kover for Kotlin coverage", "use Gradle Managed Devices", "inspect SQLite database from CLI", "read SharedPreferences from CLI", "run monkey testing", "detect memory leaks from CLI", "analyze ANR traces", "simulate Doze mode", "set up GitHub Actions for Android", "set up GitLab CI for Android", "parse JUnit XML test results", "detect flaky Android tests", "fix flaky instrumented tests", "run Android benchmarks from CLI", "generate Baseline Profile", "track APK size", "analyze APK with apkanalyzer", "measure Android startup time", "detect benchmark regressions", "enforce coverage thresholds", "pre-flight CI validation", "diagnose Android crashes from CLI", "run accessibility tests from CLI", "check WCAG compliance on Android", "validate touch target sizes", "test TalkBack from CLI", "analyze Perfetto traces with SQL", "use trace_processor_shell", "detect memory leaks in CI", "use SharkCli for heap analysis", "use Marathon test runner", "use Flank for test sharding", "set up AVD snapshot caching", "use diff coverage", or mentions ADB, avdmanager, sdkmanager, emulator CLI, dumpsys, screenrecord, Espresso, Compose testing, UIAutomator, Maestro, Robolectric, Paparazzi, Roborazzi, JaCoCo, Kover, monkey, StrictMode, Microbenchmark, Macrobenchmark, Baseline Profiles, apkanalyzer, bundletool, Perfetto, trace_processor, SharkCli, Marathon, Flank, accessibility testing, or Android CLI debugging. Covers Android SDK Emulator CLI, ADB testing/debugging, test frameworks (Espresso, Compose, Appium, Maestro), test result parsing, benchmarking, advanced debugging, physical device profiling, accessibility testing, and CI/CD pipeline patterns. Delegates Genymotion-specific workflows to genymotion-expert.
+version: 3.0.0
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
@@ -21,8 +21,12 @@ CLI-driven Android testing and debugging without Android Studio. Covers ADB, And
 - Simulating network conditions, battery state, or input events
 - Running Espresso, Compose, Maestro, or UI Automator tests from CLI
 - Screenshot regression testing (Paparazzi, Roborazzi)
-- Code coverage with JaCoCo
+- Code coverage with JaCoCo or Kover, diff coverage
 - Advanced debugging: StrictMode, monkey testing, memory leaks, ANR analysis
+- Accessibility testing from CLI (Espresso a11y checks, TalkBack, touch targets, contrast)
+- Perfetto trace capture and SQL-based analysis
+- Flaky test detection, retry strategies, and quarantine patterns
+- APK/AAB size analysis and CI regression tracking
 - Setting up GitHub Actions or GitLab CI for Android
 
 ## When NOT to Use
@@ -52,29 +56,31 @@ CLI-driven Android testing and debugging without Android Studio. Covers ADB, And
 
 ## Reference Map
 
-| Topic | Reference File | When to Read |
-|-------|----------------|--------------|
-| ADB connection & apps | `references/adb-connection-apps.md` | Architecture, USB/WiFi/TCP, app install, permissions, Activity Manager |
-| ADB logcat & dumpsys | `references/adb-logcat-dumpsys.md` | Logcat filtering/buffers, dumpsys services, window focus, fragment state |
-| ADB file I/O & system | `references/adb-io-system.md` | File push/pull, database access, network debug, input, screen capture |
-| Emulator CLI | `references/emulator-cli.md` | sdkmanager, avdmanager, emulator flags, config.ini, console, acceleration |
-| Espresso & Compose testing | `references/test-espresso-compose.md` | Gradle filtering, sharding, Orchestrator, Compose semantics/debugging/clock |
-| UI Automator, Appium, Maestro | `references/test-automation-tools.md` | Cross-app testing, Appium parallel setup, Maestro CLI/flows |
-| Robolectric & screenshots | `references/test-robolectric-screenshots.md` | JVM tests, Compose+Robolectric gotchas, Paparazzi, Roborazzi |
-| Coverage & GMD | `references/test-coverage-gmd.md` | JaCoCo setup/merging, GMD definition/groups/CI properties |
-| Data & storage debugging | `references/debug-data-storage.md` | StrictMode, SQLite/Room, SQL tracing, SharedPreferences |
-| UI & memory debugging | `references/debug-ui-memory.md` | UIAutomator dump, window state, Compose semantics, memory leaks, heap dumps |
-| Crashes & monkey testing | `references/debug-crashes-monkey.md` | ANR traces, tombstones, ndk-stack, crash testing, monkey |
-| System simulation | `references/debug-system-simulation.md` | Doze, battery, density, locale, dark mode, multi-window |
-| Performance profiling | `references/performance-profiling.md` | Perfetto, gfxinfo, method tracing, heap analysis, Macrobenchmark |
-| Benchmark CLI | `references/benchmark-cli.md` | Microbenchmark, Macrobenchmark, startup measurement, Baseline Profiles, APK size, regression detection |
-| Test result parsing | `references/test-result-parsing.md` | JUnit XML parsing, failure triage, flaky detection, iterative debugging loop, CI integration |
-| CI pipeline config | `references/ci-pipeline-config.md` | Test tiers, emulator recommendations, GMD CI, determinism, flaky quarantine, Firebase, pre-flight, coverage gates |
-| Device setup & OEM | `references/device-setup-oem.md` | Physical device CLI setup, multi-device, OEM quirks, ADB reliability |
-| GUI walkthroughs | `references/gui-walkthroughs.md` | Device GUI operations (Developer Options, USB debugging, OEM toggles) |
-| Workflow recipes | `references/workflow-recipes.md` | End-to-end scripts, GitHub Actions, GitLab CI |
-| Deep search prompts | `references/deep-search-prompts.md` | Browser-based research prompts for further skill enrichment |
-| Boot wait script | `scripts/wait-for-boot.sh` | CI emulator setup, reliable boot detection with timeout |
+| Topic | Reference File | Lines | When to Read |
+|-------|----------------|------:|--------------|
+| ADB connection & apps | `references/adb-connection-apps.md` | 246 | Architecture, USB/WiFi/TCP, app install, permissions, Activity Manager |
+| ADB logcat & dumpsys | `references/adb-logcat-dumpsys.md` | 466 | Logcat filtering/buffers, dumpsys services, window focus, fragment state |
+| ADB file I/O & system | `references/adb-io-system.md` | 163 | File push/pull, database access, network debug, input, screen capture |
+| Emulator CLI | `references/emulator-cli.md` | 363 | sdkmanager, avdmanager, emulator flags, config.ini, console, acceleration |
+| Espresso & Compose testing | `references/test-espresso-compose.md` | 723 | Gradle filtering, sharding, Orchestrator, Compose semantics/debugging/clock |
+| UI Automator, Appium, Maestro | `references/test-automation-tools.md` | 156 | Cross-app testing, Appium parallel setup, Maestro CLI/flows |
+| Robolectric & screenshots | `references/test-robolectric-screenshots.md` | 422 | JVM tests, Compose+Robolectric gotchas, Paparazzi, Roborazzi |
+| Coverage & GMD | `references/test-coverage-gmd.md` | 620 | JaCoCo setup/merging, Kover, diff coverage, GMD definition/groups/CI |
+| Data & storage debugging | `references/debug-data-storage.md` | 187 | StrictMode, SQLite/Room, SQL tracing, SharedPreferences |
+| UI & memory debugging | `references/debug-ui-memory.md` | 590 | UIAutomator dump, window state, Compose semantics, memory leaks, heap dumps |
+| Crashes & monkey testing | `references/debug-crashes-monkey.md` | 258 | ANR traces, tombstones, ndk-stack, crash testing, monkey |
+| System simulation | `references/debug-system-simulation.md` | 205 | Doze, battery, density, locale, dark mode, multi-window |
+| Performance profiling | `references/performance-profiling.md` | 700 | Perfetto, gfxinfo, method tracing, heap analysis |
+| Benchmark CLI | `references/benchmark-cli.md` | 578 | Microbenchmark, Macrobenchmark, startup, Baseline Profiles, regression detection |
+| APK size analysis | `references/apk-size-analysis.md` | 469 | apkanalyzer, bundletool, R8, resource/native/DEX analysis, CI size tracking |
+| Test result parsing | `references/test-result-parsing.md` | 317 | JUnit XML parsing, failure triage, flaky detection, iterative debugging loop, CI integration |
+| CI pipeline config | `references/ci-pipeline-config.md` | 704 | Test tiers, emulator recommendations, GMD CI, determinism, flaky quarantine, Firebase, pre-flight, coverage gates |
+| Device setup & OEM | `references/device-setup-oem.md` | 215 | Physical device CLI setup, multi-device, OEM quirks, ADB reliability |
+| GUI walkthroughs | `references/gui-walkthroughs.md` | 193 | Device GUI operations (Developer Options, USB debugging, OEM toggles) |
+| Accessibility testing | `references/accessibility-testing.md` | 351 | Espresso a11y checks, Compose semantics, TalkBack CLI, touch targets, contrast, CI integration |
+| Workflow recipes | `references/workflow-recipes.md` | 439 | End-to-end scripts, GitHub Actions, GitLab CI |
+| Deep search prompts | `references/deep-search-prompts.md` | 249 | Browser-based research prompts for further skill enrichment |
+| Boot wait script | `scripts/wait-for-boot.sh` | — | CI emulator setup, reliable boot detection with timeout |
 
 ## Essentials
 
@@ -110,7 +116,7 @@ After test runs, parse JUnit XML results to extract failures, classify crash typ
 
 ### Benchmarking
 
-Run Microbenchmarks (tight code loops), Macrobenchmarks (startup, scroll jank), and startup measurement (`am start -W`) from CLI. Generate and verify Baseline Profiles, track APK size, and detect benchmark regressions via JSON comparison. **Physical device required** for meaningful results. See `references/benchmark-cli.md`.
+Run Microbenchmarks (tight code loops), Macrobenchmarks (startup, scroll jank), and startup measurement (`am start -W`) from CLI. Generate and verify Baseline Profiles, and detect benchmark regressions via JSON comparison. **Physical device required** for meaningful results. See `references/benchmark-cli.md`. For APK/AAB size analysis with `apkanalyzer`/`bundletool`, R8 verification, and CI size tracking, see `references/apk-size-analysis.md`.
 
 ### Performance Profiling
 
@@ -119,6 +125,10 @@ Capture frame jank via `adb shell dumpsys gfxinfo`, trace execution with Perfett
 ### Debugging
 
 Inspect databases/SharedPreferences via `run-as` + `sqlite3` (see `references/debug-data-storage.md`). Detect memory leaks with activity count monitoring or heap dumps (see `references/debug-ui-memory.md`). Analyze ANR traces and tombstones with `ndk-stack` (see `references/debug-crashes-monkey.md`). Simulate Doze, battery, locale, and config changes (see `references/debug-system-simulation.md`).
+
+### Accessibility Testing
+
+Validate a11y compliance from CLI: enable Espresso `AccessibilityChecks`, assert Compose semantics (contentDescription, role, stateDescription), dump accessibility tree with `dumpsys accessibility`, validate touch target sizes (48dp minimum), and check color contrast ratios. See `references/accessibility-testing.md`.
 
 ### CI/CD Pipelines
 
@@ -145,8 +155,11 @@ Some physical device setup tasks (enabling Developer Options, USB debugging, OEM
 | Run benchmarks on emulators | Use physical devices — emulator numbers are not meaningful |
 | Trust Gradle exit code alone for test results | Parse JUnit XML — build errors and test failures differ |
 | Use `am start -W` as sole CI startup metric | Use Macrobenchmark with JSON output for regression tracking |
+| Skip accessibility testing in CI | Enable Espresso `AccessibilityChecks` in at least one test class |
+| Use JaCoCo alone for Kotlin projects | Evaluate Kover for more accurate Kotlin/Compose coverage |
+| Run flaky tests without retry strategy | Use Marathon, Flank, or JUnit RetryRule with quarantine |
 
-> Domain-specific anti-patterns in `test-coverage-gmd.md`, `debug-system-simulation.md`, `ci-pipeline-config.md`, and `benchmark-cli.md`.
+> Domain-specific anti-patterns in `test-coverage-gmd.md`, `debug-system-simulation.md`, `ci-pipeline-config.md`, `benchmark-cli.md`, and `accessibility-testing.md`.
 
 ## Quick Reference
 
@@ -172,5 +185,12 @@ Some physical device setup tasks (enabling Developer Options, USB debugging, OEM
 | Monkey test | `adb shell monkey -p <package> --throttle 500 -s 42 -v 10000` |
 | Force Doze | `adb shell dumpsys deviceidle force-idle` |
 | Bugreport | `adb bugreport bugreport.zip` |
+| A11y tree dump | `adb shell dumpsys accessibility` |
+| Touch target check | `adb shell uiautomator dump /sdcard/uidump.xml` |
+| Kover coverage | `./gradlew koverHtmlReport` |
+| Perfetto trace | `adb shell perfetto -o /data/misc/perfetto-traces/trace -t 20s sched freq gfx` |
+| Trace SQL query | `trace_processor_shell trace.perfetto-trace --query "SELECT ..."` |
+| APK size compare | `apkanalyzer apk compare old.apk new.apk` |
+| DEX method count | `apkanalyzer dex references app-release.apk` |
 
 > Full ADB command reference: `references/adb-connection-apps.md`, `references/adb-logcat-dumpsys.md`, `references/adb-io-system.md`.

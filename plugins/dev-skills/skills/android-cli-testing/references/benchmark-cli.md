@@ -1,8 +1,8 @@
 # Benchmark CLI Reference
 
-End-to-end CLI workflows for Android benchmarking: Microbenchmark, Macrobenchmark, startup measurement, Baseline Profiles, APK size tracking, and benchmark regression detection.
+End-to-end CLI workflows for Android benchmarking: Microbenchmark, Macrobenchmark, startup measurement, Baseline Profiles, and benchmark regression detection.
 
-> For Perfetto trace analysis and frame timing, see `performance-profiling.md`. For CI pipeline integration, see `ci-pipeline-config.md`. For test execution patterns, see `test-espresso-compose.md`.
+> For APK/AAB size analysis, see `apk-size-analysis.md`. For Perfetto trace analysis and frame timing, see `performance-profiling.md`. For CI pipeline integration, see `ci-pipeline-config.md`. For test execution patterns, see `test-espresso-compose.md`.
 
 ## Microbenchmark Setup and Execution
 
@@ -21,6 +21,8 @@ android {
     namespace = "com.example.benchmark"
     defaultConfig {
         testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+        // Suppress errors for CI on non-ideal devices (emulator, debuggable builds)
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR,DEBUGGABLE"
     }
     testBuildType = "release"
     buildTypes {
@@ -35,6 +37,8 @@ dependencies {
 }
 ```
 
+The `suppressErrors` argument accepts a comma-separated list of error IDs (`EMULATOR`, `DEBUGGABLE`, `LOW-BATTERY`, `ACTIVITY-MISSING`, `UNLOCKED`). Use it to unblock CI pipelines running on non-ideal hardware — the errors still appear in output but do not abort the run.
+
 ### Execution
 
 ```bash
@@ -45,10 +49,35 @@ dependencies {
 ./gradlew :benchmark:connectedBenchmarkAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.class=com.example.benchmark.JsonParsingBenchmark
 
+# Dry run — single iteration, no measurement (CI smoke test to verify benchmarks compile and launch)
+./gradlew :benchmark:connectedBenchmarkAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.dryRunMode=true
+
 # Output location
 # build/outputs/connected_android_test_additional_output/benchmarkRelease/connected/<device>/
 # Files: *.json (machine-readable), *.txt (human-readable)
 ```
+
+`dryRunMode=true` runs each benchmark loop exactly once with no timing. Use it in CI pull-request checks to verify benchmarks do not crash, without burning device time on actual measurement.
+
+### Allocation Tracking and Measurement Exclusion
+
+Allocation tracking is enabled by default — output includes `allocationCount` metric alongside timing. Use `runWithMeasurementDisabled {}` to exclude setup/teardown code from both timing and allocation counts:
+
+```kotlin
+@Test
+fun jsonParsing() {
+    val data: String
+    benchmarkRule.measureRepeated {
+        runWithMeasurementDisabled {
+            data = loadTestFixture()  // excluded from timing and allocations
+        }
+        parser.parse(data)  // measured
+    }
+}
+```
+
+> **Note:** `runWithMeasurementDisabled` replaced the older `runWithTimingDisabled` API. If upgrading from benchmark library < 1.2, rename all call sites.
 
 ### JSON Output Format
 
@@ -81,6 +110,8 @@ dependencies {
   ]
 }
 ```
+
+**Verify `cpuLocked`**: Always check `"cpuLocked": true` in the `context` block before trusting results. If `false`, CPU frequency scaling was active during the run and results are unreliable — rerun with proper clock locking (see Device Preparation).
 
 ### Parse Benchmark Results
 
@@ -139,10 +170,13 @@ dependencies {
 
 | Mode | Effect | When to Use |
 |------|--------|-------------|
-| `CompilationMode.None()` | No AOT — fully interpreted/JIT | Worst-case startup |
+| `CompilationMode.None()` | No AOT — JIT enabled at runtime | Worst-case startup (not interpreted-only; JIT still runs) |
 | `CompilationMode.Partial()` | Baseline Profile only | Realistic first-launch after install |
+| `CompilationMode.Partial(warmupIterations=3)` | JIT warmup for N iterations, then snapshot compiled methods | Steady-state performance without full AOT; captures hot paths from real execution |
 | `CompilationMode.Full()` | Full AOT (`speed` profile) | Best-case after background dex optimization |
-| `CompilationMode.Ignore()` | Skip compilation reset | Measure current device state |
+| `CompilationMode.Ignore()` | Skip compilation reset entirely | Manual compilation control; avoids APK reinstall on API < 34 |
+
+**`Ignore` detail**: On API < 34, the benchmark library reinstalls the APK to reset compilation state before each test. `Ignore` skips this reset entirely. Use it when you pre-compile once (e.g., `cmd package compile -m speed-profile`) and run multiple benchmarks against that fixed compilation state. Do not use it for general regression testing — leaked JIT data between tests invalidates comparisons.
 
 ### Metric Types
 
@@ -152,6 +186,17 @@ dependencies {
 | `FrameTimingMetric()` | Per-frame render times | `frameDurationCpuMs` (P50, P90, P95, P99) |
 | `TraceSectionMetric("name")` | Custom trace section duration | Duration of `Trace.beginSection("name")` blocks |
 | `PowerMetric(type)` | Battery consumption (API 29+) | `powerCategoryMw` by component |
+
+### Perfetto SDK Tracing
+
+Enable the Perfetto SDK tracing flag for deeper per-function traces inside the target app:
+
+```bash
+./gradlew :macrobenchmark:connectedBenchmarkAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.perfettoSdkTracing.enable=true
+```
+
+**Gotcha**: Perfetto SDK tracing loads a native library at runtime. This adds measurable latency to `COLD` startup measurements — do not enable it for startup regression tracking. Use it only when you need detailed per-function trace spans (e.g., diagnosing which specific method causes a regression already detected by standard metrics).
 
 ### Output
 
@@ -193,6 +238,15 @@ adb shell am start-activity -W -n com.example.app/.MainActivity
 adb logcat -d | grep -i "fullyDrawnReported\|Fully drawn"
 # Output: ActivityTaskManager: Fully drawn com.example.app/.MainActivity: +1s200ms
 ```
+
+### reportFullyDrawn Gotchas
+
+| Gotcha | Detail | Fix |
+|--------|--------|-----|
+| Not available on API 29 and below | TTFD silently missing from output — no error, just absent metric | Gate on `Build.VERSION.SDK_INT >= 29` or accept TTID-only on older APIs |
+| Called before first frame renders | System collapses TTID and TTFD to the same value (data loss) | Delay the call until after the first meaningful frame is drawn |
+| Called before async data loads | TTFD measures framework latency, not user-visible content readiness | Call only after RecyclerView/LazyColumn populates with real data |
+| Compose placement | Calling from `onCreate` measures activity creation, not composition | Call from `LaunchedEffect` after initial composition + data load completes |
 
 ### Automated Startup Timing Script
 
@@ -273,6 +327,23 @@ adb shell cmd package compile -m speed-profile -f com.example.app
 adb shell cmd package dump-profiles com.example.app
 ```
 
+### R8/Obfuscation Gotcha for Profile Generation
+
+R8 obfuscation **must** be disabled for the build variant used during profile generation. Generated profile rules reference original (unobfuscated) method signatures — if R8 renames them, the rules will not match at install time and the profile has no effect.
+
+```kotlin
+// build.gradle.kts
+buildTypes {
+    create("benchmark") {
+        initWith(getByName("release"))
+        isMinifyEnabled = false  // critical for profile generation
+        signingConfig = signingConfigs.getByName("debug")
+    }
+}
+```
+
+Use this `benchmark` build type for profile generation. The production `release` type retains R8/minification — the generated rules are applied before obfuscation during the release build pipeline.
+
 ### A/B Comparison
 
 ```bash
@@ -285,59 +356,6 @@ adb shell cmd package compile -m speed-profile -f com.example.app
 # Run same benchmark
 
 # 3. Compare results
-```
-
-## APK Size Tracking
-
-### Size Breakdown with apkanalyzer
-
-```bash
-# Overall size
-apkanalyzer apk file-size app-release.apk
-apkanalyzer apk download-size app-release.apk  # Compressed download size
-
-# Size by component
-apkanalyzer files list app-release.apk | head -20
-apkanalyzer dex packages --defined-only app-release.apk | head -20
-
-# Resources breakdown
-apkanalyzer resources configs --type drawable app-release.apk
-
-# DEX method/reference count (64K limit monitoring)
-apkanalyzer dex references app-release.apk
-
-# Compare two APKs
-apkanalyzer apk compare old-release.apk new-release.apk
-```
-
-### Size Tracking with bundletool
-
-```bash
-# Build universal APK from AAB
-bundletool build-apks --bundle=app-release.aab --output=app.apks --mode=universal
-
-# Get size for specific device config
-bundletool get-size total --apks=app.apks
-bundletool get-size total --apks=app.apks --device-spec=device-spec.json
-
-# Generate device spec from connected device
-bundletool get-device-spec --output=device-spec.json
-```
-
-### CI Size Threshold Enforcement
-
-```bash
-#!/bin/bash
-# Fail CI if APK exceeds size threshold
-MAX_SIZE_BYTES=20971520  # 20 MB
-APK="app/build/outputs/apk/release/app-release.apk"
-
-ACTUAL=$(stat -f%z "$APK" 2>/dev/null || stat -c%s "$APK" 2>/dev/null)
-if [ "$ACTUAL" -gt "$MAX_SIZE_BYTES" ]; then
-  echo "APK size regression: ${ACTUAL} bytes exceeds limit of ${MAX_SIZE_BYTES} bytes"
-  exit 1
-fi
-echo "APK size OK: ${ACTUAL} bytes (limit: ${MAX_SIZE_BYTES})"
 ```
 
 ## Benchmark Regression Detection
@@ -367,6 +385,35 @@ while IFS=$'\t' read baseline current; do
 done
 ```
 
+### Verify cpuLocked in JSON Output
+
+Before comparing results, validate that clock locking was active during both runs:
+
+```bash
+# Check cpuLocked field in benchmark JSON
+python3 -c "
+import json, sys
+data = json.load(open(sys.argv[1]))
+locked = data.get('context', {}).get('cpuLocked', False)
+if not locked:
+    print(f'WARNING: cpuLocked=false in {sys.argv[1]} — results unreliable')
+    sys.exit(1)
+print(f'OK: cpuLocked=true in {sys.argv[1]}')
+" baseline.json
+
+python3 -c "
+import json, sys
+data = json.load(open(sys.argv[1]))
+locked = data.get('context', {}).get('cpuLocked', False)
+if not locked:
+    print(f'WARNING: cpuLocked=false in {sys.argv[1]} — results unreliable')
+    sys.exit(1)
+print(f'OK: cpuLocked=true in {sys.argv[1]}')
+" current.json
+```
+
+Discard any run where `cpuLocked` is `false` — frequency scaling during measurement invalidates comparisons.
+
 ### Threshold-Based Alerting
 
 ```bash
@@ -393,7 +440,54 @@ fi
 - **Minimum 10 iterations** per benchmark for meaningful medians
 - **P90/P99** more useful than mean for user-facing metrics (startup, scroll)
 - **Device temperature** affects results — cool down between runs
-- **Coefficient of Variation (CV)**: If CV > 5%, results are noisy — increase iterations or stabilize device
+
+### Step-Fitting Algorithm and CoV Thresholds
+
+Google's Jetpack CI uses a **step-fitting** algorithm (via Skia Perf) for regression detection: it searches for step functions in benchmark data sequences rather than comparing single-point values.
+
+**Parameters**:
+- `WIDTH`: number of results before and after a commit to compare (sliding window)
+- `THRESHOLD`: minimum regression severity to flag (default 25% in Jetpack CI)
+- **Statistical method**: two-sample t-test on before/after distributions within the window
+
+**Coefficient of Variation (CoV)** thresholds:
+
+| CoV Range | Interpretation | Action |
+|-----------|---------------|--------|
+| < 5% | Stable — reliable regression detection | Trust results, use standard threshold |
+| 5% - 10% | Noisy — high false-positive risk | Increase iterations, investigate device stability |
+| > 10% | Unreliable — benchmark is broken | Do not report regressions; fix device setup or benchmark code first |
+
+**Practical rule**: If CoV > 5%, flag the benchmark as unreliable rather than reporting false regressions. Require minimum 10 iterations for statistical power.
+
+## Firebase Test Lab Benchmarking
+
+Run benchmarks on Firebase Test Lab (FTL) physical devices for consistent CI results without maintaining a local device farm.
+
+```bash
+# Build benchmark APKs
+./gradlew :macrobenchmark:assembleBenchmarkRelease :app:assembleBenchmarkRelease
+
+# Run on FTL physical device
+gcloud firebase test android run \
+  --type instrumentation \
+  --app app/build/outputs/apk/benchmark/release/app-benchmark-release.apk \
+  --test macrobenchmark/build/outputs/apk/benchmarkRelease/macrobenchmark-benchmarkRelease.apk \
+  --device model=oriole,version=33,locale=en,orientation=portrait \
+  --directories-to-pull /sdcard/Android/media/com.example.macrobenchmark \
+  --results-bucket gs://my-benchmark-results \
+  --no-auto-google-login \
+  --environment-variables clearPackageData=true
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--directories-to-pull` | Pulls benchmark JSON and Perfetto traces from device after run |
+| `--results-bucket` | GCS bucket for result storage and historical comparison |
+| `--no-auto-google-login` | Prevents Play Services sign-in dialogs from interfering with benchmarks |
+| `--environment-variables clearPackageData=true` | Resets app state between test methods |
+
+After the run completes, download results from the GCS bucket and feed the JSON into the regression detection pipeline above.
 
 ## Physical Device Requirements
 
@@ -402,32 +496,58 @@ Emulator benchmarks are **unreliable** — CPU emulation, no real GPU, no therma
 ### Device Preparation Checklist
 
 ```bash
-# 1. Airplane mode (eliminates network interference)
+# 1. Enable fixed performance mode (non-root, API 31+)
+adb shell cmd power set-fixed-performance-mode-enabled true
+# Note: does NOT prevent thermal throttling under sustained load
+
+# 2. Lock clocks with lockClocks script (root required — most stable option)
+adb push lockClocks.sh /data/local/tmp/lockClocks.sh
+adb shell chmod +x /data/local/tmp/lockClocks.sh
+adb shell /data/local/tmp/lockClocks.sh
+# Or via Gradle: ./gradlew :benchmark:lockClocks
+# lockClocks pins CPU to a low sustainable frequency — more stable than fixed-performance mode
+
+# 3. Manual CPU governor lock (root required — alternative to lockClocks)
+# Uses 'userspace' governor with min freq pinning for maximum stability
+adb shell "echo userspace > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
+adb shell "cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
+adb shell "cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq"
+# If no root: Macrobenchmark's lockClocks() handles this automatically
+
+# 4. Airplane mode (eliminates network interference)
 adb shell cmd connectivity airplane-mode enable
 
-# 2. Do Not Disturb (prevents notification rendering overhead)
+# 5. Do Not Disturb (prevents notification rendering overhead)
 adb shell cmd notification set_dnd on
 
-# 3. Screen brightness fixed (prevents adaptive brightness CPU usage)
+# 6. Screen brightness fixed (prevents adaptive brightness CPU usage)
 adb shell settings put system screen_brightness_mode 0
 adb shell settings put system screen_brightness 128
 
-# 4. Disable animations
+# 7. Disable animations
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
 
-# 5. Check thermal state (don't benchmark when hot)
+# 8. Check thermal state (don't benchmark when hot)
+adb shell dumpsys thermalservice | grep -i "current"
+# Must show NONE or LIGHT — abort if MODERATE or higher
+
+# Fallback: read thermal zones directly
 adb shell "for z in /sys/class/thermal/thermal_zone*/; do echo \$(cat \${z}type): \$(cat \${z}temp); done"
-# If any zone > 45000 (45°C), wait before benchmarking
+# If any zone > 45000 (45C), wait before benchmarking
 
-# 6. Lock CPU governor (root required — prevents frequency scaling)
-adb shell "echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor" 2>/dev/null
-# If no root: Macrobenchmark's lockClocks() handles this automatically
-
-# 7. Kill background apps
+# 9. Kill background apps
 adb shell am kill-all
 ```
+
+**Clock locking hierarchy** (most stable first):
+1. `lockClocks.sh` / `./gradlew :benchmark:lockClocks` — pins to low sustainable frequency, best stability
+2. `userspace` governor with min freq pinning — manual equivalent of lockClocks
+3. `set-fixed-performance-mode-enabled true` — non-root convenience, but device can still thermal-throttle
+4. No locking — `cpuLocked` will be `false` in JSON output, results unreliable
+
+Always add 30-60s cooldown pauses between benchmark suites regardless of locking method.
 
 ### Why Emulator Benchmarks Fail
 
@@ -441,3 +561,18 @@ adb shell am kill-all
 | Scheduler | Host OS scheduler interference | Android-native scheduler |
 
 Emulator numbers are directionally useful (relative comparison only) but absolute values are meaningless for production performance decisions.
+
+## Anti-Patterns
+
+| Mistake | Why It Fails | Fix |
+|---------|-------------|-----|
+| Running benchmarks on emulator | Measures host CPU, not device silicon | Use physical device; suppress with `EMULATOR` arg only for CI smoke tests |
+| `debuggable = true` in benchmark build | Disables ART optimizations, 10-50x slower | Use release or dedicated benchmark build type |
+| No compilation reset between tests | Previous JIT data leaks between test methods | Use default CompilationMode behavior; do not use `Ignore` unless intentional |
+| Too few iterations (< 5) | High variance, false regressions | Minimum 5, prefer 10+ iterations |
+| No cooldown between suites | Thermal throttling skews later test results | Add 30-60s sleep between benchmark classes |
+| Database/cache not cleared | Cached results hide real performance | Clear in `setUp()` or use `measureRepeated { setupBlock {} }` |
+| Calling `reportFullyDrawn()` too early | TTID == TTFD, losing time-to-full-display data | Call only after async data is rendered |
+| Profile generation with R8 enabled | Generated rules reference obfuscated names, won't match | Disable minification for profile generation variant |
+| Using `createComposeRule` for perf tests | It is a functional test rule, not a benchmark rule | Use `BenchmarkRule` for micro, `MacrobenchmarkRule` for macro |
+| Not checking `cpuLocked` in JSON output | Results unreliable if CPU frequency scaled during run | Verify `"cpuLocked": true` in output JSON context block |

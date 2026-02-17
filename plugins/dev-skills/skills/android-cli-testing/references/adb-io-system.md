@@ -121,10 +121,7 @@ adb shell setprop debug.layout true                # Show layout bounds
 adb shell setprop debug.hwui.profile visual_bars   # GPU render bars
 adb shell setprop debug.hwui.overdraw show         # GPU overdraw
 
-# Settings
-adb shell settings put global animator_duration_scale 0      # Disable animations
-adb shell settings put global window_animation_scale 0
-adb shell settings put global transition_animation_scale 0
+# Settings (for animation disable commands, see adb-logcat-dumpsys.md > Animation Control)
 adb shell settings put global stay_on_while_plugged_in 3     # Stay on AC+USB
 
 # Display
