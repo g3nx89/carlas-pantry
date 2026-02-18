@@ -1,8 +1,8 @@
 # dev-skills
 
-A collection of 22 skills supporting software design, development, and quality assurance activities.
+A collection of 23 skills supporting software design, development, and quality assurance activities.
 
-**Version:** 1.2.0 (see `.claude-plugin/plugin.json`)
+**Version:** 1.4.0 (see `.claude-plugin/plugin.json`)
 
 ## Installation
 
@@ -38,6 +38,7 @@ Use this index to select the appropriate skill based on your task. Skills are op
 | **Arch** | `mermaid-diagrams` | diagram, flowchart, sequence, ERD, class diagram |
 | **Quality** | `clean-code` | code review, refactor, simplify, naming |
 | **Quality** | `qa-test-planner` | test plan, test cases, regression suite, bug report |
+| **Image** | `claude-nano-banana` | generate image, create thumbnail, make icon, draw diagram, edit photo |
 | **Figma** | `figma-implement-design` | implement design, Figma to code, build from Figma |
 | **Figma** | `figma-code-connect-components` | code connect, map component, link design |
 | **Figma** | `figma-create-design-system-rules` | design system rules, Figma guidelines |
@@ -237,6 +238,19 @@ Use this index to select the appropriate skill based on your task. Skills are op
 
 ---
 
+### Image Generation
+
+#### `claude-nano-banana`
+**When to use:** Generating or editing images via the Gemini CLI nanobanana extension.
+
+**Triggers:** "generate an image", "create a thumbnail", "make an icon", "draw a diagram", "edit this photo", "restore an old photo", "create a pattern", "make a banner"
+
+**Covers:** Text-to-image generation, photo editing/restoration, icon creation, diagram generation, seamless patterns, sequential storytelling via Gemini CLI.
+
+**Delegates to:** `mermaid-diagrams` (text-based diagrams), `c4-architecture` (architecture docs), `figma-design-toolkit` (UI component design)
+
+---
+
 ### Figma Integration
 
 #### `figma-implement-design`
@@ -330,6 +344,7 @@ When triggers overlap, prefer the more specialized skill:
 | "Add parallax to landing page" | `scroll-experience` | `frontend-design` |
 | "Review code for quality" | `clean-code` | - |
 | "Create architecture diagram" | `c4-architecture` | `mermaid-diagrams` |
+| "Generate a blog header image" | `claude-nano-banana` | - |
 
 ---
 
