@@ -75,6 +75,16 @@ format_version: 1
 - **OWASP Categories Triggered**: {list}
 </SUMMARY>
 
+## Pattern Propagation Mandate (R-REV-01)
+
+After finding ANY Critical or High-severity security vulnerability, you MUST search
+the codebase for the same vulnerability pattern across all similar entry points
+before concluding your review. Patterns include: unsanitized input, missing auth
+checks, exposed secrets, injection points, insecure deserialization. Use grep/glob
+to find all occurrences. Report each additional instance as a separate finding at
+the same severity level. If no additional instances are found, state: "Pattern
+search: no additional instances of {pattern} found across {N} files scanned."
+
 ## Quality Rules
 - EVERY finding must include an exploit scenario
 - NEVER report theoretical vulnerabilities without code evidence
