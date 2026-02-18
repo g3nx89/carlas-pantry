@@ -4,6 +4,22 @@ CLI-only execution of Espresso (AndroidJUnitRunner) and Jetpack Compose instrume
 
 > For UI Automator, Appium, and Maestro, see test-automation-tools.md. For Robolectric and screenshots, see test-robolectric-screenshots.md. For JaCoCo and GMD, see test-coverage-gmd.md.
 
+> **TL;DR**: Run/filter tests with `-Pandroid.testInstrumentationRunnerArguments.*`, shard via `numShards`/`shardIndex`, debug Compose with `printToLog()`/`useUnmergedTree`, control time via `mainClock`, fix flaky tests with `waitUntil`/Orchestrator, retry with Marathon or RetryRule.
+
+## Contents
+
+| Line | Section | Focus |
+|-----:|---------|-------|
+| 23 | Espresso and AndroidJUnitRunner | Gradle filtering, ADB execution, sharding, Orchestrator |
+| 344 | Jetpack Compose Testing | Test rules, semantics, debugging, animations, flaky patterns |
+| 677 | Unit Test Filtering | `--tests` flag for JVM unit tests |
+| 708 | AGP Test Task Naming | Task patterns by test type |
+| 721 | Test Logging Configuration | `testLogging` DSL, verbosity |
+| 753 | Gradle Profiling for Tests | `--profile`, `--scan` |
+| 769 | Test Caching Behavior | Cache keys, force re-run |
+| 792 | Retry Strategies | JUnit RetryRule, Marathon |
+| 875 | JVM Test Execution Options | `maxParallelForks`, `forkEvery` |
+
 ## Espresso and AndroidJUnitRunner
 
 ### Gradle CLI Execution
@@ -164,6 +180,17 @@ Filter them out in CI:
 ```
 
 **Quarantine strategy**: exclude `@FlakyTest` from PR gates, run them in a separate nightly job with retry logic, and fix or delete tests that remain flaky for more than 2 sprints.
+
+### Flaky Test Root Cause Diagnostics
+
+| Root Cause | Detection (CLI) | Fix |
+|---|---|---|
+| Timezone/locale sensitivity (`Locale.getDefault()`, `TimeZone.getDefault()`) | `adb shell getprop persist.sys.timezone` | `adb shell setprop persist.sys.timezone UTC` or emulator flag `-timezone UTC` |
+| Network timeouts | `adb logcat -d \| grep -i "SocketTimeoutException\|ConnectException"` | Use `MockWebServer` or `IdlingResource` wrapping network calls |
+| Choreographer frame drops | `adb shell dumpsys gfxinfo <package> \| grep "Janky"` | Reduce `maxParallelForks`, disable animations (`testOptions { animationsDisabled = true }`) |
+| WindowManager focus issues | `adb shell dumpsys window \| grep -i "mCurrentFocus"` | `waitForIdle()` + assert focus before interaction; avoid multi-window tests |
+| Animation leaks between tests | Logcat `Animator` warnings or stale `IdlingResource` registrations | Orchestrator with `clearPackageData`, or explicit `animator.cancel()` in `@After` |
+| Race conditions (unregistered `IdlingResource`, background thread posting after assertion) | `adb shell kill -3 <pid>` (thread dump) or `StrictMode.setThreadPolicy(detectAll())` | Register `IdlingResource` for all async sources; use `runOnIdle {}` before assertions |
 
 ### Gradle-Based Sharding
 
@@ -349,6 +376,37 @@ adb shell am instrument -w -r \
   com.example.app.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
+### ComposeTestRule Selection
+
+| Rule Factory | Activity | Use Case | Navigation / Resources |
+|---|---|---|---|
+| `createComposeRule()` | Auto-created `ComponentActivity` | Pure composable testing, no Activity dependencies | No navigation controller, limited resource access |
+| `createAndroidComposeRule<MyActivity>()` | Launches specified Activity | Tests needing real Activity context, navigation, or `Intent` extras | Full navigation + resources via `rule.activity` |
+| `createEmptyComposeRule()` | None (you launch manually) | Custom launch via `ActivityScenarioRule`, Hilt injection before launch | Full control; pair with `lazyActivityScenarioRule` |
+
+Use `createComposeRule()` for Robolectric/JVM tests, `createAndroidComposeRule<>()` when tests need `NavController` or lifecycle, and `createEmptyComposeRule()` for Hilt injection or pre-launch mock setup.
+
+### Navigation Testing with TestNavHostController
+
+Test navigation routes using `navigation-testing` (`androidx.navigation:navigation-testing:<version>`):
+
+```kotlin
+@get:Rule val composeTestRule = createComposeRule()
+
+@Test
+fun login_navigatesToHome() {
+    val navController = TestNavHostController(ApplicationProvider.getApplicationContext())
+    composeTestRule.setContent {
+        navController.navigatorProvider.addNavigator(ComposeNavigator())
+        AppNavGraph(navController = navController)
+    }
+    composeTestRule.onNodeWithTag("login_button").performClick()
+    assertEquals("home", navController.currentBackStackEntry?.destination?.route)
+}
+```
+
+Test deep links from CLI: `adb shell am start -a android.intent.action.VIEW -d "myapp://profile/123" com.example.app`
+
 ### Semantics, Tags, and Matchers
 
 Compose tests traverse the **semantics tree**, not the view hierarchy:
@@ -383,6 +441,43 @@ fun hasClickLabel(label: String) = SemanticsMatcher(
 
 **Best practice**: Avoid polluting production code with `testTag` when stable content descriptions or labels work. Use `testTag` only for genuinely invisible/ambiguous elements. Enable `testTagsAsResourceId` to make tags visible to UIAutomator (see `test-automation-tools.md` for UI Automator details).
 
+### TestTag Best Practices and Espresso Migration
+
+**Naming convention**: Use `screen_element` format (e.g., `login_email_field`, `home_fab`). Avoid generic names.
+
+**`testTagsAsResourceId`**: Expose `testTag` values as Android `resourceId` for UI Automator and Espresso interop:
+
+```kotlin
+Modifier.semantics { testTagsAsResourceId = true }
+```
+
+**Espresso to Compose migration cheat sheet**:
+
+| Espresso | Compose Test |
+|---|---|
+| `onView(withId(R.id.btn))` | `onNodeWithTag("btn")` |
+| `onView(withText("OK"))` | `onNodeWithText("OK")` |
+| `onView(withContentDescription("Close"))` | `onNode(hasContentDescription("Close"))` |
+| `check(matches(isDisplayed()))` | `assertIsDisplayed()` |
+| `perform(click())` | `performClick()` |
+| `perform(typeText("hello"))` | `performTextInput("hello")` |
+
+### Custom Semantics Properties
+
+Define test-only metadata without polluting production `testTag` values:
+
+```kotlin
+val StatusKey = SemanticsPropertyKey<String>("Status")
+var SemanticsPropertyReceiver.status by StatusKey
+
+// In composable:
+Modifier.semantics { status = "loading" }
+
+// In test:
+fun hasStatus(value: String) = SemanticsMatcher.expectValue(StatusKey, value)
+composeTestRule.onNode(hasStatus("loading")).assertExists()
+```
+
 ### Debugging Compose Tests
 
 ```kotlin
@@ -399,6 +494,18 @@ composeTestRule.onNodeWithTag("icon", useUnmergedTree = true).performClick()
 ```
 
 When a `onNodeWithText` or `onNodeWithTag` call intermittently fails, add `useUnmergedTree = true` — merged semantics trees collapse child nodes, making them invisible to default finders. Always debug with `printToLog()` first to see the actual tree structure.
+
+#### Capturing Semantics as a String
+
+Use `printToString()` instead of `printToLog()` to capture the semantics tree as a return value for CI output or custom assertions:
+
+```kotlin
+val tree = composeTestRule.onRoot().printToString()
+assertTrue(tree.contains("Login"))
+// With unmerged tree: composeTestRule.onRoot(useUnmergedTree = true).printToString()
+```
+
+`printToLog(tag)` writes to logcat (local debugging). `printToString()` returns the value directly (CI assertions, test reports).
 
 ### Synchronization and Animations
 
@@ -422,6 +529,19 @@ composeTestRule.runOnIdle {
 ```
 
 **Avoid**: `Thread.sleep` — always use semantics-driven waits. Known issue: Compose tests with complex `LaunchedEffect`/`DisposableEffect` patterns can cause `AppNotIdleException` under Robolectric (see `test-robolectric-screenshots.md` for Robolectric gotchas); prefer instrumented tests for complex async flows.
+
+#### waitUntil Timeout Configuration
+
+Default `waitUntil` timeout is `1000ms`. Override per-call:
+
+```kotlin
+composeTestRule.waitUntil(timeoutMillis = 5_000L) {
+    composeTestRule.onAllNodesWithText("Loaded").fetchSemanticsNodes().isNotEmpty()
+}
+composeTestRule.waitUntilExactlyOneExists(hasText("Ready"), timeoutMillis = 3_000L)
+```
+
+**Gotcha**: Infinite animations keep Compose busy, preventing `waitUntil` from evaluating. Pause the clock with `mainClock.autoAdvance = false` before `waitUntil` if animations are active.
 
 ### Clock Control for Animations
 
@@ -495,6 +615,20 @@ LazyColumn {
 
 Without stable keys, scrolling large lists in tests is inherently flaky because Compose cannot track item identity across recompositions.
 
+#### performScrollToIndex and performScrollToKey
+
+```kotlin
+// Index-based: positional scroll
+composeTestRule.onNodeWithTag("list").performScrollToIndex(25)
+
+// Key-based: scroll by item key (requires key {} in LazyColumn items)
+composeTestRule.onNodeWithTag("list").performScrollToKey("item_abc")
+```
+
+- Prefer `performScrollToKey` when items have stable `key {}` blocks -- resilient to list reordering
+- Fall back to `performScrollToIndex` when keys are not set
+- Always call `waitForIdle()` after scrolling before asserting on the target node
+
 #### Infinite Animation Idling Timeout
 
 **Root cause:** `rememberInfiniteTransition`, Lottie animations, or shimmer effects keep Compose perpetually "busy." The `ComposeIdlingResource` never reports idle, causing `IdlingResourceTimeoutException`.
@@ -523,6 +657,22 @@ The `mainClock` approach is preferred when you need to test animation mid-states
 
 - x86/x86_64 emulators are significantly faster for Compose tests than ARM devices
 - Use GMD (see `test-coverage-gmd.md`) or `android-emulator-runner` with x86_64 images in CI
+
+### Process Death Testing
+
+| Method | Command / API | State Preserved | Fidelity |
+|---|---|---|---|
+| `am kill` | `adb shell am kill <package>` (background app first) | `onSaveInstanceState` bundle preserved | High -- real low-memory process death |
+| `am force-stop` | `adb shell am force-stop <package>` | Nothing preserved | Low -- simulates crash, not process death |
+| `StateRestorationTester` | `emulateSavedInstanceStateRestore()` | `rememberSaveable` values | JVM only -- config change, not true process death |
+
+```bash
+# Simulate real process death (background first, then kill, then relaunch):
+adb shell input keyevent KEYCODE_HOME && adb shell am kill com.example.app
+adb shell am start -n com.example.app/.MainActivity
+```
+
+`StateRestorationTester` does not test `ViewModel.SavedStateHandle` or OS-level restoration. Use `am kill` for full-fidelity process death testing.
 
 ## Unit Test Filtering (--tests)
 
@@ -721,3 +871,26 @@ marathon {
 ```
 
 **Key advantage over Orchestrator + native sharding:** Marathon implements push-to-free-device (dynamic assignment) rather than static round-robin sharding. Devices that finish early pick up remaining tests automatically, reducing tail latency by ~30%.
+
+## JVM Test Execution Options
+
+Configuration for local JVM unit tests (`test{Variant}UnitTest`). Does NOT apply to `connectedAndroidTest`.
+
+```kotlin
+plugins { id("org.gradle.test-retry") version "1.6.0" }
+
+tasks.withType<Test> {
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+    forkEvery = 100  // restart JVM after N test classes to prevent heap leaks (0 = never)
+
+    retry {
+        maxRetries = 3          // max retries per failed test
+        maxFailures = 5         // fail build after this many total failures
+        failOnPassedAfterRetry = false  // true = treat retried-then-passed as failure
+    }
+}
+```
+
+- `maxParallelForks` controls JVM fork parallelism; `forkEvery` prevents static state leaks between test classes
+- `test-retry-gradle-plugin` does NOT work for `connectedAndroidTest` -- see Retry Strategies above for instrumented alternatives
+- Set `failOnPassedAfterRetry = true` to detect and track flaky JVM tests rather than silently passing them

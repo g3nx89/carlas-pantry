@@ -4,6 +4,8 @@ CLI-only techniques for view hierarchy inspection, accessibility verification, C
 
 > For data/storage debugging (StrictMode, databases, SharedPrefs), see `debug-data-storage.md`. For crash analysis and monkey testing, see `debug-crashes-monkey.md`. For system simulation, see `debug-system-simulation.md`.
 
+> **TL;DR**: Dump view hierarchy with `uiautomator dump`, detect Activity leaks via `dumpsys meminfo` object counts, analyze heap dumps with SharkCli (`shark-cli -h dump.hprof analyze`), monitor PSS trends for leak confirmation, automate CI leak detection with before/after heap comparison.
+
 ## Layout/UI Debugging Without GUI
 
 ### View Hierarchy via UIAutomator
@@ -208,6 +210,16 @@ adb shell am send-trim-memory com.example.app COMPLETE
 
 Use to verify that the app releases caches, downsizes bitmaps, and handles lifecycle correctly under memory pressure. More targeted than killing the process -- tests the app's voluntary cleanup path.
 
+### Force GC Methods by API Level
+
+| Method | API Level | Command |
+|--------|-----------|---------|
+| `am force-gc` | 30+ | `adb shell am force-gc <package>` |
+| SIGUSR1 | All | `adb shell kill -10 $(adb shell pidof <package>)` |
+| Runtime.gc() via JDWP | All | Attach debugger, invoke `Runtime.gc()` (requires debuggable app) |
+
+SIGUSR1 triggers a GC on the ART runtime for debug builds. Use `am force-gc` on API 30+ for a cleaner approach. Always wait 2-3 seconds after forcing GC before capturing memory snapshots.
+
 ### Heap Dumps via `am dumpheap`
 
 ```bash
@@ -256,6 +268,8 @@ SELECT toString(b), b.@retainedHeapSize FROM android.graphics.Bitmap b
 
 For large dumps, pass `-vmargs -Xmx4g` to MAT. Use `discard_ratio` to sample huge heaps.
 
+**jhat deprecation:** `jhat` was removed in JDK 9+. Use MAT or SharkCli instead. If using JDK 8: `jhat -J-Xmx4g heap.hprof` opens a web server on port 7000 for OQL queries.
+
 ### Scripted Leak Investigation
 
 ```bash
@@ -287,6 +301,18 @@ adb logcat | grep -i leakcanary
 ```
 
 Combine: trigger scenario via CLI or test, then dump heap around the time LeakCanary reports a leak for deeper MAT analysis.
+
+### LeakCanary Broadcast Trigger
+
+Force a heap dump on demand (requires LeakCanary 2.x, debuggable app):
+
+```bash
+adb shell am broadcast -a com.squareup.leakcanary.DUMP_HEAP
+adb shell ls /data/data/<package>/files/leakcanary/
+adb pull /data/data/<package>/files/leakcanary/<timestamp>.hprof .
+```
+
+Useful in CI to force analysis at a specific test checkpoint rather than relying on automatic threshold triggers.
 
 ### LeakCanary in Instrumented Tests
 
@@ -337,6 +363,23 @@ fun criticalFlow() {
   LeakAssertions.assertNoLeaks() // Dumps heap, fails if leaks found
 }
 ```
+
+### Custom ObjectInspector Rules
+
+ObjectInspectors teach LeakCanary about app-specific types (DI scopes, custom lifecycle objects), reducing false positives in leak reports:
+
+```kotlin
+LeakCanary.config = LeakCanary.config.copy(
+  objectInspectors = LeakCanary.config.objectInspectors +
+    ObjectInspector { reporter ->
+      reporter.whenInstanceOf("com.example.AppSingleton") { instance ->
+        reportNotLeaking("App singleton, held for process lifetime")
+      }
+    }
+)
+```
+
+Mark singletons, DI-scoped objects, or process-lifetime holders as "not leaking" to focus leak reports on real issues.
 
 ## Bitmap Memory Analysis
 

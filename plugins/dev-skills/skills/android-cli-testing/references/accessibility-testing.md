@@ -156,6 +156,16 @@ grep -oP 'content-desc="[^"]*".*?clickable="[^"]*"' ui_dump.xml
 adb shell dumpsys accessibility
 ```
 
+Key sections: `ActiveWindowInfo`, `FocusedWindowInfo`, `AccessibilityServiceConnections`. Grep for specifics: `dumpsys accessibility | grep "contentDescription"`. Unlike `uiautomator dump`, the accessibility dump includes service metadata, focus chain, and event dispatch state.
+
+### Accessibility Scanner CLI Alternatives
+
+Google Accessibility Scanner is a GUI-only Android app with no CLI API. For programmatic accessibility scanning without Espresso, use these alternatives:
+
+- **ATF in Espresso** (recommended): `AccessibilityChecks.enable()` runs the same checks as the Scanner app (see Espresso section above)
+- **dumpsys accessibility**: `adb shell dumpsys accessibility` for service state and focus chain inspection
+- **UIAutomator dump + parsing**: `adb shell uiautomator dump` produces XML in traversal order, parseable with custom scripts for missing descriptions, undersized targets, etc.
+
 ## TalkBack Testing from CLI
 
 ### Enable and Disable
@@ -205,6 +215,18 @@ adb pull /sdcard/a11y_fontscale.png
 adb shell settings put system font_scale 1.0
 ```
 
+## Focus Order and Traversal Verification
+
+Elements in `uiautomator dump` XML appear in document order, which matches the default accessibility traversal (focus) order.
+
+```bash
+# Extract interactive elements in traversal order
+adb shell uiautomator dump /sdcard/traversal.xml && adb pull /sdcard/traversal.xml
+grep -E 'clickable="true"|focusable="true"' traversal.xml | grep -oP 'content-desc="[^"]*"|text="[^"]*"'
+```
+
+For Compose, use `isTraversalGroup` and `traversalIndex` semantics modifiers. Verify via `composeTestRule.onRoot().printToLog("TRAVERSAL")` which prints the full semantics tree to logcat. CI check: parse the dump XML and verify every `clickable="true"` element has a non-empty `content-desc` or `text`.
+
 ## Touch Target Size Validation
 
 ### Extract Bounds and Check 48dp Minimum
@@ -247,6 +269,10 @@ ATF's `TouchTargetSizeCheck` catches the same issue automatically when `Accessib
 | UI components / graphics | 3:1 | N/A |
 
 ATF's `TextContrastCheck` and `ImageContrastCheck` run automatically with `AccessibilityChecks.enable()` -- no separate setup needed.
+
+### Runtime Color Contrast Extraction
+
+No built-in CLI tool for runtime contrast. Workflow: `adb exec-out screencap -p > screen.png`, then extract pixel colors with ImageMagick (`convert screen.png -crop 1x1+X+Y txt:-`) and apply WCAG formula: `(L1 + 0.05) / (L2 + 0.05)` where L1/L2 are relative luminance (4.5:1 minimum for normal text). Prefer ATF's `TextContrastCheck` + `ImageContrastCheck` in Espresso tests over manual pixel extraction.
 
 ### Find Hardcoded Colors in Layouts
 

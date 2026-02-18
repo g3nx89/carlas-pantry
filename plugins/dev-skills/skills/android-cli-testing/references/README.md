@@ -9,28 +9,28 @@ Last verified: 2026-02
 | File | Lines | Words | Size | Topic |
 |------|------:|------:|-----:|-------|
 | adb-connection-apps.md | 246 | 1,439 | 11K | ADB architecture, USB/WiFi/TCP, app install, permissions, Activity Manager |
-| adb-logcat-dumpsys.md | 466 | 2,149 | 15K | Logcat filtering/buffers, dumpsys services, hidden commands, settings database, cmd package, wm, getprop/setprop |
-| adb-io-system.md | 163 | 850 | 6.1K | File push/pull, database access, network debug, input, screen capture |
-| emulator-cli.md | 363 | 1,750 | 13K | sdkmanager, avdmanager, emulator flags, config.ini, console, acceleration, API-level bugs, CI hardware profiles |
-| test-espresso-compose.md | 723 | 2,823 | 25K | Gradle filtering, sharding, Orchestrator, Compose semantics/debugging/clock, flaky patterns, retry strategies, Flank |
-| test-automation-tools.md | 156 | 553 | 4.2K | UI Automator, Appium parallel setup, Maestro CLI/flows |
-| test-robolectric-screenshots.md | 422 | 1,446 | 13K | JVM tests, Compose+Robolectric compatibility, state restoration, Paparazzi, Roborazzi, multi-module testing |
-| test-coverage-gmd.md | 620 | 2,288 | 21K | JaCoCo setup/merging, Kover, diff coverage, Compose coverage, multi-module aggregation, GMD definition/groups/CI |
-| debug-data-storage.md | 187 | 771 | 5.9K | StrictMode, SQLite/Room, SQL tracing, SharedPreferences |
-| debug-ui-memory.md | 590 | 3,127 | 22K | UIAutomator dump, window state, Compose semantics, memory leaks, heap dumps, SharkCli, procstats, Compose leak patterns, CI leak detection |
-| test-result-parsing.md | 317 | 1,595 | 13K | JUnit XML parsing, failure triage, flaky detection, iterative debugging, CI integration |
-| benchmark-cli.md | 578 | 2,600 | 20K | Microbenchmark, Macrobenchmark, startup measurement, Baseline Profiles, regression detection, FTL benchmarking |
-| apk-size-analysis.md | 469 | 2,300 | 18K | apkanalyzer, bundletool, R8/ProGuard analysis, resource shrinking, native libs, DEX analysis, CI size tracking |
-| debug-crashes-monkey.md | 258 | 1,221 | 8.1K | ANR traces, tombstones, ndk-stack, crash testing, monkey, automated crash diagnosis |
-| debug-system-simulation.md | 205 | 1,050 | 7.1K | Doze, battery, density, locale, dark mode, multi-window |
-| performance-profiling.md | 700 | 2,750 | 22K | Perfetto config/capture/SQL analysis, gfxinfo, method tracing, heap analysis, automated jank detection, Compose tracing |
-| ci-pipeline-config.md | 704 | 3,350 | 26K | Test tiers, emulator config, KVM setup, AVD snapshot caching, GMD CI, device hardening, flaky quarantine, Marathon, Firebase, self-hosted runners, pre-flight, coverage gates |
-| device-setup-oem.md | 215 | 1,124 | 7.9K | Physical device CLI setup, multi-device, OEM quirks, ADB reliability |
-| gui-walkthroughs.md | 193 | 1,053 | 6.9K | GUI-only device operations: Developer Options, USB debugging, OEM toggles |
-| accessibility-testing.md | 351 | 1,219 | 11K | Espresso a11y checks, Compose semantics assertions, TalkBack CLI, touch target validation, color contrast, accessibility lint, CI integration |
-| workflow-recipes.md | 439 | 1,380 | 11K | End-to-end scripts, GitHub Actions, GitLab CI |
-| deep-search-prompts.md | 249 | 2,467 | 18K | Browser-based research prompts for skill enrichment (flaky tests, CI, benchmarks, ADB, coverage, a11y) |
-| **Total** | **8,614** | **39,305** | **345K** | |
+| adb-logcat-dumpsys.md | 507 | 2,388 | 20K | Logcat filtering/buffers, dumpsys services, hidden commands, settings database, cmd package, wm, getprop/setprop, deep link verification, JDWP |
+| adb-io-system.md | 163 | 847 | 8.0K | File push/pull, database access, network debug, input, screen capture |
+| emulator-cli.md | 373 | 1,846 | 16K | sdkmanager, avdmanager, emulator flags, config.ini, console, acceleration, API-level bugs, CI hardware profiles, boot time comparison |
+| test-espresso-compose.md | 896 | 3,682 | 36K | Gradle filtering, sharding, Orchestrator, Compose semantics/debugging/clock, flaky root cause diagnostics, retry strategies, Flank, navigation testing, process death, JVM test config |
+| test-automation-tools.md | 156 | 553 | 8.0K | UI Automator, Appium parallel setup, Maestro CLI/flows |
+| test-robolectric-screenshots.md | 422 | 1,446 | 16K | JVM tests, Compose+Robolectric compatibility, state restoration, Paparazzi, Roborazzi, multi-module testing |
+| test-coverage-gmd.md | 647 | 2,481 | 24K | JaCoCo setup/merging, Kover, diff coverage, Compose coverage, multi-module aggregation, GMD definition/groups/CI, per-class extraction, offline instrumentation |
+| debug-data-storage.md | 187 | 771 | 8.0K | StrictMode, SQLite/Room, SQL tracing, SharedPreferences |
+| debug-ui-memory.md | 633 | 3,359 | 28K | UIAutomator dump, window state, Compose semantics, memory leaks, heap dumps, SharkCli, procstats, Compose leak patterns, CI leak detection, LeakCanary broadcast, ObjectInspectors, force GC |
+| test-result-parsing.md | 317 | 1,595 | 16K | JUnit XML parsing, failure triage, flaky detection, iterative debugging, CI integration |
+| benchmark-cli.md | 645 | 3,220 | 28K | Microbenchmark, Macrobenchmark, startup measurement, Baseline Profiles, regression detection, FTL benchmarking, custom trace sections, cloud profiles, StartupMode |
+| apk-size-analysis.md | 514 | 2,105 | 20K | apkanalyzer, bundletool, R8/ProGuard analysis, resource shrinking, native libs, DEX analysis, CI size tracking, R8 full mode, 64K limit monitoring |
+| debug-crashes-monkey.md | 258 | 1,221 | 12K | ANR traces, tombstones, ndk-stack, crash testing, monkey, automated crash diagnosis |
+| debug-system-simulation.md | 205 | 1,050 | 8.0K | Doze, battery, density, locale, dark mode, multi-window |
+| performance-profiling.md | 778 | 3,046 | 28K | Perfetto config/capture/SQL analysis, gfxinfo, method tracing, heap analysis, automated jank detection, Compose tracing, coroutine tracing, trace sharing |
+| ci-pipeline-config.md | 828 | 3,993 | 32K | Test tiers, emulator config, KVM setup, AVD snapshot caching, GMD CI, device hardening, flaky quarantine, Marathon, Firebase, self-hosted runners, pre-flight, coverage gates, GitLab CI, build cache |
+| device-setup-oem.md | 215 | 1,122 | 8.0K | Physical device CLI setup, multi-device, OEM quirks, ADB reliability |
+| gui-walkthroughs.md | 193 | 1,053 | 8.0K | GUI-only device operations: Developer Options, USB debugging, OEM toggles |
+| accessibility-testing.md | 377 | 1,477 | 16K | Espresso a11y checks, Compose semantics assertions, TalkBack CLI, touch target validation, color contrast, accessibility lint, CI integration, focus order, dumpsys a11y |
+| workflow-recipes.md | 439 | 1,380 | 12K | End-to-end scripts, GitHub Actions, GitLab CI |
+| deep-search-prompts.md | 249 | 2,467 | 20K | Browser-based research prompts for skill enrichment (flaky tests, CI, benchmarks, ADB, coverage, a11y) |
+| **Total** | **9,248** | **42,541** | **384K** | |
 
 ## Cross-References
 

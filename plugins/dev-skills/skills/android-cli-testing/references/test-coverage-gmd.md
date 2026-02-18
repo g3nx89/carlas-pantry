@@ -4,6 +4,8 @@ CLI-only execution of JaCoCo code coverage (instrumented, unit, and merged repor
 
 > For CI-specific GMD patterns (test tiers, device groups), see ci-pipeline-config.md.
 
+> **TL;DR**: Enable JaCoCo with `isTestCoverageEnabled = true`, merge unit+instrumented via custom `jacocoTestReport` task, use Kover for simpler Kotlin setup (`koverHtmlReport`), enforce thresholds with `jacocoTestCoverageVerification`, define GMD devices in `testOptions.managedDevices`, run with `./gradlew pixel2api30DebugAndroidTest`.
+
 ## Code Coverage (JaCoCo)
 
 ### Instrumented Coverage
@@ -195,6 +197,19 @@ grep -oP 'counter type="LINE".*covered="\K[0-9]+' coverage.xml # covered
 
 **Gotcha:** Report-level `<counter>` elements (direct children of `<report>`) give totals. Package/class-level counters give granular data. The last `<counter>` elements in the file are the report totals.
 
+### Per-Class Coverage Extraction
+
+```bash
+# Extract per-class LINE coverage from JaCoCo XML for a specific package
+xmllint --xpath '//package[@name="com/example/feature"]/class/counter[@type="LINE"]/..' coverage.xml | \
+  grep -oP 'name="\K[^"]+|missed="\K[0-9]+|covered="\K[0-9]+' | \
+  paste - - -
+```
+
+Each row outputs: `ClassName  missed  covered`. The `counter[@type="LINE"]/..` XPath ensures exactly one counter per class, so `paste - - -` aligns correctly.
+
+Python alternative: use `xml.etree.ElementTree` to parse the same XML, iterate `findall('.//package[@name="com/example/feature"]/class')`, and extract `counter[@type="LINE"]` missed/covered attributes per class.
+
 ### Coverage Thresholds in CI
 
 ```kotlin
@@ -279,6 +294,12 @@ Both Kover and JaCoCo report artificially low branch coverage for `@Composable` 
 
 **Workaround:** Exclude composable functions from branch coverage metrics via `annotatedBy("androidx.compose.runtime.Composable")` or measure only LINE coverage for UI code.
 
+### Kover Compose-Specific Coverage
+
+Isolate Compose-only coverage with Kover filters: `includes { annotatedBy("androidx.compose.runtime.Composable") }` in the `kover { reports { filters { } } }` block, then run `./gradlew koverHtmlReport`. Alternatively, generate separate reports for Compose vs non-Compose modules.
+
+**Caveat:** Kover tracks composable function entry but does not distinguish individual recomposition branches.
+
 ## Coverage for Compose UI Tests
 
 Compose UI tests (those using `createComposeRule()` or `createAndroidComposeRule()`) produce standard instrumented coverage files (`.ec`). What gets covered:
@@ -314,6 +335,12 @@ CLI: `./gradlew testDebugUnitTest jacocoTestReport`
 - On JDK 11+, must also exclude `jdk.internal.*` or get `IllegalAccessError`.
 - Shadow classes (Robolectric's `@Implements`) appear in coverage but are framework code; exclude `org.robolectric.**` from class directories.
 - Offline instrumentation is NOT recommended; on-the-fly (JaCoCo agent) is preferred and works with Robolectric when configured correctly.
+
+## Offline vs Online Instrumentation
+
+JaCoCo supports **online** (default, runtime via Java agent) and **offline** (build-time bytecode rewriting) instrumentation. Offline mode is encountered with `offline = true` in JaCoCo config or legacy Robolectric setups.
+
+Avoid offline mode: it causes class file version conflicts and breaks with frameworks that also modify bytecode (Compose compiler, Dagger/Hilt). If Robolectric coverage shows zero data, use `isIncludeNoLocationClasses = true` (see Kotlin Coverage Fix above) instead of switching to offline.
 
 ## Diff Coverage
 

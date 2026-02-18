@@ -2,6 +2,22 @@
 
 CLI tools for profiling Android app performance: Perfetto traces, frame timing, method tracing, heap analysis, and physical device-specific measurements.
 
+> **TL;DR**: Capture traces with `adb shell perfetto -t 20s sched freq gfx`, query with `trace_processor --query "SQL"`, measure jank via `dumpsys gfxinfo`, profile methods with `am profile start/stop`, dump heap with `am dumpheap`, detect slow frames via Choreographer slice analysis.
+
+## Contents
+
+| Line | Section | Focus |
+|-----:|---------|-------|
+| 21 | Perfetto Traces (Android 9+) | Config, capture, trace_processor SQL, automation |
+| 559 | Frame Timing Analysis | gfxinfo, framestats, automated jank measurement |
+| 604 | Method Tracing | `am profile`, dmtracedump |
+| 626 | Heap Analysis | `am dumpheap`, hprof-conv |
+| 641 | Process and Memory Monitoring | top, meminfo, vmstat |
+| 656 | Physical Device Profiling | CPU governor, thermal, battery, GPU |
+| 705 | Compose-Specific CLI Debugging | Layout bounds, overdraw, recomposition |
+| 736 | Macrobenchmark and Baseline Profiles | Quick commands |
+| 754 | Sensor and Hardware Capabilities | Sensor listing, connectivity |
+
 ## Perfetto Traces (Android 9+)
 
 Perfetto is the primary system-wide tracing tool, default-enabled on Android 11+.
@@ -129,6 +145,16 @@ cat perf_config.pbtx | adb shell perfetto --txt -c - \
 | `file_write_period_ms` | Flush interval when streaming | 2500 |
 | `atrace_apps` | Enable app-level tracing for package | Package name |
 
+#### Ring Buffer vs Long Trace Trade-offs
+
+Default `RING_BUFFER` overwrites oldest data when full -- suitable for <30s captures. For longer sessions, add `write_into_file: true` and `file_write_period_ms: 2500` to stream to disk. Buffer sizing: 32MB handles ~10s; for 30s+ prefer streaming over larger buffers. Detect dropped events:
+
+```bash
+./trace_processor trace.perfetto-trace \
+  --query "SELECT name, severity, value FROM stats WHERE severity != 'info'"
+# Look for: ftrace_cpu_overrun, chunks_discarded, patches_discarded
+```
+
 ### Machine Analysis with trace_processor
 
 The Perfetto output is binary protobuf. Use `trace_processor` to query with SQL.
@@ -152,6 +178,19 @@ The Perfetto output is binary protobuf. Use `trace_processor` to query with SQL.
 # Run built-in metric
 ./trace_processor --run-metrics android_startup trace.perfetto-trace
 ```
+
+#### Built-in Perfetto Metrics
+
+| Metric | What It Measures |
+|--------|-----------------|
+| `android_startup` | App startup timing (TTID, TTFD, bind application) |
+| `android_jank` | Frame jank classification and counts |
+| `android_cpu` | CPU usage per process/thread |
+| `android_mem` | Memory usage tracking (RSS, PSS) |
+| `android_batt` | Battery drain estimation by subsystem |
+| `android_binder` | Binder transaction latency and throughput |
+
+List all available metrics with `./trace_processor --list-metrics`.
 
 #### Python Scripted Analysis
 
@@ -195,7 +234,18 @@ WHERE jank_type != 'None'
 ORDER BY dur DESC;
 ```
 
-Interpretation: `jank_type` values -- `AppDeadlineMissed` (app too slow), `SurfaceFlingerCpuDeadlineMissed` (compositor overloaded), `BufferStuffing` (frame queue backlog), `PredictionError` (vsync timing drift). Focus on `AppDeadlineMissed` for app-attributable jank.
+**Complete `jank_type` values:**
+
+| jank_type | Attribution | Meaning |
+|-----------|------------|---------|
+| `AppDeadlineMissed` | App | App took too long to produce frame |
+| `SurfaceFlingerCpuDeadlineMissed` | System | Compositor CPU work exceeded deadline |
+| `SurfaceFlingerGpuDeadlineMissed` | System | Compositor GPU work exceeded deadline |
+| `DisplayHAL` | System | Display HAL layer missed deadline |
+| `BufferStuffing` | App | Frame queue backlog (app producing faster than display consumes) |
+| `PredictionError` | System | Vsync timing prediction drift |
+
+For CI scripts, filter to app-attributable jank only: `WHERE jank_type IN ('AppDeadlineMissed', 'BufferStuffing')`. System-attributable types (`SurfaceFlinger*`, `DisplayHAL`) are not actionable in app code.
 
 #### Frame Duration Percentiles (P50/P90/P99)
 
@@ -414,6 +464,19 @@ for trace_file in glob.glob('build/outputs/**/*.perfetto-trace', recursive=True)
     print(f"{trace_file}: p95={df['p95_ms'].values}")
 ```
 
+### Trace Sharing in CI
+
+Use `./record_android_trace --open` to capture and launch Perfetto UI. Share traces via `ui.perfetto.dev` (drag-and-drop). Store as CI artifacts:
+
+```yaml
+# GitHub Actions example
+- uses: actions/upload-artifact@v4
+  with:
+    name: perfetto-traces
+    path: build/outputs/**/*.perfetto-trace
+    retention-days: 30
+```
+
 ### Custom Trace Instrumentation (Perfetto SDK)
 
 #### Kotlin/Java (Appears as atrace Slices)
@@ -431,6 +494,21 @@ trace("MyOperation") {
     // ... work ...
 }
 ```
+
+#### Coroutine Tracing
+
+`Trace.beginSection`/`endSection` cannot span suspension points -- the section closes on suspend. Use `androidx.tracing:tracing-ktx` instead:
+
+```kotlin
+implementation("androidx.tracing:tracing-ktx:1.3.0-alpha02")
+
+suspend fun loadData(): Data = trace("LoadData") {
+    val raw = apiService.fetch()   // suspends, trace continues
+    parseResponse(raw)
+}
+```
+
+Coroutine traces appear as **async slices** in Perfetto spanning full suspension duration (wall-clock, not CPU time). Query with the standard `slice` table.
 
 #### Compose Recomposition Tracing
 

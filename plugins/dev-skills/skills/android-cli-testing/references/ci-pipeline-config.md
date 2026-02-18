@@ -4,6 +4,21 @@ CI/CD pipeline strategy, test tiers, emulator configuration, Gradle Managed Devi
 
 > For physical device setup and OEM quirks, see `device-setup-oem.md`. For end-to-end CI templates (GitHub Actions, GitLab CI), see `workflow-recipes.md`.
 
+> **TL;DR**: Three test tiers (PR/nightly/pre-release), use ATD images for fast CI boot, enable KVM on Linux runners, quarantine flaky tests with `@FlakyTest` + nightly job, cache AVD snapshots, use Firebase Test Lab for cloud devices, enforce coverage gates via JaCoCo XML parsing.
+
+## Contents
+
+| Line | Section | Focus |
+|-----:|---------|-------|
+| 22 | CI/CD Pipeline Strategy | Test tiers, GMD, KVM, determinism, flaky quarantine |
+| 486 | Firebase Test Lab | Cloud device testing, sharding, CI integration |
+| 549 | Self-Hosted Runner Farm | STF setup, GitHub Actions integration |
+| 601 | Resource Management | Emulator cleanup, disk management |
+| 634 | Build Cache Optimization | Cacheable tasks, remote build cache |
+| 652 | Anti-Patterns | Emulator instability, scripting mistakes |
+| 674 | Pre-Flight Validation | SDK, emulator, ADB, build checks |
+| 761 | Coverage Threshold Enforcement | JaCoCo XML parsing, threshold gates |
+
 ## CI/CD Pipeline Strategy
 
 ### Recommended Test Tiers
@@ -30,6 +45,8 @@ CI/CD pipeline strategy, test tiers, emulator configuration, Gradle Managed Devi
 - **API 29-30 images are most stable** for CI; latest APIs may have teething issues
 - Enable KVM on Linux CI runners (GitHub Actions Ubuntu runners: 2-3x faster than macOS and cheaper). Larger runner sizes (`ubuntu-latest-4-cores` and above) have KVM enabled by default
 - Set `-partition-size 4096` to prevent "no space left on device"
+
+> **Note:** For emulator image boot time and disk size comparison table, see `emulator-cli.md` > System Image Variants.
 
 ### Gradle Managed Devices (GMD)
 
@@ -79,6 +96,41 @@ android {
     }
 }
 ```
+
+### GMD additionalTestOutputDir
+
+Capture files written by tests to device storage and pull them to the host automatically:
+
+```kotlin
+android {
+    testOptions {
+        additionalTestOutputDir = "/sdcard/test-outputs"
+    }
+}
+```
+
+Tests write to `/sdcard/test-outputs/`; Gradle pulls contents to `build/outputs/connected_android_test_additional_output/` after execution. Useful for custom screenshot capture, coverage `.ec` files with Orchestrator + `clearPackageData`, or any test-generated artifacts.
+
+### GMD testDistribution
+
+Distribute tests across multiple managed device instances for parallel execution (AGP 8.2+):
+
+```kotlin
+android {
+    testOptions {
+        managedDevices {
+            groups {
+                create("ciDevices") {
+                    targetDevices.addAll(listOf(devices["pixel6api34"]))
+                    testDistribution { maxParallelDevices = 4 }
+                }
+            }
+        }
+    }
+}
+```
+
+Run with `./gradlew ciDevicesGroupDebugAndroidTest`. GMD provisions up to `maxParallelDevices` instances and distributes test classes across them.
 
 ### CI Video Recording Pattern
 
@@ -141,6 +193,18 @@ adb shell settings put secure spell_checker_enabled 0
 ```
 
 Alternatively, use `clearPackageData = "true"` in `testInstrumentationRunnerArguments` or Test Orchestrator for per-test isolation.
+
+### gradle.properties Runner Arguments
+
+Set persistent instrumentation runner arguments in `gradle.properties` to avoid repeating CLI `-P` flags:
+
+```properties
+# gradle.properties — applied to all connectedAndroidTest runs
+android.testInstrumentationRunnerArguments.clearPackageData=true
+android.testInstrumentationRunnerArguments.disableAnalytics=true
+```
+
+Override per-invocation with CLI flags: `./gradlew connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.clearPackageData=false`. CLI `-P` flags take precedence over `gradle.properties` values.
 
 ### Device Hardening for CI
 
@@ -220,6 +284,36 @@ sudo usermod -aG kvm $(whoami)
 # Re-login or: newgrp kvm
 ```
 
+### GitLab CI Docker-in-Docker Emulator Setup
+
+Running Android emulators in GitLab CI requires a dedicated runner with KVM access -- shared runners do not expose `/dev/kvm`.
+
+```yaml
+# .gitlab-ci.yml
+android-emulator-tests:
+  image: thyrlian/android-sdk:latest
+  tags: [kvm]  # dedicated runner with KVM
+  before_script:
+    - yes | sdkmanager --licenses
+    - sdkmanager "system-images;android-34;google_apis;x86_64"
+    - echo "no" | avdmanager create avd -n ci -k "system-images;android-34;google_apis;x86_64"
+  script:
+    - emulator @ci -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+    - adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 2; done'
+    - ./gradlew connectedDebugAndroidTest
+```
+
+Configure the GitLab Runner with KVM passthrough in `config.toml`:
+
+```toml
+[[runners]]
+  [runners.docker]
+    privileged = true
+    devices = ["/dev/kvm"]
+```
+
+**Alternative Docker images:** `reactnativecommunity/react-native-android` (pre-installed SDKs, larger but ready-to-use), `thyrlian/android-sdk` (minimal, pull only what you need). **Limitation:** GitLab shared runners on gitlab.com do not provide KVM; use self-managed runners or group runners with nested virtualization enabled.
+
 ### AVD Snapshot Caching
 
 Cache the AVD snapshot after initial creation to skip cold boot on subsequent CI runs. Two-step pattern: generate snapshot on cache miss, restore from cache on hit.
@@ -267,6 +361,18 @@ Cache the AVD snapshot after initial creation to skip cold boot on subsequent CI
 - Use `-no-snapshot-save` on test runs to avoid overwriting the clean snapshot with dirty state
 - Running cached emulator across multiple jobs in the same workflow can cause hangs (issue #362) -- use separate cache keys per job if needed
 - GitHub Actions cache is immutable per key -- to refresh a stale snapshot, bump a version suffix in the key (e.g., `avd-30-aosp_atd-v2`)
+
+### reactivecircus/android-emulator-runner vs Manual Setup
+
+| Aspect | `android-emulator-runner` Action | Manual `emulator` + `adb` |
+|--------|----------------------------------|---------------------------|
+| Abstraction | High -- handles AVD creation, boot wait, KVM | Low -- full control over each step |
+| Retry on boot failure | Built-in (configurable attempts) | Must implement manually |
+| Snapshot caching | Integrates with `actions/cache` | Manual cache key management |
+| Multi-emulator | Single emulator per step | Multiple concurrent instances via `-port` |
+| Emulator console access | Not exposed | Full telnet console access |
+| Custom snapshots | Not supported (uses default quick-boot) | Full `-snapshot` flag support |
+| Best for | Standard single-device CI workflows | Complex multi-device, custom boot, or non-GitHub CI |
 
 ### Flaky Test Quarantine in CI
 
@@ -524,6 +630,24 @@ sdkmanager --uninstall "system-images;android-XX;google_apis;x86_64"
 ```
 
 For multi-instance CI, use `--read-only` for instances after the first.
+
+## Build Cache Optimization for Tests
+
+Gradle build cache can skip re-execution of unchanged tasks, but instrumented tests (`connectedAndroidTest`) are **not cacheable by default** because device state is an implicit input.
+
+**Cacheable test tasks:** Unit tests (`test`), Lint, Robolectric tests -- these are deterministic and benefit from both local and remote caching.
+
+**Making custom tasks cacheable:** Annotate with `@CacheableTask` and declare all inputs (`@InputFile`, `@Input`) and outputs (`@OutputDirectory`, `@OutputFile`) explicitly with `@PathSensitive` annotations.
+
+**Remote build cache** for CI (share cache across runners):
+
+```properties
+# gradle.properties
+org.gradle.caching=true
+# settings.gradle.kts: buildCache { remote<HttpBuildCache> { url = uri("https://cache.example.com/") } }
+```
+
+Avoid caching tasks that depend on device state, timestamps, or network responses -- these produce false cache hits.
 
 ## Anti-Patterns
 

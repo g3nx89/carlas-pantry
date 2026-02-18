@@ -4,6 +4,8 @@ End-to-end CLI workflows for Android benchmarking: Microbenchmark, Macrobenchmar
 
 > For APK/AAB size analysis, see `apk-size-analysis.md`. For Perfetto trace analysis and frame timing, see `performance-profiling.md`. For CI pipeline integration, see `ci-pipeline-config.md`. For test execution patterns, see `test-espresso-compose.md`.
 
+> **TL;DR**: Run Microbenchmarks (`./gradlew :benchmark:connectedBenchmarkAndroidTest`), Macrobenchmarks for startup/scroll jank, measure cold start with `am start-activity -W`, generate Baseline Profiles (`generateBaselineProfile`), compare JSON output for regression detection, always verify `cpuLocked: true` in results.
+
 ## Microbenchmark Setup and Execution
 
 Microbenchmarks measure tight code loops (serialization, algorithms, data transformations) on-device with nanobenchmark precision.
@@ -166,6 +168,16 @@ dependencies {
   -Pandroid.testInstrumentationRunnerArguments.class=com.example.macrobenchmark.StartupBenchmark
 ```
 
+### StartupMode Behavior
+
+| StartupMode | Process State | Activity State | What It Tests |
+|-------------|--------------|----------------|---------------|
+| `COLD` | Killed | Destroyed | Full process init + activity creation |
+| `WARM` | Running | Destroyed | Activity re-creation (process already warm) |
+| `HOT` | Running | Stopped/Background | Activity resume from background |
+
+**CompilationMode interaction**: pair `COLD` with `None()` for worst-case and `Partial()` for realistic first-launch to quantify Baseline Profile impact.
+
 ### CompilationMode Options
 
 | Mode | Effect | When to Use |
@@ -197,6 +209,26 @@ Enable the Perfetto SDK tracing flag for deeper per-function traces inside the t
 ```
 
 **Gotcha**: Perfetto SDK tracing loads a native library at runtime. This adds measurable latency to `COLD` startup measurements — do not enable it for startup regression tracking. Use it only when you need detailed per-function trace spans (e.g., diagnosing which specific method causes a regression already detected by standard metrics).
+
+### Custom Trace Sections in Macrobenchmarks
+
+**App side** -- instrument target code with `trace("LoadDashboard") { ... }` (AndroidX tracing). **Benchmark side** -- measure it with `TraceSectionMetric`:
+
+```kotlin
+// Benchmark module
+benchmarkRule.measureRepeated(
+    packageName = "com.example.app",
+    metrics = listOf(TraceSectionMetric("LoadDashboard")),
+    iterations = 10, startupMode = StartupMode.WARM
+) { startActivityAndWait() }
+```
+
+Verify sections appear in captured traces:
+
+```bash
+./trace_processor build/outputs/**/*.perfetto-trace \
+  --query "SELECT name, dur/1e6 AS ms FROM slice WHERE name = 'LoadDashboard'"
+```
 
 ### Output
 
@@ -248,6 +280,25 @@ adb logcat -d | grep -i "fullyDrawnReported\|Fully drawn"
 | Called before async data loads | TTFD measures framework latency, not user-visible content readiness | Call only after RecyclerView/LazyColumn populates with real data |
 | Compose placement | Calling from `onCreate` measures activity creation, not composition | Call from `LaunchedEffect` after initial composition + data load completes |
 
+### fullyDrawnReported Implementation Pattern
+
+```kotlin
+// Compose: report after data loads and renders
+val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+val activity = LocalContext.current as Activity
+LaunchedEffect(uiState.isLoaded) {
+    if (uiState.isLoaded) activity.reportFullyDrawn()
+}
+
+// View: report in data observer after layout pass
+viewModel.data.observe(this) { data ->
+    recyclerView.adapter = MyAdapter(data)
+    recyclerView.post { reportFullyDrawn() }
+}
+```
+
+**Gotcha**: calling in `onCreate` or before real data renders collapses TTID and TTFD to the same value. Calling after the measurement window (>30s) silently drops the metric from benchmarks.
+
 ### Automated Startup Timing Script
 
 ```bash
@@ -296,6 +347,22 @@ Use `am start -W` for quick checks. Use Macrobenchmark for CI-integrated regress
 ```
 
 Output: `app/src/main/generated/baselineProfiles/baseline-prof.txt`
+
+### Cloud Profiles vs Local Profiles
+
+| Aspect | Cloud Profile | Local Profile |
+|--------|--------------|---------------|
+| Source | Play Store aggregates from real users | `generateBaselineProfile` Gradle task |
+| Distribution | Automatic via Play Store updates | Bundled in APK at build time |
+| Coverage | Broad (real-world usage patterns) | Targeted (generator test journeys) |
+| Availability | After sufficient install base | Immediately on first install |
+
+Check active profile: `adb shell dumpsys package com.example.app | grep -i "profile\|dexopt\|compiler"`. Before benchmarking local profile impact, reset compilation state first:
+
+```bash
+adb shell cmd package compile --reset com.example.app
+# Then install APK with local profile and measure startup
+```
 
 ### Profile Rules Syntax
 

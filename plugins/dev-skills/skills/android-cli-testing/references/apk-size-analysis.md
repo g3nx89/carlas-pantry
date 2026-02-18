@@ -4,6 +4,8 @@ CLI workflows for APK and AAB size analysis, optimization verification, and CI-i
 
 > For benchmark execution and regression detection, see `benchmark-cli.md`. For CI pipeline integration, see `ci-pipeline-config.md`. For R8/ProGuard impact on Baseline Profiles, see `benchmark-cli.md` > R8/Obfuscation Gotcha.
 
+> **TL;DR**: Analyze APK with `apkanalyzer apk file-size/download-size`, compare builds with `apkanalyzer apk compare`, measure AAB with `bundletool get-size total`, verify R8 with `apkanalyzer dex packages`, track CI size via `size-history.json` comparison, check DEX method count against 64K limit.
+
 ## Size Breakdown with apkanalyzer
 
 Location: `$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer`
@@ -169,6 +171,20 @@ apkanalyzer dex packages --defined-only app-release.apk | grep -i "kotlin.Metada
 # -assumenosideeffects class kotlin.jvm.internal.Intrinsics { *; }
 ```
 
+## R8 Full Mode vs Compatibility Mode
+
+AGP 8+ defaults to R8 full mode (`android.enableR8.fullMode=true` in `gradle.properties`), producing ~5-15% smaller DEX than compatibility mode.
+
+```bash
+# Verify active mode (present and true = full mode)
+grep 'android.enableR8.fullMode' gradle.properties
+
+# Verify R8 optimizations: check remaining classes
+apkanalyzer dex packages app-release.apk --defined-only | wc -l
+```
+
+**Gotcha:** Full mode breaks libraries relying on reflection without keep rules. If a library crashes only in release builds after AGP upgrade, add `-keep` rules or revert with `android.enableR8.fullMode=false`.
+
 ## Resource Shrinking Verification
 
 ### Unused Resources Detection
@@ -272,6 +288,35 @@ apkanalyzer dex code --class com.example.MainActivity app-release.apk
 # plugins { id("com.getkeepsafe.dexcount") }
 # Prints method/field count after each build
 ```
+
+### 64K Reference Limit Monitoring
+
+```bash
+# Per-DEX method reference count
+apkanalyzer dex references app-release.apk
+
+# Alert threshold: flag when primary DEX exceeds 60K references (buffer for growth)
+REFS=$(apkanalyzer dex references --files classes.dex app-release.apk)
+[ "$REFS" -gt 60000 ] && echo "WARNING: primary DEX at $REFS/65536 references"
+
+# Top reference contributors by package
+apkanalyzer dex packages app-release.apk --defined-only | sort -t$'\t' -k4 -rn | head -20
+```
+
+Additional DEX files add ~100-200KB each plus class loading latency on pre-API-21 devices (legacy multidex).
+
+### Bytecode Inspection
+
+```bash
+# Inspect DEX bytecode for a specific method
+apkanalyzer dex code --class com.example.MyClass --method myMethod app-release.apk
+
+# With ProGuard mapping for obfuscated APKs
+apkanalyzer dex code --class a.b.C --method d \
+  --proguard-mappings build/outputs/mapping/release/mapping.txt app-release.apk
+```
+
+Use case: verify R8 inlined a method (absent from output) or check for unexpectedly large method bodies.
 
 ### Multidex Overhead
 

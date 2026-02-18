@@ -40,6 +40,16 @@ yes | sdkmanager --licenses
 | Google APIs | `google_apis` | Play Services APIs (Maps, FCM) | Yes (`adb root`) | CI testing, apps using Google APIs |
 | Google Play | `google_apis_playstore` | Play Services + Play Store | **No** (production-locked) | Testing Play Store interactions |
 
+**Boot Time and Disk Size Comparison (API 33-34, x86_64, KVM)**:
+
+| Variant | Cold Boot | Snapshot Boot | Disk Size | Notes |
+|---------|-----------|---------------|-----------|-------|
+| `aosp_atd` | ~18-25s | ~5-8s | ~3-4 GB | Fastest; no Play Services |
+| `google_apis` | ~25-40s | ~6-10s | ~6-8 GB | Best CI balance |
+| `google_apis_playstore` | ~40-60s | ~10-15s | ~8-12 GB | Production-locked, heaviest |
+
+Times on 4-core Linux with `swiftshader_indirect`. Without KVM, multiply cold boot by 5-8x.
+
 **For CI, prefer `google_apis`** -- smaller, root-capable, sufficient for most testing. Avoid `google_apis_playstore` in CI; the Pixel Launcher causes background ANRs. For fastest CI, use **ATD images**: `system-images;android-30;aosp_atd;x86` -- purpose-built for automated testing with minimal bloat.
 
 **API level strategy**: Test on `targetSdkVersion` (primary), `minSdkVersion` (compatibility), and 1-2 intermediate levels. Use **x86_64** on Intel/AMD hosts; **arm64-v8a** on Apple Silicon Macs.

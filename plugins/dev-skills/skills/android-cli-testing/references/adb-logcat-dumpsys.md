@@ -4,6 +4,8 @@ Logcat filtering, buffers, and output formatting. Dumpsys service inspection for
 
 > For ADB connection and app management, see `adb-connection-apps.md`. For file operations, input, and screen capture, see `adb-io-system.md`.
 
+> **TL;DR**: Filter logcat with `tag:priority` syntax or `--pid`/`-e regex`, inspect services with `dumpsys <service>`, query hidden settings with `settings list system/secure/global`, use `cmd package` for package ops, verify deep links with `am start -a VIEW -d <uri>`.
+
 ## Logcat
 
 ### Filter Syntax
@@ -348,6 +350,21 @@ adb shell pm list features
 adb shell pm trim-caches 500000000
 ```
 
+### Deep Link Domain Verification
+
+```bash
+# Check domain verification state for an app
+adb shell pm get-app-links <package>
+
+# Manually approve a domain (bypass Digital Asset Links verification)
+adb shell pm set-app-links --package <package> 2 <domain>
+
+# Reset domain verification
+adb shell pm set-app-links --package <package> 0 <domain>
+```
+
+States: `0`=none, `1`=ask, `2`=always, `3`=never. Useful in CI where Digital Asset Links DNS verification is unavailable. API 31+.
+
 ## Window Manager (wm) Commands
 
 Display size, density, and overscan manipulation for testing responsive layouts.
@@ -411,11 +428,35 @@ adb shell getprop ro.build.version.sdk        # API level
 adb shell getprop ro.build.type               # userdebug/eng/user
 adb shell getprop ro.product.model            # device model
 adb shell getprop ro.build.display.id         # build fingerprint
+adb shell getprop ro.debuggable               # 1 on userdebug/eng (root adb shell possible)
+adb shell getprop dalvik.vm.heapsize          # max heap per app (older devices)
+adb shell getprop dalvik.vm.heapgrowthlimit   # actual heap limit before largeHeap flag
 # Dump ALL properties:
 adb shell getprop
 ```
 
-**Caveat:** `setprop` changes are lost on reboot unless prefixed with `persist.`. Many `debug.*` props require a process restart to take effect (kill and relaunch the app).
+**Caveat:** `setprop` changes are lost on reboot unless prefixed with `persist.`. Many `debug.*` props require a process restart to take effect (kill and relaunch the app). `dalvik.vm.heapgrowthlimit` is the effective per-app limit unless `android:largeHeap="true"` is set in the manifest, which raises it to `dalvik.vm.heapsize`.
+
+## ADB Port Forwarding and Reverse
+
+```bash
+# Reverse: device→host (emulator hits host-side mock server)
+adb reverse tcp:8080 tcp:8080   # device localhost:8080 → host localhost:8080
+# Primary CI use case: emulator calling MockWebServer/WireMock on the host
+
+# Forward: host→device (attach debugger to on-device process)
+adb forward tcp:8700 jdwp:<pid>
+adb jdwp                        # list debuggable PIDs
+
+# Multi-device: prefix with serial
+adb -s emulator-5554 reverse tcp:8080 tcp:8080
+
+# Cleanup
+adb reverse --remove-all
+adb forward --remove-all
+```
+
+**forward vs reverse:** `adb forward` maps host port to device (host→device). `adb reverse` maps device port to host (device→host). For JDWP debugging in multi-process apps, use `adb jdwp` to find the target PID, then `adb forward tcp:<local> jdwp:<pid>` to attach JDB or IntelliJ's remote debugger.
 
 ## ADB Emulator Console Commands
 
