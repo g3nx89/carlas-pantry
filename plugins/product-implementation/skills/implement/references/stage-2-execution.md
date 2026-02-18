@@ -19,8 +19,8 @@ artifacts_read:
 artifacts_written:
   - "tasks.md (updated with [X] marks)"
   - ".implementation-state.local.md (updated phases)"
-  - "test files (conditional — created by clink test author in Step 1.8 if enabled)"
-  - "test files (conditional — created by clink test augmenter in Section 2.1a if enabled)"
+  - "test files (conditional — created by CLI test author in Step 1.8 if enabled)"
+  - "test files (conditional — created by CLI test augmenter in Section 2.1a if enabled)"
   - "source files (conditional — simplified by code-simplifier in Step 3.5 if enabled)"
   - ".uat-evidence/ (conditional — screenshots from UAT mobile testing in Step 3.7 if enabled)"
 agents:
@@ -28,7 +28,7 @@ agents:
   - "product-implementation:code-simplifier"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
-  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/clink-dispatch-procedure.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/cli-dispatch-procedure.md"
   - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
 ---
 
@@ -144,9 +144,9 @@ Extract from the current phase section in tasks.md:
 - **File targets**: Extract file paths from task descriptions
 - **Dependencies**: Tasks targeting the same file MUST run sequentially regardless of `[P]` marker
 
-### Step 1.8: Clink Test Author (Option H)
+### Step 1.8: CLI Test Author (Option H)
 
-> **Conditional**: Only runs when ALL of: `clink_dispatch.stage2.test_author.enabled` is `true`, `test_cases_available` is `true` (from Stage 1 summary), and `cli_availability.codex` is `true` (from Stage 1 summary). If any condition is false, skip to Step 2.
+> **Conditional**: Only runs when ALL of: `cli_dispatch.stage2.test_author.enabled` is `true`, `test_cases_available` is `true` (from Stage 1 summary), and `cli_availability.codex` is `true` (from Stage 1 summary). If any condition is false, skip to Step 2.
 
 Before launching the developer agent, generate executable tests from test-case specifications using an external coding agent. This creates TDD targets that the developer agent must make pass.
 
@@ -161,7 +161,7 @@ Before launching the developer agent, generate executable tests from test-case s
    - `{contract_content}` — contract.md content (or fallback: `"Not available — infer interfaces from plan.md and task descriptions"`)
    - `{data_model_content}` — data-model.md content (or fallback: `"Not available — infer data model from plan.md"`)
    - `{FEATURE_DIR}`, `{PROJECT_ROOT}` — from Stage 1 summary
-4. **Dispatch**: Follow the Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+4. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
    - `cli_name="codex"`, `role="test_author"`
    - `file_paths=[FEATURE_DIR/test-cases/, plan.md, contract.md, data-model.md, PROJECT_ROOT/src/]`
    - `fallback_behavior="skip"` (developer writes its own tests)
@@ -177,7 +177,7 @@ Before launching the developer agent, generate executable tests from test-case s
 
 #### Write Boundaries
 
-The clink agent writes to test directories following the project's existing test file naming conventions. It MUST NOT write to source directories. The coordinator verifies post-dispatch that no source files were created or modified.
+The CLI agent writes to test directories following the project's existing test file naming conventions. It MUST NOT write to source directories. The coordinator verifies post-dispatch that no source files were created or modified.
 
 ### Step 2: Launch Developer Agent
 
@@ -269,13 +269,13 @@ Adds ~5-15s dispatch overhead + 30-120s agent execution per phase. Skipped autom
 
 > **Conditional**: Only runs when ALL of:
 >   1. `uat_execution.enabled` is `true` (master switch from config)
->   2. `clink_dispatch.stage2.uat_mobile_tester.enabled` is `true`
+>   2. `cli_dispatch.stage2.uat_mobile_tester.enabled` is `true`
 >   3. `cli_availability.gemini` is `true` (from Stage 1 summary)
 >   4. `mobile_mcp_available` is `true` (from Stage 1 summary)
 >   5. Phase has mapped UAT specs OR touches UI files (see relevance check below)
 > If any condition is false, skip to Step 4.
 
-After code completion (and optional simplification), run behavioral acceptance testing and Figma visual verification against the running app on a Genymotion emulator. The coordinator handles APK build and install; the clink agent handles testing.
+After code completion (and optional simplification), run behavioral acceptance testing and Figma visual verification against the running app on a Genymotion emulator. The coordinator handles APK build and install; the CLI agent handles testing.
 
 #### Phase Relevance Check
 
@@ -296,7 +296,7 @@ Determine if the current phase warrants UAT testing:
 
 #### APK Build
 
-1. Read build config from `clink_dispatch.stage2.uat_mobile_tester.gradle_build`
+1. Read build config from `cli_dispatch.stage2.uat_mobile_tester.gradle_build`
 2. Run the build command:
    ```
    Bash("{gradle_build.command}")
@@ -305,7 +305,7 @@ Determine if the current phase warrants UAT testing:
 3. If build fails: log warning `"Gradle build failed — skipping UAT for phase '{phase_name}'"`, skip to Step 4
 4. Locate APK: use `Glob("{gradle_build.apk_search_pattern}")` to find the built APK
 5. If no APK found: log warning `"No APK found matching '{apk_search_pattern}' — skipping UAT"`, skip to Step 4
-6. Store `apk_path` for injection into clink prompt
+6. Store `apk_path` for injection into CLI prompt
 
 #### APK Install
 
@@ -328,20 +328,20 @@ mkdir -p {FEATURE_DIR}/{uat_mobile_tester.evidence_dir}/{phase_name_sanitized}/
 ```
 Where `phase_name_sanitized` converts the phase name to a safe directory name (lowercase, non-alphanumeric replaced with hyphens, e.g., "Phase 1: Setup" → "phase-1-setup").
 
-#### Clink Dispatch
+#### CLI Dispatch
 
 1. **Collect UAT specs**: Read content of all matched UAT spec files for this phase (from the relevance check above). If no specific specs matched but the phase was deemed relevant via UI file paths, use all available UAT specs from `{FEATURE_DIR}/test-cases/uat/` as context.
 
 2. **Build prompt**: Read the role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_uat_mobile_tester.txt`
 
-3. **Dispatch**: Follow the Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+3. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
    - `cli_name="gemini"`, `role="uat_mobile_tester"`
    - `file_paths=[FEATURE_DIR/test-cases/uat/, FEATURE_DIR, PROJECT_ROOT]`
-   - `timeout_ms` from `clink_dispatch.stage2.uat_mobile_tester.timeout_ms` (default: 600000 = 10 minutes)
-   - `fallback_behavior` from `clink_dispatch.stage2.uat_mobile_tester.fallback_behavior` (default: `"skip"`)
+   - `timeout_ms` from `cli_dispatch.stage2.uat_mobile_tester.timeout_ms` (default: 600000 = 10 minutes)
+   - `fallback_behavior` from `cli_dispatch.stage2.uat_mobile_tester.fallback_behavior` (default: `"skip"`)
    - `expected_fields=["total_scenarios", "passed", "failed", "blocked", "critical_issues", "visual_mismatches", "recommendation"]`
 
-4. **Coordinator-Injected Context** (appended per `clink-dispatch-procedure.md` variable injection convention):
+4. **Coordinator-Injected Context** (appended per `cli-dispatch-procedure.md` variable injection convention):
    - `{phase_name}` — current phase name
    - `{FEATURE_DIR}` — feature directory
    - `{PROJECT_ROOT}` — project root
@@ -352,7 +352,7 @@ Where `phase_name_sanitized` converts the phase name to a safe directory name (l
    - `{figma_default_url}` — from `uat_mobile_tester.figma.default_node_url` config (or `"Not provided"`)
    - `{app_package}` — from `uat_execution.apk_install.app_package` config (or `"Auto-detected from APK"`)
 
-5. **MCP Tool Budget** (appended per standard convention, values from `clink_dispatch.mcp_tool_budgets.per_clink_dispatch`):
+5. **MCP Tool Budget** (appended per standard convention, values from `cli_dispatch.mcp_tool_budgets.per_cli_dispatch`):
    ```
    ## MCP Tool Budget (Advisory)
    - Mobile MCP: max {mobile_mcp.max_screenshots} screenshots, {mobile_mcp.max_interactions} interactions, {mobile_mcp.max_device_queries} device queries
@@ -364,7 +364,7 @@ Where `phase_name_sanitized` converts the phase name to a safe directory name (l
 
 1. **Parse `<SUMMARY>` block**: Extract `total_scenarios`, `passed`, `failed`, `blocked`, `critical_issues`, `visual_mismatches`, `recommendation`
 
-2. **Severity gating** (from `clink_dispatch.stage2.uat_mobile_tester.severity_gating`):
+2. **Severity gating** (from `cli_dispatch.stage2.uat_mobile_tester.severity_gating`):
    - If `recommendation` is `"PASS"` or `"PASS_WITH_NOTES"` and no `[Critical]` or `[High]` findings:
      - Log: `"UAT passed for phase '{phase_name}': {passed}/{total_scenarios} scenarios, {visual_mismatches} visual mismatches"`
      - Proceed to Step 4
@@ -386,10 +386,10 @@ Where `phase_name_sanitized` converts the phase name to a safe directory name (l
      - **Manual escalation** (when no autonomy policy applies):
        - Set `status: needs-user-input`
        - Set `block_reason: "UAT testing found critical/high issues in phase '{phase_name}': {critical_issues} critical issue(s), {failed} scenario(s) failed. Review findings and decide: fix implementation / skip UAT for this phase / proceed anyway."`
-       - Include the raw findings section from clink output in the block_reason for user context
+       - Include the raw findings section from CLI output in the block_reason for user context
        - Return to orchestrator (orchestrator mediates user interaction per standard protocol)
 
-3. **If clink fails, CLI unavailable, or times out**: follow `fallback_behavior` — default `"skip"` means continue without UAT results, log warning
+3. **If CLI fails, CLI unavailable, or times out**: follow `fallback_behavior` — default `"skip"` means continue without UAT results, log warning
 
 4. **Track metrics**: Record in phase-level tracking for summary:
    - `uat_ran: true`
@@ -402,7 +402,7 @@ Where `phase_name_sanitized` converts the phase name to a safe directory name (l
 
 #### Write Boundaries
 
-The clink agent writes ONLY screenshot files to the evidence directory (`{FEATURE_DIR}/{evidence_dir}/{phase_name_sanitized}/`). It MUST NOT write to source directories, test directories, or spec directories. The coordinator verifies post-dispatch that no files outside the evidence directory were created or modified.
+The CLI agent writes ONLY screenshot files to the evidence directory (`{FEATURE_DIR}/{evidence_dir}/{phase_name_sanitized}/`). It MUST NOT write to source directories, test directories, or spec directories. The coordinator verifies post-dispatch that no files outside the evidence directory were created or modified.
 
 #### Latency Impact
 
@@ -445,9 +445,9 @@ Otherwise (`per_phase`, the default), follow the Auto-Commit Dispatch Procedure 
   - If `auto_commit.stage2_strategy` is `batch` and `auto_commit.enabled` is `true`: follow the Auto-Commit Dispatch Procedure in `auto-commit-dispatch.md` with `template_key` = `phase_batch`, `substitution_vars` = `{feature_name}` = FEATURE_NAME, `skip_target` = Section 2.3, `summary_field` = `commits_made` (single-element array)
   - Write Stage 2 summary and return to orchestrator
 
-## 2.1a Clink Test Augmenter (Option I)
+## 2.1a CLI Test Augmenter (Option I)
 
-> **Conditional**: Only runs when ALL of: `clink_dispatch.stage2.test_augmenter.enabled` is `true`, `cli_availability.gemini` is `true` (from Stage 1 summary), and all phases have completed successfully. If any condition is false, skip to Section 2.2.
+> **Conditional**: Only runs when ALL of: `cli_dispatch.stage2.test_augmenter.enabled` is `true`, `cli_availability.gemini` is `true` (from Stage 1 summary), and all phases have completed successfully. If any condition is false, skip to Section 2.2.
 
 After all phases complete but before writing the Stage 2 summary, run an edge case discovery pass using an external model with full visibility into all implemented code and tests.
 
@@ -457,10 +457,10 @@ After all phases complete but before writing the Stage 2 summary, run an edge ca
 2. **Build prompt**: Read the role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_test_augmenter.txt`. Inject variables:
    - `{modified_source_files}` — list of source files modified during Stage 2
    - `{modified_test_files}` — list of test files modified during Stage 2
-   - `{max_additional_tests}` — from config `clink_dispatch.stage2.test_augmenter.max_additional_tests` (default: 10)
-   - `{focus_areas}` — from config `clink_dispatch.stage2.test_augmenter.focus` (default: `["boundary", "error", "concurrency", "security"]`)
+   - `{max_additional_tests}` — from config `cli_dispatch.stage2.test_augmenter.max_additional_tests` (default: 10)
+   - `{focus_areas}` — from config `cli_dispatch.stage2.test_augmenter.focus` (default: `["boundary", "error", "concurrency", "security"]`)
    - `{FEATURE_DIR}` — from Stage 1 summary
-3. **Dispatch**: Follow the Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+3. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
    - `cli_name="gemini"`, `role="test_augmenter"`
    - `file_paths=[...modified_source_files, ...modified_test_files]`
    - `fallback_behavior="skip"`
@@ -470,7 +470,7 @@ After all phases complete but before writing the Stage 2 summary, run an edge ca
    - Record confirmed bug discoveries in `augmentation_bugs_found` for the Stage 2 summary
    - If all augmented tests PASS: record as coverage improvements (no bugs found)
 5. **Run full test suite**: Update `test_count_verified` with the post-augmentation count
-6. **If clink fails, CLI unavailable, or times out**: skip silently — no impact on main workflow
+6. **If CLI fails, CLI unavailable, or times out**: skip silently — no impact on main workflow
 
 ### Output
 
@@ -544,7 +544,7 @@ status: "completed"  # or "failed" if halted, or "needs-user-input" if user deci
 artifacts_written:
   - "tasks.md (updated with [X] marks)"
   - ".implementation-state.local.md"
-  - "augmented test files (conditional — from clink test augmenter Section 2.1a if enabled)"
+  - "augmented test files (conditional — from CLI test augmenter Section 2.1a if enabled)"
   - ".uat-evidence/ (conditional — from UAT mobile testing Step 3.7 if enabled)"
 summary: |
   Executed {N}/{M} phases. {X} tasks completed, {Y} tasks remaining.
@@ -555,7 +555,7 @@ flags:
   test_count_verified: {N}  # Verified test count from last phase's developer agent final test run (null if agent did not report)
   commits_made: ["sha1", "sha2"]  # Array: one SHA per phase (per_phase strategy) or single SHA (batch). Stages 4/5 use scalar commit_sha instead.
   research_urls_discovered: []  # URLs successfully read during research context resolution (Section 2.0a). Consumed by Stages 4/5 for session accumulation.
-  augmentation_bugs_found: 0    # Confirmed bug discoveries from clink test augmenter (Section 2.1a). 0 if skipped or no bugs found.
+  augmentation_bugs_found: 0    # Confirmed bug discoveries from CLI test augmenter (Section 2.1a). 0 if skipped or no bugs found.
   simplification_stats: null     # null if code_simplification.enabled is false.
     # When enabled, replace null with an object containing these keys:
     # phases_simplified: {N}     — Phases where simplification ran successfully
@@ -563,6 +563,12 @@ flags:
     # phases_reverted: {N}       — Phases where simplification was reverted due to test failure
     # total_files_simplified: {N} — Sum of files_simplified across all phases
     # total_changes_made: {N}    — Sum of changes_made across all phases
+  cli_dispatch_metrics: null      # null if no CLI dispatches occurred. When CLI dispatches ran, replace with:
+    # dispatches_total: {N}        — Total CLI dispatch invocations across all phases
+    # dispatches_succeeded: {N}    — Dispatches that returned exit code 0
+    # dispatches_fallback: {N}     — Dispatches that fell back to native agents
+    # tier_distribution: {1: N, 2: N, 3: N, 4: N}  — Count of dispatches by output extraction tier
+    # total_timeout_ms: {N}        — Sum of dispatch durations
   uat_results: null              # null if UAT mobile testing disabled or not applicable for any phase.
     # When enabled and run on at least one phase, replace null with an object containing these keys:
     # phases_tested: {N}           — Phases where UAT ran successfully

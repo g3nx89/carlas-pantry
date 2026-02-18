@@ -259,8 +259,8 @@ Probe mobile-mcp to determine if a mobile testing emulator is available for UAT 
 
 ### Procedure
 
-1. Read `uat_execution` and `clink_dispatch.stage2.uat_mobile_tester` sections from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-2. If BOTH `uat_execution.enabled` is `false` AND `clink_dispatch.stage2.uat_mobile_tester.enabled` is `false` → set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.7a
+1. Read `uat_execution` and `cli_dispatch.stage2.uat_mobile_tester` sections from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+2. If BOTH `uat_execution.enabled` is `false` AND `cli_dispatch.stage2.uat_mobile_tester.enabled` is `false` → set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.7a
 3. **Probe mobile-mcp**: Call `mobile_list_available_devices`
    - If call succeeds AND returns at least one device: set `mobile_mcp_available: true`, store `mobile_device_name` from the first available emulator device (prefer emulator over physical device for UAT reproducibility)
    - If call fails, times out, or returns empty device list: set `mobile_mcp_available: false`, `mobile_device_name: null`, log warning: `"Mobile MCP not available or no emulator running — UAT mobile testing will be skipped for all phases"`
@@ -278,21 +278,29 @@ mobile_device_name: "emulator-5554"  # or null
 
 1 lightweight MCP probe call (~1-2s). Skipped entirely when both UAT config switches are disabled.
 
-## 1.7a CLI Availability Detection (Clink)
+## 1.7a CLI Availability Detection (CLI)
 
-Detect which external CLI tools are available for clink dispatch. This step runs ONCE during Stage 1 and stores results for all downstream coordinators. It only executes when at least one clink option is enabled in config.
+Detect which external CLI tools are available for CLI dispatch. This step runs ONCE during Stage 1 and stores results for all downstream coordinators. It only executes when at least one CLI option is enabled in config.
 
 ### Procedure
 
-1. Read `clink_dispatch` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+1. Read `cli_dispatch` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
 2. Collect all unique `cli_name` values from enabled options across all stages (skip options where `enabled: false` or `cli_name` is `null`)
 3. If no enabled options have a `cli_name` → set `cli_availability: {}` and skip to Section 1.7
-4. For each unique `cli_name`:
+4. **Verify dispatch infrastructure** — check that the dispatch script and parsing tools are available:
+   a. Check `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` exists and is executable
+   b. Check `jq --version` via Bash (required for Tier 1 JSON parsing)
+   c. Check `python3 --version` via Bash (required for Tier 2 partial recovery)
+   d. If dispatch script is missing → set all `cli_availability` values to `false`, log error: `"dispatch-cli-agent.sh not found — all CLI dispatches disabled"`, skip to Section 1.7
+   e. If `jq` missing → log warning: `"jq not found — Tier 1 JSON parsing unavailable, Tier 2+ fallback will be used"`
+   f. If `python3` missing → log warning: `"python3 not found — Tier 2 partial recovery unavailable"`
+5. For each unique `cli_name`:
    a. Read `$CLAUDE_PLUGIN_ROOT/config/cli_clients/{cli_name}.json`
-   b. Extract the `healthcheck` command (e.g., `"codex --version"`)
-   c. Run the healthcheck command via Bash
-   d. If command succeeds (exit code 0): set `cli_availability[cli_name] = true`
-   e. If command fails or not found: set `cli_availability[cli_name] = false`, log warning: `"CLI '{cli_name}' not available — clink options using this CLI will fall back to native behavior"`
+   b. Extract the `command` field (e.g., `"codex"`)
+   c. Run a smoke test: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh --cli {command} --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-{cli_name}.txt --timeout 30`
+   d. If exit code is 0 or 1 (CLI found, dispatch works): set `cli_availability[cli_name] = true`
+   e. If exit code is 3 (CLI not found): set `cli_availability[cli_name] = false`, log warning: `"CLI '{cli_name}' not available — CLI options using this CLI will fall back to native behavior"`
+   f. If exit code is 2 (timeout) on a smoke test: set `cli_availability[cli_name] = true` (CLI exists but was slow), log note
 
 ### Output
 
@@ -302,11 +310,15 @@ Store in Stage 1 summary YAML frontmatter:
 cli_availability:
   codex: true
   gemini: false
+dispatch_infrastructure:
+  script_available: true
+  jq_available: true
+  python3_available: true
 ```
 
 ### Cost
 
-1 healthcheck command per unique enabled CLI (~1-2s total). Skipped entirely when no clink options are enabled.
+1 dispatch script smoke test per unique enabled CLI (~3-5s total). Skipped entirely when no CLI options are enabled.
 
 ## 1.7 Lock Acquisition
 
@@ -423,7 +435,7 @@ flags:
   block_reason: null
   test_cases_available: {true/false}
 detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from Section 1.6
-cli_availability:              # from Section 1.7a (empty {} if no clink options enabled)
+cli_availability:              # from Section 1.7a (empty {} if no CLI options enabled)
   codex: {true/false}
   gemini: {true/false}
 mcp_availability:           # from Section 1.6a (all false if research_mcp.enabled is false)
@@ -450,7 +462,7 @@ autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user
 - Phases remaining: {list}
 - Resume from: {phase_name or "beginning"}
 - Detected domains: {list, e.g., ["kotlin", "compose", "api"] or [] if detection disabled}
-- CLI availability: {map, e.g., codex=true, gemini=false or "no clink options enabled"}
+- CLI availability: {map, e.g., codex=true, gemini=false or "no CLI options enabled"}
 - MCP availability: ref={true/false}, context7={true/false}, tavily={true/false} (or "all disabled" if research_mcp.enabled is false)
 - Extracted URLs: {count} documentation URLs from planning artifacts (or "disabled")
 - Resolved libraries: {count} Context7 library IDs pre-resolved (or "disabled")
@@ -508,7 +520,7 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] Expected file warnings: {list or "none"}
 - [{timestamp}] Test cases: {discovered N specs / not available}
 - [{timestamp}] Domain detection: {detected_domains list or "disabled"}
-- [{timestamp}] CLI availability: {map, e.g., codex=true, gemini=false or "no clink options enabled"}
+- [{timestamp}] CLI availability: {map, e.g., codex=true, gemini=false or "no CLI options enabled"}
 - [{timestamp}] MCP availability: ref={bool}, context7={bool}, tavily={bool} (or "research_mcp disabled")
 - [{timestamp}] URL extraction: {N} URLs extracted from planning artifacts (or "disabled/skipped")
 - [{timestamp}] Library pre-resolution: {N} libraries resolved via Context7 (or "disabled/skipped")

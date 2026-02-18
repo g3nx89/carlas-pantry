@@ -288,7 +288,7 @@ code_simplification:
 # Requires: Genymotion emulator running, mobile-mcp MCP server available, Gemini CLI installed.
 # Referenced by: stage-1-setup.md Section 1.6e, stage-2-execution.md Step 3.7
 uat_execution:
-  enabled: true                          # Master switch (also requires clink_dispatch.stage2.uat_mobile_tester.enabled)
+  enabled: true                          # Master switch (also requires cli_dispatch.stage2.uat_mobile_tester.enabled)
   emulator:
     platform: "android"                  # "android" | "ios" (future)
     launch_timeout_ms: 30000             # Wait for device to appear in mobile_list_available_devices
@@ -297,17 +297,16 @@ uat_execution:
     launch_after_install: true           # Launch app after install
     app_package: null                    # Auto-detected from APK; override if needed
 
-# Clink dispatch configuration (PAL MCP integration)
-# All clink features are opt-in (enabled: false by default).
+# CLI dispatch configuration (Bash process-group dispatch)
+# All CLI features are opt-in (enabled: false by default).
 # Native agent behavior is the default for every stage.
-# Requires: PAL MCP server configured, target CLI installed,
-#           config/cli_clients/ directory with role prompt files.
+# Requires: target CLI installed, config/cli_clients/ directory with role prompt files,
+#           scripts/dispatch-cli-agent.sh for process-group-safe dispatch.
 #
-# NOTE: All clink agents (Codex, Gemini) share the same MCP servers as native Claude:
-#   Ref, Context7, Tavily, Sequential Thinking, Figma (desktop + API), Mobile MCP.
-#   MCP tools are available to clink agents automatically — no per-CLI configuration needed.
-#   See "MCP Tool Parity" in the Architecture Overview for details.
-clink_dispatch:
+# CLI agents are standalone processes without MCP server access. Budgets are advisory
+# prompt text. Coordinators pre-fetch via Subagent-Delegated Context Injection.
+# Codex CLI may read .mcp.json for limited MCP support; Gemini CLI has no MCP.
+cli_dispatch:
 
   # --- GLOBAL SETTINGS ---
 
@@ -317,13 +316,23 @@ clink_dispatch:
     max_attempts: 1               # Number of retries on transient failure (0 = no retry)
     backoff_ms: 5000              # Wait between retries
 
-  # MCP tool budgets per clink dispatch (advisory limits on MCP usage by clink agents).
-  # Injected into clink agent prompts by coordinators. These are prompt-based guidance,
-  # not programmatic hard caps — clink agents receive the budget as text instructions.
+  # Instrumentation — metrics sidecar written alongside each CLI dispatch output
+  instrumentation:
+    enabled: true                   # Write .metrics.json sidecar with timing, tier, exit code, CLI version
+    capture_cli_version: true       # Include CLI tool version string in sidecar
+    sidecar_retention: "session"    # "session" = cleaned up in Stage 6; "permanent" = kept indefinitely
+
+  # Non-skippable gates — dispatches that autonomy policy cannot auto-skip
+  non_skippable_gates:
+    - "stage2.uat_mobile_tester"    # UAT behavioral testing cannot be auto-skipped even under full_auto policy
+
+  # MCP tool budgets per CLI dispatch (advisory limits on MCP usage by CLI agents).
+  # Injected into CLI agent prompts by coordinators. These are prompt-based guidance,
+  # not programmatic hard caps — CLI agents receive the budget as text instructions.
   # Coordinators can verify compliance post-dispatch by counting MCP tool references in output.
   # Structure mirrors research_mcp config for naming parity.
   mcp_tool_budgets:
-    per_clink_dispatch:
+    per_cli_dispatch:
       ref:
         max_searches: 3          # Max ref_search_documentation calls per dispatch
         max_reads: 2             # Max ref_read_url calls per dispatch
@@ -404,7 +413,7 @@ clink_dispatch:
         warn_on: ["medium", "low"]       # Log warning, continue for these
       # Screenshot evidence storage
       evidence_dir: ".uat-evidence"      # Relative to FEATURE_DIR; screenshots stored per phase as {evidence_dir}/{phase_name_sanitized}/
-      # Timeout for the clink dispatch itself (overrides global clink_dispatch.timeout_ms)
+      # Timeout for the CLI dispatch itself (overrides global cli_dispatch.timeout_ms)
       timeout_ms: 600000                 # 10 minutes — UAT scenarios with mobile-mcp interactions take longer than code review
 
   # --- STAGE 3 ---
@@ -420,25 +429,52 @@ clink_dispatch:
   # --- STAGE 4 ---
 
   stage4:
-    # Option D: Multi-model code review — replaces homogeneous 3-agent review (Tier 1)
+    # Option D: Tier C multi-model CLI code review — runs alongside Tier A native agents (Tier 1)
     multi_model_review:
       enabled: false
       reviewers:
-        - focus: "simplicity, DRY principles, and code elegance"
-          cli_name: "gemini"
-          role: "simplicity_reviewer"
         - focus: "bugs, functional correctness, and edge case handling"
           cli_name: "codex"
           role: "correctness_reviewer"
         - focus: "project conventions, abstractions, and pattern adherence"
           cli_name: null              # null = native developer agent
           role: null
-      # Option E: Conditional security reviewer (Tier 1)
+      # Conditional reviewers — launched alongside base reviewers when domain/severity conditions are met
       conditional:
         - focus: "security vulnerabilities, OWASP Top 10"
           cli_name: "codex"
           role: "security_reviewer"
           domains: ["api", "web_frontend", "database"]
+        - focus: "Android lifecycle, Compose recomposition, Material 3, coroutine safety"
+          cli_name: "gemini"
+          role: "android_domain_reviewer"
+          domains: ["android", "compose", "kotlin"]
+      # Codebase pattern reviewer — Phase 2 sequential dispatch (requires Phase 1 Critical/High findings)
+      codebase_pattern_reviewer:
+        dispatch_phase: 2             # Runs after Phase 1 consolidation, only if Critical/High findings exist
+        cli_name: "gemini"
+        role: "codebase_pattern_reviewer"
+        context_strategy: "full_codebase"  # Leverages Gemini's 1M context window
+        max_context_tokens: 800000    # Advisory cap for codebase content injected into prompt
+      # Pattern search — controls Phase 2 trigger threshold
+      pattern_search:
+        min_severity_trigger: "high"  # Phase 2 pattern search only runs if Phase 1 has findings at this severity or above
+      # Confidence scoring — progressive threshold filtering for multi-tier findings
+      confidence_scoring:
+        base_score: 40                # Starting confidence for any finding
+        consensus_bonus: 25           # Bonus when 2+ tiers flag the same issue
+        file_line_bonus: 15           # Bonus when finding includes exact file:line reference
+        snippet_bonus: 10             # Bonus when finding includes code snippet
+        known_pattern_bonus: 10       # Bonus when finding matches a known anti-pattern
+        thresholds:                   # Minimum confidence to retain finding at each severity
+          critical: 50
+          high: 65
+          medium: 75
+          low: 90
+      # Review plugins — Tier B plugin-based review via code-review skill
+      review_plugins:
+        enabled: true                 # Check for code-review:review-local-changes skill availability
+        max_findings: 50              # Cap on findings from plugin review
 
     # Option F: Fix review findings with different model (Tier 2)
     fix_engineer:

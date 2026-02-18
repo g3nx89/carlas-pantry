@@ -65,7 +65,7 @@ Read and collect data from these sources:
 |--------|-----------------|
 | `.implementation-state.local.md` | `user_decisions`, `orchestrator.coordinator_failures`, `orchestrator.summaries_reconstructed` |
 | Stage 1 summary | `artifacts_loaded` table, `test_cases_available`, `autonomy_policy`, expected file warnings |
-| Stage 2 summary | `simplification_stats`, `uat_results`, `augmentation_bugs_found` |
+| Stage 2 summary | `simplification_stats`, `uat_results`, `augmentation_bugs_found`, `cli_dispatch_metrics` |
 | Stage 3 summary | `validation_outcome`, `baseline_test_count` |
 | Stage 4 summary | `review_outcome`, finding counts by severity |
 | Stage 5 summary | `documentation_outcome` |
@@ -87,7 +87,7 @@ Compute 10 Phase 1 KPIs from the collected data:
 | 5.2 | Auto-Resolution Count | Total `[AUTO-{policy}]` entries across all stage logs | Info only — contextualizes policy impact |
 | 5.3 | Simplification Stats | `simplification_stats` from Stage 2 summary (phases_simplified, lines_reduced, rollbacks) | Green: 0 rollbacks, Yellow: 1 rollback, Red: 2+ rollbacks |
 | 5.4 | UAT Results | `uat_results` from Stage 2 summary (phases_tested, pass_count, fail_count, visual_mismatches) | Green: all pass, Yellow: visual-only issues, Red: behavioral failures |
-| 5.5 | Clink Augmentation | `augmentation_bugs_found` from Stage 2 summary (count of bugs found by clink test augmenter) | Green: 0, Yellow: 1-2, Red: 3+ |
+| 5.5 | CLI Augmentation | `augmentation_bugs_found` from Stage 2 summary (count of bugs found by CLI test augmenter) | Green: 0, Yellow: 1-2, Red: 3+ |
 
 **Null handling**: If a source field is absent (feature disabled, stage skipped), set the KPI value to `null` and traffic light to `"N/A"`.
 
@@ -146,7 +146,7 @@ kpis:
       fail_count: {N}
       visual_mismatches: {N}
     traffic_light: "{green|yellow|red|N/A}"
-  clink_augmentation_bugs:
+  cli_augmentation_bugs:
     id: "5.5"
     value: {N}
     traffic_light: "{green|yellow|red|N/A}"
@@ -298,6 +298,7 @@ After retrospective generation:
    - Update `last_checkpoint`
    - Append to Implementation Log: `"[{ISO_TIMESTAMP}] Stage 6: Retrospective — completed"`
 2. **No lock operations** — lock was already released in Stage 5
+3. **Sidecar cleanup**: If `cli_dispatch.instrumentation.sidecar_retention` is `"session"`, delete all `*.metrics.json` files produced by CLI dispatches during this implementation session. These are intermediate analysis artifacts not needed after retrospective generation.
 
 ## 6.7 Write Stage 6 Summary
 

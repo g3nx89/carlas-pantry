@@ -1,6 +1,6 @@
 # Feature Implementation Workflow Diagram
 
-> Auto-generated from `skills/implement/` reference files. Keep in sync with SKILL.md v2.2.0.
+> Auto-generated from `skills/implement/` reference files. Keep in sync with SKILL.md v3.0.0.
 
 ## High-Level Orchestrator Flow
 
@@ -121,9 +121,9 @@ flowchart TD
     subgraph PHASE_LOOP["2.1 Phase Loop (for each phase in tasks.md)"]
         direction TB
         PARSE["Step 1: Parse Phase Tasks\nExtract [P] parallel, sequential,\nfile targets, dependencies"]
-        PARSE --> CLINK_TEST{clink test author\nenabled & codex\navailable?}
-        CLINK_TEST -- Yes --> TEST_AUTHOR["Step 1.8: Clink Test Author\n(Option H)\nCodex generates TDD tests\nfrom test-case specs"]
-        CLINK_TEST -- No --> DEV_AGENT
+        PARSE --> CLI_TEST{CLI test author\nenabled & codex\navailable?}
+        CLI_TEST -- Yes --> TEST_AUTHOR["Step 1.8: CLI Test Author\n(Option H)\nCodex generates TDD tests\nfrom test-case specs"]
+        CLI_TEST -- No --> DEV_AGENT
         TEST_AUTHOR --> VERIFY_RED["Verify tests FAIL\n(Red phase)"]
         VERIFY_RED --> DEV_AGENT
 
@@ -147,9 +147,9 @@ flowchart TD
         NEXT_PHASE -- Yes --> PARSE
     end
 
-    NEXT_PHASE -- No --> CLINK_AUG{test augmenter\nenabled & gemini\navailable?}
-    CLINK_AUG -- Yes --> TEST_AUG["2.1a Clink Test Augmenter\n(Option I)\nGemini discovers edge cases\nConfirm bug discoveries"]
-    CLINK_AUG -- No --> BATCH_CHECK
+    NEXT_PHASE -- No --> CLI_AUG{test augmenter\nenabled & gemini\navailable?}
+    CLI_AUG -- Yes --> TEST_AUG["2.1a CLI Test Augmenter\n(Option I)\nGemini discovers edge cases\nConfirm bug discoveries"]
+    CLI_AUG -- No --> BATCH_CHECK
     TEST_AUG --> BATCH_CHECK
 
     BATCH_CHECK{batch commit\nneeded?}
@@ -166,15 +166,15 @@ flowchart TD
 ```mermaid
 flowchart TD
     S3_START(["Stage 3: Completion Validation"]) --> VAL_AGENT["3.1 Launch Validation Agent\nTask(developer)"]
-    S3_START --> CLINK_SPEC{spec validator\nenabled & gemini\navailable?}
+    S3_START --> CLI_SPEC{spec validator\nenabled & gemini\navailable?}
 
-    CLINK_SPEC -- Yes --> SPEC_VAL["3.1a Clink Spec Validator\n(Option C)\nGemini cross-validates\nimplementation vs specs"]
-    CLINK_SPEC -- No --> WAIT_VAL
+    CLI_SPEC -- Yes --> SPEC_VAL["3.1a CLI Spec Validator\n(Option C)\nGemini cross-validates\nimplementation vs specs"]
+    CLI_SPEC -- No --> WAIT_VAL
 
     VAL_AGENT --> WAIT_VAL["Wait for all validators"]
     SPEC_VAL --> WAIT_VAL
 
-    WAIT_VAL --> MERGE{clink validator\nran?}
+    WAIT_VAL --> MERGE{CLI validator\nran?}
     MERGE -- Yes --> MERGE_RESULTS["Merge results\nConservative: use LOWER\ntest count\nDisagreements: NEEDS\nMANUAL REVIEW"]
     MERGE -- No --> CHECKS
 
@@ -222,35 +222,39 @@ flowchart TD
 flowchart TD
     S4_START(["Stage 4: Quality Review"]) --> SKILL_REV["4.1a Skill Reference Resolution\nResolve skills + conditional\nreview dimensions"]
     SKILL_REV --> RESEARCH_REV["4.1b Research Context Resolution\nRe-read accumulated URLs (Ref cache)\nContext7 pitfalls/deprecations"]
-    RESEARCH_REV --> STRATEGY{code-review skill\navailable?}
+    RESEARCH_REV --> DISPATCH_TIERS["4.1 Three-Tier Dispatch\n(all available tiers in parallel)"]
 
-    STRATEGY -- Yes --> CODE_REVIEW["Invoke code-review:\nreview-local-changes\nNormalize output"]
-    STRATEGY -- No --> CHECK_MULTI{multi-model review\n(Option D) enabled?}
+    DISPATCH_TIERS --> TIER_A
+    DISPATCH_TIERS --> TIER_B
+    DISPATCH_TIERS --> TIER_C
 
-    CHECK_MULTI -- Yes --> MULTI_MODEL
-    CHECK_MULTI -- No --> NATIVE_REVIEW
-
-    subgraph NATIVE_REVIEW["4.2 Native Multi-Agent Review (3+ parallel)"]
+    subgraph TIER_A["Tier A: Native Multi-Agent Review (always)"]
         R1["Reviewer 1: developer\nSimplicity / DRY / Elegance"]
         R2["Reviewer 2: developer\nBugs / Functional Correctness"]
         R3["Reviewer 3: developer\nProject Conventions"]
-        R_COND["+ Conditional reviewers\n(e.g., Accessibility, Web)"]
+        R_COND["+ Dev-skills conditional\nreviewers (always native)"]
     end
 
-    subgraph MULTI_MODEL["4.2a Multi-Model Review (Option D)"]
-        MR1["Reviewer 1: Gemini (clink)\nSimplicity"]
-        MR2["Reviewer 2: Codex (clink)\nCorrectness"]
-        MR3["Reviewer 3: Native developer\nConventions"]
-        MR_SEC{security domains\ndetected?}
-        MR_SEC -- Yes --> MR4["Option E: Codex Security\nOWASP audit"]
-        MR_COND["+ Dev-skills conditional\nreviewers (always native)"]
+    subgraph TIER_B["Tier B: Plugin Review (if installed)"]
+        PLUGIN_CHECK{code-review\nplugin available?}
+        PLUGIN_CHECK -- Yes --> PLUGIN_INVOKE["Invoke code-review:\nreview-local-changes\nvia context-isolated subagent"]
+        PLUGIN_CHECK -- No --> PLUGIN_SKIP["Skip Tier B"]
     end
 
-    CODE_REVIEW --> CONSOLIDATE
-    NATIVE_REVIEW --> CONSOLIDATE
-    MULTI_MODEL --> CONSOLIDATE
+    subgraph TIER_C["Tier C: CLI Multi-Model Review (if enabled)"]
+        direction TB
+        CLI_P1["Phase 1 (parallel):\nCodex correctness\n+ conditional security\n+ Gemini android domain"]
+        CLI_P1 --> CLI_MERGE["Consolidation checkpoint:\nextract Critical/High"]
+        CLI_MERGE --> CLI_P2{Critical/High\nfindings?}
+        CLI_P2 -- Yes --> CLI_PATTERN["Phase 2: Gemini\ncodebase pattern search\n(1M context)"]
+        CLI_P2 -- No --> CLI_DONE["Phase 2 skipped"]
+    end
 
-    CONSOLIDATE["4.3 Finding Consolidation\nDeduplicate, classify severity,\nreclassify Medium → High\n(escalation triggers)"]
+    TIER_A --> CONSOLIDATE
+    TIER_B --> CONSOLIDATE
+    TIER_C --> CONSOLIDATE
+
+    CONSOLIDATE["4.3 Finding Consolidation\nConfidence scoring,\ndeduplicate, classify severity,\nreclassify Medium → High\n(escalation triggers)"]
 
     CONSOLIDATE --> AUTO_DECISION{auto-decision\nmatrix}
 
@@ -260,14 +264,14 @@ flowchart TD
     AUTO_DECISION -- "Critical/High or\nexcessive Medium" --> ESCALATE["status: needs-user-input\nblock_reason: findings"]
 
     ESCALATE --> USER_REV{"Orchestrator →\nUser choice"}
-    USER_REV -- "Fix now" --> CHECK_FIX{clink fix engineer\nenabled & codex\navailable?}
+    USER_REV -- "Fix now" --> CHECK_FIX{CLI fix engineer\nenabled & codex\navailable?}
     USER_REV -- "Fix later" --> DEFER["Write review-findings.md\nreview_outcome: deferred"]
     USER_REV -- "Proceed as-is" --> PROCEED["review_outcome: accepted"]
 
-    CHECK_FIX -- Yes --> CLINK_FIX["Option F: Codex Fix Engineer\nFix Critical + High findings"]
+    CHECK_FIX -- Yes --> CLI_FIX["Option F: Codex Fix Engineer\nFix Critical + High findings"]
     CHECK_FIX -- No --> NATIVE_FIX["Native developer agent\nFix Critical + High findings"]
 
-    CLINK_FIX --> POST_FIX
+    CLI_FIX --> POST_FIX
     NATIVE_FIX --> POST_FIX
 
     POST_FIX["Post-fix validation:\n- Tests pass?\n- test_count ≥ baseline?\n- Write deferred findings\n- Auto-commit fixes"]

@@ -228,7 +228,8 @@ Used in Stage 4. Launched 3 times in parallel with different `{focus_area}` valu
 3. Compare against existing codebase patterns (check CLAUDE.md, constitution.md if present)
 4. If domain-specific skill references are provided below, consult them for domain-specific best practices relevant to your focus area
 5. Scan test files for tautological assertions (see `config/implementation-config.yaml` under `test_coverage.tautological_patterns` for the authoritative pattern list). Flag any test that passes without exercising real code as Medium severity (or High if it covers a critical feature path with no other test).
-6. For each finding, provide structured output as described below
+6. **Pattern propagation (R-REV-01)**: After finding any Critical or High severity structural bug (wrong API usage, incorrect state handling, framework anti-pattern), search the ENTIRE codebase for other occurrences of the same pattern before concluding your review. Report all matching locations — a single instance of a bug pattern often indicates systemic misuse.
+7. For each finding, provide structured output as described below
 
 ## Output Format
 

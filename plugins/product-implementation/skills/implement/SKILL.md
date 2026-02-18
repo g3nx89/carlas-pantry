@@ -6,7 +6,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 2.3.0
+version: 3.0.0
 allowed-tools:
   # File operations
   - Read
@@ -99,9 +99,9 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 | Stage | Delegation | Reference File | Agents Used | Prior Summaries | User Interaction | Checkpoint |
 |-------|-----------|----------------|-------------|-----------------|------------------|------------|
 | 1 | Inline | `stage-1-setup.md` | — | — | Policy question (1.9a) | SETUP |
-| 2 | Coordinator | `stage-2-execution.md` | `developer`, `code-simplifier`, `uat-tester (clink/gemini)` | stage-1 | Policy-gated | EXECUTION |
+| 2 | Coordinator | `stage-2-execution.md` | `developer`, `code-simplifier`, `uat-tester (CLI/gemini)` | stage-1 | Policy-gated | EXECUTION |
 | 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 | Policy-gated | VALIDATION |
-| 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3 or code-review skill | stage-2, stage-3 | Policy-gated | QUALITY_REVIEW |
+| 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3+ (Tier A), plugin (Tier B), CLI (Tier C) | stage-2, stage-3 | Policy-gated | QUALITY_REVIEW |
 | 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer` | stage-3, stage-4 | Policy-gated | DOCUMENTATION |
 | 6 | Coordinator | `stage-6-retrospective.md` | `tech-writer` | stage-1 through stage-5 | None | RETROSPECTIVE |
 
@@ -222,25 +222,27 @@ When MCP tools (Ref, Context7, Tavily) are available, agents receive documentati
 
 Configuration: `config/implementation-config.yaml` under `research_mcp`.
 
-## Clink Integration (PAL MCP)
+## CLI Dispatch
 
-When PAL clink (CLI-to-CLI bridge) is available and configured, coordinators can delegate specific tasks to external CLI agents (Codex, Gemini) for multi-model code generation, testing, validation, and review. This integration is:
+When external CLI agents (Codex, Gemini) are installed, coordinators can delegate specific tasks via Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`) for multi-model code generation, testing, validation, and review. This integration is:
 
-- **Zero-cost when disabled** — all clink options default to `enabled: false` in config; when disabled, no clink dispatch occurs and no CLI healthchecks run
-- **Orchestrator-transparent** — the orchestrator never invokes clink or reads clink config; all dispatch happens inside coordinator subagents and Stage 1 (inline)
+- **Zero-cost when disabled** — all CLI options default to `enabled: false` in config; when disabled, no CLI dispatch occurs and no CLI availability checks run
+- **Orchestrator-transparent** — the orchestrator never invokes CLI dispatch or reads CLI config; all dispatch happens inside coordinator subagents and Stage 1 (inline)
 - **Opt-in per option** — each integration point (test author, multi-model review, spec validator, etc.) is independently toggleable
-- **Graceful degradation** — every clink dispatch has a fallback: native agent substitution or silent skip. CLI unavailability is detected in Stage 1 and propagated to all downstream stages
+- **Graceful degradation** — every CLI dispatch has a fallback: native agent substitution or silent skip. CLI unavailability is detected in Stage 1 and propagated to all downstream stages
+- **Process-group-safe** — dispatches use `setsid` + `timeout --kill-after` (Linux) or equivalent macOS fallbacks to prevent orphaned CLI processes
+- **4-tier output parsing** — Tier 1 (JSON envelope via jq) → Tier 2 (partial recovery via python3) → Tier 3 (raw SUMMARY scan) → Tier 4 (diagnostic capture)
 
-**CLI availability detection** runs in Stage 1 (Section 1.7a): healthcheck commands verify which CLIs are installed, with results stored in `cli_availability` in the Stage 1 summary.
+**CLI availability detection** runs in Stage 1 (Section 1.7a): dispatch script smoke tests verify which CLIs are installed, with results stored in `cli_availability` in the Stage 1 summary.
 
 **Injection points:**
 - Stage 2: Test Author (Option H — Codex generates TDD tests from specs), Test Augmenter (Option I — Gemini discovers untested edge cases), UAT Mobile Tester (Option J — Gemini runs per-phase behavioral acceptance testing and Figma visual verification on Genymotion emulator via mobile-mcp)
 - Stage 3: Spec Validator (Option C — Gemini cross-validates implementation against specs in parallel with native validator)
-- Stage 4: Multi-Model Review (Option D — Gemini + Codex + Native reviewers with distinct focus areas), Security Reviewer (Option E — conditional OWASP audit via Codex), Fix Engineer (Option F — Codex fixes review findings)
+- Stage 4: Three-tier review (Tier A: native always, Tier B: plugin when installed, Tier C: CLI multi-model). Tier C includes correctness reviewer (Codex), security reviewer (Codex, conditional), android domain reviewer (Gemini, conditional), and codebase pattern reviewer (Gemini, Phase 2 sequential). Fix Engineer (Option F — Codex fixes review findings).
 
-**Shared procedure:** All clink dispatches use the parameterized procedure in `references/clink-dispatch-procedure.md` for dispatch, timeout, output parsing, and fallback handling.
+**Shared procedure:** All CLI dispatches use the parameterized procedure in `references/cli-dispatch-procedure.md` for dispatch, timeout, 4-tier output parsing, metrics sidecar, and fallback handling.
 
-Configuration: `config/implementation-config.yaml` under `clink_dispatch`. CLI role definitions: `config/cli_clients/`. Shared conventions: `config/cli_clients/shared/severity-output-conventions.md`.
+Configuration: `config/implementation-config.yaml` under `cli_dispatch`. CLI role definitions: `config/cli_clients/`. Shared conventions: `config/cli_clients/shared/severity-output-conventions.md`.
 
 ## Autonomy Policy
 
@@ -270,12 +272,14 @@ Configuration: `config/implementation-config.yaml` under `autonomy_policy`.
 | `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, lock, state init, domain detection |
 | `references/stage-2-execution.md` | Stage 2 (coordinator) | Skill resolution, phase loop, task parsing, error handling |
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |
-| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Skill resolution, review dimensions (base + conditional), finding consolidation, auto-decision matrix |
+| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Three-tier review architecture, Tier A native review, confidence scoring, finding consolidation, auto-decision matrix |
+| `references/stage-4-plugin-review.md` | Stage 4 (coordinator reads) | Tier B: Plugin-based review via code-review skill, finding normalization |
+| `references/stage-4-cli-review.md` | Stage 4 (coordinator reads) | Tier C: CLI multi-model review, Phase 1/2 dispatch, pattern search |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
 | `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | All 9 agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, code simplification, auto-commit, retrospective composition |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5, 6 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
-| `references/clink-dispatch-procedure.md` | Stages 2, 3, 4 (coordinator reads) | Shared parameterized clink dispatch, timeout, parsing, fallback procedure |
+| `references/cli-dispatch-procedure.md` | Stages 2, 3, 4 (coordinator reads) | Shared parameterized CLI dispatch, timeout, parsing, fallback procedure |
 | `references/stage-6-retrospective.md` | Stage 6 (coordinator) | KPI Report Card, transcript extraction, retrospective composition |
 
 ## Error Handling

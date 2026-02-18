@@ -1,6 +1,6 @@
 # Shared Severity & Output Conventions
 
-> Injected into all clink role prompts at dispatch time by coordinators.
+> Injected into all CLI role prompts at dispatch time by coordinators.
 > Canonical severity definitions sourced from `config/implementation-config.yaml`.
 
 ## Severity Classification (Canonical)
@@ -12,7 +12,7 @@
 
 ## Output Format Convention
 
-All clink role prompts MUST include a `<SUMMARY>` block as their final output section:
+All CLI role prompts MUST include a `<SUMMARY>` block as their final output section:
 
 ```
 <SUMMARY>
@@ -28,7 +28,7 @@ The `format_version: 1` field enables future format evolution without breaking p
 
 ## Quality Rules (Universal)
 
-These rules apply to ALL clink role prompts:
+These rules apply to ALL CLI role prompts:
 - Every finding must include file:line location and a specific recommendation
 - Never mix opinions with verifiable facts -- label each clearly
 - If a behavior cannot be verified, state the limitation explicitly
@@ -36,7 +36,7 @@ These rules apply to ALL clink role prompts:
 
 ## Available MCP Tools (Universal)
 
-All clink agents have access to the following MCP tools. Each role prompt specifies which subset is relevant, but the full set is always available:
+All CLI agents have access to the following MCP tools. Each role prompt specifies which subset is relevant, but the full set is always available:
 
 | Tool | Primary Use | Usage Guidance |
 |------|------------|----------------|
@@ -47,4 +47,4 @@ All clink agents have access to the following MCP tools. Each role prompt specif
 | **Mobile MCP** (`mobile_list_available_devices`, `mobile_list_elements_on_screen`, `mobile_click_on_screen_at_coordinates`, `mobile_long_press_on_screen_at_coordinates`, `mobile_type_keys`, `mobile_swipe_on_screen`, `mobile_press_button`, `mobile_take_screenshot`, `mobile_save_screenshot`, `mobile_launch_app`, `mobile_install_app`, `mobile_terminate_app`, `mobile_uninstall_app`, `mobile_get_screen_size`, `mobile_get_orientation`, `mobile_set_orientation`, `mobile_open_url`) | Mobile device interaction and screenshot capture | Use for UAT testing on emulators. Always call `mobile_list_elements_on_screen` before clicking to find correct coordinates. Use `mobile_save_screenshot` for evidence capture at assertion points. Use `mobile_get_screen_size` to understand coordinate space. |
 | **Figma** (`get_design_context`, `get_screenshot`, `get_metadata`) | Design context and visual reference | Use when implementation involves UI components. Extract design tokens, layout specs, and component structure. *(Referenced by UAT mobile tester role prompt for visual fidelity verification.)* |
 
-**Budget constraints**: Coordinators inject per-dispatch MCP tool budgets from `clink_dispatch.mcp_tool_budgets` into clink agent prompts. These budgets are **advisory** -- they are guidance embedded in the prompt text, not programmatically enforced hard caps. Clink agents should use MCP tools judiciously -- prefer cached/local knowledge first, escalate to MCP tools for verification or when stuck. Coordinators can verify compliance post-dispatch by counting MCP tool references in the agent's output.
+**MCP access note**: CLI agents are standalone processes without direct MCP server access. Codex CLI may read `.mcp.json` for limited MCP support; Gemini CLI has no MCP access. MCP tool budgets from `cli_dispatch.mcp_tool_budgets` are advisory prompt text injected by coordinators, not programmatic caps. CLI agents should use MCP tools judiciously when available -- prefer cached/local knowledge first, escalate to MCP tools for verification or when stuck. Coordinators can verify compliance post-dispatch by counting MCP tool references in the agent's output.

@@ -18,7 +18,7 @@ agents:
   - "product-implementation:developer"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
-  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/clink-dispatch-procedure.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/cli-dispatch-procedure.md"
   - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
 ---
 
@@ -44,23 +44,23 @@ Task(subagent_type="product-implementation:developer")
 - `{traceability_file}` — If `analysis/task-test-traceability.md` was loaded per Stage 1 summary, set to `{FEATURE_DIR}/analysis/task-test-traceability.md`. Otherwise set to `"Not available"`.
 - `{research_context}` — If `mcp_availability` from Stage 1 summary shows Context7 available AND `resolved_libraries` is non-empty: call `query-docs` for key libraries with query `"API signatures common pitfalls"` (up to `context7.max_queries_per_stage`). Assemble into `{research_context}`. If MCP is unavailable or disabled, use fallback: `"No research context available — proceed with codebase knowledge and planning artifacts only."`
 
-## 3.1a Clink Spec Validator (Option C)
+## 3.1a CLI Spec Validator (Option C)
 
-> **Conditional**: Only runs when ALL of: `clink_dispatch.stage3.spec_validator.enabled` is `true` and `cli_availability.gemini` is `true` (from Stage 1 summary). If any condition is false, skip to Section 3.2.
+> **Conditional**: Only runs when ALL of: `cli_dispatch.stage3.spec_validator.enabled` is `true` and `cli_availability.gemini` is `true` (from Stage 1 summary). If any condition is false, skip to Section 3.2.
 
-Launch a cross-model spec validator in **parallel** with the native validation agent (Section 3.1). The clink validator independently verifies implementation against specifications using a different model, providing a second perspective.
+Launch a cross-model spec validator in **parallel** with the native validation agent (Section 3.1). The CLI validator independently verifies implementation against specifications using a different model, providing a second perspective.
 
 ### Procedure
 
 1. **Dispatch both in parallel**:
    - **Native**: `Task(subagent_type="product-implementation:developer")` with the Completion Validation Prompt (already dispatched in Section 3.1)
-   - **Clink**: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_spec_validator.txt`. Inject variables:
+   - **CLI**: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_spec_validator.txt`. Inject variables:
      - `{FEATURE_DIR}`, `{PROJECT_ROOT}` — from Stage 1 summary
      - `{spec_content}` — spec.md content (or tasks.md ACs if spec.md unavailable)
      - `{plan_content}` — plan.md content
      - `{tasks_content}` — tasks.md content
      - `{test_cases_dir}` — path to test-cases/ directory (or `"Not available"`)
-   - Follow the Shared Clink Dispatch Procedure (`clink-dispatch-procedure.md`) with:
+   - Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
      - `cli_name="gemini"`, `role="spec_validator"`
      - `file_paths=[FEATURE_DIR, PROJECT_ROOT]`
      - `fallback_behavior="skip"` (native validator is always running)
@@ -75,7 +75,7 @@ Launch a cross-model spec validator in **parallel** with the native validation a
 
 4. **`baseline_test_count`**: Use the LOWER of the two independently verified counts (conservative approach per `merge_strategy: "conservative"` in config)
 
-5. **If clink fails or CLI unavailable**: native validation result used alone — no degradation from current behavior
+5. **If CLI fails or CLI unavailable**: native validation result used alone — no degradation from current behavior
 
 ### Impact on Section 3.2
 

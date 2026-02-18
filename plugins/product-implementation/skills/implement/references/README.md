@@ -10,12 +10,14 @@ Quick guide to when to read each reference file during skill development or debu
 | `stage-1-setup.md` | Debugging setup, branch parsing, lock acquisition, or state initialization |
 | `stage-2-execution.md` | Debugging phase-by-phase execution, task parsing, or TDD enforcement |
 | `stage-3-validation.md` | Debugging completion validation, spec alignment, or test coverage checks |
-| `stage-4-quality-review.md` | Debugging quality review, finding consolidation, or review strategy selection |
+| `stage-4-quality-review.md` | Debugging quality review, three-tier architecture, finding consolidation, or confidence scoring |
+| `stage-4-plugin-review.md` | Understanding Tier B plugin-based review (code-review skill integration) |
+| `stage-4-cli-review.md` | Understanding Tier C CLI multi-model review (Phase 1/2 dispatch, pattern search) |
 | `stage-5-documentation.md` | Debugging documentation generation, tech-writer dispatch, or lock release |
 | `agent-prompts.md` | Modifying agent prompt templates or adding new prompt types |
 | `auto-commit-dispatch.md` | Understanding shared auto-commit procedure, exclude pattern matching, or batch strategy |
 | `skill-resolution.md` | Understanding domain-specific skill resolution algorithm used by Stages 2, 4, 5 |
-| `clink-dispatch-procedure.md` | Understanding shared clink dispatch, timeout, parsing, fallback algorithm |
+| `cli-dispatch-procedure.md` | Understanding shared CLI dispatch, timeout, parsing, fallback algorithm |
 | `stage-6-retrospective.md` | Debugging retrospective generation, KPI compilation, transcript extraction, or tech-writer dispatch |
 
 ## By Task
@@ -45,16 +47,18 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | 228 | Dispatch loop, crash recovery, lock release, state migration, late notification handling, autonomy policy infrastructure checks |
-| `stage-1-setup.md` | 520 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), CLI availability detection (1.7a), autonomy policy selection (1.9a), summary template |
-| `stage-2-execution.md` | 596 | Skill resolution, research context resolution (2.0a), phase loop, clink test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7), clink test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, autonomy policy checks |
-| `stage-3-validation.md` | 196 | Validation checks, clink spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, autonomy policy check (3.4) |
-| `stage-4-quality-review.md` | 357 | Skill resolution, research context for review (4.1b), review dimensions (base + conditional), clink multi-model review (4.2a), clink security reviewer (Option E), clink fix engineer (Option F), severity reclassification, consolidation, auto-decision matrix with autonomy policy extension (4.4), auto-commit on fix |
+| `stage-1-setup.md` | 532 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), summary template |
+| `stage-2-execution.md` | 602 | Skill resolution, research context resolution (2.0a), phase loop, CLI test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7), CLI test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, cli_dispatch_metrics, autonomy policy checks |
+| `stage-3-validation.md` | 196 | Validation checks, CLI spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, autonomy policy check (3.4) |
+| `stage-4-quality-review.md` | 343 | Three-tier review architecture (Tier A native, Tier B plugin, Tier C CLI), Tier A native multi-agent review, confidence scoring, severity reclassification, finding consolidation, auto-decision matrix with autonomy policy extension (4.4), CLI fix engineer (Option F), auto-commit on fix |
+| `stage-4-plugin-review.md` | 69 | Tier B: Plugin-based review via code-review skill, CEK confidence normalization, max findings cap, graceful degradation |
+| `stage-4-cli-review.md` | 112 | Tier C: CLI multi-model review, Phase 1 parallel dispatch (correctness, security, android domain), Phase 2 sequential pattern search (Gemini 1M context), consolidation checkpoint |
 | `stage-5-documentation.md` | 258 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release, autonomy policy check for incomplete tasks (5.1) |
-| `agent-prompts.md` | 537 | All 9 agent prompt templates (8 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, build verification, API verification, test quality, animation testing, pattern propagation, code simplification, retrospective composition |
+| `agent-prompts.md` | 538 | All 9 agent prompt templates (8 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, R-REV-01 pattern propagation, build verification, API verification, test quality, animation testing, code simplification, retrospective composition |
 | `auto-commit-dispatch.md` | 62 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
-| `clink-dispatch-procedure.md` | 133 | Shared parameterized clink dispatch, timeout, parsing, variable injection convention, fallback procedure |
-| `stage-6-retrospective.md` | 344 | KPI Report Card compilation (10 Phase 1 KPIs), session transcript extraction (conditional), retrospective composition via tech-writer, auto-commit, state update |
+| `cli-dispatch-procedure.md` | 172 | Shared parameterized CLI dispatch via Bash process-group dispatch, 4-tier output parsing, metrics sidecar, exit codes 0-4, variable injection convention, fallback procedure |
+| `stage-6-retrospective.md` | 346 | KPI Report Card compilation (10 Phase 1 KPIs), cli_dispatch_metrics aggregation, sidecar cleanup, session transcript extraction (conditional), retrospective composition via tech-writer, auto-commit, state update |
 
 ## Cross-References
 
@@ -84,21 +88,28 @@ Quick guide to when to read each reference file during skill development or debu
 - `config/implementation-config.yaml` `test_coverage.tautological_patterns` → referenced by `stage-3-validation.md` Section 3.2 check 11 and `agent-prompts.md` Quality Review Prompt step 5
 - `config/implementation-config.yaml` `severity.auto_decision` (`auto_accept_low_only`) → referenced by `stage-4-quality-review.md` Section 4.4 auto-decision logic
 - `config/implementation-config.yaml` `timestamps` → referenced by `stage-2-execution.md` Section 2.3 and all stage log templates
-- `clink-dispatch-procedure.md` → shared procedure referenced by `stage-2-execution.md` (Steps 1.8, 2.1a, 3.7), `stage-3-validation.md` (Section 3.1a), `stage-4-quality-review.md` (Section 4.2a, 4.4)
-- `config/cli_clients/shared/severity-output-conventions.md` → injected into all clink role prompts at dispatch time by coordinators
-- `config/implementation-config.yaml` `clink_dispatch` → referenced by `clink-dispatch-procedure.md`, `stage-1-setup.md` Section 1.7a (CLI detection), and all stage files with clink integration points
-- `stage-1-setup.md` writes `cli_availability` to Stage 1 summary; consumed by Stages 2, 3, 4 coordinators for clink dispatch gating
-- Clink integration is orchestrator-transparent: only coordinators and Stage 1 (inline) read clink config; orchestrator never sees clink
-- `stage-2-execution.md` writes `augmentation_bugs_found` to Stage 2 summary flags (from clink test augmenter, Section 2.1a)
+- `stage-4-plugin-review.md` → Tier B procedure; is Section 4.2a in `stage-4-quality-review.md`
+- `stage-4-cli-review.md` → Tier C procedure; is Section 4.2b in `stage-4-quality-review.md`; uses `cli-dispatch-procedure.md` for all dispatches
+- `cli-dispatch-procedure.md` → shared procedure referenced by `stage-2-execution.md` (Steps 1.8, 2.1a, 3.7), `stage-3-validation.md` (Section 3.1a), `stage-4-cli-review.md` (all Tier C dispatches), `stage-4-quality-review.md` (Section 4.4)
+- `config/cli_clients/shared/severity-output-conventions.md` → injected into all CLI role prompts at dispatch time by coordinators
+- `config/implementation-config.yaml` `cli_dispatch` → referenced by `cli-dispatch-procedure.md`, `stage-1-setup.md` Section 1.7a (CLI detection), and all stage files with CLI integration points
+- `stage-1-setup.md` writes `cli_availability` to Stage 1 summary; consumed by Stages 2, 3, 4 coordinators for CLI dispatch gating
+- CLI integration is orchestrator-transparent: only coordinators and Stage 1 (inline) read CLI config; orchestrator never sees CLI
+- `stage-2-execution.md` writes `augmentation_bugs_found` to Stage 2 summary flags (from CLI test augmenter, Section 2.1a)
+- `stage-2-execution.md` writes `cli_dispatch_metrics` to Stage 2 summary flags (aggregated from `.metrics.json` sidecars); consumed by `stage-6-retrospective.md` KPI data layer
+- `config/implementation-config.yaml` `cli_dispatch.instrumentation` → referenced by `stage-6-retrospective.md` Section 6.6 (sidecar cleanup)
+- `config/implementation-config.yaml` `cli_dispatch.stage4.confidence_scoring` → referenced by `stage-4-quality-review.md` Section 4.3
+- `config/implementation-config.yaml` `cli_dispatch.stage4.pattern_search` → referenced by `stage-4-cli-review.md` Phase 2 gate
+- `config/implementation-config.yaml` `cli_dispatch.stage4.review_plugins` → referenced by `stage-4-plugin-review.md` max findings cap
 - `stage-2-execution.md` Step 3.5 uses `agent-prompts.md` Code Simplification Prompt; dispatches `agents/code-simplifier.md`
 - `config/implementation-config.yaml` `code_simplification` → referenced by `stage-2-execution.md` Step 3.5
 - `stage-2-execution.md` writes `simplification_stats` to Stage 2 summary flags (from code-simplifier, Step 3.5)
-- `stage-2-execution.md` Step 3.7 uses `clink-dispatch-procedure.md` for UAT clink dispatch to Gemini
-- `config/implementation-config.yaml` `clink_dispatch.stage2.uat_mobile_tester` → referenced by `stage-2-execution.md` Step 3.7
+- `stage-2-execution.md` Step 3.7 uses `cli-dispatch-procedure.md` for UAT CLI dispatch to Gemini
+- `config/implementation-config.yaml` `cli_dispatch.stage2.uat_mobile_tester` → referenced by `stage-2-execution.md` Step 3.7
 - `config/implementation-config.yaml` `uat_execution` → referenced by `stage-1-setup.md` Section 1.6e, `stage-2-execution.md` Step 3.7
 - `stage-1-setup.md` writes `mobile_mcp_available` and `mobile_device_name` to Stage 1 summary; consumed by Stage 2 coordinator for UAT gating
 - `stage-2-execution.md` writes `uat_results` to Stage 2 summary flags (from UAT mobile tester, Step 3.7)
-- `config/cli_clients/gemini_uat_mobile_tester.txt` → role prompt for Option J UAT mobile tester clink dispatch
+- `config/cli_clients/gemini_uat_mobile_tester.txt` → role prompt for Option J UAT mobile tester CLI dispatch
 - UAT mobile testing is orchestrator-transparent: Stage 1 (inline) probes mobile-mcp, Stage 2 coordinator handles build/install/dispatch; orchestrator never touches UAT
 - `config/implementation-config.yaml` `autonomy_policy` → referenced by `stage-1-setup.md` Section 1.9a, `orchestrator-loop.md` (infrastructure failures), `stage-2-execution.md` (Steps 3.5, 3.7), `stage-3-validation.md` (Section 3.4), `stage-4-quality-review.md` (Section 4.4), `stage-5-documentation.md` (Section 5.1)
 - `stage-1-setup.md` writes `autonomy_policy` to Stage 1 summary; consumed by orchestrator and all downstream coordinators
