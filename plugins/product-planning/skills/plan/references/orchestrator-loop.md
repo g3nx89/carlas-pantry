@@ -34,7 +34,7 @@ IF state.deep_reasoning AND state.deep_reasoning.pending_escalation:
     WRITE state
     LOG: "Pending escalation cleared — continuing normal flow"
 
-FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 9]:
+FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 8b, 9]:
   IF phase IN state.completed_phases: SKIP (already done)
   IF phase requires feature_flag AND flag disabled in config: SKIP
   IF phase requires analysis_mode AND current mode not in phase.modes: SKIP
@@ -244,7 +244,7 @@ ON resume, IF state.version == 1 OR state.version is missing:
      coordinator_failures: 0
      summaries_reconstructed: 0
   3. ADD missing timestamps: expert_review_completed, test_strategy_completed,
-     test_coverage_completed (all null)
+     test_coverage_completed, asset_consolidation_completed (all null)
   4. SET version: 2
   5. WRITE updated state
   6. LOG "Migrated state file from v1 to v2"

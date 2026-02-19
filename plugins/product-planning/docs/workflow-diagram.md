@@ -186,6 +186,21 @@ flowchart TB
         P8_V -->|"<65%"| P8_R
     end
 
+    %% Phase 8b: Asset Consolidation & Preparation
+    subgraph P8b[" Phase 8b: Asset Consolidation "]
+        direction TB
+        P8b_1["Asset Discovery<br/>Scan spec + design + plan"]
+        P8b_2["Manifest Generation<br/>10 asset categories"]
+        P8b_3["Self-Critique<br/>3 verification questions"]
+        P8b_4{"Assets<br/>Found?"}
+        P8b_5["User Validation<br/>Confirm / Edit / Skip"]
+        P8b_6["Skip Phase"]
+
+        P8b_1 --> P8b_2 --> P8b_3 --> P8b_4
+        P8b_4 -->|"Yes"| P8b_5
+        P8b_4 -->|"No"| P8b_6
+    end
+
     %% Phase 9: Task Generation & Completion
     subgraph P9[" Phase 9: Task Generation & Completion "]
         direction TB
@@ -219,16 +234,18 @@ flowchart TB
     P6_R --> P4
     P6b --> P7
     P7_G -->|"PASS"| P8
-    P8_G --> P9
-    P8_Y --> P9
+    P8_G --> P8b
+    P8_Y --> P8b
     P8_R --> P7
+    P8b_5 --> P9
+    P8b_6 --> P9
 
     %% Apply styles
     class P1_1,P1_2,P1_5,P1_6,P1_7,P2_1,P2_2,P2_4,P2_5,P2_8 phase
-    class P1_3,P1_8,P2_G,P4_G,P6_V,P7_G,P8_V gate
+    class P1_3,P1_8,P2_G,P4_G,P6_V,P7_G,P8_V,P8b_4 gate
     class P2_3,P2_6,P2_7,P4_1,P4_3,P4_4,P5_1,P5_3,P6_1,P6_2,P7_1b,P7_3,P7_5,P7_6,P7_7,P8_2,P9_4 mcp
-    class P6_G,P6_Y,P8_G,P8_Y,P9_7,P9_8 output
-    class P2b_1,P2b_2,P2b_3,P6b_1,P6b_2 subphase
+    class P6_G,P6_Y,P8_G,P8_Y,P8b_6,P9_7,P9_8 output
+    class P2b_1,P2b_2,P2b_3,P6b_1,P6b_2,P8b_1,P8b_2,P8b_3,P8b_5 subphase
     class P5_6,P6_0a,P6b_CL,P7_CL,P9_CL cli
     class P1_7b,P1_7c,P2_3s,P4_0a,P6b_0a,P7_1c,P9_2a devskills
     class P4_2w,P4_4p,P6_0 mcp
@@ -588,7 +605,8 @@ flowchart TB
         CP6 --> CP6b["EXPERT_REVIEW"]
         CP6b --> CP7["TEST_STRATEGY"]
         CP7 --> CP8["TEST_COVERAGE"]
-        CP8 --> CP9["COMPLETION"]
+        CP8 --> CP8b["ASSET_CONSOLIDATION"]
+        CP8b --> CP9["COMPLETION"]
     end
 
     subgraph PLAN_VAL["Plan Validation Scoring<br/>20 Points"]
@@ -666,6 +684,10 @@ flowchart LR
         O8["analysis/<br/>test-coverage-validation.md"]
     end
 
+    subgraph P8b_OUT["Phase 8b"]
+        O8b["asset-manifest.md<br/>(optional)"]
+    end
+
     subgraph P9_OUT["Phase 9"]
         O9A["tasks.md"]
         O9B["analysis/<br/>task-test-traceability.md"]
@@ -678,7 +700,7 @@ flowchart LR
         ST3[".phase-summaries/*.md"]
     end
 
-    INPUT --> P2_OUT --> P4_OUT --> P5_OUT --> P6_OUT --> P7_OUT --> P8_OUT --> P9_OUT
+    INPUT --> P2_OUT --> P4_OUT --> P5_OUT --> P6_OUT --> P7_OUT --> P8_OUT --> P8b_OUT --> P9_OUT
 
     style INPUT fill:#9013FE,stroke:#6B0FBE,color:#fff
     style P9_OUT fill:#7ED321,stroke:#5BA018,color:#fff

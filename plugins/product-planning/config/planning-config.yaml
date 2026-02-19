@@ -672,6 +672,7 @@ state:
     - EXPERT_REVIEW          # Phase 6b: Security + simplicity review
     - TEST_STRATEGY          # Phase 7: V-Model test planning
     - TEST_COVERAGE_VALIDATION  # Phase 8: Coverage validation
+    - ASSET_CONSOLIDATION       # Phase 8b: Asset manifest generation
     - COMPLETION
 
   # User decisions are immutable once saved
@@ -680,6 +681,7 @@ state:
     - approved_architecture
     - approved_test_strategy  # Test strategy locked after Phase 8
     - task_clarifications     # Task clarifications locked after Phase 9
+    - assets                  # Asset manifest state locked after Phase 8b
 
   # Version tracking for drift detection
   version_fields:
@@ -908,6 +910,39 @@ task_generation:
       description: "Business acceptance and edge case discovery"
 
 # =============================================================================
+# ASSET CONSOLIDATION (Phase 8b)
+# =============================================================================
+# Configuration for asset discovery and manifest generation in Phase 8b
+
+asset_consolidation:
+  # No 'enabled' flag — Phase 8b always runs but auto-skips when zero assets detected.
+  # To disable entirely, remove "8b" from orchestrator-loop.md dispatch list.
+  skip_if_no_assets: true
+
+  # Keyword lists for detecting asset references in planning artifacts
+  detection:
+    image_keywords: [image, photo, banner, logo, avatar, thumbnail, illustration, background, hero, screenshot, diagram]
+    icon_keywords: [icon, glyph, symbol, indicator, badge, favicon]
+    string_keywords: [label, message, text, copy, heading, title, description, placeholder, tooltip, error message, success message, notification]
+    audio_keywords: [sound, audio, notification sound, alert, ringtone, music, beep]
+    video_keywords: [video, animation, tutorial, demo, onboarding, walkthrough]
+    font_keywords: [font, typeface, typography, custom font, icon font]
+    config_keywords: [config, environment, env, API key, secret, feature flag, .env]
+    fixture_keywords: [seed data, fixture, demo data, test data, sample, mock data]
+    token_keywords: [design token, color palette, spacing, theme, dark mode, light mode]
+    security_keywords: [certificate, HTTPS, SSL, TLS, OAuth, client ID, client secret]
+
+  # Self-critique verification (Step 8b.3)
+  self_critique:
+    min_pass: 2  # out of 3 verification questions
+    modes: [complete, advanced, standard]
+
+  # Manifest output
+  manifest:
+    template: "$CLAUDE_PLUGIN_ROOT/templates/asset-manifest-template.md"
+    output: "{FEATURE_DIR}/asset-manifest.md"
+
+# =============================================================================
 # OUTPUT ARTIFACTS
 # =============================================================================
 
@@ -926,6 +961,7 @@ artifacts:
     - "{FEATURE_DIR}/test-plan.md"
     - "{FEATURE_DIR}/analysis/test-coverage-validation.md"
     - "{FEATURE_DIR}/analysis/task-test-traceability.md"  # Task-to-test mapping
+    - "{FEATURE_DIR}/asset-manifest.md"                  # Asset manifest from Phase 8b
 
 # =============================================================================
 # BLESSED CONFIGURATION PROFILES

@@ -15,6 +15,7 @@ Plugin for feature planning, task decomposition, and **integrated test strategy 
 - **Research MCP Integration** - Context7/Ref/Tavily for authoritative documentation lookup
 - **V-Model Test Planning** - Comprehensive test strategy aligned with development phases (integrated)
 - **UAT Script Generation** - User story-based acceptance testing with Given-When-Then format
+- **Asset Consolidation** - Identifies and catalogs all non-code assets needed for implementation
 - **Dev-Skills Integration** - Subagent-delegated domain expertise injection from dev-skills plugin
 
 ## Plugin Testing
@@ -30,7 +31,7 @@ claude plugins enable product-planning
 
 ## Architecture
 
-### Workflow Phases (9 + Phase 6b)
+### Workflow Phases (9 + Phases 6b, 8b)
 
 The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includes both feature planning AND test strategy. The orchestrator delegates phases to coordinator subagents via `Task(general-purpose)`. Each coordinator reads a self-contained per-phase instruction file and communicates results through standardized summary files. See `skills/plan/references/orchestrator-loop.md` for dispatch logic.
 
@@ -57,6 +58,8 @@ The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includ
 │       ↓                                                          │
 │  Phase 8: Test Coverage Validation                               │
 │       ↓                                                          │
+│  Phase 8b: Asset Consolidation ─────────→ asset-manifest.md     │
+│       ↓                                                          │
 │  Phase 9: Task Generation & Completion ─→ tasks.md (TDD)        │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -80,6 +83,7 @@ The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includ
 | 6b | Expert Review | Security/quality gate, blocking on critical findings |
 | 7 | Test Strategy | V-Model test planning, UAT generation |
 | 8 | Test Coverage | Coverage validation, PAL Consensus |
+| 8b | Asset Consolidation | Identify non-code assets, generate manifest, user validation |
 | 9 | Task Generation | TDD-structured tasks with test refs, clarification loop |
 
 ### Analysis Mode Hierarchy
@@ -114,7 +118,7 @@ Models are configurable in `config/planning-config.yaml` — update to match you
 
 State is persisted in `{FEATURE_DIR}/.planning-state.local.md` (YAML frontmatter + markdown). The workflow is resumable — user decisions are immutable and never re-asked.
 
-Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → EXPERT_REVIEW → TEST_STRATEGY → TEST_COVERAGE_VALIDATION → COMPLETION
+Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → EXPERT_REVIEW → TEST_STRATEGY → TEST_COVERAGE_VALIDATION → ASSET_CONSOLIDATION → COMPLETION
 
 State file version 2 adds `phase_summaries` tracking and `orchestrator` metadata. v1 files are auto-migrated on resume.
 
@@ -266,6 +270,7 @@ All limits, thresholds, and settings are in `config/planning-config.yaml`.
 | `test-cases/integration/` | Integration test specs |
 | `test-cases/e2e/` | E2E scenario scripts |
 | `test-cases/uat/` | UAT scripts (Given-When-Then) |
+| `asset-manifest.md` | Non-code asset manifest (Phase 8b, optional) |
 | `.phase-summaries/*.md` | Inter-phase coordinator summary files |
 
 ## File Naming Conventions

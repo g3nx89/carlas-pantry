@@ -26,6 +26,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `phase-6b-expert-review.md` | Debugging expert security/simplicity review |
 | `phase-7-test-strategy.md` | Debugging test planning, QA MPA, or V-Model alignment |
 | `phase-8-coverage.md` | Debugging test coverage validation |
+| `phase-8b-asset-consolidation.md` | Debugging asset discovery, manifest generation, or user validation |
 | `phase-9-completion.md` | Debugging task generation or completion |
 | `thinkdeep-prompts.md` | Customizing PAL ThinkDeep perspective prompts |
 | `validation-rubric.md` | Understanding Phase 6 plan validation scoring |
@@ -102,7 +103,9 @@ Each CLI role runs BOTH Gemini and Codex in parallel via `Bash(run_in_background
 | Others | <100 | Focused reference content |
 | `cli-dispatch-pattern.md` | ~160 | Canonical CLI dual-CLI dispatch pattern |
 | `skill-loader-pattern.md` | ~100 | Dev-skills context loading via subagent delegation |
+| `phase-8b-asset-consolidation.md` | ~170 | Asset consolidation coordinator instructions |
 | `deep-reasoning-dispatch-pattern.md` | ~180 | Deep reasoning escalation dispatch pattern |
+| `$PLUGIN/templates/asset-manifest-template.md` | ~90 | Asset manifest structure template |
 | `$PLUGIN/templates/deep-reasoning-templates.md` | ~200 | CTCO prompt templates for deep reasoning models |
 | `$PLUGIN/templates/cli-roles/*.txt` | ~80-120 | CLI role prompts (10 files) |
 | `$PLUGIN/templates/cli-roles/README.md` | ~100 | CLI role index and patterns |
@@ -153,3 +156,4 @@ External deep reasoning models (GPT-5 Pro, Google Deep Think) can be escalated t
 - `self-critique-template.md` used by all agents
 - `debate-protocol.md` used by `debate-judge` agent
 - `deep-reasoning-dispatch-pattern.md` used by `orchestrator-loop.md` gate failure handler and Phase 6b security check
+- `phase-8b-asset-consolidation.md` feeds `asset-manifest.md` into Phase 9 for Phase 0 task generation

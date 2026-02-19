@@ -111,6 +111,10 @@ Graceful degradation: If PAL unavailable, fall back to Standard/Rapid modes. If 
 │  │ Phase 8 │ Test Coverage Validation     │                 │   │
 │  └────┬────┘                              └─────────────────┘   │
 │       ↓                                                         │
+│  ┌──────────┐                                                   │
+│  │ Phase 8b │ Asset Consolidation ──────→ asset-manifest.md     │
+│  └────┬─────┘                                                   │
+│       ↓                                                         │
 │  ┌─────────┐                                                    │
 │  │ Phase 9 │ Completion                                         │
 │  └─────────┘                                                    │
@@ -137,7 +141,8 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for ~78% o
 | 6b | Coordinator | `phase-6b-expert-review.md` | phase-6 | Blocking security | securityauditor | EXPERT_REVIEW |
 | 7 | Coordinator | `phase-7-test-strategy.md` | phase-4, phase-5, phase-6 | — | teststrategist | TEST_STRATEGY |
 | 8 | Coordinator | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | — | TEST_COVERAGE_VALIDATION |
-| 9 | Coordinator | `phase-9-completion.md` | phase-7, phase-8 | Clarify tasks | taskauditor | COMPLETION |
+| 8b | Coordinator | `phase-8b-asset-consolidation.md` | phase-8 | Validate manifest | — | ASSET_CONSOLIDATION |
+| 9 | Coordinator | `phase-9-completion.md` | phase-7, phase-8, phase-8b | Clarify tasks | taskauditor | COMPLETION |
 
 All phase files are in `$CLAUDE_PLUGIN_ROOT/skills/plan/references/`.
 
@@ -206,6 +211,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 | `test-cases/integration/` | Integration test specs |
 | `test-cases/e2e/` | E2E scenario scripts with evidence requirements |
 | `test-cases/uat/` | UAT scripts (Given-When-Then format) |
+| `asset-manifest.md` | Asset preparation manifest (Phase 8b, optional) |
 | `.phase-summaries/` | Inter-phase coordinator summary files |
 | `data-model.md` | Entity definitions (optional) |
 | `contract.md` | API contracts (optional) |
@@ -215,6 +221,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 ### Per-Phase Instruction Files
 - `references/phase-1-setup.md` through `references/phase-9-completion.md`
 - `references/phase-6b-expert-review.md`
+- `references/phase-8b-asset-consolidation.md`
 - `references/phase-workflows.md` — Navigational index only
 
 ### Orchestrator Support
@@ -225,6 +232,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `references/validation-rubric.md` — Consensus scoring criteria
 - `references/v-model-methodology.md` — V-Model testing reference
 - `references/coverage-validation-rubric.md` — Test coverage scoring
+- `$CLAUDE_PLUGIN_ROOT/templates/asset-manifest-template.md` — Asset manifest structure (Phase 8b)
 - `references/self-critique-template.md` — Standard self-critique for all agents (S1)
 - `references/cot-prefix-template.md` — Chain-of-Thought reasoning template (S2)
 - `references/judge-gate-rubrics.md` — Quality gate scoring criteria (S3)

@@ -24,6 +24,23 @@
 
 ---
 
+<!-- CONDITIONAL: Include Phase 0 only if asset-manifest.md exists with status "validated".
+     Remove this entire section (through the "---" separator) if no asset manifest or if skipped. -->
+
+## Phase 0: Asset Preparation
+
+Non-code prerequisite tasks. All parallelizable. Complete these BEFORE starting Phase 1.
+Source: `asset-manifest.md`
+
+- [ ] T0XX [P] {Description} ({ASSET_ID}) — {format/specs}
+
+**Validation:**
+- [ ] All assets exist at specified paths
+- [ ] Formats and dimensions match manifest requirements
+- [ ] Asset manifest status updated to "ready"
+
+---
+
 ## Phase 1: Setup
 
 Project initialization and configuration tasks. No story labels.
@@ -121,7 +138,7 @@ Final refinements and cross-cutting concerns. No story labels.
 ### Story Completion Order
 
 ```
-Phase 1 (Setup) → Phase 2 (Foundational) → Phase 3 (US1) → Phase 4 (US2) → Phase N (Polish)
+Phase 0 (Assets) → Phase 1 (Setup) → Phase 2 (Foundational) → Phase 3 (US1) → Phase 4 (US2) → Phase N (Polish)
                                               ↓
                                     [Can run in parallel if independent]
 ```

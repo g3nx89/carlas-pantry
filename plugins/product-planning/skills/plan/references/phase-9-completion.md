@@ -7,6 +7,7 @@ modes: [complete, advanced, standard, rapid]
 prior_summaries:
   - ".phase-summaries/phase-7-summary.md"
   - ".phase-summaries/phase-8-summary.md"
+  - ".phase-summaries/phase-8b-summary.md"
 artifacts_read:
   - "spec.md"
   - "plan.md"
@@ -16,6 +17,7 @@ artifacts_read:
   - "test-cases/integration/"
   - "test-cases/e2e/"
   - "test-cases/uat/"
+  - "asset-manifest.md"
 artifacts_written:
   - "tasks.md"
   - "analysis/task-test-traceability.md"
@@ -128,7 +130,20 @@ ELSE:
    - {FEATURE_DIR}/contract.md (API endpoints) if exists
    - {FEATURE_DIR}/research.md (decisions, patterns) if exists
 
-4. EXTRACT test IDs for TDD integration:
+4. READ asset manifest (from Phase 8b):
+   IF file_exists("{FEATURE_DIR}/asset-manifest.md"):
+     READ asset_manifest
+     EXTRACT asset_count, categories, individual assets
+     IF asset_manifest.status == "validated":
+       LOG: "Asset manifest loaded: {asset_count} assets across {categories}"
+     ELSE IF asset_manifest.status == "skipped":
+       LOG: "Asset manifest skipped by user — no Phase 0 tasks"
+       asset_manifest = null
+   ELSE:
+     LOG: "No asset manifest found — Phase 8b may have been skipped"
+     asset_manifest = null
+
+5. EXTRACT test IDs for TDD integration:
    # Parse test files for ID patterns in markdown headers
    # Pattern: ^## (UT|INT|E2E|UAT)-\d{3}: or ^### (UT|INT|E2E|UAT)-\d{3}:
    # Example: "## UT-001: User registration validation" → extracts "UT-001"
@@ -144,10 +159,10 @@ ELSE:
    IF test_ids.unit is empty AND test-cases/unit/ has files:
      LOG: "Warning: No test IDs found in unit test files, using file-based placeholders"
 
-5. EXTRACT user stories with priorities:
+6. EXTRACT user stories with priorities:
    user_stories = PARSE spec.md for stories (P1, P2, P3...)
 
-6. LOG context summary:
+7. LOG context summary:
    "Task generation context: {story_count} stories, {test_count} tests, {entity_count} entities"
 ```
 
@@ -230,13 +245,22 @@ Task(
     - contract.md: {contracts_summary or "NOT AVAILABLE"}
     - research.md: {research_summary or "NOT AVAILABLE"}
 
+    ## Asset Manifest (from Phase 8b)
+    asset_manifest: {asset_manifest_summary or "No asset manifest — skip Phase 0"}
+
     ## Instructions
     1. Apply Least-to-Most Decomposition methodology
-    2. Generate tasks organized by user story (Phase 3+)
-    3. Include test references in every task's Definition of Done
-    4. Use strict checklist format: `- [ ] [TaskID] [P?] [Story?] Description with file path`
-    5. Map each task to relevant test IDs: UT-*, INT-*, E2E-*, UAT-*
-    6. Identify high-risk tasks for clarification
+    2. IF asset_manifest exists AND status == "validated":
+       Generate "Phase 0: Asset Preparation" BEFORE Phase 1 (Setup).
+       For each asset where status == "needs-preparation":
+         Generate task: [T0XX] [P] Prepare {asset_name} ({asset_id}) — {format/specs}
+       All asset tasks are marked [P] (parallelizable, no code dependencies).
+       No TDD structure (assets are not code) but include validation criteria.
+    3. Generate tasks organized by user story (Phase 3+)
+    4. Include test references in every task's Definition of Done
+    5. Use strict checklist format: `- [ ] [TaskID] [P?] [Story?] Description with file path`
+    6. Map each task to relevant test IDs: UT-*, INT-*, E2E-*, UAT-*
+    7. Identify high-risk tasks for clarification
 
     ## TDD Structure per Task
     Each implementation task follows: TEST (RED) → IMPLEMENT (GREEN) → VERIFY
@@ -501,6 +525,11 @@ Test Strategy (V-Model):
 ├── E2E Tests: {e2e_count} scenarios
 ├── UAT Scripts: {uat_count} scripts
 ├── Coverage: {GREEN/YELLOW} ({coverage_score}%)
+
+Asset Preparation:
+├── Assets Identified: {asset_count or "N/A"}
+├── Categories: {asset_categories or "N/A"}
+├── Phase 0 Tasks: {phase_0_task_count or "Skipped"}
 
 Task Breakdown:
 ├── Total Tasks: {task_count}
