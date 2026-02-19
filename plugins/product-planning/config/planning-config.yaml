@@ -150,22 +150,20 @@ feature_flags:
     requires_mcp: true
     cost_impact: "+4 ST calls per task breakdown (~15% Phase 9 increase)"
 
-  # Clink Integration
-  clink_context_isolation:
+  # CLI Dispatch Integration
+  cli_context_isolation:
     enabled: true
-    description: "Use clink for context-isolated CLI agent analysis"
+    description: "Use CLI dispatch for context-isolated CLI agent analysis"
     rollback: "Set false to use inline agents only"
     modes: [complete, advanced]
-    requires_mcp: true
     cost_impact: "Marginal increase; ~30KB coordinator context savings"
 
-  clink_custom_roles:
+  cli_custom_roles:
     enabled: true
-    description: "Use specialized clink roles with filesystem exploration directives"
-    rollback: "Set false to skip clink roles"
+    description: "Use specialized CLI roles with filesystem exploration directives"
+    rollback: "Set false to skip CLI roles"
     modes: [complete, advanced]
-    requires: [clink_context_isolation]
-    requires_mcp: true
+    requires: [cli_context_isolation]
     cost_impact: "~$0.15-0.30 additional; ~5-10 min latency for all roles"
 
   # Context Improvements
@@ -981,9 +979,9 @@ blessed_profiles:
       s3_judge_gates: true
       s4_adaptive_strategy: true
       a4_expert_review: true
-      # Clink integration
-      clink_context_isolation: true
-      clink_custom_roles: true
+      # CLI dispatch integration
+      cli_context_isolation: true
+      cli_custom_roles: true
       # Complete-only flags: false
     expected_cost: "$0.55-0.90"
     use_case: "Important features, risky changes, cross-cutting concerns"
@@ -1015,10 +1013,10 @@ blessed_profiles:
       st_agent_invocation: true
       st_checkpoint: true
       st_task_decomposition: true
-      # Clink integration
-      clink_context_isolation: true
-      clink_custom_roles: true
-    expected_cost: "$1.10-2.00"  # Updated to reflect ST + clink enhancements
+      # CLI dispatch integration
+      cli_context_isolation: true
+      cli_custom_roles: true
+    expected_cost: "$1.10-2.00"  # Updated to reflect ST + CLI enhancements
     use_case: "Critical features, security-sensitive, high business impact"
 
   advanced_with_st:
@@ -1043,13 +1041,13 @@ blessed_profiles:
       st_agent_invocation: true
       st_checkpoint: true
       st_task_decomposition: true
-      # Clink integration
-      clink_context_isolation: true
-      clink_custom_roles: true
+      # CLI dispatch integration
+      cli_context_isolation: true
+      cli_custom_roles: true
       # Complete-only flags: false
       st_fork_join_architecture: false
       st_dynamic_extension: false
-    expected_cost: "$0.70-1.10"  # Updated to reflect ST + clink enhancements
+    expected_cost: "$0.70-1.10"  # Updated to reflect ST + CLI enhancements
     use_case: "Important features requiring ST-enhanced analysis"
 
   # Validation helper for CI
@@ -1213,17 +1211,27 @@ research_mcp:
     all_unavailable: "proceed with internal knowledge, mark DEGRADED"
 
 # =============================================================================
-# CLINK INTEGRATION
+# CLI INTEGRATION
 # =============================================================================
-# Configuration for PAL clink (CLI-to-CLI bridge) with custom roles
-# See PROPOSAL-clink-integration.md for detailed documentation
+# Configuration for CLI dispatch (Bash process-group dispatch) with custom roles
+# Replaces PAL clink MCP dispatch. See skills/plan/references/cli-dispatch-pattern.md
 
-clink_integration:
+cli_integration:
+  # Dispatch script configuration
+  dispatch:
+    script_path: "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
+
+  # Instrumentation
+  instrumentation:
+    enabled: true
+    capture_cli_version: true
+    sidecar_retention: "session"
+
   # Auto-setup configuration
   auto_setup:
-    source_dir: "$CLAUDE_PLUGIN_ROOT/templates/clink-roles/"
+    source_dir: "$CLAUDE_PLUGIN_ROOT/templates/cli-roles/"
     target_dir: "PROJECT_ROOT/conf/cli_clients/"
-    version_marker: "clink_role_version: 1.0.0"
+    version_marker: "cli_role_version: 1.0.0"
 
   # Available CLIs and their capabilities
   clis:
@@ -1291,7 +1299,7 @@ clink_integration:
   # Retry and circuit breaker
   retry:
     max_retries: 1
-    circuit_breaker_threshold: 2  # After 2 consecutive failures, skip clink for session
+    circuit_breaker_threshold: 2  # After 2 consecutive failures, skip CLI dispatch for session
 
   # Timeout configuration
   timeout:
@@ -1314,9 +1322,9 @@ clink_integration:
 
   # Fallback behavior
   fallback:
-    if_clink_unavailable: "skip_clink_steps"
+    if_cli_unavailable: "skip_cli_steps"
     if_one_cli_missing: "single_cli_mode"
-    if_both_missing: "skip_clink_steps"
+    if_both_missing: "skip_cli_steps"
     log_fallback: true
 
 # =============================================================================

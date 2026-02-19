@@ -1,6 +1,6 @@
-# Clink Role Templates
+# CLI Role Templates
 
-> **Version:** `clink_role_version: 1.0.0`
+> **Version:** `cli_role_version: 1.0.0`
 > **Source of Truth:** These templates are the canonical definitions. Phase 1 auto-deploys to `PROJECT_ROOT/conf/cli_clients/` at runtime.
 
 ## Role Template Index
@@ -22,18 +22,19 @@
 
 ## Dual-CLI MPA Pattern
 
-Every role runs **both** Gemini and Codex in parallel, then the coordinator synthesizes:
+Every role runs **both** Gemini and Codex in parallel via Bash dispatch, then the coordinator synthesizes:
 
 ```
 Coordinator (Phase N)
-  Step N.X: Clink Dual-CLI Dispatch (PARALLEL)
-  +-----------+      +-----------+
-  | clink     |      | clink     |
-  | gemini    |      | codex     |
-  | role=X    |      | role=X    |
-  +-----+-----+      +-----+-----+
-        +--------+----------+
-                 v
+  Step N.X: CLI Dual-CLI Dispatch (PARALLEL)
+  +----------------+      +----------------+
+  | Bash(bg=true)  |      | Bash(bg=true)  |
+  | dispatch-cli   |      | dispatch-cli   |
+  | --cli gemini   |      | --cli codex    |
+  | --role X       |      | --role X       |
+  +-------+--------+      +-------+--------+
+          +---------+----------+
+                    v
   Step N.X+1: Synthesis (inline)
   - Convergent (both agree) -> HIGH confidence
   - Divergent (disagree) -> FLAG for user decision
@@ -44,7 +45,7 @@ Coordinator (Phase N)
     ST CoVe: 3-5 verification Qs -> revise -> output
   -> Returns validated findings only
 
-  WRITE to analysis/clink-{role}-report.md
+  WRITE to analysis/cli-{role}-report.md
 ```
 
 ### Why Dual-CLI?
@@ -61,7 +62,7 @@ Self-critique runs in a **separate Task subagent** (not inline in the coordinato
 ```
 Task(subagent_type: "general-purpose", prompt: """
   Apply Chain-of-Verification to these findings:
-  {clink_synthesis}
+  {cli_synthesis}
 
   1. Generate 3-5 verification questions
   2. Answer each question against the evidence
@@ -77,21 +78,21 @@ This adds ~5-10s latency but keeps coordinator context clean.
 Phase 1 (`phase-1-setup.md`) auto-copies these templates:
 
 ```
-SOURCE: $CLAUDE_PLUGIN_ROOT/templates/clink-roles/
+SOURCE: $CLAUDE_PLUGIN_ROOT/templates/cli-roles/
 TARGET: PROJECT_ROOT/conf/cli_clients/
 
 IF target missing OR version marker mismatch:
   COPY all .txt and .json files
-  SET state.clink.roles_deployed = true
+  SET state.cli.roles_deployed = true
 ```
 
 ## Security Note: CLI Auto-Approval Flags
 
-Both CLI configs use auto-approval flags for unattended clink dispatch:
+Both CLI configs use auto-approval flags for unattended CLI dispatch:
 - **Gemini**: `--yolo` (auto-approves all tool calls)
 - **Codex**: `--dangerously-bypass-approvals-and-sandbox` (bypasses sandbox and approval prompts)
 
-All clink roles are **analysis-only** — they explore, read, and report. Role prompts explicitly forbid file modifications via the FORBIDDEN/Quality Requirements section. However, the auto-approval flags grant write access at the CLI level. This is a known trade-off: unattended dispatch requires auto-approval, but the prompt-level restrictions prevent unintended writes under normal operation.
+All CLI roles are **analysis-only** — they explore, read, and report. Role prompts explicitly forbid file modifications via the FORBIDDEN/Quality Requirements section. However, the auto-approval flags grant write access at the CLI level. This is a known trade-off: unattended dispatch requires auto-approval, but the prompt-level restrictions prevent unintended writes under normal operation.
 
 ## Single-CLI Fallback
 

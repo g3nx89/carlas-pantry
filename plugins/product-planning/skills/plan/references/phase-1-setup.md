@@ -10,11 +10,10 @@ artifacts_written: []
 agents: []
 mcp_tools:
   - "mcp__pal__listmodels"
-  - "mcp__pal__clink"
   - "mcp__sequential-thinking__sequentialthinking"
 feature_flags:
-  - "clink_context_isolation"
-  - "clink_custom_roles"
+  - "cli_context_isolation"
+  - "cli_custom_roles"
   - "dev_skills_integration"
   - "deep_reasoning_escalation"  # Step 1.5d: abstract algorithm detection
 additional_references: []
@@ -97,58 +96,74 @@ ELSE:
   SET state.research_mcp_available = true
 ```
 
-## Step 1.5b: Clink Capability Detection
+## Step 1.5b: CLI Capability Detection
 
 ```
-IF feature_flags.clink_context_isolation.enabled:
+IF feature_flags.cli_context_isolation.enabled:
 
-  1. CHECK clink MCP tool accessible:
-     clink_available = CHECK mcp__pal__clink is callable
+  1. VERIFY dispatch infrastructure:
+     SCRIPT = "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
+     script_available = CHECK file exists at SCRIPT AND is executable
+     jq_available = CHECK "jq --version" succeeds
+     python3_available = CHECK "python3 --version" succeeds
 
-  2. IF clink_available:
-     # Check which CLIs are installed
-     gemini_available = CHECK "gemini" CLI responds
-     codex_available = CHECK "codex" CLI responds
+     IF NOT script_available:
+       LOG: "Dispatch script not found — skipping CLI integration"
+       SET state.cli.available = false
+       SET state.cli.mode = "disabled"
+       SKIP rest of 1.5b
 
-     # Determine clink mode
+  2. CHECK which CLIs are installed via dispatch script smoke test:
+     # Smoke test each CLI with a 30-second timeout
+     gemini_exit = Bash("{SCRIPT} --cli gemini --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-gemini.txt --timeout 30")
+     codex_exit = Bash("{SCRIPT} --cli codex --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-codex.txt --timeout 30")
+
+     gemini_available = (gemini_exit != 3)  # exit 3 = CLI not found
+     codex_available = (codex_exit != 3)
+
+     # Determine CLI mode
      IF gemini_available AND codex_available:
-       clink_mode = "dual"
+       cli_mode = "dual"
      ELSE IF gemini_available:
-       clink_mode = "single_gemini"
-       LOG: "Codex CLI not available — clink will use single-CLI mode (Gemini only)"
+       cli_mode = "single_gemini"
+       LOG: "Codex CLI not available — CLI dispatch will use single-CLI mode (Gemini only)"
      ELSE IF codex_available:
-       clink_mode = "single_codex"
-       LOG: "Gemini CLI not available — clink will use single-CLI mode (Codex only)"
+       cli_mode = "single_codex"
+       LOG: "Gemini CLI not available — CLI dispatch will use single-CLI mode (Codex only)"
      ELSE:
-       clink_mode = "disabled"
-       LOG: "No CLIs available for clink — skipping clink integration"
+       cli_mode = "disabled"
+       LOG: "No CLIs available — skipping CLI integration"
 
-  3. IF clink_mode != "disabled" AND feature_flags.clink_custom_roles.enabled:
+  3. IF cli_mode != "disabled" AND feature_flags.cli_custom_roles.enabled:
      # Auto-deploy role templates to project
-     SOURCE = "$CLAUDE_PLUGIN_ROOT/templates/clink-roles/"
+     SOURCE = "$CLAUDE_PLUGIN_ROOT/templates/cli-roles/"
      TARGET = "PROJECT_ROOT/conf/cli_clients/"
 
      # Check version marker
      IF TARGET does not exist OR TARGET version marker != SOURCE version marker:
        COPY all .txt and .json files from SOURCE to TARGET
-       LOG: "Deployed clink role templates (version 1.0.0)"
+       LOG: "Deployed CLI role templates (version 1.0.0)"
        roles_deployed = true
      ELSE:
-       LOG: "Clink role templates already deployed and up to date"
+       LOG: "CLI role templates already deployed and up to date"
        roles_deployed = true
 
   4. UPDATE state:
-     clink:
-       available: {clink_available}
+     cli:
+       available: {gemini_available OR codex_available}
        capabilities:
          gemini: {gemini_available}
          codex: {codex_available}
        roles_deployed: {roles_deployed}
-       mode: {clink_mode}
+       mode: {cli_mode}
+       dispatch_infrastructure:
+         script_available: {script_available}
+         jq_available: {jq_available}
+         python3_available: {python3_available}
 
 ELSE:
-  SET state.clink.available = false
-  SET state.clink.mode = "disabled"
+  SET state.cli.available = false
+  SET state.cli.mode = "disabled"
 ```
 
 ## Step 1.5c: Dev-Skills Relevance Detection

@@ -289,5 +289,5 @@ IF state.deep_reasoning.pending_escalation:
 |-----------------|-------|-----------------|-----------------|-------------------|
 | `architecture_wall` | 6 | `architecture_wall_breaker` | design.md, plan.md, validation-report.md | Phase 4 |
 | `circular_failure` | Any gated | `circular_failure_recovery` | Failing phase artifacts + summary | Same phase or loop-back target |
-| `security_deep_dive` | 6b | `security_deep_dive` | expert-review.md, clink-security-report.md, design.md | No re-dispatch (append) |
+| `security_deep_dive` | 6b | `security_deep_dive` | expert-review.md, cli-security-report.md, design.md | No re-dispatch (append) |
 | `algorithm_escalation` | 4 or 7 | `abstract_algorithm_detection` | spec.md (algo section), design.md, research.md | Same phase |

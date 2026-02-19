@@ -258,8 +258,8 @@ Think hard about this — take your time to verify each vulnerability.
 ## HIGH Findings (validate these too)
 {Insert: HIGH severity findings from expert-review.md — summaries}
 
-## Clink Security Audit (if available)
-{Insert: analysis/clink-security-report.md summary — if exists}
+## CLI Security Audit (if available)
+{Insert: analysis/cli-security-report.md summary — if exists}
 </existing_findings>
 
 <scope>
@@ -305,7 +305,7 @@ For each vulnerability (existing or new):
 | STRIDE findings | `{FEATURE_DIR}/analysis/expert-review.md` security section |
 | Trust boundaries | `{FEATURE_DIR}/design.md` or extracted from expert review |
 | CRITICAL/HIGH findings | `{FEATURE_DIR}/analysis/expert-review.md` findings list |
-| Clink security report | `{FEATURE_DIR}/analysis/clink-security-report.md` (if exists) |
+| CLI security report | `{FEATURE_DIR}/analysis/cli-security-report.md` (if exists) |
 | User roles | `{FEATURE_DIR}/spec.md` or `design.md` |
 
 ---

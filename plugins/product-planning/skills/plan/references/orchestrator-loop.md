@@ -155,7 +155,7 @@ FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 9]:
         ESCALATION_FLAG: "security_deep_dive",
         PHASE: "6b",
         TEMPLATE: "security_deep_dive",
-        CONTEXT_SOURCES: ["analysis/expert-review.md", "analysis/clink-security-report.md", "design.md"],
+        CONTEXT_SOURCES: ["analysis/expert-review.md", "analysis/cli-security-report.md", "design.md"],
         GATE_HISTORY: null,
         SPECIFIC_FOCUS: "CRITICAL severity security findings requiring CVE-level analysis"
       )

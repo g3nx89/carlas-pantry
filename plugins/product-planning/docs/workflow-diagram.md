@@ -11,7 +11,7 @@ flowchart TB
     classDef output fill:#7ED321,stroke:#5BA018,color:#fff,stroke-width:2px
     classDef mcp fill:#9013FE,stroke:#6B0FBE,color:#fff,stroke-width:2px
     classDef subphase fill:#50E3C2,stroke:#3BB09A,color:#333,stroke-width:1px
-    classDef clink fill:#E91E63,stroke:#AD1457,color:#fff,stroke-width:2px
+    classDef cli fill:#E91E63,stroke:#AD1457,color:#fff,stroke-width:2px
     classDef devskills fill:#FF9800,stroke:#E65100,color:#fff,stroke-width:1px
 
     %% Phase 1: Setup & Initialization
@@ -24,7 +24,7 @@ flowchart TB
         P1_5["Fresh Start"]
         P1_6["Lock Acquisition"]
         P1_7["MCP Availability Check"]
-        P1_7b["Clink Detection (1.5b)<br/>CLI availability + role deploy"]
+        P1_7b["CLI Detection (1.5b)<br/>CLI availability + role deploy"]
         P1_7c["Dev-Skills Detection (1.5c)<br/>Tech-stack keyword scan"]
         P1_8{"Select Analysis Mode"}
 
@@ -107,7 +107,7 @@ flowchart TB
         P5_3["ThinkDeep Matrix<br/>3 perspectives x 3 models"]
         P5_4["Synthesize Insights<br/>Convergent vs Divergent"]
         P5_5["Present Findings"]
-        P5_6["Clink Deepthinker<br/>Gemini + Codex parallel"]
+        P5_6["CLI Deepthinker<br/>Gemini + Codex parallel"]
 
         P5_1 --> P5_2 --> P5_3 --> P5_4 --> P5_5 --> P5_6
     end
@@ -115,7 +115,7 @@ flowchart TB
     %% Phase 6: Plan Validation
     subgraph P6[" Phase 6: Plan Validation "]
         direction TB
-        P6_0a["Clink Plan Review (6.0a)<br/>planreviewer: strategic + feasibility"]
+        P6_0a["CLI Plan Review (6.0a)<br/>planreviewer: strategic + feasibility"]
         P6_0["Multi-Judge Debate (S6)<br/>3 rounds: analysis/rebuttal/final"]
         P6_1["PAL Consensus<br/>3 models: neutral/advocate/challenger"]
         P6_2["Groupthink Detection<br/>PAL Challenge if variance < 0.5"]
@@ -137,7 +137,7 @@ flowchart TB
         P6b_0a["Dev-Skills Loader (6b.0a)<br/>clean-code, api-security"]
         P6b_1["Security Analyst<br/>STRIDE Analysis"]
         P6b_2["Simplicity Reviewer<br/>Over-engineering Check"]
-        P6b_CL["Clink Security Audit<br/>securityauditor role"]
+        P6b_CL["CLI Security Audit<br/>securityauditor role"]
         P6b_3{"Blocking<br/>Issues?"}
         P6b_4["Address or Acknowledge"]
 
@@ -159,7 +159,7 @@ flowchart TB
         P7_5["Reconciliation<br/>ST Revision with Phase 5"]
         P7_6["Red Team Branch<br/>Adversarial Analysis"]
         P7_7["TAO Loop QA Synthesis"]
-        P7_CL["Clink Test Review<br/>teststrategist role"]
+        P7_CL["CLI Test Review<br/>teststrategist role"]
         P7_8["Generate UAT Scripts<br/>Given-When-Then"]
         P7_9["Structure Test Directories"]
         P7_G{"Gate 3:<br/>Test Coverage"}
@@ -196,7 +196,7 @@ flowchart TB
         P9_4["Launch Tech-Lead<br/>ST T-TASK-1 to T-TASK-4"]
         P9_5["Clarification Loop<br/>Max 2 iterations"]
         P9_6["Task Validation<br/>Self-critique 5 questions"]
-        P9_CL["Clink Task Audit<br/>taskauditor role"]
+        P9_CL["CLI Task Audit<br/>taskauditor role"]
         P9_7["Generate Final Artifacts"]
         P9_8["Summary Report"]
         P9_9["Post-Planning Menu (A5)"]
@@ -229,7 +229,7 @@ flowchart TB
     class P2_3,P2_6,P2_7,P4_1,P4_3,P4_4,P5_1,P5_3,P6_1,P6_2,P7_1b,P7_3,P7_5,P7_6,P7_7,P8_2,P9_4 mcp
     class P6_G,P6_Y,P8_G,P8_Y,P9_7,P9_8 output
     class P2b_1,P2b_2,P2b_3,P6b_1,P6b_2 subphase
-    class P5_6,P6_0a,P6b_CL,P7_CL,P9_CL clink
+    class P5_6,P6_0a,P6b_CL,P7_CL,P9_CL cli
     class P1_7b,P1_7c,P2_3s,P4_0a,P6b_0a,P7_1c,P9_2a devskills
     class P4_2w,P4_4p,P6_0 mcp
 ```
@@ -238,7 +238,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    subgraph COMPLETE["Complete Mode<br/>Base: $0.80-$1.50 | With Clink: $1.10-$2.00"]
+    subgraph COMPLETE["Complete Mode<br/>Base: $0.80-$1.50 | With CLI: $1.10-$2.00"]
         C1["MPA: All Agents"]
         C2["ThinkDeep: 9 calls"]
         C3["PAL Consensus"]
@@ -248,11 +248,11 @@ flowchart LR
         C7["Expert Review (A4)"]
         C8["Flow Analysis (A1)"]
         C9["Multi-Judge Debate (S6)"]
-        C10["Clink: 5 roles"]
+        C10["CLI: 5 roles"]
         C11["Dev-Skills Loading"]
     end
 
-    subgraph ADVANCED["Advanced Mode<br/>Base: $0.45-$0.75 | With Clink: $0.55-$0.90"]
+    subgraph ADVANCED["Advanced Mode<br/>Base: $0.45-$0.75 | With CLI: $0.55-$0.90"]
         A1["MPA: All Agents"]
         A2["ThinkDeep: 6 calls"]
         A3["PAL Consensus"]
@@ -260,7 +260,7 @@ flowchart LR
         A5["Red Team Branch"]
         A6["Test Plan"]
         A7["Expert Review (A4)"]
-        A8["Clink: 5 roles"]
+        A8["CLI: 5 roles"]
         A9["Dev-Skills Loading"]
     end
 
@@ -270,14 +270,14 @@ flowchart LR
         S3["TAO Loop"]
         S4["Basic Test Plan"]
         S5["Dev-Skills Loading"]
-        S6["No Clink"]
+        S6["No CLI"]
     end
 
     subgraph RAPID["Rapid Mode<br/>$0.05-$0.12"]
         R1["Single Agent"]
         R2["No MCP"]
         R3["Minimal Tests"]
-        R4["No Clink / Dev-Skills"]
+        R4["No CLI / Dev-Skills"]
     end
 
     MCP{"MCP<br/>Available?"}
@@ -397,19 +397,19 @@ flowchart TB
     style TAO fill:#50E3C2,stroke:#3BB09A,color:#333
 ```
 
-## Clink Dual-CLI Dispatch Pattern
+## CLI Dual-CLI Dispatch Pattern
 
 ```mermaid
 flowchart TB
-    classDef clink fill:#E91E63,stroke:#AD1457,color:#fff,stroke-width:2px
+    classDef cli fill:#E91E63,stroke:#AD1457,color:#fff,stroke-width:2px
     classDef synthesis fill:#50E3C2,stroke:#3BB09A,color:#333,stroke-width:1px
 
     subgraph CHECK["Availability Check"]
-        CK1{"Clink<br/>Enabled?"}
+        CK1{"CLI<br/>Enabled?"}
         CK2{"Both CLIs<br/>Installed?"}
         CK3["Dual-CLI Mode"]
         CK4["Single-CLI Degraded"]
-        CK5["Skip Clink"]
+        CK5["Skip CLI"]
 
         CK1 -->|Yes| CK2
         CK1 -->|No| CK5
@@ -418,7 +418,7 @@ flowchart TB
         CK2 -->|None| CK5
     end
 
-    subgraph DISPATCH["Step 1: Parallel Dispatch"]
+    subgraph DISPATCH["Step 1: Parallel Dispatch via Bash"]
         direction LR
         G["Gemini CLI<br/>1M context window<br/>Broad exploration"]
         C["Codex CLI<br/>Code-level precision<br/>Implementation focus"]
@@ -436,10 +436,10 @@ flowchart TB
     end
 
     subgraph REPORT["Step 4: Write Report"]
-        RP["analysis/clink-{role}-report.md"]
+        RP["analysis/cli-{role}-report.md"]
     end
 
-    subgraph ROLES["5 Clink Roles"]
+    subgraph ROLES["5 CLI Roles"]
         direction LR
         R1["deepthinker<br/>Phase 5"]
         R2["planreviewer<br/>Phase 6"]
@@ -452,7 +452,7 @@ flowchart TB
     CK4 --> DISPATCH
     DISPATCH --> SYNTH --> CRITIQUE --> REPORT
 
-    class G,C,R1,R2,R3,R4,R5 clink
+    class G,C,R1,R2,R3,R4,R5 cli
     class SYNTH synthesis
 ```
 
@@ -642,15 +642,15 @@ flowchart LR
 
     subgraph P5_OUT["Phase 5"]
         O5["analysis/<br/>thinkdeep-insights.md"]
-        O5c["analysis/<br/>clink-deepthinker-report.md<br/>(conditional)"]
+        O5c["analysis/<br/>cli-deepthinker-report.md<br/>(conditional)"]
     end
 
     subgraph P6_OUT["Phase 6 + 6b"]
         O6A["plan.md"]
         O6B["analysis/<br/>validation-report.md"]
         O6C["analysis/<br/>expert-review.md"]
-        O6c1["analysis/<br/>clink-planreview-report.md<br/>(conditional)"]
-        O6c2["analysis/<br/>clink-security-report.md<br/>(conditional)"]
+        O6c1["analysis/<br/>cli-planreview-report.md<br/>(conditional)"]
+        O6c2["analysis/<br/>cli-security-report.md<br/>(conditional)"]
     end
 
     subgraph P7_OUT["Phase 7"]
@@ -659,7 +659,7 @@ flowchart LR
         O7C["test-cases/integration/"]
         O7D["test-cases/e2e/"]
         O7E["test-cases/uat/"]
-        O7c["analysis/<br/>clink-testreview-report.md<br/>(conditional)"]
+        O7c["analysis/<br/>cli-testreview-report.md<br/>(conditional)"]
     end
 
     subgraph P8_OUT["Phase 8"]
@@ -669,7 +669,7 @@ flowchart LR
     subgraph P9_OUT["Phase 9"]
         O9A["tasks.md"]
         O9B["analysis/<br/>task-test-traceability.md"]
-        O9c["analysis/<br/>clink-taskaudit-report.md<br/>(conditional)"]
+        O9c["analysis/<br/>cli-taskaudit-report.md<br/>(conditional)"]
     end
 
     subgraph STATE["State"]
@@ -809,7 +809,7 @@ flowchart TD
 | Orange | Decision points, warnings, and dev-skills integration |
 | Red | Quality gates, failure paths, and escalation triggers |
 | Teal | Sub-phases and synthesis |
-| Pink | Clink Dual-CLI integration |
+| Pink | CLI Dual-CLI integration |
 | Violet | Deep reasoning escalation dispatch |
 
 ## Usage

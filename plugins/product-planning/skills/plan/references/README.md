@@ -2,6 +2,8 @@
 
 Quick guide to when to read each reference file during skill development or debugging.
 
+> **Contributor authoring rules** (phase file authoring, ST patterns, CLI roles, config integrity) are in `$CLAUDE_PLUGIN_ROOT/docs/contributor-guide.md`. Read it when modifying plugin internals.
+
 ## Reference File Usage
 
 | File | Read When... |
@@ -29,32 +31,33 @@ Quick guide to when to read each reference file during skill development or debu
 | `validation-rubric.md` | Understanding Phase 6 plan validation scoring |
 | `coverage-validation-rubric.md` | Understanding Phase 8 test coverage validation |
 | `v-model-methodology.md` | Understanding test level mapping and V-Model alignment |
-| `clink-dispatch-pattern.md` | Canonical clink dual-CLI dispatch pattern (referenced by all clink phase steps) |
+| `cli-dispatch-pattern.md` | Canonical CLI dual-CLI dispatch pattern (referenced by all CLI phase steps) |
 | `skill-loader-pattern.md` | Canonical dev-skills context loading via subagent delegation (referenced by Phases 2, 4, 6b, 7, 9) |
 | `deep-reasoning-dispatch-pattern.md` | Offering deep reasoning escalation after gate failures or security findings; understanding the manual user submission workflow |
 
-## Working with Clink Integration
+## Working with CLI Integration
 
-Clink roles are defined as templates in `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/` and auto-deployed to projects at runtime (Phase 1).
+CLI roles are defined as templates in `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/` and auto-deployed to projects at runtime (Phase 1). Dispatch uses Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`) instead of PAL MCP.
 
 ### Dual-CLI MPA Pattern
-Each clink role runs BOTH Gemini and Codex in parallel. The coordinator synthesizes findings as convergent/divergent/unique, then runs self-critique via a Task subagent with ST Chain-of-Verification.
+Each CLI role runs BOTH Gemini and Codex in parallel via `Bash(run_in_background=true)`. The coordinator synthesizes findings as convergent/divergent/unique, then runs self-critique via a Task subagent with ST Chain-of-Verification.
 
 ### Key Files
-- `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/README.md` — Role index and deployment docs
-- `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/*.txt` — 10 role prompt files (5 roles x 2 CLIs)
-- `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/*.json` — CLI client configurations
-- `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` `clink_integration:` section — All config
+- `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/README.md` — Role index and deployment docs
+- `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/*.txt` — 10 role prompt files (5 roles x 2 CLIs)
+- `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/*.json` — CLI client configurations
+- `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` `cli_integration:` section — All config
+- `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` — Process-group-safe dispatch script
 
-### Clink-Enhanced Phases
+### CLI-Enhanced Phases
 | Phase | Role | Step | Report |
 |-------|------|------|--------|
 | 1 | — | Step 1.5b: Detection + deployment | State only |
-| 5 | deepthinker | Step 5.6: Supplement ThinkDeep | `clink-deepthinker-report.md` |
-| 6 | planreviewer | Step 6.0a: Pre-validation review | `clink-planreview-report.md` |
-| 6b | securityauditor | Step 6b.1b: Security supplement | `clink-security-report.md` |
-| 7 | teststrategist | Step 7.3.5: Test review | `clink-testreview-report.md` |
-| 9 | taskauditor | Step 9.5b: Task audit | `clink-taskaudit-report.md` |
+| 5 | deepthinker | Step 5.6: Supplement ThinkDeep | `cli-deepthinker-report.md` |
+| 6 | planreviewer | Step 6.0a: Pre-validation review | `cli-planreview-report.md` |
+| 6b | securityauditor | Step 6b.1b: Security supplement | `cli-security-report.md` |
+| 7 | teststrategist | Step 7.3.5: Test review | `cli-testreview-report.md` |
+| 9 | taskauditor | Step 9.5b: Task audit | `cli-taskaudit-report.md` |
 
 ## By Task
 
@@ -97,12 +100,12 @@ Each clink role runs BOTH Gemini and Codex in parallel. The coordinator synthesi
 | `tot-workflow.md` | ~344 | Tree-of-Thoughts process |
 | `debate-protocol.md` | ~425 | Multi-round debate structure |
 | Others | <100 | Focused reference content |
-| `clink-dispatch-pattern.md` | ~120 | Canonical clink dual-CLI dispatch pattern |
+| `cli-dispatch-pattern.md` | ~160 | Canonical CLI dual-CLI dispatch pattern |
 | `skill-loader-pattern.md` | ~100 | Dev-skills context loading via subagent delegation |
 | `deep-reasoning-dispatch-pattern.md` | ~180 | Deep reasoning escalation dispatch pattern |
 | `$PLUGIN/templates/deep-reasoning-templates.md` | ~200 | CTCO prompt templates for deep reasoning models |
-| `$PLUGIN/templates/clink-roles/*.txt` | ~80-120 | Clink role prompts (10 files) |
-| `$PLUGIN/templates/clink-roles/README.md` | ~100 | Clink role index and patterns |
+| `$PLUGIN/templates/cli-roles/*.txt` | ~80-120 | CLI role prompts (10 files) |
+| `$PLUGIN/templates/cli-roles/README.md` | ~100 | CLI role index and patterns |
 
 ### Working with Dev-Skills Integration
 1. Read `skill-loader-pattern.md` for the canonical subagent dispatch pattern
@@ -144,7 +147,7 @@ External deep reasoning models (GPT-5 Pro, Google Deep Think) can be escalated t
 
 - `phase-workflows.md` references most other files
 - `skill-loader-pattern.md` used by Phase 2, 4, 6b, 7, 9 skill loader steps
-- `clink-dispatch-pattern.md` used by Phase 5, 6, 6b, 7, 9 clink steps
+- `cli-dispatch-pattern.md` used by Phase 5, 6, 6b, 7, 9 CLI steps
 - `research-mcp-patterns.md` used by `researcher` agent and Phase 2/4/7 workflows
 - `judge-gate-rubrics.md` used by `phase-gate-judge` agent
 - `self-critique-template.md` used by all agents

@@ -12,23 +12,22 @@ artifacts_read:
   - "design.md"
 artifacts_written:
   - "analysis/validation-report.md"
-  - "analysis/clink-planreview-report.md"  # conditional: clink enabled
+  - "analysis/cli-planreview-report.md"  # conditional: CLI dispatch enabled
 agents:
   - "product-planning:debate-judge"
 mcp_tools:
   - "mcp__pal__consensus"
   - "mcp__pal__challenge"
-  - "mcp__pal__clink"
   - "mcp__sequential-thinking__sequentialthinking"
 feature_flags:
   - "s6_multi_judge_debate"
-  - "clink_context_isolation"
-  - "clink_custom_roles"
+  - "cli_context_isolation"
+  - "cli_custom_roles"
   - "deep_reasoning_escalation"  # orchestrator may offer escalation on RED after 2 retries
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/debate-protocol.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/validation-rubric.md"
-  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
 ---
 
 # Phase 6: Plan Validation
@@ -44,11 +43,11 @@ additional_references:
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
 
-## Step 6.0a: Clink Plan Review
+## Step 6.0a: CLI Plan Review
 
-**Purpose:** Pre-validation adversarial review via clink dual-CLI before PAL Consensus or Multi-Judge Debate.
+**Purpose:** Pre-validation adversarial review via CLI dual-CLI dispatch before PAL Consensus or Multi-Judge Debate.
 
-Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md` with these parameters:
+Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
@@ -58,9 +57,9 @@ Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/
 | GEMINI_PROMPT | `Strategic plan review for feature: {FEATURE_NAME}. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Strategic risks, scope assessment, Red Team/Blue Team analysis.` |
 | CODEX_PROMPT | `Technical feasibility review for feature: {FEATURE_NAME}. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Code structure support, dependency compatibility, import path resolution.` |
 | FILE_PATHS | `["{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]` |
-| REPORT_FILE | `analysis/clink-planreview-report.md` |
+| REPORT_FILE | `analysis/cli-planreview-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
-| POST_WRITE | `APPEND clink review summary to consensus_context for Step 6.1` |
+| POST_WRITE | `APPEND CLI review summary to consensus_context for Step 6.1` |
 
 ## Step 6.0: Multi-Judge Debate Validation (S6)
 

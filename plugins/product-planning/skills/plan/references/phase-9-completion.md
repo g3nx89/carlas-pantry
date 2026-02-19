@@ -19,22 +19,21 @@ artifacts_read:
 artifacts_written:
   - "tasks.md"
   - "analysis/task-test-traceability.md"
-  - "analysis/clink-taskaudit-report.md"  # conditional: clink enabled
+  - "analysis/cli-taskaudit-report.md"  # conditional: CLI dispatch enabled
   - ".phase-summaries/phase-9-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
   - "product-planning:tech-lead"
 mcp_tools:
   - "mcp__sequential-thinking__sequentialthinking"
-  - "mcp__pal__clink"
 feature_flags:
   - "st_task_decomposition"
   - "a5_post_planning_menu"
-  - "clink_context_isolation"
-  - "clink_custom_roles"
+  - "cli_context_isolation"
+  - "cli_custom_roles"
   - "dev_skills_integration"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/templates/tasks-template.md"
-  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
@@ -406,11 +405,11 @@ WHILE iteration < max_iterations:
    → Return to Step 9.3 with validation feedback (max 1 retry)
 ```
 
-## Step 9.5b: Clink Task Audit
+## Step 9.5b: CLI Task Audit
 
-**Purpose:** Audit task breakdown for completeness (Gemini) and code-level accuracy (Codex) via clink dual-CLI.
+**Purpose:** Audit task breakdown for completeness (Gemini) and code-level accuracy (Codex) via CLI dual-CLI dispatch.
 
-Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md` with these parameters:
+Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
@@ -420,7 +419,7 @@ Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/
 | GEMINI_PROMPT | `Audit task completeness for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Tasks: {FEATURE_DIR}/tasks.md. Focus: Requirements mapping, missing infrastructure tasks, scope coverage.` |
 | CODEX_PROMPT | `Verify task breakdown against codebase for feature: {FEATURE_NAME}. Tasks: {FEATURE_DIR}/tasks.md. Design: {FEATURE_DIR}/design.md. Focus: File path verification, dependency ordering, code structure alignment.` |
 | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/tasks.md", "{FEATURE_DIR}/design.md"]` |
-| REPORT_FILE | `analysis/clink-taskaudit-report.md` |
+| REPORT_FILE | `analysis/cli-taskaudit-report.md` |
 | PREFERRED_SINGLE_CLI | `codex` |
 | POST_WRITE | See blocking findings handling below |
 
@@ -430,7 +429,7 @@ Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/
 IF audit has blocking findings (missing tasks, invalid paths):
   SET status: needs-user-input
   SET block_reason: """
-    CLINK TASK AUDIT FINDINGS:
+    CLI TASK AUDIT FINDINGS:
     {blocking_findings_summary}
 
     Options:

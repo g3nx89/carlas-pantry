@@ -11,21 +11,20 @@ artifacts_read:
   - "plan.md"
 artifacts_written:
   - "analysis/expert-review.md"
-  - "analysis/clink-security-report.md"  # conditional: clink enabled
+  - "analysis/cli-security-report.md"  # conditional: CLI dispatch enabled
   - ".phase-summaries/phase-6b-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
   - "product-planning:security-analyst"
   - "product-planning:simplicity-reviewer"
-mcp_tools:
-  - "mcp__pal__clink"
+mcp_tools: []
 feature_flags:
   - "a4_expert_review"
-  - "clink_context_isolation"
-  - "clink_custom_roles"
+  - "cli_context_isolation"
+  - "cli_custom_roles"
   - "dev_skills_integration"
   - "deep_reasoning_escalation"  # orchestrator may offer security deep dive after this phase
 additional_references:
-  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
@@ -124,11 +123,11 @@ Task(
 )
 ```
 
-## Step 6b.1b: Clink Security Audit (Supplement)
+## Step 6b.1b: CLI Security Audit (Supplement)
 
-**Purpose:** Supplement standard security review with clink dual-CLI security analysis. Standard agents STILL run in parallel — clink adds breadth.
+**Purpose:** Supplement standard security review with CLI dual-CLI security analysis. Standard agents STILL run in parallel — CLI dispatch adds breadth.
 
-Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md` with these parameters:
+Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
@@ -138,9 +137,9 @@ Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/
 | GEMINI_PROMPT | `Architectural security and supply chain review for feature: {FEATURE_NAME}. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Supply chain security, trust boundaries, compliance patterns.` |
 | CODEX_PROMPT | `OWASP code-level security audit for feature: {FEATURE_NAME}. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Injection points, hardcoded secrets, auth implementation flaws.` |
 | FILE_PATHS | `["{FEATURE_DIR}/design.md", "{FEATURE_DIR}/plan.md"]` |
-| REPORT_FILE | `analysis/clink-security-report.md` |
+| REPORT_FILE | `analysis/cli-security-report.md` |
 | PREFERRED_SINGLE_CLI | `codex` |
-| POST_WRITE | `Merge clink security findings with standard agent findings in Step 6b.2` |
+| POST_WRITE | `Merge CLI security findings with standard agent findings in Step 6b.2` |
 
 ## Step 6b.2: Consolidate Findings
 
@@ -148,10 +147,10 @@ Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/
 security_findings = parse security-analyst output
 simplicity_findings = parse simplicity-reviewer output
 
-# Merge clink security findings if available
-IF {FEATURE_DIR}/analysis/clink-security-report.md exists:
-  clink_security = parse clink-security-report.md
-  MERGE clink_security into security_findings (deduplicate by finding description)
+# Merge CLI security findings if available
+IF {FEATURE_DIR}/analysis/cli-security-report.md exists:
+  cli_security = parse cli-security-report.md
+  MERGE cli_security into security_findings (deduplicate by finding description)
 ```
 
 ## Step 6b.3: Handle Blocking Findings

@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this plugin.
+This file provides guidance to Claude Code when working with this plugin. Inherits repository-wide patterns from root `CLAUDE.md` (Lean Orchestrator, MPA, Configuration Management, State File Design, etc.).
+
+> **Contributor rules** (phase file authoring, ST patterns, CLI roles, anti-pattern tables) are in `docs/contributor-guide.md` — read on-demand when modifying plugin internals.
 
 ## Plugin Overview
 
@@ -8,7 +10,7 @@ Plugin for feature planning, task decomposition, and **integrated test strategy 
 - **Multi-Perspective Analysis (MPA)** - Parallel agents with different focuses
 - **PAL ThinkDeep** - External model insights (performance, maintainability, security)
 - **PAL Consensus** - Multi-model validation with scoring rubric
-- **PAL Clink (Dual-CLI MPA)** - Gemini + Codex in parallel for context-isolated analysis
+- **CLI Dual-CLI Dispatch** - Gemini + Codex in parallel via Bash process-group dispatch
 - **Sequential Thinking** - Structured reasoning templates
 - **Research MCP Integration** - Context7/Ref/Tavily for authoritative documentation lookup
 - **V-Model Test Planning** - Comprehensive test strategy aligned with development phases (integrated)
@@ -19,7 +21,7 @@ Plugin for feature planning, task decomposition, and **integrated test strategy 
 
 ```bash
 # Install locally for testing
-claude plugins add /path/to/product-planning
+claude plugins add ./plugins/product-planning
 claude plugins enable product-planning
 
 # Run the main workflow (includes test planning)
@@ -28,9 +30,9 @@ claude plugins enable product-planning
 
 ## Architecture
 
-### 9-Phase Integrated Workflow
+### Workflow Phases (9 + Phase 6b)
 
-The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includes both feature planning AND test strategy. The orchestrator delegates phases to coordinator subagents via `Task(general-purpose)`. Each coordinator reads a self-contained per-phase instruction file and communicates results through standardized summary files. See `skills/plan/references/orchestrator-loop.md` for dispatch logic.
+The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includes both feature planning AND test strategy. The orchestrator delegates phases to coordinator subagents via `Task(general-purpose)`. Each coordinator reads a self-contained per-phase instruction file and communicates results through standardized summary files. See `skills/plan/references/orchestrator-loop.md` for dispatch logic.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -49,6 +51,8 @@ The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includ
 │       ↓                                                          │
 │  Phase 6: Plan Validation                                        │
 │       ↓                                                          │
+│  Phase 6b: Expert Review (security gate)                         │
+│       ↓                                                          │
 │  Phase 7: Test Strategy (V-Model) ──────→ Unit Tests (TDD)      │
 │       ↓                                                          │
 │  Phase 8: Test Coverage Validation                               │
@@ -61,7 +65,7 @@ The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includ
 **Key Integrations:**
 - Test planning (Phases 7-8) is embedded directly in the main workflow
 - Task generation (Phase 9) uses test artifacts for TDD integration
-- The `/tasks` command is deprecated - use `/plan` for complete workflow
+- Phase 6b gates on security findings before proceeding to test strategy
 
 ### Phase Summary
 
@@ -73,9 +77,10 @@ The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includ
 | 4 | Architecture | MPA design options (minimal/clean/pragmatic) |
 | 5 | ThinkDeep | PAL multi-model insights (Complete/Advanced modes) |
 | 6 | Validation | PAL Consensus plan validation |
-| **7** | **Test Strategy** | **V-Model test planning, UAT generation** |
-| **8** | **Test Coverage** | **Coverage validation, PAL Consensus** |
-| **9** | **Task Generation** | **TDD-structured tasks with test refs, clarification loop** |
+| 6b | Expert Review | Security/quality gate, blocking on critical findings |
+| 7 | Test Strategy | V-Model test planning, UAT generation |
+| 8 | Test Coverage | Coverage validation, PAL Consensus |
+| 9 | Task Generation | TDD-structured tasks with test refs, clarification loop |
 
 ### Analysis Mode Hierarchy
 
@@ -86,7 +91,7 @@ The skill `skills/plan/SKILL.md` orchestrates a **9-phase workflow** that includ
 | Standard | MPA only + Basic Test Plan | No |
 | Rapid | Single agent + Minimal Test Plan | No |
 
-See `config/planning-config.yaml` `analysis_modes` for current cost estimates and `blessed_profiles` for full-ST costs.
+See `config/planning-config.yaml` for cost estimates, `analysis_modes`, and `blessed_profiles`.
 
 The plugin gracefully degrades when MCP tools are unavailable.
 
@@ -97,35 +102,33 @@ Phase 5 executes multi-model analysis across perspectives:
 - **Maintainability** - Code quality, extensibility, technical debt
 - **Security** - Threat modeling, compliance, vulnerabilities
 
-Models used: gpt-5.2, gemini-3-pro-preview, grok-4
+Models are configurable in `config/planning-config.yaml` — update to match your PAL/MCP server.
 
 ### PAL Consensus Validation
 
-**Phase 6 (Plan):** 20 points across 5 dimensions:
-- Problem Understanding (20%)
-- Architecture Quality (25%)
-- Risk Mitigation (20%)
-- Implementation Clarity (20%)
-- Feasibility (15%)
+**Phase 6 (Plan):** 20 points across 5 dimensions (Problem Understanding, Architecture Quality, Risk Mitigation, Implementation Clarity, Feasibility). See `config/planning-config.yaml` for thresholds and weights.
 
-Thresholds: GREEN ≥16, YELLOW ≥12, RED <12
-
-**Phase 8 (Test Coverage):** 100% across 5 dimensions:
-- AC Coverage (25%)
-- Risk Coverage (25%)
-- UAT Completeness (20%)
-- Test Independence (15%)
-- Maintainability (15%)
-
-Thresholds: GREEN ≥80%, YELLOW ≥65%, RED <65%
+**Phase 8 (Test Coverage):** 100% across 5 dimensions (AC Coverage, Risk Coverage, UAT Completeness, Test Independence, Maintainability). See `config/planning-config.yaml` for thresholds and weights.
 
 ### State Management
 
-State is persisted in `{FEATURE_DIR}/.planning-state.local.md` (YAML frontmatter + markdown). The workflow is resumable—user decisions are immutable and never re-asked.
+State is persisted in `{FEATURE_DIR}/.planning-state.local.md` (YAML frontmatter + markdown). The workflow is resumable — user decisions are immutable and never re-asked.
 
-Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → EXPERT_REVIEW → **TEST_STRATEGY** → **TEST_COVERAGE_VALIDATION** → COMPLETION
+Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → EXPERT_REVIEW → TEST_STRATEGY → TEST_COVERAGE_VALIDATION → COMPLETION
 
 State file version 2 adds `phase_summaries` tracking and `orchestrator` metadata. v1 files are auto-migrated on resume.
+
+### Dev-Skills Loading by Phase
+
+When dev-skills plugin is installed, coordinators load domain expertise via subagent delegation (Complete/Advanced/Standard modes only). See `config/planning-config.yaml` `dev_skills_integration:` for mappings and budgets.
+
+| Phase | Skills Loaded | Token Budget |
+|-------|---------------|-------------|
+| 2 | accessibility, mobile, figma | 2500 |
+| 4 | api-patterns, database, c4, mermaid, frontend | 3000 |
+| 6b | clean-code, api-security | 2000 |
+| 7 | qa-test-planner, accessibility | 2000 |
+| 9 | clean-code | 800 |
 
 ## V-Model Test Planning (Integrated)
 
@@ -182,101 +185,26 @@ Phase 9 generates tasks structured as TEST → IMPLEMENT → VERIFY cycles:
 
 ### Sequential Thinking Templates
 
-25+ templates organized into groups:
+25+ templates in `templates/sequential-thinking-templates.md`, organized into groups:
 - **T1-T3:** Problem Decomposition
 - **T4-T6:** Codebase Analysis
-- **T7-T10:** Architecture Design (linear)
-- **T7a-T8:** Fork-Join Architecture (branching exploration)
+- **T7-T10 / T7a-T8:** Architecture Design (linear + fork-join)
 - **T11-T13:** Risk Assessment
 - **T14-T16:** Plan Validation
-- **T-RISK-1 to T-RISK-3:** Test Risk Analysis
-- **T-RISK-REVISION:** Reconciliation (revision capability)
-- **T-RISK-REDTEAM series:** Adversarial analysis (branching)
+- **T-RISK series:** Test Risk Analysis (including revision and red-team branching)
 - **T-AGENT series:** TAO Loop (structured synthesis pause)
 - **T-EXTENSION:** Dynamic chain extension
 
-Templates are in `templates/sequential-thinking-templates.md`.
-
-### Sequential Thinking Advanced Patterns
-
-The following patterns leverage previously unused ST MCP parameters for more sophisticated reasoning:
-
-#### Fork-Join for Architecture (st_fork_join_architecture)
-- **When**: Exploring multiple architecture options in Phase 4
-- **Pattern**: Frame → Branch × 3 (minimal, clean, pragmatic) → Synthesize
-- **ST Parameters**: `branchFromThought`, `branchId`
-- **Mode**: Complete only
-- **Cost Impact**: +3 ST calls (~40% Phase 4 increase)
-
-```
-T7a_FRAME (branchFromThought: null)
-    ├── T7b_BRANCH_MINIMAL (branchFromThought: 1, branchId: "minimal")
-    ├── T7c_BRANCH_CLEAN (branchFromThought: 1, branchId: "clean")
-    └── T7d_BRANCH_PRAGMATIC (branchFromThought: 1, branchId: "pragmatic")
-T8_SYNTHESIS (joins all branches)
-```
-
-#### Revision for Reconciliation (st_revision_reconciliation)
-- **When**: Later analysis contradicts earlier findings (ThinkDeep vs T-RISK)
-- **Pattern**: Original thought → External input → Revision thought
-- **ST Parameters**: `isRevision: true`, `revisesThought: <thought_number>`
-- **Mode**: Complete, Advanced
-- **Cost Impact**: +1 ST call (~10% Phase 7 increase)
-
-```
-T-RISK-2 (original prioritization)
-    ↓ ThinkDeep contradicts
-T-RISK-REVISION (isRevision: true, revisesThought: 2)
-```
-
-#### Red Team Branch (st_redteam_analysis)
-- **When**: Security/risk analysis in Phase 7 for sensitive features
-- **Pattern**: Standard analysis → Red team branch → Synthesis
-- **ST Parameters**: `branchId: "redteam"`
-- **Mode**: Complete, Advanced
-- **Cost Impact**: +2 ST calls (~20% Phase 7 increase)
-
-```
-T-RISK-1 (failure modes)
-    └── T-RISK-REDTEAM (branchFromThought: 1, branchId: "redteam")
-T-RISK-REDTEAM-SYNTHESIS (joins red team findings)
-```
-
-#### TAO Loop (st_tao_loops)
-- **When**: After MPA agents complete in Phases 2, 4, 7
-- **Pattern**: Analysis → Synthesis → Validation
-- **Purpose**: Structured pause between agent outputs and decisions
-- **Mode**: Complete, Advanced, Standard
-- **Cost Impact**: +3 ST calls per MPA phase (~30% per phase)
-
-```
-MPA Agents Complete
-    ↓
-T-AGENT-ANALYSIS (categorize: convergent/divergent/gaps)
-    ↓
-T-AGENT-SYNTHESIS (define handling strategy)
-    ↓
-T-AGENT-VALIDATION (quality check before proceed)
-```
-
-#### Dynamic Extension (st_dynamic_extension)
-- **When**: Complexity exceeds initial estimates during ST chain
-- **Pattern**: Use `needsMoreThoughts: true` to extend chain
-- **ST Parameters**: `needsMoreThoughts`, updated `totalThoughts`
-- **Mode**: Complete only
-- **Cost Impact**: 0-2 additional ST calls (situational)
-
-**Extension Triggers:**
-- Component count > 10
-- Unexpected integration points discovered
-- Security/compliance requirements more extensive than expected
+For advanced ST patterns (fork-join, revision, red team, TAO loop), see `docs/contributor-guide.md`.
 
 ### MPA (Multi-Perspective Analysis)
 
-Architecture design uses 3 parallel specialist agents:
+Architecture design (Phase 4) uses 3 parallel specialist agents:
 - Minimal Change approach
 - Clean Architecture approach
 - Pragmatic Balance approach
+
+Phase 7 QA uses the same MPA pattern with security/performance specialists.
 
 ### Configuration
 
@@ -286,22 +214,44 @@ All limits, thresholds, and settings are in `config/planning-config.yaml`.
 
 ### Planning Agents (Phases 2-4)
 
-| Agent | Purpose |
-|-------|---------|
-| `product-planning:code-explorer` | Codebase patterns and integration points |
-| `product-planning:software-architect` | Architecture options and trade-offs |
-| `product-planning:tech-lead` | Task breakdown and complexity analysis |
-| `product-planning:researcher` | Technology research and unknowns |
+| Agent | File | Purpose |
+|-------|------|---------|
+| `code-explorer` | `agents/code-explorer.md` | Codebase patterns and integration points |
+| `software-architect` | `agents/software-architect.md` | Architecture options and trade-offs |
+| `tech-lead` | `agents/tech-lead.md` | Task breakdown and complexity analysis |
+| `researcher` | `agents/researcher.md` | Technology research and unknowns |
+| `flow-analyzer` | `agents/flow-analyzer.md` | User flow and interaction analysis |
 
 ### QA Agents (Phase 7 - MPA Pattern)
 
-| Agent | Purpose | Modes |
-|-------|---------|-------|
-| `product-planning:qa-strategist` | V-Model test strategy, UAT scripts | All |
-| `product-planning:qa-security` | Security testing, STRIDE analysis, auth tests | Complete, Advanced |
-| `product-planning:qa-performance` | Performance/load testing, latency requirements | Complete, Advanced |
+| Agent | File | Purpose | Modes |
+|-------|------|---------|-------|
+| `qa-strategist` | `agents/qa-strategist.md` | V-Model test strategy, UAT scripts | All |
+| `qa-security` | `agents/qa-security.md` | Security testing, STRIDE analysis | Complete, Advanced |
+| `qa-performance` | `agents/qa-performance.md` | Performance/load testing | Complete, Advanced |
 
-Phase 7 uses MPA (Multi-Perspective Analysis) pattern similar to Phase 4 architecture design.
+### Reviewer Agents (Phase 6b)
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| `simplicity-reviewer` | `agents/reviewers/simplicity-reviewer.md` | Code simplicity and over-engineering |
+| `security-analyst` | `agents/reviewers/security-analyst.md` | Security threat analysis |
+
+### Judge Agents (Gates)
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| `phase-gate-judge` | `agents/judges/phase-gate-judge.md` | Phase gate scoring and pass/fail |
+| `debate-judge` | `agents/judges/debate-judge.md` | Multi-agent debate evaluation |
+| `architecture-pruning-judge` | `agents/judges/architecture-pruning-judge.md` | Architecture option pruning |
+
+### Specialist Agents
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| `tech-writer` | `agents/tech-writer.md` | Documentation generation |
+| `learnings-researcher` | `agents/learnings-researcher.md` | Cross-session learning extraction |
+| `wildcard-architect` | `agents/explorers/wildcard-architect.md` | Unconventional architecture exploration |
 
 ## Output Artifacts
 
@@ -320,15 +270,16 @@ Phase 7 uses MPA (Multi-Perspective Analysis) pattern similar to Phase 4 archite
 
 ## File Naming Conventions
 
-- Agents: `agents/{role}.md`
+- Agents: `agents/{role}.md` or `agents/{category}/{role}.md` (categories: `reviewers/`, `judges/`, `explorers/`)
 - Skills: `skills/{skill-name}/SKILL.md`
 - Reference files: `skills/{skill-name}/references/*.md`
 - Templates: `templates/{purpose}.md`
+- CLI roles: `templates/cli-roles/{cli}_{role}.txt`
 - State: `{FEATURE_DIR}/.planning-state.local.md`
 
 ## Plugin Path Variable
 
-Use `$CLAUDE_PLUGIN_ROOT` to reference plugin-relative paths in commands and agents.
+Use `$CLAUDE_PLUGIN_ROOT` to reference plugin-relative paths in agents and skills.
 
 ## MCP Dependencies
 
@@ -361,456 +312,4 @@ Used in Phases 2, 4, and 7 for authoritative documentation lookup.
 
 ---
 
-## Development Guidelines
-
-### Architecture Decisions
-
-#### Integration over Separation
-- **Pattern**: Embed tightly-coupled functionality as phases within a single workflow rather than separate skills
-- **Rationale**: Separate skills for coupled workflows create state synchronization issues and user friction
-- **Example**: Test planning (Phases 7-8) is embedded in main `/plan` skill, not a separate `/plan-tests`
-- **Anti-pattern**: Creating separate skills that share state files and must be run in sequence
-
-#### MPA Pattern Extensibility
-- **Pattern**: Apply Multi-Perspective Analysis (MPA) to any phase requiring diverse viewpoints
-- **Implementation**: Launch 2-3 specialized agents in parallel, synthesize their outputs
-- **Applied to**: Phase 4 (architecture: minimal/clean/pragmatic) and Phase 7 (QA: general/security/performance)
-- **Checklist**: When adding MPA, define: agent variants, mode availability, output synthesis rules
-
-#### Lean Orchestrator Delegation
-- **Pattern**: Orchestrator dispatches coordinator subagents per phase, reads only summary files between phases
-- **Rationale**: Reduces orchestrator context from ~2700 lines to ~590 lines (~78% reduction)
-- **Trade-off**: ~5-15s latency overhead per coordinator dispatch
-- **Implementation**: Per-phase instruction files in `skills/plan/references/phase-{N}-*.md`, summary files in `{FEATURE_DIR}/.phase-summaries/`
-- **Exception**: Phase 1 (inline) and Phase 3 Standard/Rapid (inline) execute in orchestrator context
-
-#### Phase Reconciliation
-- **Pattern**: Multi-phase workflows with related analysis need explicit reconciliation steps
-- **Example**: Phase 7 reconciles Phase 5 ThinkDeep security insights with test risk analysis
-- **Implementation**: Create reconciliation step that maps prior findings to current phase, identifies gaps/conflicts
-- **Output**: Reconciliation report showing alignment and flagging unresolved conflicts
-
-### Configuration Management
-
-#### Single Source of Truth
-- **Rule**: Configurable values (thresholds, costs, model names) must exist in exactly one place
-- **Location**: `config/planning-config.yaml` for this plugin
-- **Anti-pattern**: Duplicating values in SKILL.md, CLAUDE.md, and config - causes drift
-- **If displaying values**: Reference config file or note "See config for current values"
-
-#### Threshold Semantics
-- **Rule**: Always clarify boundary conditions using comparison operators
-- **Format**: `GREEN: score >= 16`, `YELLOW: score >= 12 AND score < 16`, `RED: score < 12`
-- **Anti-pattern**: Ambiguous statements like "RED <12" with separate `not_ready: 11` field
-
-#### External Model Names
-- **Note**: Model identifiers (gpt-5.2, gemini-3-pro-preview) are configurable placeholders
-- **Rule**: Document that users should update these to match their PAL/MCP server configurations
-- **Location**: Add configuration notes near model definitions
-
-#### Feature Flag Dependencies
-- **Rule**: Flags that depend on other flags must declare `requires: [flag_names]`
-- **Example**: `s5_tot_architecture.requires: [s4_adaptive_strategy]`
-- **Rationale**: Prevents enabling advanced features without prerequisites
-- **Validation**: CI should check that required flags are enabled when dependent flag is enabled
-
-### Template Design
-
-#### Glossary Sections
-- **Rule**: Templates used by non-technical stakeholders (UAT scripts) must include glossary
-- **Content**: Define domain terms (AC, TDD, Given-When-Then, Inner/Outer Loop)
-- **Placement**: Appendix section at end of template
-
-#### Template Completeness
-- **Checklist for new templates**:
-  - [ ] All placeholder sections have example content
-  - [ ] Glossary for non-technical users
-  - [ ] Evidence/sign-off sections where approval needed
-  - [ ] Cross-references to related templates
-
-### Quality Verification
-
-#### Critique-Driven Improvements
-When running `/reflexion:critique`, address findings by priority:
-1. **Critical**: Duplicate files, missing reconciliation - fix immediately
-2. **High**: Inconsistent constants, missing MPA - fix before release
-3. **Medium**: Missing glossaries, unclear thresholds - fix in next iteration
-4. **Low**: Style inconsistencies - batch fix periodically
-
-#### Common Issues to Check
-- [ ] No duplicate reference files across skills
-- [ ] All config values sourced from single location
-- [ ] MPA agents have mode availability documented
-- [ ] Related phases have reconciliation steps
-- [ ] Templates have glossaries for non-technical users
-
-#### Post-Refactoring Cross-Reference Validation
-After bulk refactoring (e.g., extracting monolithic files into per-phase files):
-- [ ] All agent names in SKILL.md dispatch table have corresponding files in `agents/`
-- [ ] All template paths referenced in phase files exist in `templates/`
-- [ ] All per-phase files referenced in dispatch table exist in `references/`
-- [ ] Config feature flags referenced in phase files are defined in `config/planning-config.yaml`
-- [ ] No stub markers remain (search for TODO, FIXME, TBD, PLACEHOLDER)
-- [ ] `references/README.md` index is updated with new file entries and sizes
-- [ ] No cross-plugin file leakage in staged commits (verify with `git diff --cached --stat`)
-
-### Agent Design Standards
-
-#### Anti-Patterns Sections
-- **Rule**: Every agent file must have an Anti-Patterns section with domain-specific entries
-- **Format**: Table with columns: Anti-Pattern | Why It's Wrong | Instead Do
-- **Count**: 3-5 anti-patterns per agent, specific to that agent's domain
-- **Example**: Code-explorer anti-patterns differ from judge anti-patterns
-- **Placement**: Near end of file, after Self-Critique section
-
-#### Intentional Agent Variance
-- **Principle**: Different agent types have different verification requirements
-- **Question counts by responsibility**:
-  - Architect agents: 6 questions (high stakes, long-term impact)
-  - Standard agents: 5 questions (balanced thoroughness)
-  - Lightweight/haiku agents: 4 questions (cost-conscious)
-- **Documentation**: Variance must be documented in `references/self-critique-template.md`
-- **Anti-pattern**: Assuming all agents should have identical self-critique sections
-
-### Anti-Patterns to Avoid
-
-| Anti-Pattern | Problem | Solution |
-|--------------|---------|----------|
-| Separate skills for coupled workflows | State sync issues, user must remember sequence | Embed as phases in single workflow |
-| Duplicate reference files | Maintenance burden, drift risk | Single copy, reference via `$CLAUDE_PLUGIN_ROOT` |
-| Hardcoded values in multiple files | Inconsistency, hard to update | Single source in config file |
-| Missing phase reconciliation | Conflicting analysis, coverage gaps | Explicit reconciliation step between related phases |
-| Templates without glossary | Non-technical users confused | Add glossary appendix |
-| Ambiguous thresholds | Off-by-one errors, unclear logic | Use explicit comparison operators |
-| Generic anti-patterns in agents | Not actionable for specific domain | Domain-specific anti-patterns per agent type |
-| Uniform agent configurations | Ignores responsibility differences | Calibrate verification to agent impact level |
-
-### Proposal and Documentation Standards
-
-#### Table of Contents Consistency
-- **Rule**: TOC section names MUST match body heading names exactly
-- **Check**: After writing, compare TOC entries against corresponding body headings
-- **Anti-pattern**: TOC says "M1-M5" but body uses "A1-A5"
-- **Tool**: Use grep to verify: `grep -E "^##|^\d+\." proposal.md`
-
-#### Cost Comparison Baselines
-- **Rule**: When comparing costs, specify exact baseline mode/version
-- **Format**: "ToT ($0.38) vs Standard MPA in Complete mode ($0.22)" not "vs ~$0.15"
-- **Anti-pattern**: Comparing Complete mode improvement to Standard mode baseline
-- **Reason**: Misleading ROI calculations if baselines don't match
-
-#### Acceptance Criteria for Improvements
-- **Rule**: Each proposed improvement needs measurable acceptance criteria
-- **Format**:
-  ```yaml
-  improvement: S1 Self-Critique
-  acceptance_criteria:
-    - Agent prompts include self-critique section
-    - Output includes self_critique YAML block
-    - Questions passed >= 4/5 for submission
-  verification: Automated test or manual checklist
-  ```
-- **Anti-pattern**: Listing improvements without success conditions
-
-#### Threshold Scales
-- **Rule**: Always explain what scale values mean
-- **Good**: "Score 1-5 where: 1=missing, 2=incomplete, 3=adequate, 4=good, 5=excellent"
-- **Bad**: "Score ≥3.5/5.0" without explaining what 3 or 5 represents
-- **Application**: Judge gates, consensus scoring, coverage validation
-
-#### Gap-to-Improvement Traceability
-- **Rule**: Each improvement should trace back to identified gaps
-- **Format**: "**Gap Addressed:** G1 - Description"
-- **Verification**: Matrix showing Gap → Improvement mapping
-- **Reason**: Ensures improvements solve real problems, not hypothetical ones
-
-### Research Attribution
-
-#### Academic Citation Standards
-- **Rule**: Attribute techniques to correct original papers
-- **Chain-of-Verification**: Dhuliawala et al. (2023), NOT Constitutional AI
-- **Constitutional AI Self-Critique**: Bai et al. (2022)
-- **Zero-Shot CoT**: Kojima et al. (2022)
-- **Tree of Thoughts**: Yao et al. (2023)
-- **Multi-Agent Debate**: Du et al. (2023)
-- **Note**: Constitutional AI and CoVe are related but distinct techniques
-
-### Judge Calibration Methodology
-
-#### Building Effective Judge Prompts
-- **Principle**: Judges need calibration examples to score consistently
-- **Include in judge prompts**:
-  1. Scoring rubric with explicit criteria per level (1-5)
-  2. 2-3 calibration examples showing "this is a 3" vs "this is a 5"
-  3. Common failure modes to watch for
-- **Anti-pattern**: Judge prompts with only criteria, no examples
-- **Reference**: Add calibration methodology to `references/judge-gate-rubrics.md`
-
-#### Retry Logic Documentation
-- **Rule**: Document retry behavior explicitly
-- **Include**:
-  - Max retries (e.g., 2)
-  - What feedback is provided on failure
-  - Escalation path (what happens after max retries)
-  - State management during retries
-
-### Reference File Organization
-
-#### Index README Pattern
-- **Rule**: Reference directories with 5+ files should have a README.md index
-- **Content**: Table showing "File | Read When..." for quick navigation
-- **Location**: `skills/{skill}/references/README.md`
-- **Benefit**: Reduces time spent finding the right reference file
-
-### Critique Resolution Workflow
-
-#### Priority-Based Implementation
-- **Process**: Resolve critique findings in priority order: MUST DO → SHOULD DO → COULD DO
-- **Batching**: Group related changes (all config changes together, all agent updates together)
-- **Rationale**: Minimizes context switching, ensures critical issues fixed first
-- **Verification**: Run verification commands from critique report after each priority tier
-
-### Sequential Thinking Implementation Guidelines
-
-#### MCP Parameter Usage
-
-The ST MCP tool has underutilized parameters that enable advanced reasoning:
-
-| Parameter | Purpose | When to Use |
-|-----------|---------|-------------|
-| `branchFromThought` | Spawn exploration path from a specific thought | Fork-Join, Red Team branching |
-| `branchId` | Name the branch (use descriptive strings: "minimal", "redteam") | Always pair with `branchFromThought` |
-| `isRevision` | Mark thought as updating prior conclusion | Reconciliation when new evidence contradicts |
-| `revisesThought` | Reference the thought being revised | Always pair with `isRevision: true` |
-| `needsMoreThoughts` | Signal chain should extend beyond initial estimate | Complexity exceeds estimate mid-chain |
-
-#### Template JSON Requirements
-
-ST template JSON must include these fields to avoid silent failures:
-- **Required**: `thought`, `thoughtNumber`, `totalThoughts`, `nextThoughtNeeded`
-- **Recommended**: `hypothesis`, `confidence`
-- **For branching**: `branchFromThought`, `branchId`
-- **For revision**: `isRevision`, `revisesThought`
-
-#### Branch Traceability Rules
-
-- Use descriptive `branchId` strings ("minimal", "clean", "pragmatic", "redteam") not numeric IDs
-- Omit `branchId` in synthesis/join thoughts to signal return to main trunk
-- Document branch → thought mapping in template comments
-
-#### Revision vs Extension
-
-| Scenario | Use | Rationale |
-|----------|-----|-----------|
-| New evidence contradicts prior conclusion | `isRevision: true` | Updates existing analysis |
-| Need more analysis depth | `needsMoreThoughts: true` | Extends chain linearly |
-| Exploring alternative approach | `branchFromThought` + `branchId` | Parallel exploration |
-
-### Workflow Enhancement Coordination
-
-#### Multi-File Update Order
-
-When implementing workflow enhancements spanning multiple files, update in dependency order:
-
-1. **Templates** (`templates/sequential-thinking-templates.md`) - Define the ST structures
-2. **Workflows** (`skills/plan/references/phase-workflows.md`) - Integrate templates into phases
-3. **Agents** (`agents/*.md`) - Add ST invocation instructions
-4. **Config** (`config/planning-config.yaml`) - Add feature flags and template groups
-5. **Documentation** (`SKILL.md`, `CLAUDE.md`) - Update user-facing docs
-
-**Rationale**: Later files reference earlier ones; updating in this order prevents broken references.
-
-#### Feature Flag Best Practices for MCP Enhancements
-
-When adding feature flags for ST/MCP enhancements:
-
-```yaml
-st_example_feature:
-  enabled: true
-  description: "Clear description of what it does"
-  rollback: "Set false to disable (describe fallback behavior)"
-  modes: [complete, advanced]  # Which modes can use this
-  requires_mcp: true           # Always true for ST enhancements
-  cost_impact: "+N ST calls (~X% phase increase)"  # Document cost
-```
-
-- **Always include `cost_impact`**: Users need this to make informed mode selections
-- **Always include `modes`**: Prevents confusion about availability
-- **Always include `rollback`**: Documents graceful degradation path
-
-#### Template Group Registration
-
-When adding new ST template groups:
-
-1. Add template definitions to `templates/sequential-thinking-templates.md`
-2. Register group in `config/planning-config.yaml` under `sequential_thinking.template_groups`
-3. Map to phases in `sequential_thinking.phase_mapping`
-4. Link flag to templates in `sequential_thinking.flag_to_templates`
-5. Update availability matrix in templates file
-
----
-
-### Clink Integration Patterns
-
-#### Dual-CLI MPA Pattern
-- **Pattern**: Run Gemini + Codex clink in parallel for each analysis role, then synthesize
-- **Rationale**: Gemini (1M context) excels at broad exploration; Codex excels at code-level precision
-- **Implementation**: Each clink step has 4 sub-steps: dispatch (parallel) -> synthesis -> self-critique (Task subagent) -> write report
-- **Self-critique isolation**: CoVe verification runs in a separate `Task(general-purpose)` subagent to avoid coordinator context pollution
-- **Modes**: Complete and Advanced only
-
-#### Clink Role Design
-- **5 roles**: deepthinker, planreviewer, teststrategist, securityauditor, taskauditor
-- **10 prompt files**: Each role has both `gemini_{role}.txt` and `codex_{role}.txt`
-- **EXPLORE directives**: Every role MUST include filesystem exploration instructions (clink's unique capability)
-- **No researcher**: Removed — duplicates Research MCP (Context7/Ref/Tavily)
-- **No reconciliator**: Absorbed into teststrategist review protocol
-
-#### Template-to-Runtime Deployment
-- **Source of truth**: `$CLAUDE_PLUGIN_ROOT/templates/clink-roles/`
-- **Runtime location**: `PROJECT_ROOT/conf/cli_clients/`
-- **Deployment**: Phase 1 auto-copies if missing or version marker mismatch
-- **Version tracking**: `clink_role_version: 1.0.0` in README.md
-
-#### Clink Anti-Patterns
-
-| Anti-Pattern | Problem | Solution |
-|--------------|---------|----------|
-| Clink replaces ThinkDeep | Gemini CLI lacks PAL MCP access; cannot run ThinkDeep matrix | Clink SUPPLEMENTS ThinkDeep (runs after Step 5.5) |
-| Running clink in Standard/Rapid modes | Added latency not justified for simple features | Restrict to Complete/Advanced modes |
-| Self-critique inline in coordinator | Pollutes coordinator context with ST CoVe chain | Use Task subagent for self-critique |
-| Single-CLI without degradation notice | User doesn't know analysis is reduced | Log degradation and set state.clink.mode |
-| Role prompts without EXPLORE directives | Clink agents reason from prompt alone, miss codebase evidence | Every role MUST include filesystem exploration instructions |
-| Deploying roles to wrong directory | Clink reads from project conf/ not plugin templates/ | Auto-deploy in Phase 1 with version check |
-| Clink without runtime availability check | Fails silently if CLI not installed | Step 1.5b checks clink + CLI availability before any use |
-
-#### Synthesis Categorization
-- **Convergent** (both CLIs agree): HIGH confidence, merge directly
-- **Divergent** (CLIs disagree): FLAG for user decision or use higher severity
-- **Unique** (one CLI only): VERIFY against existing findings before accepting
-
-#### Shared Dispatch Pattern (DRY)
-- **Rule**: When multiple phases use the same multi-step workflow (e.g., clink dual-CLI dispatch), extract to a shared parameterized reference file
-- **Implementation**: `skills/plan/references/clink-dispatch-pattern.md` — single canonical 4-step pattern with parameter table per phase
-- **Anti-pattern**: Duplicating 50+ line pseudocode blocks across 5 phase files — causes drift when retry logic or synthesis rules change
-- **Phase references**: Each phase file includes a parameter table and `Follow the Clink Dual-CLI Dispatch Pattern from...` instead of inline pseudocode
-
----
-
-### Phase File Authoring Rules
-
-#### Step Ordering Discipline
-- **Rule**: Physical order of steps in a phase file MUST match logical execution order
-- **Why**: Coordinators read instruction files top-to-bottom; a step numbered 5.6 placed between 5.4 and 5.5 will execute before 5.5
-- **Check**: After inserting a new step, verify the step above and below in the file match the intended predecessor/successor
-- **Example caught**: Clink deepthinker (Step 5.6) was placed before user presentation (Step 5.5) — user would never see ThinkDeep findings before clink consumed them
-
-#### Explicit Mode Guards Per Step
-- **Rule**: Every optional step must have its own `IF analysis_mode in {X, Y}:` guard, even if the parent phase already restricts modes
-- **Why**: Phase-level mode restrictions document eligibility, but step-level guards provide the actual runtime protection
-- **Anti-pattern**: Relying solely on phase frontmatter `modes: [complete, advanced]` without per-step guards — breaks if a step is later moved to a different phase
-
-#### Artifacts Written Completeness
-- **Rule**: Phase frontmatter `artifacts_written` must list ALL files the phase creates, including conditional ones
-- **Why**: Crash recovery uses `artifacts_written` to reconstruct state — missing entries mean the orchestrator can't detect partial completion
-- **Format**: Use comments for conditional artifacts: `- "analysis/clink-report.md"  # conditional: clink enabled`
-
-### Configuration Integrity
-
-#### Config-to-Implementation Alignment
-- **Rule**: Every config value that promises runtime behavior (retry counts, circuit breaker thresholds, timeouts) MUST have corresponding implementation in a workflow or reference file
-- **Check**: After adding config entries, grep for the key name across phase files to verify it's consumed
-- **Anti-pattern**: Declaring `retry.max_retries: 1` and `circuit_breaker.threshold: 2` in config without any phase file implementing the retry or circuit breaker loop — "dead config" that misleads users
-
-#### YAML Range Values
-- **Rule**: Never use dash notation for numeric ranges in YAML (e.g., `verification_questions: 3-5`)
-- **Why**: YAML parses `3-5` as the string `"3-5"`, not a range — downstream code expecting a number will fail silently
-- **Format**: Use structured `min/max` instead: `verification_questions: { min: 3, max: 5 }`
-
-### External Prompt Authoring (Clink Roles)
-
-#### MCP Availability Conditionals
-- **Rule**: Clink role prompt files (.txt) must include conditional availability notes for any MCP tools referenced
-- **Why**: Gemini and Codex CLI environments don't have Claude's MCP servers — ST MCP, PAL MCP are unavailable
-- **Format**: "The ST protocol below requires `mcp__sequential-thinking__sequentialthinking`. If unavailable, skip ST templates and provide equivalent analysis inline."
-
-#### Security Trade-off Documentation
-- **Rule**: CLI auto-approval flags (`--yolo`, `--dangerously-bypass-approvals-and-sandbox`) must have a documented security trade-off note in the role template README
-- **Content**: What the flag enables, what protections it removes, when it's acceptable (CI-only, sandboxed environments)
-
-### Cost and Documentation Maintenance
-
-#### Cost Table Updates
-- **Rule**: When adding a cost-impacting feature (new MCP integration, additional agents, clink roles), update the cost table in SKILL.md
-- **Format**: Add a column for the new cost factor showing per-mode impact
-- **Example**: Clink integration added "With Clink" column: $1.10-2.00 (Complete), $0.55-0.90 (Advanced), N/A (Standard/Rapid)
-
-### Dev-Skills Integration
-
-#### Subagent-Delegated Skill Loading
-- **Pattern**: Coordinators dispatch a throwaway `Task(general-purpose)` subagent to load dev-skills, extract relevant sections, and write a condensed context file. Coordinator reads only the small output file (~1-3K tokens), never the raw skill content (~5-15K tokens)
-- **Rationale**: Preserves lean orchestrator context reduction (~70% savings vs inline loading). Same isolation technique as clink CoVe self-critique
-- **Detection**: Phase 1 Step 1.5c scans spec.md for technology keywords and project root for framework markers (package.json, build.gradle.kts, etc.)
-- **Modes**: Complete, Advanced, Standard (NOT Rapid)
-- **Reference**: `skills/plan/references/skill-loader-pattern.md` — canonical dispatch pattern
-- **Config**: `config/planning-config.yaml` `dev_skills_integration:` section — domain-to-skill mappings, budgets, detection keywords
-
-#### Skill Loader Steps by Phase
-
-| Phase | Step | Skills Loaded | Budget | Parallel With |
-|-------|------|---------------|--------|---------------|
-| 2 | 2.2c-a | accessibility, mobile, figma | 2500 | code-explorer, researcher |
-| 4 | 4.0a | api-patterns, database, c4, mermaid, frontend | 3000 | Research MCP (Step 4.0) |
-| 6b | 6b.0a | clean-code, api-security | 2000 | N/A |
-| 7 | 7.1c | qa-test-planner, accessibility | 2000 | Research MCP (Step 7.1b) |
-| 9 | 9.2a | clean-code | 800 | N/A |
-
-#### Agent Awareness Hints
-- 6 agent files have a lightweight "Skill Awareness" section (5-10 lines)
-- Tells agents that a `## Domain Reference (from dev-skills)` section may appear in their prompt
-- Agents: software-architect, simplicity-reviewer, qa-strategist, security-analyst, flow-analyzer, tech-lead
-
-#### Dev-Skills Integration Anti-Patterns
-
-| Anti-Pattern | Problem | Solution |
-|--------------|---------|----------|
-| Invoke Skill() directly in coordinator | Context pollution (~5-15K) | Delegate to subagent |
-| Load skills in Rapid mode | Unnecessary latency | Skip via mode guard |
-| Exceed per-phase token budget | Coordinator context bloat | Enforce limits in loader prompt |
-| Skip Phase 1 detection | All phases load max skills | Always run Step 1.5c |
-| Hard-depend on skill content in agents | Breaks when dev-skills not installed | Treat as supplementary, never required |
-
-### Deep Reasoning Integration
-
-#### Orchestrator-Level Execution
-- **Pattern**: Deep reasoning escalation runs at the **orchestrator level**, not within coordinators. Coordinators set flags in summaries; the orchestrator decides whether to offer escalation
-- **Workflow**: Orchestrator detects trigger → generates CTCO prompt → presents to user via `AskUserQuestion` → user submits to external model (GPT-5 Pro / Google Deep Think) → user returns response → orchestrator writes to file → re-dispatches coordinator with response as additional context
-- **State tracking**: `state.deep_reasoning` tracks `escalations[]` (completed), `pending_escalation` (in-flight), `algorithm_detected` (Phase 1 scan)
-- **Resume**: On workflow resume, pending escalations are re-presented — user can provide the response or skip
-- **Config**: All flags in `config/planning-config.yaml` under `deep_reasoning_escalation:`, all disabled by default
-- **Reference**: `skills/plan/references/deep-reasoning-dispatch-pattern.md` — canonical 6-step pattern (A-F)
-- **Templates**: `templates/deep-reasoning-templates.md` — 4 CTCO prompt templates with variable sourcing
-
-#### Escalation Types
-
-| Type | Trigger | Phase | Config Flag | Target |
-|------|---------|-------|-------------|--------|
-| `circular_failure` | Gate RED after 2 retries | Any gated | `circular_failure_recovery` | Same phase (re-dispatch) |
-| `architecture_wall` | Phase 6 RED → Phase 4 loop | 6 → 4 | `architecture_wall_breaker` | Phase 4 (re-dispatch) |
-| `security_deep_dive` | 2+ CRITICAL security findings | 6b | `security_deep_dive` | Append to expert-review.md |
-| `algorithm_escalation` | Algorithm keywords in spec | 1 (detect), 4/7 (surface) | `abstract_algorithm_detection` | Detection only; escalation if gate fails |
-
-#### Deep Reasoning Anti-Patterns
-
-| Anti-Pattern | Problem | Solution |
-|--------------|---------|----------|
-| Escalate in Standard/Rapid mode | Added latency not justified | Mode guard: Complete/Advanced only |
-| Escalate for creative tasks | Deep reasoning models produce flat, sterile output | Check anti-pattern list in skill |
-| Auto-escalate without user consent | User must manually submit to external model | Always present via `AskUserQuestion` |
-| Run escalation inside coordinator | Coordinator context pollution | Orchestrator mediates all escalation |
-| Skip pending escalation on resume | User loses work if they already submitted | Check `state.deep_reasoning.pending_escalation` |
-| Escalate before 2 retries | Premature; Claude may succeed on retry | Only trigger after retry limit exhausted |
-
----
-
-*Last updated: 2026-02-12 - Added deep reasoning integration: escalation types, orchestrator-level execution pattern, anti-patterns*
+*Last updated: 2026-02-19 — CLAUDE.md audit: fixed Phase 6b omission, expanded agent inventory to 16, removed hardcoded thresholds, extracted contributor guidelines to `docs/contributor-guide.md`*

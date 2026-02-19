@@ -19,7 +19,7 @@ artifacts_written:
   - "test-cases/integration/"
   - "test-cases/e2e/"
   - "test-cases/uat/"
-  - "analysis/clink-testreview-report.md"  # conditional: clink enabled
+  - "analysis/cli-testreview-report.md"  # conditional: CLI dispatch enabled
   - ".phase-summaries/phase-7-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
   - "product-planning:qa-strategist"
@@ -28,7 +28,6 @@ agents:
   - "product-planning:phase-gate-judge"
 mcp_tools:
   - "mcp__sequential-thinking__sequentialthinking"
-  - "mcp__pal__clink"
   - "mcp__context7__query-docs"
   - "mcp__Ref__ref_search_documentation"
   - "mcp__tavily__tavily_search"
@@ -37,14 +36,14 @@ feature_flags:
   - "st_redteam_analysis"
   - "st_tao_loops"
   - "s3_judge_gates"
-  - "clink_context_isolation"
-  - "clink_custom_roles"
+  - "cli_context_isolation"
+  - "cli_custom_roles"
   - "dev_skills_integration"
   - "deep_reasoning_escalation"  # algorithm awareness: flag test difficulty for orchestrator
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/v-model-methodology.md"
-  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
@@ -431,11 +430,11 @@ After all QA agents complete AND reconciliation is done:
 4. **Flag conflicts** - Note where agents disagree for human decision
 5. **Verify reconciliation** - All ThinkDeep insights have test coverage
 
-## Step 7.3.5: Clink Test Strategy Review
+## Step 7.3.5: CLI Test Strategy Review
 
-**Purpose:** Review and validate QA agent outputs using clink dual-CLI. Gemini discovers test infrastructure and framework patterns; Codex verifies test code quality and patterns. Also absorbs ThinkDeep reconciliation duties.
+**Purpose:** Review and validate QA agent outputs using CLI dual-CLI dispatch. Gemini discovers test infrastructure and framework patterns; Codex verifies test code quality and patterns. Also absorbs ThinkDeep reconciliation duties.
 
-Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/clink-dispatch-pattern.md` with these parameters:
+Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
@@ -445,7 +444,7 @@ Follow the **Clink Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/
 | GEMINI_PROMPT | `Review test strategy for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. ThinkDeep insights: {FEATURE_DIR}/analysis/thinkdeep-insights.md (if exists). Focus: Test infrastructure discovery, framework compatibility, coverage gaps, ThinkDeep-to-test reconciliation.` |
 | CODEX_PROMPT | `Review test code quality for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. Focus: Existing test patterns, assertion quality, mock patterns, test isolation.` |
 | FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/analysis/thinkdeep-insights.md", "{FEATURE_DIR}/analysis/test-strategy-general.md"]` |
-| REPORT_FILE | `analysis/clink-testreview-report.md` |
+| REPORT_FILE | `analysis/cli-testreview-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
 | POST_WRITE | `Update test-plan.md with coverage gap additions (Gemini), pattern alignment recommendations (Codex), and ThinkDeep reconciliation report` |
 

@@ -25,7 +25,8 @@ allowed-tools:
   - mcp__pal__consensus
   - mcp__pal__listmodels
   - mcp__pal__challenge
-  - mcp__pal__clink
+  # CLI dispatch (Bash-based, replaces PAL clink)
+  - Bash(dispatch:*)
   # Research MCP - Context7 (library documentation)
   - mcp__context7__resolve-library-id
   - mcp__context7__query-docs
@@ -58,18 +59,18 @@ Transform feature specifications into actionable implementation plans with integ
 
 ## Analysis Modes
 
-| Mode | Description | MCP Required | Base Cost | With Clink |
-|------|-------------|--------------|-----------|------------|
+| Mode | Description | MCP Required | Base Cost | With CLI |
+|------|-------------|--------------|-----------|----------|
 | **Complete** | MPA + ThinkDeep (9) + ST + Consensus + Full Test Plan | Yes | $0.80-1.50 | $1.10-2.00 |
 | **Advanced** | MPA + ThinkDeep (6) + Test Plan | Yes | $0.45-0.75 | $0.55-0.90 |
 | **Standard** | MPA only + Basic Test Plan | No | $0.15-0.30 | N/A |
 | **Rapid** | Single agent + Minimal Test Plan | No | $0.05-0.12 | N/A |
 
-Costs are base estimates without ST or clink enhancements. See `config/planning-config.yaml` blessed profiles for full costs with all enhancements enabled.
+Costs are base estimates without ST or CLI enhancements. See `config/planning-config.yaml` blessed profiles for full costs with all enhancements enabled.
 
-**Clink Dual-CLI MPA** (Complete/Advanced): When `clink_custom_roles` is enabled and CLI tools are installed, phases 5, 6, 6b, 7, and 9 run supplemental analysis via Gemini + Codex in parallel, then synthesize and self-critique findings. This adds ~5-7 min total latency but provides broader coverage.
+**CLI Dual-CLI Dispatch** (Complete/Advanced): When `cli_custom_roles` is enabled and CLI tools are installed, phases 5, 6, 6b, 7, and 9 run supplemental analysis via Gemini + Codex in parallel using Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`), then synthesize and self-critique findings. This adds ~5-7 min total latency but provides broader coverage.
 
-Graceful degradation: If PAL unavailable, fall back to Standard/Rapid modes. If clink/CLIs unavailable, skip clink steps (standard agents still run).
+Graceful degradation: If PAL unavailable, fall back to Standard/Rapid modes. If CLIs unavailable, skip CLI steps (standard agents still run).
 
 ## Workflow Phases
 
@@ -125,8 +126,8 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for ~78% o
 
 ## Phase Dispatch Table
 
-| Phase | Delegation | File | Prior Summaries | User Interaction | Clink | Checkpoint |
-|-------|-----------|------|-----------------|------------------|-------|------------|
+| Phase | Delegation | File | Prior Summaries | User Interaction | CLI | Checkpoint |
+|-------|-----------|------|-----------------|------------------|-----|------------|
 | 1 | Inline | `phase-1-setup.md` | — | Mode selection | Detect | SETUP |
 | 2 | Coordinator | `phase-2-research.md` | phase-1 | Gate failure only | — | RESEARCH |
 | 3 | Conditional | `phase-3-clarification.md` | phase-2 | Questions (all) | — | CLARIFICATION |
@@ -231,7 +232,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `references/tot-workflow.md` — Hybrid ToT-MPA workflow (S5)
 - `references/debate-protocol.md` — Multi-round debate validation (S6)
 - `references/research-mcp-patterns.md` — Research MCP server usage guide
-- `references/clink-dispatch-pattern.md` — Canonical clink dual-CLI dispatch pattern (retry, synthesis, self-critique)
+- `references/cli-dispatch-pattern.md` — Canonical CLI dual-CLI dispatch pattern (retry, synthesis, self-critique)
 - `references/skill-loader-pattern.md` — Canonical dev-skills context loading via subagent delegation (Phases 2, 4, 6b, 7, 9)
 - `references/deep-reasoning-dispatch-pattern.md` — Deep reasoning escalation workflow (gate failures, security deep dive, algorithm escalation)
 
