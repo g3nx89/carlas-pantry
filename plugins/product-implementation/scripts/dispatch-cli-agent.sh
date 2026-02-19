@@ -180,6 +180,20 @@ if grep -q '<SUMMARY>' "$OUTPUT_FILE" 2>/dev/null; then
   SUMMARY_FOUND=true
 fi
 
+# --- Expected fields validation (informational) ---
+FIELDS_VALIDATED=false
+FIELDS_MISSING=""
+if [[ -n "$EXPECTED_FIELDS" ]] && [[ "$SUMMARY_FOUND" == "true" ]]; then
+  FIELDS_VALIDATED=true
+  IFS=',' read -ra FIELDS <<< "$EXPECTED_FIELDS"
+  for field in "${FIELDS[@]}"; do
+    field="$(echo "$field" | xargs)"  # trim whitespace
+    if ! grep -qi "$field" "$OUTPUT_FILE" 2>/dev/null; then
+      FIELDS_MISSING="${FIELDS_MISSING:+$FIELDS_MISSING, }$field"
+    fi
+  done
+fi
+
 # Clean up raw output
 rm -f "$RAW_OUTPUT"
 
@@ -201,7 +215,9 @@ cat > "$METRICS_FILE" <<SIDECAR
   "summary_block_found": $SUMMARY_FOUND,
   "platform": "$PLATFORM",
   "dispatch_method": "$DISPATCH_METHOD",
-  "cli_version": "$CLI_VERSION"
+  "cli_version": "$CLI_VERSION",
+  "fields_validated": $FIELDS_VALIDATED,
+  "fields_missing": "$FIELDS_MISSING"
 }
 SIDECAR
 

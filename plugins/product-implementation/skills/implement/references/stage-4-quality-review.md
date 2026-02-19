@@ -198,6 +198,8 @@ After deduplication, review each Medium-severity finding against the escalation 
 
 This pass runs AFTER deduplication so that consensus-boosted findings are also checked. The escalation triggers are config-driven — update the config file to adjust the criteria, not this prose.
 
+> **Note:** Findings promoted by escalation triggers intentionally bypass the confidence threshold for their new severity level. A Medium finding at score 75 promoted to High (threshold 65) is retained without re-filtering. This is by design — escalation triggers represent domain knowledge that overrides statistical confidence.
+
 ### Consolidation Output
 
 ```text
@@ -329,6 +331,13 @@ flags:
   review_outcome: "fixed"  # fixed | deferred | accepted
   test_count_post_fix: {N}  # Verified test count after fix agent (only present when review_outcome is "fixed")
   commit_sha: null  # Auto-commit SHA after review fixes (null if disabled, skipped, or failed)
+  confidence_scoring_stats: null  # null if confidence scoring disabled or single-tier only. When multi-tier:
+    # findings_before_scoring: {N}   — Raw finding count before confidence filtering
+    # findings_after_scoring: {N}    — Finding count after progressive threshold filtering
+    # findings_demoted: {N}          — Findings demoted one severity level
+    # findings_dropped: {N}          — Low findings dropped (below threshold)
+    # consensus_matches: {N}         — Findings with 2+ tier agreement (received consensus bonus)
+    # score_distribution: {min: N, max: N, median: N}  — Score range across all findings
 ---
 ## Context for Next Stage
 

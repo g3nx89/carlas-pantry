@@ -47,17 +47,17 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | 228 | Dispatch loop, crash recovery, lock release, state migration, late notification handling, autonomy policy infrastructure checks |
-| `stage-1-setup.md` | 532 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), summary template |
-| `stage-2-execution.md` | 602 | Skill resolution, research context resolution (2.0a), phase loop, CLI test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7), CLI test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, cli_dispatch_metrics, autonomy policy checks |
+| `stage-1-setup.md` | 559 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), plugin availability check (1.6f), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), summary template |
+| `stage-2-execution.md` | 612 | Skill resolution, research context resolution (2.0a), phase loop, CLI test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7) with non-skippable gate check, CLI test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, cli_dispatch_metrics, autonomy policy checks |
 | `stage-3-validation.md` | 196 | Validation checks, CLI spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, autonomy policy check (3.4) |
-| `stage-4-quality-review.md` | 343 | Three-tier review architecture (Tier A native, Tier B plugin, Tier C CLI), Tier A native multi-agent review, confidence scoring, severity reclassification, finding consolidation, auto-decision matrix with autonomy policy extension (4.4), CLI fix engineer (Option F), auto-commit on fix |
-| `stage-4-plugin-review.md` | 69 | Tier B: Plugin-based review via code-review skill, CEK confidence normalization, max findings cap, graceful degradation |
+| `stage-4-quality-review.md` | 352 | Three-tier review architecture (Tier A native, Tier B plugin, Tier C CLI), Tier A native multi-agent review, confidence scoring with outcome logging, severity reclassification (with intentional bypass note), finding consolidation, auto-decision matrix with autonomy policy extension (4.4), CLI fix engineer (Option F), auto-commit on fix |
+| `stage-4-plugin-review.md` | 69 | Tier B: Plugin-based review via code-review skill, config-driven CEK confidence normalization, max findings cap, graceful degradation |
 | `stage-4-cli-review.md` | 112 | Tier C: CLI multi-model review, Phase 1 parallel dispatch (correctness, security, android domain), Phase 2 sequential pattern search (Gemini 1M context), consolidation checkpoint |
 | `stage-5-documentation.md` | 258 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release, autonomy policy check for incomplete tasks (5.1) |
 | `agent-prompts.md` | 538 | All 9 agent prompt templates (8 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, R-REV-01 pattern propagation, build verification, API verification, test quality, animation testing, code simplification, retrospective composition |
 | `auto-commit-dispatch.md` | 62 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
-| `cli-dispatch-procedure.md` | 172 | Shared parameterized CLI dispatch via Bash process-group dispatch, 4-tier output parsing, metrics sidecar, exit codes 0-4, variable injection convention, fallback procedure |
+| `cli-dispatch-procedure.md` | 173 | Shared parameterized CLI dispatch via Bash process-group dispatch, 4-tier output parsing, expected-fields validation, metrics sidecar, exit codes 0-4, UUID output filenames, variable injection convention, fallback procedure |
 | `stage-6-retrospective.md` | 346 | KPI Report Card compilation (10 Phase 1 KPIs), cli_dispatch_metrics aggregation, sidecar cleanup, session transcript extraction (conditional), retrospective composition via tech-writer, auto-commit, state update |
 
 ## Cross-References
@@ -94,6 +94,9 @@ Quick guide to when to read each reference file during skill development or debu
 - `config/cli_clients/shared/severity-output-conventions.md` → injected into all CLI role prompts at dispatch time by coordinators
 - `config/implementation-config.yaml` `cli_dispatch` → referenced by `cli-dispatch-procedure.md`, `stage-1-setup.md` Section 1.7a (CLI detection), and all stage files with CLI integration points
 - `stage-1-setup.md` writes `cli_availability` to Stage 1 summary; consumed by Stages 2, 3, 4 coordinators for CLI dispatch gating
+- `stage-1-setup.md` writes `plugin_availability` to Stage 1 summary (Section 1.6f); consumed by `stage-4-plugin-review.md` for Tier B detection
+- `config/implementation-config.yaml` `cli_dispatch.non_skippable_gates` → referenced by `stage-2-execution.md` Step 3.7 (non-skippable gate check)
+- `config/implementation-config.yaml` `cli_dispatch.stage4.review_plugins.confidence_mapping` → canonical source for `stage-4-plugin-review.md` normalization thresholds
 - CLI integration is orchestrator-transparent: only coordinators and Stage 1 (inline) read CLI config; orchestrator never sees CLI
 - `stage-2-execution.md` writes `augmentation_bugs_found` to Stage 2 summary flags (from CLI test augmenter, Section 2.1a)
 - `stage-2-execution.md` writes `cli_dispatch_metrics` to Stage 2 summary flags (aggregated from `.metrics.json` sidecars); consumed by `stage-6-retrospective.md` KPI data layer

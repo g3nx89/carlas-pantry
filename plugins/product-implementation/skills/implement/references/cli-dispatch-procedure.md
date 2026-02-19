@@ -37,14 +37,15 @@ Construct the composite prompt and dispatch via the Bash script:
 2. Append "## Coordinator-Injected Context" section (per Variable Injection Convention below)
 3. Append "## MCP Tool Budget (Advisory)" section (per MCP Budget Injection below)
 4. Write composite prompt to temp file: `{FEATURE_DIR}/.dispatch-prompt-{role}-{timestamp}.tmp`
-5. Dispatch:
+5. Generate a short unique suffix: `{suffix}` = first 8 chars of a UUID (e.g., `$(uuidgen | cut -c1-8)`) for guaranteed filename uniqueness when multiple dispatches for the same role occur within the same second
+6. Dispatch:
 
 ```
 Bash("$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --cli {cli_name} \
   --role {role} \
   --prompt-file {temp_prompt_path} \
-  --output-file {FEATURE_DIR}/.dispatch-output-{role}-{timestamp}.txt \
+  --output-file {FEATURE_DIR}/.dispatch-output-{role}-{timestamp}-{suffix}.txt \
   --timeout {timeout_ms / 1000} \
   --expected-fields {comma_separated_fields}")
 ```

@@ -475,6 +475,23 @@ cli_dispatch:
       review_plugins:
         enabled: true                 # Check for code-review:review-local-changes skill availability
         max_findings: 50              # Cap on findings from plugin review
+        # Confidence mapping — normalizes CEK plugin confidence+impact to Stage 4 severity.
+        # Canonical source for stage-4-plugin-review.md normalization table.
+        confidence_mapping:
+          critical:
+            min_confidence: 0.9
+            impact: "high"
+            condition: "Security or data-loss concern"
+          high:
+            min_confidence: 0.8
+            impact: "high"
+            condition: "Likely bug or significant issue"
+          medium:
+            min_confidence: 0.7
+            impact: "any"             # OR impact = "medium" (whichever matches first)
+            condition: "Code smell or pattern concern"
+          low:
+            condition: "All others — style or optimization suggestion"
 
     # Option F: Fix review findings with different model (Tier 2)
     fix_engineer:

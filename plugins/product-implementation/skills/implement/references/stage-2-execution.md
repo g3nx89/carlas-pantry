@@ -273,7 +273,17 @@ Adds ~5-15s dispatch overhead + 30-120s agent execution per phase. Skipped autom
 >   3. `cli_availability.gemini` is `true` (from Stage 1 summary)
 >   4. `mobile_mcp_available` is `true` (from Stage 1 summary)
 >   5. Phase has mapped UAT specs OR touches UI files (see relevance check below)
-> If any condition is false, skip to Step 4.
+> If any condition is false, check the Non-Skippable Gate rule below before skipping.
+
+#### Non-Skippable Gate Check
+
+Before skipping UAT, check if `"stage2.uat_mobile_tester"` appears in `cli_dispatch.non_skippable_gates` from config. If it does:
+
+- **Conditions 1-2 false** (master switches disabled): Skip silently — the user explicitly disabled this dispatch.
+- **Conditions 3-4 false** (prerequisites unavailable): Log a structured gate failure: `"[GATE_BLOCKED] Non-skippable gate 'stage2.uat_mobile_tester' cannot execute: {reason}. Prerequisites: gemini={cli_availability.gemini}, mobile_mcp={mobile_mcp_available}."` This failure is recorded in the Stage 2 summary for KPI tracking. Do NOT silently skip.
+- **Condition 5 false** (phase not relevant): Skip silently — irrelevant phases are not a gate failure.
+
+If `"stage2.uat_mobile_tester"` is NOT in `non_skippable_gates`, skip to Step 4 with a standard warning log.
 
 After code completion (and optional simplification), run behavioral acceptance testing and Figma visual verification against the running app on a Genymotion emulator. The coordinator handles APK build and install; the CLI agent handles testing.
 

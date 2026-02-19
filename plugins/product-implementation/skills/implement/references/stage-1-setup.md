@@ -260,7 +260,7 @@ Probe mobile-mcp to determine if a mobile testing emulator is available for UAT 
 ### Procedure
 
 1. Read `uat_execution` and `cli_dispatch.stage2.uat_mobile_tester` sections from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-2. If BOTH `uat_execution.enabled` is `false` AND `cli_dispatch.stage2.uat_mobile_tester.enabled` is `false` → set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.7a
+2. If BOTH `uat_execution.enabled` is `false` AND `cli_dispatch.stage2.uat_mobile_tester.enabled` is `false` → set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.6f
 3. **Probe mobile-mcp**: Call `mobile_list_available_devices`
    - If call succeeds AND returns at least one device: set `mobile_mcp_available: true`, store `mobile_device_name` from the first available emulator device (prefer emulator over physical device for UAT reproducibility)
    - If call fails, times out, or returns empty device list: set `mobile_mcp_available: false`, `mobile_device_name: null`, log warning: `"Mobile MCP not available or no emulator running — UAT mobile testing will be skipped for all phases"`
@@ -277,6 +277,29 @@ mobile_device_name: "emulator-5554"  # or null
 ### Cost
 
 1 lightweight MCP probe call (~1-2s). Skipped entirely when both UAT config switches are disabled.
+
+## 1.6f Plugin Availability Check
+
+Probe available plugins to determine which optional skill-based capabilities are reachable. This step runs ONCE during Stage 1 and stores results for downstream coordinators.
+
+### Procedure
+
+1. Check if the `code-review:review-local-changes` skill is listed in available skills (query the Skill tool listing)
+2. If listed: set `plugin_availability.code_review: true`
+3. If not listed: set `plugin_availability.code_review: false`
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+plugin_availability:
+  code_review: true    # or false
+```
+
+### Cost
+
+Zero MCP calls. Single skill listing check (~0s).
 
 ## 1.7a CLI Availability Detection (CLI)
 
@@ -449,6 +472,8 @@ resolved_libraries:         # from Section 1.6c
 private_doc_urls: [{list of private doc URLs}]  # from Section 1.6d
 mobile_mcp_available: {true/false}  # from Section 1.6e (false if UAT config disabled or no emulator)
 mobile_device_name: "{name or null}"  # from Section 1.6e (first available emulator device)
+plugin_availability:             # from Section 1.6f
+  code_review: {true/false}
 autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user-selected or config default)
 ---
 ## Context for Next Stage
@@ -468,6 +493,7 @@ autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user
 - Resolved libraries: {count} Context7 library IDs pre-resolved (or "disabled")
 - Private doc URLs: {count} private documentation sources (or "disabled")
 - Mobile MCP: {available with device "{name}" / not available} (or "UAT disabled")
+- Plugin availability: code-review={true/false}
 - Autonomy policy: {full_auto/balanced/critical_only} ({user selected / from config default})
 
 ## Planning Artifacts Summary
@@ -526,6 +552,7 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] Library pre-resolution: {N} libraries resolved via Context7 (or "disabled/skipped")
 - [{timestamp}] Private docs: {N} private doc URLs discovered (or "disabled/skipped")
 - [{timestamp}] Mobile MCP probe: {available with device "{name}" / not available / UAT disabled}
+- [{timestamp}] Plugin availability: code-review={true/false}
 - [{timestamp}] Autonomy policy: {level_key} ({source: user selected / config default})
 - [{timestamp}] Lock acquired
 - [{timestamp}] State initialized / resumed from Stage {S}

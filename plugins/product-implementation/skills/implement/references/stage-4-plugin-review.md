@@ -13,10 +13,10 @@ config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (quality_r
 
 ## Detection
 
-Check if the Skill tool lists `code-review:review-local-changes` in its available skills. Query the available skills list explicitly — do NOT attempt a blind invocation.
+Read `plugin_availability.code_review` from the Stage 1 summary (cached in Section 1.6f).
 
-- **If listed**: Tier B is available. Proceed with dispatch below.
-- **If not listed**: Tier B is unavailable. Skip this section entirely — Tier A (native reviewers) and Tier C (CLI reviewers) provide full coverage.
+- **If `true`**: Tier B is available. Proceed with dispatch below.
+- **If `false`**: Tier B is unavailable. Skip this section entirely — Tier A (native reviewers) and Tier C (CLI reviewers) provide full coverage.
 
 ## Dispatch
 
@@ -34,14 +34,14 @@ After the subagent completes, the coordinator reads the output file (not the sub
 
 ## Finding Normalization
 
-The `code-review` plugin produces findings in its own format (CEK confidence + impact scoring). The coordinator normalizes these to match the Stage 4 severity scale:
+The `code-review` plugin produces findings in its own format (CEK confidence + impact scoring). The coordinator normalizes these to match the Stage 4 severity scale using thresholds from `config/implementation-config.yaml` under `cli_dispatch.stage4.review_plugins.confidence_mapping` (canonical source — see config for current values).
 
-| Plugin Output | Stage 4 Severity | Condition |
-|---------------|-----------------|-----------|
-| confidence >= 0.9 AND impact = "high" | Critical | Security or data-loss concern |
-| confidence >= 0.8 AND impact = "high" | High | Likely bug or significant issue |
-| confidence >= 0.7 OR impact = "medium" | Medium | Code smell or pattern concern |
-| All others | Low | Style or optimization suggestion |
+| Plugin Output | Stage 4 Severity | Config Key |
+|---------------|-----------------|------------|
+| confidence >= `critical.min_confidence` AND impact = `critical.impact` | Critical | `confidence_mapping.critical` |
+| confidence >= `high.min_confidence` AND impact = `high.impact` | High | `confidence_mapping.high` |
+| confidence >= `medium.min_confidence` OR impact = "medium" | Medium | `confidence_mapping.medium` |
+| All others | Low | `confidence_mapping.low` |
 
 ### Normalization Procedure
 

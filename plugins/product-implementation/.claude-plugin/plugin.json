@@ -1,6 +1,6 @@
 {
   "name": "product-implementation",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Execute implementation plans produced by product-planning, orchestrating TDD cycles, code generation, quality review, documentation, and implementation retrospective with KPI framework",
   "author": {
     "name": "Alessandro Fato",
