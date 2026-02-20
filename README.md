@@ -9,7 +9,7 @@ A curated marketplace of Claude Code plugins for product development workflows.
 | [product-definition](plugins/product-definition) | 2.2.0 | Transform drafts into PRDs, generate specifications, and create UX narratives from Figma mockups — with MPA, PAL consensus, V-Model test strategies, and batch multi-screen processing | product-development |
 | [product-planning](plugins/product-planning) | 1.1.0 | Transform specifications into implementation plans, tasks, and test strategies using SDD patterns | product-development |
 | [product-implementation](plugins/product-implementation) | 3.0.0 | Execute implementation plans from product-planning, orchestrating TDD cycles, code generation, quality review, documentation, and implementation retrospective with KPI framework | product-development |
-| [meta-skills](plugins/meta-skills) | 0.3.0 | 7 skills for mastering Claude Code, MCP servers, and agentic workflows — Figma Console + figma-use (170+ tools, figma-use-first strategy), Sequential Thinking, research MCP, mobile MCP, PAL multi-model, deep reasoning escalation | productivity |
+| [meta-skills](plugins/meta-skills) | 0.4.0 | 7 skills for mastering Claude Code, MCP servers, and agentic workflows — Figma Console + figma-use (170+ tools, clone-first Draft-to-Handoff with visual fidelity gates), Sequential Thinking, research MCP, mobile MCP, PAL multi-model, deep reasoning escalation | productivity |
 | [dev-skills](plugins/dev-skills) | 1.4.0 | 22 skills for software design and development — mobile (Android, Compose, Kotlin, CLI testing/benchmarking/a11y), web (frontend, accessibility, scroll), database, API, architecture, code quality, QA, and Figma integration | development |
 
 ## Installation

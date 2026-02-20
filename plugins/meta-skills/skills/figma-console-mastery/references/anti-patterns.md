@@ -100,6 +100,10 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 | Not discovering before creating | Duplicate components or missed existing assets | Always `figma_search_components` before creating new components |
 | Non-idempotent creation scripts | Re-running a script creates duplicate nodes every time | Before creating a named node, check: `const existing = figma.currentPage.findOne(n => n.name === "Target"); if (existing) return { id: existing.id, reused: true }`. Only create if not found |
 | Overusing `figma_execute` for atomic operations | Each execute + console-logs pair costs ~2,000 tokens; accumulates to context overflow on large sessions | Use figma-use declarative tools for single-property operations (create, move, resize, fill, stroke); see `figma-use-overview.md` decision matrix |
+| **Building screens from text descriptions** | Text files (PRDs, reconstruction guides) cannot capture IMAGE fills, exact fonts, layer ordering, opacity, gradients, or spacing — 100% of produced screens will be visually incorrect | ALWAYS read source Figma nodes via `figma_node_children` before constructing screens. Text documents are supplementary context for annotations only — see `workflow-draft-to-handoff.md` |
+| **Silent fallback to text when Figma access fails** | When source design cannot be read, silently building from text produces entirely wrong output; the user discovers the failure only after hours of work | If `figma_node_children` fails on ANY source screen, STOP immediately and inform the user. NEVER fall back to text-based construction |
+| **No visual fidelity check during construction** | Deferring all `figma_diff_visual` checks to the final phase allows N screens of wrong output to accumulate before any comparison | Run `figma_diff_visual` after every 4 screens during Phase 2, not just at Phase 5 — see `workflow-draft-to-handoff.md` |
+| **Building from scratch when cloning is possible** | Using `figma_create_frame` + manual child creation instead of `figma_node_clone` loses all IMAGE fills, exact fonts, and visual properties from the source design | Default to clone + restructure for ALL screens that exist in the Draft. Only build from scratch for screens with no source — see `workflow-draft-to-handoff.md` Phase 2 |
 
 ---
 
@@ -122,7 +126,7 @@ These patterns cause slow execution or excessive resource usage, especially on l
 
 ## Context and Buffer Anti-Patterns
 
-These workflow-level patterns cause context window exhaustion and data loss from log buffer limits. Empirically observed across 6 production sessions (~480 MCP calls, 14 context compactions).
+These workflow-level patterns cause context window exhaustion and data loss from log buffer limits. Empirically observed across 7 production sessions (~600 MCP calls, 14 context compactions, 1 critical quality failure).
 
 | Anti-Pattern | Problem | Solution |
 |-------------|---------|---------|
@@ -148,6 +152,16 @@ Remote mode connects via Cloudflare Workers and is restricted to read-only opera
 - **Variables require Enterprise plan** -- REST API endpoint is Enterprise-gated (local mode bypasses this)
 - **Only ~21 read-only tools** available (~34% of the full 56+ tool set)
 
+### IMAGE Fill Limitation (CRITICAL for Draft-to-Handoff)
+
+**The Figma Plugin API cannot create IMAGE fills from external sources in practice during design transfer workflows.** While `figma.createImageAsync(url)` exists, it requires network access from the plugin context and public URLs — neither of which is available when transferring existing designs between pages.
+
+**The only reliable way to preserve IMAGE fills is to clone the source node** via `figma_node_clone`. Any workflow that creates screens from scratch instead of cloning will lose ALL image fills, replacing them with black rectangles or empty frames.
+
+**Impact**: A Draft-to-Handoff workflow that builds screens from text descriptions or from scratch (instead of cloning) produces 100% incorrect output for any screen containing images — artwork, photos, backgrounds, illustrations are all lost.
+
+**Rule**: When transferring designs between pages, ALWAYS use `figma_node_clone` for screens containing IMAGE fills. See `workflow-draft-to-handoff.md` Phase 2 for the correct approach.
+
 ### Any-Mode Limitations
 
 These apply regardless of connection mode (local or remote):
@@ -159,6 +173,7 @@ These apply regardless of connection mode (local or remote):
 - **No Code Connect integration** -- unlike the Official Figma MCP, Console MCP does not support Code Connect
 - **No FigJam support** -- cannot read or generate FigJam diagrams
 - **No Figma Make resource retrieval**
+- **No programmatic IMAGE fill creation for design transfer** -- `createImageAsync` requires public URLs; cloning is the only option for preserving images between pages (see IMAGE Fill Limitation above)
 
 ### Large File Constraints
 

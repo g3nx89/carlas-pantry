@@ -1,7 +1,7 @@
 ---
 name: figma-console-mastery
-version: 0.3.0
-description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "render JSX in Figma", "use figma_render", "use figma-use MCP", "analyze Figma design", "diff Figma designs", "query Figma nodes with XPath", or when developing skills/commands that use the Figma Console or figma-use MCP servers. Provides tool selection, Plugin API patterns, JSX rendering, design analysis, visual diffing, design rules, and selective reference loading for both MCP servers.
+version: 0.4.0
+description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "render JSX in Figma", "use figma_render", "use figma-use MCP", "analyze Figma design", "diff Figma designs", "query Figma nodes with XPath", "convert draft to handoff", "transfer Figma designs to handoff", "prepare Figma for code handoff", "create handoff page from draft", or when developing skills/commands that use the Figma Console or figma-use MCP servers. Provides tool selection, Plugin API patterns, JSX rendering, design analysis, visual diffing, design rules, Draft-to-Handoff workflow with clone-first architecture, and selective reference loading for both MCP servers.
 ---
 
 # Figma Console Mastery
@@ -398,6 +398,8 @@ Need to analyze or diff? (figma-use, CDP required)
 7. **figma-use-first** — use declarative tools (`figma_create_*`, `figma_set_*`, `figma_node_*`) for all atomic operations; only fall back to `figma_execute` for complex conditional logic or multi-step async sequences
 8. **Persist session state** — write created node IDs to a local file after each operation batch to survive context compaction (see `workflow-draft-to-handoff.md`)
 9. **Respect broken tool blacklist** — never use `figma_status` or `figma_page_current` (figma-use, 100% failure); use `figma_node_children` instead of `figma_node_tree` on large files (>500 nodes)
+10. **Verify source design access before building** — before constructing ANY screen on a Handoff page, successfully read the source Draft screen's node tree via `figma_node_children(id: draftScreenId)`. If the call fails or returns no meaningful children, STOP and inform the user. NEVER fall back to building from text documents, PRDs, or reconstruction guides — text cannot capture images, fonts, layer ordering, or visual properties
+11. **Clone-first for existing designs** — when a Draft page contains finalized designs, ALWAYS use `figma_node_clone` to transfer screens to the Handoff page, then restructure. Only build from scratch for screens that do not exist in the Draft. Cloning is the only way to preserve IMAGE fills, exact fonts, and visual fidelity
 
 ### AVOID
 
@@ -407,6 +409,8 @@ Need to analyze or diff? (figma-use, CDP required)
 4. **Never leave nodes floating on canvas** — always place inside a Section or Frame container
 5. **Never use individual variable calls for bulk operations** — use `figma_batch_create_variables` / `figma_batch_update_variables` (10-50x faster)
 6. **Never default to `figma_execute` for atomic operations** — each execute + console-logs pair costs ~2,000 tokens; use figma-use declarative tools instead (see `figma-use-overview.md` decision matrix)
+7. **Never build Handoff screens from text descriptions alone** — text documents (PRDs, reconstruction guides, design specs) are supplementary context for naming and annotations, never the design source of truth. If the only available source is text, STOP and inform the user that Figma source designs are required
+8. **Never proceed silently when source Figma access fails** — if source designs cannot be read (connection issues, missing page, empty node tree), halt immediately and inform the user. Silent fallback to text-based construction produces 100% incorrect output
 
 ## Selective Reference Loading
 
@@ -517,7 +521,7 @@ When a Figma workflow involves multi-step diagnostic chains, branching decisions
 | Batch variable call fails | Verify `collectionId` is valid; max 100 per batch call |
 | `figma_status` or `figma_page_current` returns `"8"` | These figma-use tools are broken; use `figma_get_status` (figma-console) or `figma_page_list` |
 | `figma_node_tree` exceeds token limit | Output can exceed 3MB on large files; use `figma_node_children` with targeted depth instead |
-| Node IDs lost after context compaction | Write node IDs to local file after each batch — see `workflow-draft-to-handoff.md` Session State Persistence |
+| Node IDs lost after context compaction | Write node IDs to local file after each batch — see `workflow-draft-to-handoff.md` Session State Persistence Pattern |
 | Console log buffer missing earlier results | Buffer holds ~100 entries; call `figma_clear_console` before each `figma_execute` batch |
 | Components not appearing in screen instances | Components must be created (Phase 1) before screens (Phase 2) — see `workflow-draft-to-handoff.md` |
 

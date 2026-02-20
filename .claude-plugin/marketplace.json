@@ -63,8 +63,8 @@
     {
       "name": "meta-skills",
       "source": "./plugins/meta-skills",
-      "description": "Meta-skills for mastering Claude Code, MCP servers, and agentic workflows",
-      "version": "0.1.0",
+      "description": "Meta-skills for mastering Claude Code, MCP servers, and agentic workflows — Figma Console + figma-use (170+ tools, clone-first Draft-to-Handoff), Sequential Thinking, research MCP, mobile MCP, PAL multi-model, deep reasoning escalation",
+      "version": "0.4.0",
       "author": {
         "name": "Alessandro Fato"
       },
@@ -74,7 +74,11 @@
         "mcp",
         "productivity",
         "workflow",
-        "best-practices"
+        "best-practices",
+        "figma",
+        "figma-console",
+        "figma-use",
+        "design-handoff"
       ],
       "category": "productivity",
       "license": "MIT"
