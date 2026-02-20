@@ -1,6 +1,6 @@
 ---
 name: figma-console-mastery
-version: 0.4.0
+version: 0.5.0
 description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "render JSX in Figma", "use figma_render", "use figma-use MCP", "analyze Figma design", "diff Figma designs", "query Figma nodes with XPath", "convert draft to handoff", "transfer Figma designs to handoff", "prepare Figma for code handoff", "create handoff page from draft", or when developing skills/commands that use the Figma Console or figma-use MCP servers. Provides tool selection, Plugin API patterns, JSX rendering, design analysis, visual diffing, design rules, Draft-to-Handoff workflow with clone-first architecture, and selective reference loading for both MCP servers.
 ---
 
@@ -15,10 +15,13 @@ description: This skill should be used when the user asks to "create a Figma des
 Two MCP servers work together: **figma-console** (Southleft, 56+ tools) for Plugin API access, variable CRUD, debugging, and screenshots; and **figma-use** (115+ declarative tools) for token-efficient creation, modification, analysis, and diffing. Both connect to Figma Desktop via different transports and coexist without conflict.
 
 **Core principles**:
-1. **figma-use-first** — use declarative tools for all atomic operations (create, modify, query); reserve `figma_execute` for complex conditional logic only
+1. **figma-use-first** — use declarative tools for all atomic operations (create, modify, query); reserve `figma_execute` for complex conditional logic or batch scripts only
 2. **Discover before creating** — check existing components/tokens before building from scratch
-3. **Persist state** — write node IDs to a local file after each batch to survive context compaction
-4. **Validate visually** — screenshot after every creation step (max 3 fix cycles)
+3. **Converge, never regress** — log every operation to the journal; check journal before every mutation; never redo completed work (see `convergence-protocol.md`)
+4. **Persist aggressively** — write to operation journal after EVERY operation, snapshot after each batch; assume context compaction can happen at any time
+5. **Batch homogeneous operations** — use `figma_execute` batch scripts for 3+ same-type operations to reduce tokens by 70% (see `convergence-protocol.md`)
+6. **Validate visually** — screenshot after every creation step (max 3 fix cycles)
+7. **Delegate phases for large workflows** — dispatch subagents per phase for 5+ screens; each agent reads journal at start (see `convergence-protocol.md`)
 
 ## Prerequisites
 
@@ -86,13 +89,15 @@ Every design session follows four phases:
 2. `figma_get_variables(format="summary")` → catalog available variables
 3. `figma_search_components` → find reusable components before building custom
 
-### Phase 3 — Creation (figma-use-first)
-1. **Compose first**: `figma_instantiate_component` for existing library components
-2. **Create with figma-use**: `figma_create_frame`, `figma_create_text`, `figma_create_rect`, `figma_set_fill`, `figma_set_layout` for new elements
-3. **Complex logic only**: `figma_execute` for multi-step async sequences (font loading + text + layout) or conditional logic
-4. **Place in context**: Create Section/Frame containers; never leave nodes floating on canvas
-5. **Apply tokens**: `figma_variable_bind` (figma-use) or `figma_execute` with `setBoundVariable()` for complex binding
-6. **Persist state**: Write created node IDs to local file after each batch — see `workflow-draft-to-handoff.md`
+### Phase 3 — Creation (figma-use-first, journal-tracked)
+1. **Read journal** — before ANY mutation, check `operation-journal.jsonl` for already-completed operations; skip anything already done
+2. **Compose first**: `figma_instantiate_component` for existing library components
+3. **Create with figma-use**: `figma_create_frame`, `figma_create_text`, `figma_create_rect`, `figma_set_fill`, `figma_set_layout` for new elements
+4. **Batch homogeneous ops**: for 3+ same-type operations (renames, moves, fills), use a single `figma_execute` batch script with built-in idempotency checks — see `convergence-protocol.md`
+5. **Complex logic only**: `figma_execute` for multi-step async sequences (font loading + text + layout) or conditional logic
+6. **Place in context**: Create Section/Frame containers; never leave nodes floating on canvas
+7. **Apply tokens**: `figma_variable_bind` (figma-use) or `figma_execute` with `setBoundVariable()` for complex binding
+8. **Log every operation** — append to `operation-journal.jsonl` immediately after each successful mutation; write session snapshot after each batch — see `convergence-protocol.md`
 
 ### Phase 4 — Validation
 1. `figma_take_screenshot` → visual check (max 3 screenshot-fix cycles)
@@ -129,168 +134,27 @@ When the goal is to spot-fix specific deviations in an existing design rather th
 
 For automated health scoring, use `figma_audit_design_system` which returns a 0-100 scorecard across naming, tokens, components, accessibility, consistency, and coverage.
 
-> For comprehensive structural conversion of freehand designs into best-practice-compliant structures, use the Design Restructuring Workflow below instead.
+> For comprehensive structural conversion of freehand designs into best-practice-compliant structures, use the Design Restructuring Workflow section below (load `workflow-restructuring.md`).
 
 ## Design Restructuring Workflow (Alternative Session)
 
-When the goal is to convert a freehand/unstructured design into a well-structured, best-practice-compliant design with auto-layout, components, naming conventions, and tokens. This is a collaborative, multi-phase process that uses Socratic questioning to define structure with the user rather than guessing.
+Convert freehand/unstructured designs into well-structured, best-practice-compliant designs with auto-layout, components, naming conventions, and tokens. Multi-phase collaborative process (Analyze → Socratic Plan → Path A in-place or Path B reconstruction → Polish) with visual fidelity gates.
 
-**Load**: `recipes-restructuring.md` (required for all paths), `recipes-foundation.md` (Tier 1), `design-rules.md` (for M3 specs and spacing rules). Path B (Reconstruction) additionally requires: `recipes-components.md`, `recipes-advanced.md` (Shell Injection, full-page assembly patterns).
+```
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-restructuring.md
+```
 
-### Phase 1 — Analyze
-
-1. **Preflight** — `figma_get_status` → `figma_list_open_files` → `figma_navigate` to target page
-2. **Screenshot** — `figma_take_screenshot` to capture the current state (before)
-3. **Node tree scan** — `figma_get_file_for_plugin({ selectionOnly: true })` or full page scan
-4. **Deep analysis** — run the Deep Node Tree Analysis recipe via `figma_execute` to catalog all deviations (missing auto-layout, hardcoded colors, non-4px spacing, generic names, flat hierarchies)
-5. **Pattern detection** — run the Repeated Pattern Detection recipe to find component candidates
-6. **Design system inventory** — `figma_get_design_system_summary` + `figma_get_variables(format="summary")` to understand available tokens and components
-7. **Health baseline** — `figma_audit_design_system` for a 0-100 health score
-8. **Compile findings** — structure the analysis results into a clear summary for Phase 2
-
-> **ST trigger**: If Phase 1 found deviations in 3+ categories, activate ST with a 7-thought estimate. Use the Phase 1 Analysis template from [`st-integration.md#template-phase-1-analysis`] to structure hypothesis tracking across the 8 analysis steps.
-
-> **Early exit**: If Phase 1 finds zero deviations across all categories, report "This design is already well-structured" with the health score and skip to Phase 5 for a final polish check.
-
-### Phase 2 — Plan (Socratic)
-
-Present the Phase 1 findings to the user and ask targeted Socratic questions. Use the question templates from `recipes-restructuring.md` (Socratic Questions section), filling in placeholders with actual data from Phase 1.
-
-**Question categories** (ask in order, skip categories with no findings):
-0. **Restructuring Approach** — Path A (in-place) or Path B (reconstruction)? Always ask first.
-1. **Component Boundaries** — which repeated patterns should become components?
-2. **Naming & Hierarchy** — what are the semantic sections? How should the layer tree be organized?
-3. **Interaction Patterns** — which elements are interactive and need state variants?
-4. **Token Strategy** — should a token system be created? Which colors to tokenize?
-5. **Layout Direction** — confirm ambiguous auto-layout directions
-
-**Output**: A confirmed conversion checklist with user-approved decisions. **Do not proceed to Phase 3 until the user approves the plan.**
-
-> **ST trigger**: Use Fork-Join to evaluate Path A vs Path B before presenting to the user. Branch `path-a-eval` and `path-b-eval` from a synthesis thought, analyze trade-offs against Phase 1 findings, then synthesize a recommendation. See [`st-integration.md#template-path-ab-fork-join`].
-
----
-
-### Path A — In-Place Modification
-
-Use when the user chose Path A in Phase 2. Modifies the existing node tree directly. **Primary constraint: visual fidelity** — the design must look identical after restructuring.
-
-### Phase 3A — Structure
-
-1. **Extract blueprint** — run the Visual Blueprint Extraction recipe on the original design as a "before" reference snapshot for visual fidelity verification
-2. **Reparent** — group logically related children using the Reparent Children recipe (innermost containers first, working outward)
-3. **Auto-layout** — convert frames using the Convert Frame to Auto-Layout recipe (innermost-out order)
-4. **Sizing modes** — set `layoutSizingHorizontal`/`layoutSizingVertical` (`FILL` for containers, `HUG` for content)
-5. **Snap spacing** — run the Snap Spacing to 4px Grid recipe on the entire tree
-6. **Rename** — apply semantic slash names using the Batch Rename recipe with user-approved naming from Phase 2
-7. **Visual fidelity check** — `figma_take_screenshot` after each major structural change and compare against the blueprint. If a change shifts element positions, dimensions, or spacing, adjust until the visual output matches the original (max 3 fix cycles per change)
-
-> **ST trigger**: During visual fidelity checks, use the TAO Loop: Thought (predict expected state) → Action (`figma_take_screenshot`) → Thought (compare against blueprint). If deviation detected, use `isRevision: true` before planning the fix. See [`st-integration.md#template-visual-fidelity-loop`].
-
-> **ID tracking**: Several recipes in Phases 3A-4A create new nodes that replace originals (Extract Component, Replace with Library Instance, Reparent). Track new node IDs from recipe outputs — do not rely on IDs from the Phase 1 analysis after structural changes.
-
-### Phase 4A — Componentize
-
-1. **Library-first check** — `figma_search_components` for each element type identified in Phase 2
-2. **Replace with instances** — use the Replace Element with Library Instance recipe for any existing library matches. Fidelity constraint: replacement must preserve size, color, and position of the original element
-3. **Extract new components** — use the Extract Component from Frame recipe for user-confirmed new components
-4. **Create variants** — if the user confirmed variant sets, use the Create Variant Set recipe
-5. **Document** — `figma_set_description` on each new component with purpose and usage notes
-6. **Validate** — `figma_take_screenshot` to confirm visual integrity after componentization
-
-> After Phase 4A, proceed to **Phase 5 — Polish** below.
-
----
-
-### Path B — Reconstruction
-
-Use when the user chose Path B in Phase 2. Builds a new screen from scratch, visually faithful to the original. **Primary constraint: visual fidelity** — the new screen must look identical to the freehand original.
-
-### Phase 3B — Extract Blueprint + Build New Screen
-
-1. **Archive original** — if the user requested preservation, use `figma_move_node` to relocate the original frame to a reference section or separate page
-2. **Extract blueprint** — run the Visual Blueprint Extraction recipe on the original frame to capture all visual properties as a hierarchical JSON blueprint
-3. **Map to creation recipes** — using the blueprint, identify which elements map to which creation recipes:
-   - Structural containers → `recipes-foundation.md` (Page Container, Horizontal Row, Wrap Layout)
-   - Recognized UI patterns → `recipes-components.md` (Card, Button, Input, Navbar, Sidebar, Modal, etc.)
-   - Multi-region page shells → `recipes-advanced.md` (Shell Injection pattern)
-   - Custom elements with no recipe match → `figma_execute` with properties from blueprint
-4. **Build root container** — create the new screen root using Page Container recipe, matching blueprint `width`/`height`
-5. **Build layer by layer** — reconstruct from outermost container inward, applying auto-layout to every container from the start; use blueprint `layoutMode`, `itemSpacing`, and `padding*` values as targets (snapping to 4px grid)
-6. **Reproduce visual properties** — apply `fills`, `cornerRadius`, `strokeWeight`, `opacity` from blueprint to each constructed node; for text nodes, apply `fontSize`, `fontName`, `lineHeight`, `letterSpacing`, `textAlignHorizontal`, and `characters`
-7. **Integrate library components** — `figma_search_components` for each UI pattern; prefer library instances over custom builds where library components match the blueprint appearance
-8. **Name semantically** — apply slash-convention names to all nodes as they are created (not as a post-processing step); use blueprint `name` values as starting hints, improved with user-approved naming from Phase 2
-9. **Validate** — `figma_take_screenshot` after each major section is built and compare against the original screenshot from Phase 1 (max 3 fix cycles per section)
-
-> Reconstruction is a single phase because building from scratch inherently applies auto-layout, components, and proper naming simultaneously. After Phase 3B, proceed directly to **Phase 5 — Polish** below.
-
----
-
-### Phase 5 — Polish (Shared: Both Paths)
-
-1. **Token binding** — bind hardcoded colors to tokens using Batch Token Binding recipe
-   - If no tokens exist: offer to create them using Design System Bootstrap recipe from `recipes-advanced.md`, or skip if user prefers
-
-> **ST trigger**: When creating a token system via Design System Bootstrap, activate ST with checkpoint thoughts at each phase boundary (Tokens → Components → Documentation). See [`st-integration.md#template-design-system-bootstrap-checkpoint`].
-2. **Accessibility check** — verify contrast ratios, touch target sizes (48x48 minimum), text readability
-3. **Final health score** — re-run `figma_audit_design_system` and compare to Phase 1 baseline
-4. **Visual fidelity report** — compare the final result against the Phase 1 blueprint snapshot and flag any deviations (>2px position shift, different fill colors, missing elements)
-5. **Before/after summary** — present the improvement metrics:
-   - Health score: {before} → {after}
-   - Auto-layout coverage: {before_pct}% → {after_pct}%
-   - Token-bound colors: {before_count} → {after_count}
-   - Named layers: {before_pct}% → {after_pct}%
-   - Components used: {before_count} → {after_count}
-   - Visual fidelity: {deviation_count} deviations flagged
+> Also load: `recipes-restructuring.md` (required), `recipes-foundation.md` (Tier 1), `design-rules.md`. Path B additionally: `recipes-components.md`, `recipes-advanced.md`.
 
 ## Code Handoff Protocol (Post-Session)
 
-When the design session is complete and the design will be implemented as code,
-run this protocol to prepare the Figma artifact for downstream consumption by the
-coding agent. The coding agent uses `get_design_context` (Official MCP) to extract
-framework-ready specs (React, SwiftUI, Compose, etc.) and the `implement-design`
-Agent Skill to translate them into production code.
+Prepare completed Figma designs for downstream code implementation. Ensures component names, variant properties, and token names align with the target codebase so `get_design_context` (Official MCP) produces accurate framework-ready specs.
 
-**How this compensates for missing Code Connect**: `get_design_context` returns
-component names, variant properties, and descriptions. The naming conventions below
-ensure these names match the codebase, allowing the coding agent to identify the
-correct code component without Code Connect bidirectional mappings. This is
-best-effort alignment — not equivalent to Code Connect. For full bidirectional
-mapping of custom components, an Organization/Enterprise plan is required.
+```
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-code-handoff.md
+```
 
-**Load**: `recipes-advanced.md` (Handoff Preparation Pattern)
-
-1. **Naming audit** — run the Handoff Naming Audit recipe via `figma_execute` to
-   check all components for non-PascalCase names and uppercase variant property keys
-2. **Fix naming** — rename components to match the target codebase's component
-   naming convention (typically PascalCase: `ProductCard`, not `product card`
-   or `Frame 42`); rename variant property keys to lowercase (`size`, `variant`,
-   `state`)
-3. **Exception descriptions** — `figma_set_description` ONLY where the Figma name
-   must differ from the code name:
-   ```
-   Code name: CallToActionButton
-   Note: Figma name "CTA Button" differs for brevity
-   ```
-4. **Token alignment** — verify variable/token names correspond to the codebase
-   token system (e.g., `color/primary/500` → `--color-primary-500`)
-5. **UI kit preference** — where possible, compose with M3/Apple/SDS library
-   components that have automatic Code Connect on Professional+ plans
-6. **Health check** — `figma_audit_design_system` for final naming, token, and
-   consistency scores
-
-> **ST trigger**: When the naming audit (step 1) surfaces >5 issues with ambiguous false positives (CTA, 2XL, etc.), activate ST with a TAO Loop to reason through each flagged item: classify as true positive, false positive, or ambiguous. See [`st-integration.md#template-naming-audit-reasoning`].
-
-> **Multi-platform**: the component name is the cross-platform contract. The coding
-> agent for each platform searches its own codebase for a component matching the
-> Figma name. `get_design_context` handles framework-specific translation. For
-> components where platform names diverge (e.g., Figma `BottomNavigation` vs
-> SwiftUI `TabView`), use step 3 exception descriptions with platform-specific
-> code names.
-
-> **Scope**: this protocol prepares the Figma artifact for downstream consumption.
-> Actual code generation is performed by the `implement-design` Agent Skill via Official MCP.
-> For plan-specific availability of downstream tools, see `tool-playbook.md`
-> (Complementary Workflow).
+> Also load: `recipes-advanced.md` (Handoff Preparation Pattern).
 
 ## Tool Selection Decision Tree
 
@@ -395,11 +259,13 @@ Need to analyze or diff? (figma-use, CDP required)
 4. **Set `layoutMode` before layout properties** — padding, spacing, constraints all require auto-layout to be active first
 5. **Validate with screenshots** — take a screenshot after every creation step (max 3 fix cycles)
 6. **Check before creating (idempotency)** — before creating a named node, check if it already exists: `figma.currentPage.findOne(n => n.name === "Target")`. Re-running a script must not produce duplicates
-7. **figma-use-first** — use declarative tools (`figma_create_*`, `figma_set_*`, `figma_node_*`) for all atomic operations; only fall back to `figma_execute` for complex conditional logic or multi-step async sequences
-8. **Persist session state** — write created node IDs to a local file after each operation batch to survive context compaction (see `workflow-draft-to-handoff.md`)
-9. **Respect broken tool blacklist** — never use `figma_status` or `figma_page_current` (figma-use, 100% failure); use `figma_node_children` instead of `figma_node_tree` on large files (>500 nodes)
-10. **Verify source design access before building** — before constructing ANY screen on a Handoff page, successfully read the source Draft screen's node tree via `figma_node_children(id: draftScreenId)`. If the call fails or returns no meaningful children, STOP and inform the user. NEVER fall back to building from text documents, PRDs, or reconstruction guides — text cannot capture images, fonts, layer ordering, or visual properties
-11. **Clone-first for existing designs** — when a Draft page contains finalized designs, ALWAYS use `figma_node_clone` to transfer screens to the Handoff page, then restructure. Only build from scratch for screens that do not exist in the Draft. Cloning is the only way to preserve IMAGE fills, exact fonts, and visual fidelity
+7. **figma-use-first** — use declarative tools (`figma_create_*`, `figma_set_*`, `figma_node_*`) for all atomic operations; use `figma_execute` batch scripts for 3+ homogeneous ops; fall back to individual `figma_execute` only for complex conditional logic
+8. **Converge, never regress** — read `operation-journal.jsonl` before every mutating operation; if the operation is already logged, SKIP it; this is the primary defense against redoing work after context compaction (see `convergence-protocol.md`)
+9. **Journal every mutation** — append to `operation-journal.jsonl` immediately after each successful Figma mutation; write session snapshot (`session-state.json`) after each batch; assume compaction can happen at any time
+10. **Respect tool constraints** — use `figma_node_children` instead of `figma_node_tree` on large files (>500 nodes); test unfamiliar figma-use tools with a single call before batch usage
+11. **Verify source design access before building** — before constructing ANY screen on a Handoff page, successfully read the source Draft screen's node tree via `figma_node_children(id: draftScreenId)`. If the call fails or returns no meaningful children, STOP and inform the user. NEVER fall back to building from text documents, PRDs, or reconstruction guides — text cannot capture images, fonts, layer ordering, or visual properties
+12. **Clone-first for existing designs** — when a Draft page contains finalized designs, ALWAYS use `figma_node_clone` to transfer screens to the Handoff page, then restructure. Only build from scratch for screens that do not exist in the Draft. Cloning is the only way to preserve IMAGE fills, exact fonts, and visual fidelity
+13. **Delegate phases for large workflows** — for 5+ screens, dispatch each phase as a subagent via `Task(general-purpose)` with journal/state files as the coordination bus; each subagent reads journal at start to avoid regression (see `convergence-protocol.md`)
 
 ### AVOID
 
@@ -408,9 +274,11 @@ Need to analyze or diff? (figma-use, CDP required)
 3. **Never return raw Figma nodes** from `figma_execute` — return plain data: `{ id: node.id, name: node.name }`
 4. **Never leave nodes floating on canvas** — always place inside a Section or Frame container
 5. **Never use individual variable calls for bulk operations** — use `figma_batch_create_variables` / `figma_batch_update_variables` (10-50x faster)
-6. **Never default to `figma_execute` for atomic operations** — each execute + console-logs pair costs ~2,000 tokens; use figma-use declarative tools instead (see `figma-use-overview.md` decision matrix)
+6. **Never use individual calls for 3+ same-type operations** — use batch `figma_execute` scripts with idempotency checks; individual calls for renames/moves/fills waste 70% more tokens (see `convergence-protocol.md`)
 7. **Never build Handoff screens from text descriptions alone** — text documents (PRDs, reconstruction guides, design specs) are supplementary context for naming and annotations, never the design source of truth. If the only available source is text, STOP and inform the user that Figma source designs are required
 8. **Never proceed silently when source Figma access fails** — if source designs cannot be read (connection issues, missing page, empty node tree), halt immediately and inform the user. Silent fallback to text-based construction produces 100% incorrect output
+9. **Never redo an operation already in the journal** — if `operation-journal.jsonl` records that a node was renamed/moved/created, do NOT perform that operation again; this is the #1 cause of regression and wasted tokens in long sessions
+10. **Never trust in-context memory after compaction** — after context compaction, the ONLY reliable record of completed work is the operation journal on disk; re-read it before resuming any work
 
 ## Selective Reference Loading
 
@@ -463,14 +331,23 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-diff
 # Sequential Thinking integration — thought chain templates for restructuring, handoff, iterative refinement
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/st-integration.md
 
+# Design Restructuring workflow — 5-phase process (Analyze, Socratic Plan, Path A/B, Polish)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-restructuring.md
+
+# Code Handoff protocol — naming audit, token alignment, multi-platform prep
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-code-handoff.md
+
 # Draft-to-Handoff workflow — operational rules, 6-phase workflow, state persistence, error prevention
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-draft-to-handoff.md
+
+# Convergence protocol — operation journal, anti-regression, batch scripting, subagent delegation
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-protocol.md
 ```
 
 ### Loading Tiers
 
-**Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code), `figma-use-overview.md` (tool inventory + decision matrix + broken tools)
-**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md` | `workflow-draft-to-handoff.md`
+**Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code), `figma-use-overview.md` (tool inventory + decision matrix), `convergence-protocol.md` (operation journal + anti-regression — required for any multi-step workflow)
+**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md` | `workflow-draft-to-handoff.md` | `workflow-restructuring.md` | `workflow-code-handoff.md`
 **Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `figma-use-diffing.md` | `st-integration.md`
 
 ## Sequential Thinking Integration (Optional)
@@ -519,11 +396,12 @@ When a Figma workflow involves multi-step diagnostic chains, branching decisions
 | `figma_instantiate_component` silent fail | Verify variant property names match exactly (case-sensitive) |
 | Screenshot shows misaligned elements | Check `layoutSizingHorizontal/Vertical` — use `'FILL'` instead of `'HUG'` for containers |
 | Batch variable call fails | Verify `collectionId` is valid; max 100 per batch call |
-| `figma_status` or `figma_page_current` returns `"8"` | These figma-use tools are broken; use `figma_get_status` (figma-console) or `figma_page_list` |
 | `figma_node_tree` exceeds token limit | Output can exceed 3MB on large files; use `figma_node_children` with targeted depth instead |
-| Node IDs lost after context compaction | Write node IDs to local file after each batch — see `workflow-draft-to-handoff.md` Session State Persistence Pattern |
+| Node IDs lost after context compaction | Re-read `operation-journal.jsonl` and `session-state.json` — see `convergence-protocol.md` Compact Recovery Protocol |
+| System redoing already-completed work (regression) | Read `operation-journal.jsonl`, skip any operation already logged — see `convergence-protocol.md` Convergence Check |
 | Console log buffer missing earlier results | Buffer holds ~100 entries; call `figma_clear_console` before each `figma_execute` batch |
 | Components not appearing in screen instances | Components must be created (Phase 1) before screens (Phase 2) — see `workflow-draft-to-handoff.md` |
+| Context compaction mid-workflow | Follow Compact Recovery Protocol: re-read journal + state files, rebuild completed-ops set, resume from first uncompleted operation — see `convergence-protocol.md` |
 
 **Full reference**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md`
 

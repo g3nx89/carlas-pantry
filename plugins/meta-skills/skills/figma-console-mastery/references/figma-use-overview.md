@@ -88,11 +88,13 @@ These tools have confirmed failure modes based on empirical testing across 6 pro
 
 | Tool | Status | Failure Mode | Workaround |
 |------|--------|-------------|-----------|
-| `figma_status` | **BROKEN** — 100% failure rate (6/6 calls) | Returns cryptic `"8"` instead of status | Use figma-console `figma_get_status` or `figma_page_list` as connectivity check |
-| `figma_page_current` | **BROKEN** — 100% failure rate (3/3 calls) | Returns `"8"` instead of page info | Use `figma_page_list` + `figma_page_set` |
+| `figma_status` | **PREVIOUSLY BROKEN** — re-test (Feb 2026 fixes may have resolved) | Was returning cryptic `"8"` instead of status | Test with single call; if still broken, use figma-console `figma_get_status` or `figma_page_list` |
+| `figma_page_current` | **PREVIOUSLY BROKEN** — re-test (Feb 2026 fixes may have resolved) | Was returning `"8"` instead of page info | Test with single call; if still broken, use `figma_page_list` + `figma_page_set` |
 | `figma_node_tree` | **RISKY** on large files (>500 descendant nodes) | Output exceeded 3MB (3,092,958 chars), causing token limit errors | Use `figma_node_children` with targeted depth; safe on subtrees with <500 descendant nodes |
 
 > These findings are from figma-use v0.11.3. All other tested tools operate at 95-100% reliability.
+>
+> **Update (Feb 2026)**: figma-use has received fixes. Previously broken tools may now work. When encountering a tool listed above, test with a single call before relying on it in production workflows. If the tool now works reliably, update this table.
 
 ---
 

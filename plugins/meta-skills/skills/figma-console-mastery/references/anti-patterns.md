@@ -50,6 +50,8 @@ Full catalog of Plugin API errors encountered during `figma_execute` calls. Most
 
 These errors recur across sessions because context compaction discards previously learned workarounds. Five of seven are entirely preventable by using figma-use declarative tools instead of raw `figma_execute` JavaScript.
 
+> **Note (Feb 2026)**: Several figma-use tools that were previously broken have been fixed. Test any previously-blacklisted tool with a single call before batch usage. Update this catalog as fixes are confirmed.
+
 | # | Error | Cause | Prevention via figma-use | Fallback (figma-console) |
 |---|-------|-------|-------------------------|--------------------------|
 | 1 | `combineAsVariants: Grouped nodes must be in the same page as the parent` | Page context mismatch when combining variants | `figma_component_combine` — handles page context internally | `figma.setCurrentPageAsync()` before combining |
@@ -104,6 +106,22 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 | **Silent fallback to text when Figma access fails** | When source design cannot be read, silently building from text produces entirely wrong output; the user discovers the failure only after hours of work | If `figma_node_children` fails on ANY source screen, STOP immediately and inform the user. NEVER fall back to text-based construction |
 | **No visual fidelity check during construction** | Deferring all `figma_diff_visual` checks to the final phase allows N screens of wrong output to accumulate before any comparison | Run `figma_diff_visual` after every 4 screens during Phase 2, not just at Phase 5 — see `workflow-draft-to-handoff.md` |
 | **Building from scratch when cloning is possible** | Using `figma_create_frame` + manual child creation instead of `figma_node_clone` loses all IMAGE fills, exact fonts, and visual properties from the source design | Default to clone + restructure for ALL screens that exist in the Draft. Only build from scratch for screens with no source — see `workflow-draft-to-handoff.md` Phase 2 |
+
+---
+
+## Regression Anti-Patterns
+
+These patterns cause the system to **undo its own work** or **redo already-completed operations** after context compaction. Regression is the most destructive session-level failure — it wastes tokens, breaks deliberately tuned values, and can create infinite loops. Full prevention protocol in `convergence-protocol.md`.
+
+| Anti-Pattern | Problem | Solution |
+|-------------|---------|---------|
+| Renaming already-renamed nodes | After context compaction, the AI renames nodes back to their original names or applies a second rename pass, undoing the first | Check `operation-journal.jsonl` for existing `rename` entries on the target node before renaming; use batch scripts with built-in `already_done` checks |
+| Recreating already-created components | After compact, the AI creates a duplicate component because it doesn't remember the first | Check journal for `create_component` with the same name before creating; also check Figma: `figma.currentPage.findOne(n => n.name === "Target")` |
+| Restarting a phase from scratch after compact | The AI loses phase progress and re-executes the entire phase, redoing all operations | Read journal + session snapshot after compact; resume from first uncompleted operation, not phase start |
+| Restructuring already-restructured screens | After compact, the AI applies auto-layout, renames, and instance replacements to screens that were already processed | Check journal for `clone_screen` and `batch_rename` entries for the target screen before restructuring |
+| Using in-context memory as truth after compact | The AI "remembers" partial state from before compact but that memory may be incomplete or wrong | ONLY trust the operation journal; in-context memory after compact is unreliable — see `convergence-protocol.md` Rule C6 |
+| No idempotency in batch scripts | A batch `figma_execute` script modifies nodes unconditionally; if re-run after compact, it re-applies all changes | Include `if (node.name === r.name) { status: "already_done"; continue; }` checks in all batch scripts — see `convergence-protocol.md` Batch Script Templates |
+| Using individual calls for 3+ same-type operations | 20 individual `figma_node_rename` calls consume ~2,000 tokens and 20 round-trips; a single batch script does the same in ~600 tokens and 1 round-trip | Batch homogeneous operations (renames, moves, fills) into `figma_execute` scripts — see `convergence-protocol.md` Batch Scripting Protocol |
 
 ---
 
