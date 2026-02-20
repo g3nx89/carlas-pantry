@@ -1,5 +1,6 @@
 ---
 name: research-mcp-mastery
+version: 0.1.0
 description: >
   This skill should be used when the user asks to "fetch library documentation",
   "look up React/Next.js/Rails API", "search the web for news", "research current events",

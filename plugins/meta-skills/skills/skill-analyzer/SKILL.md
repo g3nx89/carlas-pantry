@@ -1,5 +1,6 @@
 ---
 name: skill-analyzer
+version: 0.1.0
 description: >
   This skill should be used when the user asks to "review a skill", "analyze a skill",
   "audit skill quality", "check my skill", "evaluate this skill", "skill review",

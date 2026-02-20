@@ -1,5 +1,6 @@
 ---
 name: sequential-thinking-mastery
+version: 0.1.0
 description: >
   This skill should be used when the user asks "use sequential thinking", "help me reason through this",
   "analyze this systematically", "debug with ST", "compare options with branching", or when facing problems like

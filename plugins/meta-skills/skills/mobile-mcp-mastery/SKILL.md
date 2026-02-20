@@ -1,5 +1,6 @@
 ---
 name: mobile-mcp-mastery
+version: 0.1.0
 description: This skill should be used when the user asks to "automate mobile app", "test mobile UI", "scrape mobile app data", "tap button on phone", "interact with iOS Simulator", "control Android Emulator", "use mobile-mcp tools", "click on mobile screen", or when developing skills/commands that use mobile-mcp. Provides tool selection, workflow patterns, and selective reference loading for the mobile-mcp MCP server.
 ---
 
