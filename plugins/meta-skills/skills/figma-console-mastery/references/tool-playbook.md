@@ -56,7 +56,7 @@ All design creation tools require **Local mode** with the Desktop Bridge Plugin.
 
 | Tool | When to Use | Key Params | Output | Pitfalls |
 |------|-------------|------------|--------|----------|
-| `figma_execute` | **Power tool.** Run any Figma Plugin API code for custom elements, auto-layout, effects, text | `code` (string): JavaScript in Plugin API context | Execution result (created node info, return values) | Silent failures possible -- always validate with screenshot. Wrap in try-catch. See figma_execute Deep Dive below |
+| `figma_execute` | Run arbitrary Figma Plugin API code — fallback for complex conditional logic, multi-step async sequences, and operations not covered by declarative tools | `code` (string): JavaScript in Plugin API context | Execution result (created node info, return values) | Silent failures possible — always validate with screenshot. Wrap in try-catch. See figma_execute Deep Dive below |
 | `figma_search_components` | Find components in the library before instantiating | `query` (string), optional filters | Matching components with key, name, description, variants | May return many results for common terms; use specific queries |
 | `figma_instantiate_component` | Place a found component with correct variant and property settings | `component_key` (required), `variant_properties` (optional), `parent_node_id` (optional), `position` (optional `{x, y}`) | Created instance node ID | Variant property names must exactly match the component set definitions; mismatches fail silently |
 | `figma_arrange_component_set` | Organize variants into a professional component set with labels | Component set identifier or variant node IDs | Organized set with purple dashed border, labels, headers | Use after creating multiple variants via `figma_execute` |
@@ -143,26 +143,29 @@ These tools work in all modes and form the visual feedback loop for autonomous d
 
 ---
 
-## Specialized Tools vs figma_execute
+## figma-use-first vs figma_execute
 
-The specialized node manipulation tools are convenience wrappers around Plugin API operations. `figma_execute` can do everything the specialized tools do -- and more. The decision comes down to operation complexity.
+**Default strategy**: Use figma-use declarative tools as the primary approach for all creation and modification operations. Reserve figma-console `figma_execute` as a fallback for complex conditional logic, multi-step async sequences, or operations that figma-use cannot handle.
 
-**Use specialized tools when:**
-- Performing a single-property change on a known node ID (move, resize, rename, delete)
-- Setting fills or strokes with simple color values
-- Updating text content without font changes
-- Modifying instance properties
+This strategy reduces token consumption by 60-85% compared to the fire-log-verify pattern (`figma_execute` + `figma_get_console_logs` pairs), and eliminates entire classes of recurring errors (page context, async mode, format mismatches). See `anti-patterns.md` — Recurring API Pattern Errors.
 
-**Use `figma_execute` when:**
-- Multiple operations must happen in sequence (create frame + set auto-layout + add children)
-- Async work is required (font loading before text creation)
-- Complex logic is involved (conditionals, loops, calculations)
-- Auto-layout construction is needed (`layoutMode`, `itemSpacing`, sizing modes)
-- Variable binding via `setBoundVariable()` is required
-- Creating nodes from scratch (frames, text, shapes, components)
-- Reparenting instantiated components into container layouts
+**Use figma-use declarative tools when:**
+- Creating nodes (frames, text, shapes, components, instances, sections)
+- Setting individual properties (fill, stroke, radius, font, layout, opacity)
+- Moving, cloning, reparenting, resizing, renaming, deleting nodes
+- Combining variants into component sets
+- Binding variables to node properties
+- Querying or finding nodes by name, type, or XPath
+- Rendering complex multi-node compositions (JSX via `figma_render`)
 
-**Rule of thumb**: If the operation touches more than one property or requires `await`, use `figma_execute`.
+**Use figma-console `figma_execute` when:**
+- Complex conditional logic is involved (if/else chains, loops with branching)
+- Multiple async operations must happen in sequence (font loading + text creation + layout setup)
+- Prototype wiring with `setReactionsAsync` (no reliable figma-use equivalent)
+- Batch operations within a single transaction that figma-use tools cannot compose
+- Operations requiring direct Plugin API access not covered by figma-use tools
+
+**Rule of thumb**: If the operation can be expressed as a single figma-use tool call, use that tool. Only reach for `figma_execute` when the operation requires multi-step logic or async sequencing.
 
 ---
 
@@ -361,7 +364,7 @@ Three Figma MCP servers serve complementary roles. For full figma-use tool inven
 All three servers work together across six phases:
 
 1. **Analysis phase** — figma-use (`figma_analyze_*` for clusters, colors, spacing; `figma_query` for XPath discovery)
-2. **Design creation phase** — Console MCP (`figma_execute`, component instantiation, variable management) + figma-use (`figma_render` for complex multi-node compositions)
+2. **Design creation phase** — figma-use PRIMARY (`figma_create_*`, `figma_set_*`, `figma_node_*` for atomic operations; `figma_render` for complex multi-node compositions) + Console MCP (`figma_execute` ONLY for complex conditional logic, `figma_instantiate_component` for library components, variable batch CRUD)
 3. **Validation phase** — figma-use (`figma_diff_visual` for pixel comparison, `figma_diff_create` for property diffs) + Console MCP (`figma_check_design_parity`, screenshots, debugging)
 4. **Handoff phase** — Console MCP (naming audit, `figma_set_description` for exceptions, `figma_generate_component_doc`) — see SKILL.md Code Handoff Protocol
 5. **Code generation phase** — Official MCP (`get_design_context` for framework-ready code, `get_variable_defs` for token references, `create_design_system_rules` for CLAUDE.md rules)

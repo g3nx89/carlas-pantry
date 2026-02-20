@@ -46,6 +46,24 @@ Full catalog of Plugin API errors encountered during `figma_execute` calls. Most
 
 ---
 
+## Recurring API Pattern Errors
+
+These errors recur across sessions because context compaction discards previously learned workarounds. Five of seven are entirely preventable by using figma-use declarative tools instead of raw `figma_execute` JavaScript.
+
+| # | Error | Cause | Prevention via figma-use | Fallback (figma-console) |
+|---|-------|-------|-------------------------|--------------------------|
+| 1 | `combineAsVariants: Grouped nodes must be in the same page as the parent` | Page context mismatch when combining variants | `figma_component_combine` — handles page context internally | `figma.setCurrentPageAsync()` before combining |
+| 2 | `node.reactions = x` throws in dynamic-page mode | Direct assignment to `reactions` fails on dynamically loaded pages | N/A (no reliable figma-use equivalent for prototype reactions) | Use `setReactionsAsync()` instead of direct assignment |
+| 3 | `node.mainComponent` throws | Accessing `mainComponent` on instances in lazy-loaded pages | `figma_node_get` — returns component info declaratively | Use `getMainComponentAsync()` |
+| 4 | `action` field rejected — must use `actions[]` array | Reaction format uses singular `action` instead of `actions` array | N/A (prototype reactions require `figma_execute`) | Change to `actions: [{ type: 'NODE', ... }]` |
+| 5 | `componentPropertyDefinitions` only on COMPONENT_SET | Accessing property definitions on a COMPONENT instead of its parent set | `figma_component_add_prop` targets the correct node | Navigate to parent COMPONENT_SET first |
+| 6 | `figma_take_screenshot` scale parameter rejects number | String vs number type mismatch in scale parameter | N/A (figma-console specific) | Omit the scale parameter |
+| 7 | `figma_set_description` fails on FRAME nodes | Description setter only works on COMPONENT and STYLE nodes | N/A (figma-console specific) | Only call on COMPONENT or STYLE nodes |
+
+> **Root cause**: Raw Plugin API JavaScript exposes the AI to async mode requirements, page context issues, data format mismatches, and node type constraints that declarative tools abstract away. After context compaction, previously learned workarounds are lost and the same errors re-emerge.
+
+---
+
 ## Connection and Transport Errors
 
 The server tries WebSocket first (ports 9223-9232), then falls back to CDP (port 9222). Connection issues are the most common barrier to getting started.
@@ -81,6 +99,7 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 | Using `figma_get_file_data` on large files | Response exceeds token limits, gets truncated | Use `figma_get_file_for_plugin` for optimized output |
 | Not discovering before creating | Duplicate components or missed existing assets | Always `figma_search_components` before creating new components |
 | Non-idempotent creation scripts | Re-running a script creates duplicate nodes every time | Before creating a named node, check: `const existing = figma.currentPage.findOne(n => n.name === "Target"); if (existing) return { id: existing.id, reused: true }`. Only create if not found |
+| Overusing `figma_execute` for atomic operations | Each execute + console-logs pair costs ~2,000 tokens; accumulates to context overflow on large sessions | Use figma-use declarative tools for single-property operations (create, move, resize, fill, stroke); see `figma-use-overview.md` decision matrix |
 
 ---
 
@@ -98,6 +117,20 @@ These patterns cause slow execution or excessive resource usage, especially on l
 | Full-canvas `figma_take_screenshot` on complex files | Rendering the entire canvas is slow and captures unrelated content | Use `figma_capture_screenshot` with a specific `nodeId` for targeted validation |
 
 > For the correct performance patterns (code examples), see the Performance Optimization section in `plugin-api.md`.
+
+---
+
+## Context and Buffer Anti-Patterns
+
+These workflow-level patterns cause context window exhaustion and data loss from log buffer limits. Empirically observed across 6 production sessions (~480 MCP calls, 14 context compactions).
+
+| Anti-Pattern | Problem | Solution |
+|-------------|---------|---------|
+| fire-log-verify pattern overuse | `figma_execute` + `figma_get_console_logs` pairs consume ~1,500-3,000 tokens each; 100+ pairs exhaust the context window | Use figma-use declarative tools for atomic operations; reserve `figma_execute` for complex conditional logic only |
+| Console log buffer rotation | Figma's console buffer holds ~100 entries; sequential scripts overwrite earlier results before retrieval | Call `figma_clear_console` before each `figma_execute` batch; prefer figma-use tools that return results directly |
+| No session state persistence | After context compaction, all created node IDs, positions, and intermediate state are lost | Write node IDs and phase state to a local file after each operation batch — see `workflow-draft-to-handoff.md` for the pattern |
+| Orphaned components from wrong phase order | Components created after screen cloning result in screens using old variants with zero new-component instances | Always create components before assembling screens; enforce strict phase ordering (see `workflow-draft-to-handoff.md`) |
+| Plans with assumed node IDs | Plans drafted with cached or guessed node IDs get rejected when IDs do not match live data | Always verify node IDs against live file data in a read-only inventory phase before drafting a plan |
 
 ---
 

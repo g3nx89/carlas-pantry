@@ -78,7 +78,21 @@ Add to Claude Desktop, Cursor, or other MCP client configuration:
 
 ### 3. Connection Verification
 
-Call `figma_status` to confirm the server is connected to Figma Desktop. (Note: figma-console uses `figma_get_status` — different server, different tool name.)
+> **WARNING**: `figma_status` is **broken** (100% failure rate — returns cryptic `"8"` instead of status). Do not use it for connection verification. Instead, use figma-console `figma_get_status` or call `figma_page_list` as a connectivity check — if it returns a page list, the connection is working.
+
+---
+
+## Known Broken or Risky Tools
+
+These tools have confirmed failure modes based on empirical testing across 6 production sessions (~66 figma-use calls). Re-test after each figma-use version update.
+
+| Tool | Status | Failure Mode | Workaround |
+|------|--------|-------------|-----------|
+| `figma_status` | **BROKEN** — 100% failure rate (6/6 calls) | Returns cryptic `"8"` instead of status | Use figma-console `figma_get_status` or `figma_page_list` as connectivity check |
+| `figma_page_current` | **BROKEN** — 100% failure rate (3/3 calls) | Returns `"8"` instead of page info | Use `figma_page_list` + `figma_page_set` |
+| `figma_node_tree` | **RISKY** on large files (>500 descendant nodes) | Output exceeded 3MB (3,092,958 chars), causing token limit errors | Use `figma_node_children` with targeted depth; safe on subtrees with <500 descendant nodes |
+
+> These findings are from figma-use v0.11.3. All other tested tools operate at 95-100% reliability.
 
 ---
 
@@ -146,7 +160,7 @@ This is the canonical tool list for figma-use. Each tool is listed once with a o
 | Tool | Purpose |
 |------|---------|
 | `figma_node_get` | Get node properties |
-| `figma_node_tree` | Get node tree (descendants) |
+| `figma_node_tree` | Get node tree (descendants) **[RISKY — use `figma_node_children` on large files]** |
 | `figma_node_children` | Get direct children |
 | `figma_node_ancestors` | Get parent chain |
 | `figma_node_bounds` | Get position, size, center |
@@ -250,7 +264,7 @@ This is the canonical tool list for figma-use. Each tool is listed once with a o
 
 | Tool | Purpose |
 |------|---------|
-| `figma_page_current` | Get current page |
+| `figma_page_current` | Get current page **[BROKEN — returns "8"; use `figma_page_list`]** |
 | `figma_page_list` | List all pages |
 | `figma_page_set` | Switch to page |
 | `figma_page_bounds` | Get page bounds |
@@ -290,6 +304,11 @@ This is the canonical decision matrix for choosing between the two servers.
 | No plugin install available | CDP-only, no Desktop Bridge Plugin needed | All tools |
 | Inserting icons from Iconify | 150K+ icons with single command | `figma_create_icon` |
 | Round-trip JSX editing | Export, edit, re-render workflow | `figma_export_jsx` then `figma_render` |
+| Creating individual nodes | Declarative single-call creation avoids `figma_execute` overhead | `figma_create_frame`, `figma_create_text`, `figma_create_rect`, etc. |
+| Setting node properties | Single-call property setters without Plugin API boilerplate | `figma_set_fill`, `figma_set_stroke`, `figma_set_layout`, `figma_set_font` |
+| Moving, cloning, reparenting | Declarative node operations without `getNodeByIdAsync` lookups | `figma_node_move`, `figma_node_clone`, `figma_node_set_parent` |
+| Combining component variants | Avoids page context errors with `combineAsVariants` | `figma_component_combine` |
+| Binding variables to nodes | Declarative variable binding without `setBoundVariable` boilerplate | `figma_variable_bind` |
 
 ### Prefer figma-console When
 
@@ -303,6 +322,8 @@ This is the canonical decision matrix for choosing between the two servers.
 | Component documentation | Auto-generated markdown | `figma_generate_component_doc` |
 | Design-code parity checking | Scored diff reports | `figma_check_design_parity` |
 | Design system audit with scoring | 0-100 scorecard | `figma_audit_design_system` |
+| Connection status checking | `figma_status` (figma-use) is broken; Console has reliable status | `figma_get_status` |
+| Plugin debugging and console logs | Console captures plugin-context logs | `figma_get_console_logs`, `figma_watch_console` |
 
 ### Use Both Together
 

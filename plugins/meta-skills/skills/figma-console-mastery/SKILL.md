@@ -11,9 +11,13 @@ description: This skill should be used when the user asks to "create a Figma des
 
 ## Overview
 
-The Figma Console MCP server (Southleft) exposes **56+ tools** in Local mode (~21 in Remote SSE) for autonomous design creation, variable management, and visual validation. The **power tool** is `figma_execute` — it runs arbitrary Figma Plugin API JavaScript, enabling anything the Plugin API supports.
+Two MCP servers work together: **figma-console** (Southleft, 56+ tools) for Plugin API access, variable CRUD, debugging, and screenshots; and **figma-use** (115+ declarative tools) for token-efficient creation, modification, analysis, and diffing. Both connect to Figma Desktop via different transports and coexist without conflict.
 
-**Core principle**: Discover existing design system assets before creating anything from scratch. Compose library components before building custom elements. Validate visually after every creation step.
+**Core principles**:
+1. **figma-use-first** — use declarative tools for all atomic operations (create, modify, query); reserve `figma_execute` for complex conditional logic only
+2. **Discover before creating** — check existing components/tokens before building from scratch
+3. **Persist state** — write node IDs to a local file after each batch to survive context compaction
+4. **Validate visually** — screenshot after every creation step (max 3 fix cycles)
 
 ## Prerequisites
 
@@ -36,15 +40,21 @@ The Figma Console MCP server (Southleft) exposes **56+ tools** in Local mode (~2
 
 ## Quick Start
 
-**Simple tasks** — invoke tools directly:
-- **Check status** → `figma_get_status`
+**Simple tasks** — figma-use declarative tools (preferred):
+- **Check status** → `figma_get_status` (figma-console) or `figma_page_list` (figma-use connectivity check)
+- **Create frame** → `figma_create_frame(name, width, height, fill, parent)`
+- **Create text** → `figma_create_text(text, font-family, font-size, fill, parent)`
+- **Set properties** → `figma_set_fill`, `figma_set_stroke`, `figma_set_layout`, `figma_set_font`
 - **Find components** → `figma_search_components(query="Button")`
 - **Place component** → `figma_instantiate_component(component_key, variant_properties)`
-- **Create custom** → `figma_execute(code="(async () => { ... })()")`
-- **Validate** → `figma_take_screenshot`
+- **Validate** → `figma_take_screenshot` (figma-console)
 
-**JSX rendering tasks** — use figma-use for complex multi-node compositions:
-- **Render JSX** → `figma_render(jsx, x, y, parent)` — 2-4x fewer tokens than equivalent `figma_execute`
+**Complex conditional logic** — figma-console `figma_execute` (fallback):
+- **Multi-step async** → `figma_execute(code="(async () => { ... })()")` — font loading + text + layout in sequence
+- **Prototype wiring** → `figma_execute` with `setReactionsAsync`
+
+**Analysis and diffing** — figma-use:
+- **Render JSX** → `figma_render(jsx, x, y, parent)` — 2-4x fewer tokens for complex trees
 - **Analyze design** → `figma_analyze_clusters`, `figma_analyze_colors`, `figma_analyze_typography`, `figma_analyze_spacing`
 - **Diff designs** → `figma_diff_visual`, `figma_diff_create`, `figma_diff_apply`
 - **Query nodes** → `figma_query(xpath)` — XPath 3.1 for structured node discovery
@@ -75,11 +85,13 @@ Every design session follows four phases:
 2. `figma_get_variables(format="summary")` → catalog available variables
 3. `figma_search_components` → find reusable components before building custom
 
-### Phase 3 — Creation
+### Phase 3 — Creation (figma-use-first)
 1. **Compose first**: `figma_instantiate_component` for existing library components
-2. **Build custom**: `figma_execute` for new elements (always with async IIFE + try-catch)
-3. **Place in context**: Create Section/Frame containers; never leave nodes floating on canvas
-4. **Apply tokens**: Bind variables to properties using `figma.variables.setBoundVariableForPaint`
+2. **Create with figma-use**: `figma_create_frame`, `figma_create_text`, `figma_create_rect`, `figma_set_fill`, `figma_set_layout` for new elements
+3. **Complex logic only**: `figma_execute` for multi-step async sequences (font loading + text + layout) or conditional logic
+4. **Place in context**: Create Section/Frame containers; never leave nodes floating on canvas
+5. **Apply tokens**: `figma_variable_bind` (figma-use) or `figma_execute` with `setBoundVariable()` for complex binding
+6. **Persist state**: Write created node IDs to local file after each batch — see `workflow-draft-to-handoff.md`
 
 ### Phase 4 — Validation
 1. `figma_take_screenshot` → visual check (max 3 screenshot-fix cycles)
@@ -91,16 +103,17 @@ Every design session follows four phases:
 
 ## Decision Matrix — Which Path to Take
 
-Before picking a tool, determine the execution path through three gates:
+Before picking a tool, determine the execution path through these gates:
 
 | Gate | Question | Path | Primary Tool |
 |------|----------|------|-------------|
+| **G0: Declarative?** | Can this be done with a single figma-use tool call? | **DECLARE** | `figma_create_*`, `figma_set_*`, `figma_node_*`, `figma_variable_bind` |
 | **G1: Exists?** | Is the element a standard atom (Button, Badge, Icon) likely in the Team Library? | **INSTANTIATE** | `figma_search_components` → `figma_instantiate_component` |
-| **G2: Create?** | Is the request a novel layout, page, or composite organism not in the library? | **EXECUTE** or **RENDER** | `figma_execute` for &lt;5 nodes or when recipe exists; `figma_render` for 5+ nodes when figma-use available |
-| **G3: Modify?** | Is the intent to alter properties of an existing node (color, padding, text)? | **MODIFY** | `figma_get_selection` → `figma_execute` or specialized tool |
+| **G2: Complex?** | Does the operation require multi-step async logic, conditionals, or loops? | **EXECUTE** or **RENDER** | `figma_execute` for conditional/async logic; `figma_render` (JSX) for 5+ node compositions |
+| **G3: Modify?** | Is the intent to alter properties of an existing node (color, padding, text)? | **MODIFY** | figma-use `figma_set_*` tools; `figma_execute` only if multi-property + async |
 | **G4: Analyze/Diff?** | Is the goal to audit, analyze, compare, or query existing designs? | **ANALYZE** | `figma_analyze_*` / `figma_diff_*` / `figma_query` |
 
-**Always evaluate G1 first.** G2 splits: use `figma_execute` when a Plugin API recipe exists or the element has fewer than 5 nodes; prefer `figma_render` (JSX) when composing 5+ nodes and figma-use is available (2-4x fewer tokens, 1 call). G4 analysis/diff tools require figma-use CDP connection. Creating a button from scratch when one exists in the library wastes tokens, breaks design system consistency, and loses the instance-master link.
+**Always evaluate G0 first** — most operations can be expressed as a single figma-use call without writing any JavaScript. Then check G1 (library components). Only reach for `figma_execute` at G2 when the operation genuinely requires complex logic. G4 analysis/diff tools require figma-use CDP connection. Creating a button from scratch when one exists in the library wastes tokens, breaks design system consistency, and loses the instance-master link.
 
 ## Quick Audit Protocol (Alternative Session)
 
@@ -282,7 +295,8 @@ mapping of custom components, an Organization/Enterprise plan is required.
 
 ```
 Need to check connection or navigate?
-├── Connection status? → figma_get_status ✓ ALWAYS FIRST
+├── Connection status? → figma_get_status (figma-console) ✓ ALWAYS FIRST
+├── Connectivity check → figma_page_list (figma-use — also verifies CDP)
 ├── Open file/page?    → figma_navigate
 └── List open files?   → figma_list_open_files
 
@@ -293,12 +307,26 @@ Need to understand existing design system?
 ├── Component details? → figma_get_component / figma_get_component_for_development
 └── Full file tree?    → figma_get_file_for_plugin (prefer over figma_get_file_data)
 
-Need to create design elements?
+Need to create design elements? (figma-use-first)
 ├── Component exists in library? → figma_search_components → figma_instantiate_component
-├── Simple fill/stroke change?   → figma_set_fills / figma_set_strokes
-├── Simple text change?          → figma_set_text
-├── Custom element / layout?     → figma_execute (Plugin API code) ✓ POWER TOOL
-└── Organize variants?           → figma_arrange_component_set
+├── Create frame?      → figma_create_frame (figma-use)
+├── Create text?       → figma_create_text (figma-use)
+├── Create shape?      → figma_create_rect / figma_create_ellipse / figma_create_line (figma-use)
+├── Create component?  → figma_create_component (figma-use)
+├── Create instance?   → figma_create_instance (figma-use)
+├── Complex multi-node UI?  → figma_render (JSX, 1 call for N nodes)
+├── Complex conditional logic? → figma_execute (figma-console — fallback for async/conditionals)
+└── Organize variants?        → figma_arrange_component_set (figma-console)
+
+Need to modify existing elements? (figma-use-first)
+├── Set fill/stroke?   → figma_set_fill / figma_set_stroke (figma-use)
+├── Set text?          → figma_set_text (figma-use or figma-console)
+├── Set layout?        → figma_set_layout (figma-use)
+├── Set font?          → figma_set_font / figma_set_font_range (figma-use)
+├── Set radius?        → figma_set_radius (figma-use)
+├── Combine variants?  → figma_component_combine (figma-use — avoids page context errors)
+├── Bind variable?     → figma_variable_bind (figma-use)
+└── Multi-property + async? → figma_execute (figma-console — fallback)
 
 Need to manage variables/tokens?
 ├── Create token system?   → figma_setup_design_tokens (atomic, single call)
@@ -307,13 +335,14 @@ Need to manage variables/tokens?
 ├── Single variable CRUD?  → figma_create/update/rename/delete_variable
 └── Add/rename mode?       → figma_add_mode / figma_rename_mode
 
-Need to manipulate existing nodes?
-├── Move/reparent?  → figma_move_node
-├── Resize?         → figma_resize_node
-├── Rename?         → figma_rename_node
-├── Clone?          → figma_clone_node
-├── Delete?         → figma_delete_node
-└── Add child?      → figma_create_child
+Need to manipulate existing nodes? (figma-use)
+├── Move/reparent?  → figma_node_move / figma_node_set_parent (figma-use)
+├── Resize?         → figma_node_resize (figma-use)
+├── Rename?         → figma_node_rename (figma-use)
+├── Clone?          → figma_node_clone (figma-use)
+├── Delete?         → figma_node_delete (figma-use)
+├── Replace?        → figma_node_replace_with (figma-use)
+└── Add child?      → figma_create_child (figma-console)
 
 Need to validate or debug?
 ├── Visual check?       → figma_take_screenshot (max 3 cycles)
@@ -322,8 +351,7 @@ Need to validate or debug?
 ├── Design-code parity? → figma_check_design_parity
 └── Document component? → figma_generate_component_doc
 
-figma-use available? (CDP on port 9222)
-├── Complex multi-node UI?  → figma_render (JSX, 1 call for N nodes)
+Need to analyze or diff? (figma-use, CDP required)
 ├── Analyze clusters?       → figma_analyze_clusters
 ├── Analyze colors?         → figma_analyze_colors
 ├── Analyze typography?     → figma_analyze_typography
@@ -338,15 +366,23 @@ figma-use available? (CDP on port 9222)
 
 ## Quick Reference — Core Tools
 
-| Tool | Purpose |
-|------|---------|
-| `figma_get_status` | Verify connection (always first) |
-| `figma_search_components` | Find library components before creating |
-| `figma_instantiate_component` | Place component with variant properties |
-| `figma_execute` | Run Plugin API code (power tool) |
-| `figma_take_screenshot` | Visual validation (max 3 cycles) |
+| Tool | Server | Purpose |
+|------|--------|---------|
+| `figma_get_status` | figma-console | Verify connection (always first) |
+| `figma_search_components` | figma-console | Find library components before creating |
+| `figma_instantiate_component` | figma-console | Place component with variant properties |
+| `figma_create_frame` | figma-use | Create frame with layout, fill, radius |
+| `figma_create_text` | figma-use | Create text node |
+| `figma_set_fill` / `figma_set_stroke` | figma-use | Set fill or stroke color |
+| `figma_set_layout` | figma-use | Set auto-layout or CSS Grid mode |
+| `figma_node_move` / `figma_node_clone` | figma-use | Move, clone, reparent nodes |
+| `figma_variable_bind` | figma-use | Bind variable to node property |
+| `figma_render` | figma-use | JSX rendering (complex multi-node, 1 call) |
+| `figma_component_combine` | figma-use | Combine variants (avoids page context errors) |
+| `figma_execute` | figma-console | Run Plugin API code (complex logic fallback) |
+| `figma_take_screenshot` | figma-console | Visual validation (max 3 cycles) |
 
-**Full tool reference** (all 56+ tools with parameters and pitfalls): `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md`
+**Full tool reference**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md` (figma-console 56+ tools) and `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-overview.md` (figma-use 115+ tools)
 
 ## Essential Rules
 
@@ -358,6 +394,9 @@ figma-use available? (CDP on port 9222)
 4. **Set `layoutMode` before layout properties** — padding, spacing, constraints all require auto-layout to be active first
 5. **Validate with screenshots** — take a screenshot after every creation step (max 3 fix cycles)
 6. **Check before creating (idempotency)** — before creating a named node, check if it already exists: `figma.currentPage.findOne(n => n.name === "Target")`. Re-running a script must not produce duplicates
+7. **figma-use-first** — use declarative tools (`figma_create_*`, `figma_set_*`, `figma_node_*`) for all atomic operations; only fall back to `figma_execute` for complex conditional logic or multi-step async sequences
+8. **Persist session state** — write created node IDs to a local file after each operation batch to survive context compaction (see `workflow-draft-to-handoff.md`)
+9. **Respect broken tool blacklist** — never use `figma_status` or `figma_page_current` (figma-use, 100% failure); use `figma_node_children` instead of `figma_node_tree` on large files (>500 nodes)
 
 ### AVOID
 
@@ -366,6 +405,7 @@ figma-use available? (CDP on port 9222)
 3. **Never return raw Figma nodes** from `figma_execute` — return plain data: `{ id: node.id, name: node.name }`
 4. **Never leave nodes floating on canvas** — always place inside a Section or Frame container
 5. **Never use individual variable calls for bulk operations** — use `figma_batch_create_variables` / `figma_batch_update_variables` (10-50x faster)
+6. **Never default to `figma_execute` for atomic operations** — each execute + console-logs pair costs ~2,000 tokens; use figma-use declarative tools instead (see `figma-use-overview.md` decision matrix)
 
 ## Selective Reference Loading
 
@@ -417,12 +457,15 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/figma-use-diff
 
 # Sequential Thinking integration — thought chain templates for restructuring, handoff, iterative refinement
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/st-integration.md
+
+# Draft-to-Handoff workflow — operational rules, 6-phase workflow, state persistence, error prevention
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-draft-to-handoff.md
 ```
 
 ### Loading Tiers
 
-**Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code)
-**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-overview.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md`
+**Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code), `figma-use-overview.md` (tool inventory + decision matrix + broken tools)
+**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md` | `workflow-draft-to-handoff.md`
 **Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `figma-use-diffing.md` | `st-integration.md`
 
 ## Sequential Thinking Integration (Optional)
@@ -471,6 +514,11 @@ When a Figma workflow involves multi-step diagnostic chains, branching decisions
 | `figma_instantiate_component` silent fail | Verify variant property names match exactly (case-sensitive) |
 | Screenshot shows misaligned elements | Check `layoutSizingHorizontal/Vertical` — use `'FILL'` instead of `'HUG'` for containers |
 | Batch variable call fails | Verify `collectionId` is valid; max 100 per batch call |
+| `figma_status` or `figma_page_current` returns `"8"` | These figma-use tools are broken; use `figma_get_status` (figma-console) or `figma_page_list` |
+| `figma_node_tree` exceeds token limit | Output can exceed 3MB on large files; use `figma_node_children` with targeted depth instead |
+| Node IDs lost after context compaction | Write node IDs to local file after each batch — see `workflow-draft-to-handoff.md` Session State Persistence |
+| Console log buffer missing earlier results | Buffer holds ~100 entries; call `figma_clear_console` before each `figma_execute` batch |
+| Components not appearing in screen instances | Components must be created (Phase 1) before screens (Phase 2) — see `workflow-draft-to-handoff.md` |
 
 **Full reference**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md`
 
