@@ -1,6 +1,6 @@
-# PAL ThinkDeep Perspective Prompts
+# Deep Analysis Perspective Prompts
 
-Detailed prompts for each ThinkDeep perspective used in Phase 5.
+Detailed prompts for each deep analysis perspective used in Phase 5 via CLI dispatch.
 
 ## Problem Context Template
 
@@ -201,21 +201,24 @@ What security vulnerabilities do you see? What mitigations would you recommend?
 
 ---
 
-## ThinkDeep Call Template
+## CLI Dispatch Template
 
-```javascript
-mcp__pal__thinkdeep({
-  step: "{PERSPECTIVE_PROMPT_WITH_FILLED_VALUES}",
-  step_number: 1,
-  total_steps: 1,
-  next_step_required: false,
-  model: "{MODEL}",  // gpt-5.2, gemini-3-pro-preview, or x-ai/grok-4
-  thinking_mode: "high",
-  focus_areas: "{PERSPECTIVE_FOCUS_AREAS}",
-  findings: "{INITIAL_FINDINGS_FROM_ARCHITECTURE}",
-  problem_context: "{PROBLEM_CONTEXT_TEMPLATE}",
-  relevant_files: ["{ABSOLUTE_PATH_TO_DESIGN_FILE}"]
-})
+Each perspective is dispatched via `dispatch-cli-agent.sh` using the CLI Multi-CLI Dispatch Pattern from `cli-dispatch-pattern.md`:
+
+```
+Follow CLI Multi-CLI Dispatch Pattern with:
+
+| Parameter | Value |
+|-----------|-------|
+| ROLE | `deepthinker` |
+| PHASE_STEP | `5.3.{perspective}` |
+| MODE_CHECK | `analysis_mode in {complete, advanced}` |
+| GEMINI_PROMPT | "{PROBLEM_CONTEXT_TEMPLATE}\n\n{PERSPECTIVE_PROMPT_WITH_FILLED_VALUES}" |
+| CODEX_PROMPT | "{PROBLEM_CONTEXT_TEMPLATE}\n\n{PERSPECTIVE_PROMPT_WITH_FILLED_VALUES}" |
+| OPENCODE_PROMPT | "{PROBLEM_CONTEXT_TEMPLATE}\n\n{PERSPECTIVE_PROMPT_WITH_FILLED_VALUES}" |
+| FILE_PATHS | ["{FEATURE_DIR}/design.md"] |
+| REPORT_FILE | "analysis/cli-deepthinker-{perspective}-report.md" |
+| PREFERRED_SINGLE_CLI | `gemini` |
 ```
 
 ---
@@ -223,29 +226,32 @@ mcp__pal__thinkdeep({
 ## Synthesis Output Template
 
 ```markdown
-# ThinkDeep Architecture Analysis
+# Deep Analysis Architecture Report
 
 > Generated: {TIMESTAMP}
 > Analysis Mode: {analysis_mode}
-> Total Calls: {completed}/{expected}
+> Total Dispatches: {completed}/{expected}
 
 ## PERFORMANCE PERSPECTIVE
 
-### gpt-5.2 Analysis
+### Gemini CLI Analysis (Broad Exploration)
 {findings}
 
-### gemini-3-pro-preview Analysis
+### Codex CLI Analysis (Code-Level)
 {findings}
 
-### grok-4 Analysis
+### OpenCode CLI Analysis (UX/Product)
 {findings}
 
-**Convergent Insights (All Models Agree):**
-- {insight 1} → CRITICAL priority
-- {insight 2} → CRITICAL priority
+**Unanimous Insights (All CLIs Agree):**
+- {insight 1} → CRITICAL priority (VERY HIGH confidence)
+- {insight 2} → CRITICAL priority (VERY HIGH confidence)
 
-**Divergent Insights (Models Disagree):**
-- {topic}: gpt says X, gemini says Y → FLAG for decision
+**Majority Insights (2 of 3 CLIs Agree):**
+- {insight}: {agreeing CLIs} agree, {dissenting CLI} differs → HIGH confidence
+
+**Divergent Insights (All CLIs Disagree):**
+- {topic}: Gemini says X, Codex says Y, OpenCode says Z → FLAG for decision
 
 ## MAINTAINABILITY PERSPECTIVE
 {same structure - Complete mode only}
@@ -255,15 +261,20 @@ mcp__pal__thinkdeep({
 
 ## CROSS-PERSPECTIVE SYNTHESIS
 
-### High-Priority Findings (Convergent)
-| Finding | Perspectives | Models | Priority | Action |
-|---------|--------------|--------|----------|--------|
-| {finding} | PERF, SEC | All 3 | CRITICAL | {recommended action} |
+### High-Priority Findings (Unanimous)
+| Finding | Perspectives | CLIs | Confidence | Action |
+|---------|--------------|------|------------|--------|
+| {finding} | PERF, SEC | All 3 | VERY HIGH | {recommended action} |
+
+### Majority Findings
+| Finding | Perspectives | Agree | Dissent | Confidence | Action |
+|---------|--------------|-------|---------|------------|--------|
+| {finding} | {list} | {2 CLIs} | {1 CLI} | HIGH | {action} |
 
 ### Decision Points (Divergent)
 | Topic | Perspectives | Issue | Options |
 |-------|--------------|-------|---------|
-| {topic} | {list} | {models disagree} | A: {opt}, B: {opt} |
+| {topic} | {list} | {All CLIs disagree} | A: {opt}, B: {opt}, C: {opt} |
 
 ### Recommended Architecture Updates
 1. {specific change based on findings}
@@ -274,8 +285,8 @@ mcp__pal__thinkdeep({
 
 ## Mode Matrix
 
-| Mode | Perspectives | Models/Perspective | Total Calls |
-|------|--------------|-------------------|-------------|
+| Mode | Perspectives | CLIs/Perspective | Total Dispatches |
+|------|--------------|-----------------|------------------|
 | Complete | PERFORMANCE, MAINTAINABILITY, SECURITY | 3 | 9 |
 | Advanced | PERFORMANCE, SECURITY | 3 | 6 |
 | Standard | N/A (skipped) | 0 | 0 |
@@ -285,8 +296,8 @@ mcp__pal__thinkdeep({
 
 ## Error Handling
 
-If a model call fails:
-1. Log failure to state: `thinkdeep.failures.append({model, perspective})`
-2. Display warning: "PAL model {model} failed for {perspective}"
-3. Continue with remaining models (do NOT substitute)
-4. Mark synthesis as partial if >1 model failed for same perspective
+If a CLI dispatch fails:
+1. Log failure to state: `thinkdeep.failures.append({cli, perspective})`
+2. Display warning: "CLI dispatch failed for {perspective}"
+3. Continue with remaining CLI (do NOT substitute)
+4. Mark synthesis as partial if both CLIs failed for same perspective

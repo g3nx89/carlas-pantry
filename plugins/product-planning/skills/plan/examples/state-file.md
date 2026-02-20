@@ -8,9 +8,16 @@ phase_status: "completed"
 analysis_mode: "complete"
 
 mcp_availability:
-  pal_thinkdeep: true
   sequential_thinking: true
-  pal_consensus: true
+
+research_mcp_available: true
+
+cli:
+  available: true
+  capabilities:
+    gemini: true
+    codex: true
+  mode: "dual"
 
 completed_phases:
   - SETUP
@@ -38,16 +45,17 @@ user_decisions:
     timestamp: "2025-01-15T10:33:00Z"
 
 architecture:
-  options_generated: 3
-  selected_option: "pragmatic"
+  perspectives_evaluated: 3
+  selected_perspective: "grounding"
+  composition_strategy: "DIRECT_COMPOSITION"
   design_files:
-    - "specs/042-user-notifications/design.minimal.md"
-    - "specs/042-user-notifications/design.clean.md"
-    - "specs/042-user-notifications/design.pragmatic.md"
+    - "specs/042-user-notifications/design.grounding.md"
+    - "specs/042-user-notifications/design.ideality.md"
+    - "specs/042-user-notifications/design.resilience.md"
 
-thinkdeep:
+deep_analysis:
   perspectives_analyzed: []
-  total_calls: 0
+  total_dispatches: 0
   failures: []
   convergent_findings: 0
   divergent_findings: 0
@@ -134,19 +142,19 @@ Timestamp: 2025-01-15T10:35:00Z
 
 ## Phase 4: Architecture
 
-### Options Generated
+### Perspectives Evaluated
 
-| Option | Focus | Complexity | Maintainability |
-|--------|-------|------------|-----------------|
-| Minimal | Least changes | Low | Medium |
-| Clean | Full separation | High | High |
-| Pragmatic | Balanced | Medium | High |
+| Perspective | Primary Concern | Focus | Complexity |
+|-------------|----------------|-------|------------|
+| Structural Grounding | Structure | Inside-Out, reuse existing | Low |
+| Contract Ideality | Data | Outside-In, clean contracts | High |
+| Resilience Architecture | Behavior | Failure-First, fault tolerance | Medium |
 
 ### Decision
 
-**Selected: Pragmatic**
+**Composition Strategy: DIRECT_COMPOSITION (Grounding anchor)**
 
-Rationale: Balances the need for clean separation with practical constraints. Reuses existing email service, adds WebSocket layer, and introduces notification aggregation without over-engineering.
+Rationale: Structural Grounding scored clearly above others (low tension). Reuses existing email service, adds WebSocket layer with resilience enrichments from other perspectives.
 
 Timestamp: 2025-01-15T11:00:00Z
 

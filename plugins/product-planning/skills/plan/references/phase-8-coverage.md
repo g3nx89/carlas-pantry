@@ -11,12 +11,13 @@ artifacts_read:
   - "spec.md"
 artifacts_written:
   - "analysis/test-coverage-validation.md"
+  - "analysis/cli-coverage-consensus-report.md"  # conditional: CLI dispatch enabled
 agents: []
-mcp_tools:
-  - "mcp__pal__consensus"
-feature_flags: []
+mcp_tools: []
+feature_flags: ["cli_context_isolation", "cli_custom_roles"]
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/coverage-validation-rubric.md"
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
 ---
 
 # Phase 8: Test Coverage Validation
@@ -50,56 +51,57 @@ MAP each risk to mitigation tests
 MAP each story to UAT script
 ```
 
-## Step 8.2: PAL Consensus Validation (Complete/Advanced)
+## Step 8.2: CLI Consensus Validation (Complete/Advanced)
 
-IF mode in {Complete, Advanced} AND Consensus available:
+IF mode in {Complete, Advanced} AND state.cli.available:
 
 ```
-# Step 1: Initialize test coverage consensus workflow
-response = mcp__pal__consensus({
-  step: """
-    TEST COVERAGE VALIDATION:
+# Dispatch ALL CLIs with coverage scoring prompts
+Follow CLI Multi-CLI Dispatch Pattern from $CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md with:
 
-    Evaluate test coverage completeness for feature: {FEATURE_NAME}
+| Parameter | Value |
+|-----------|-------|
+| ROLE | `consensus` |
+| PHASE_STEP | `8.2` |
+| MODE_CHECK | `analysis_mode in {complete, advanced}` |
+| GEMINI_PROMPT | see below (advocate stance + coverage rubric) |
+| CODEX_PROMPT | see below (challenger stance + coverage rubric) |
+| OPENCODE_PROMPT | see below (product_lens stance + coverage rubric) |
+| FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md"]` |
+| REPORT_FILE | `analysis/cli-coverage-consensus-report.md` |
+| PREFERRED_SINGLE_CLI | `gemini` |
+| POST_WRITE | none |
 
-    TEST PLAN SUMMARY:
-    {test_plan_summary}
+GEMINI_PROMPT:
+  "STANCE: ADVOCATE — Highlight coverage strengths.
 
-    COVERAGE MATRIX:
-    {coverage_matrix}
+  Evaluate test coverage for feature: {FEATURE_NAME}
 
-    Score dimensions (weighted percentage):
-    1. AC Coverage (25%) - All acceptance criteria mapped to tests
-    2. Risk Coverage (25%) - All Critical/High risks have tests
-    3. UAT Completeness (20%) - Scripts clear for non-technical users
-    4. Test Independence (15%) - Tests can run in isolation
-    5. Maintainability (15%) - Tests verify behavior, not implementation
-  """,
-  step_number: 1,
-  total_steps: 4,
-  next_step_required: true,
-  findings: "Initial test coverage analysis complete.",
-  models: [
-    {model: "gemini-3-pro-preview", stance: "neutral", stance_prompt: "Evaluate test coverage objectively"},
-    {model: "gpt-5.2", stance: "for", stance_prompt: "Highlight test coverage strengths"},
-    {model: "openrouter/x-ai/grok-4", stance: "against", stance_prompt: "Find coverage gaps and missing edge cases"}
-  ],
-  relevant_files: ["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md"]
-})
+  TEST PLAN: {test_plan_summary}
+  COVERAGE MATRIX: {coverage_matrix}
 
-# Continue workflow with continuation_id until complete
-WHILE response.next_step_required:
-  current_step = response.step_number + 1
-  is_final = (current_step >= 4)  # Final step = synthesis
+  Score dimensions (weighted percentage):
+  1. AC Coverage (25%) - All acceptance criteria mapped to tests
+  2. Risk Coverage (25%) - All Critical/High risks have tests
+  3. UAT Completeness (20%) - Scripts clear for non-technical users
+  4. Test Independence (15%) - Tests can run in isolation
+  5. Maintainability (15%) - Tests verify behavior, not implementation
 
-  response = mcp__pal__consensus({
-    step: IF is_final THEN "Final synthesis of test coverage perspectives" ELSE "Processing model response",
-    step_number: current_step,
-    total_steps: 4,
-    next_step_required: NOT is_final,
-    findings: "Model evaluation: {summary}",
-    continuation_id: response.continuation_id
-  })
+  Return per-dimension percentage scores with evidence."
+
+CODEX_PROMPT:
+  "STANCE: CHALLENGER — Find coverage gaps and missing edge cases.
+  [same dimensions]
+  Return per-dimension percentage scores with evidence."
+
+OPENCODE_PROMPT:
+  "STANCE: PRODUCT_LENS — Evaluate test coverage from user experience and product alignment perspective.
+  [same dimensions]
+  Return per-dimension percentage scores with evidence."
+
+# Extract and average scores from all available CLI outputs
+final_scores = AVERAGE(all available CLI scores) per dimension
+weighted_total = WEIGHTED_SUM(final_scores, dimension_weights)
 ```
 
 ## Step 8.3: Score Calculation
@@ -128,7 +130,7 @@ If RED: Set `status: needs-user-input` with `block_reason` explaining what cover
 
 ## Step 8.5: Internal Validation (Fallback)
 
-IF Consensus not available:
+IF CLI dispatch not available:
 
 ```
 Self-Assessment Checklist:

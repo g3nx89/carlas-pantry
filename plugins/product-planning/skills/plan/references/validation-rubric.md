@@ -1,6 +1,6 @@
-# PAL Consensus Validation Rubric
+# Consensus Validation Rubric
 
-Detailed scoring criteria for Phase 6 consensus validation.
+Detailed scoring criteria for Phase 6 consensus validation via CLI dispatch.
 
 ## Consensus Configuration
 
@@ -8,11 +8,10 @@ Detailed scoring criteria for Phase 6 consensus validation.
 
 | Model | Stance | Role |
 |-------|--------|------|
-| gemini-3-pro-preview | neutral | Evaluate objectively |
-| gpt-5.2 | for | Advocate for plan's strengths |
-| openrouter/x-ai/grok-4 | against | Challenge and find weaknesses |
+| gemini (CLI) | advocate | Highlight strengths, give benefit of doubt |
+| codex (CLI) | challenger | Find gaps, risks, and overlooked failure modes |
 
-Minimum models required for valid consensus: 2
+Minimum CLIs required for valid consensus: 1 (single CLI with self-challenge suffices)
 
 ---
 
@@ -119,66 +118,27 @@ Minimum models required for valid consensus: 2
 
 ---
 
-## Consensus Call Template
+## CLI Consensus Dispatch Template
 
-The PAL Consensus tool uses a single call with a `models` array, not separate calls per model.
-The workflow continues using `continuation_id` until all models have responded.
+Follow CLI Multi-CLI Dispatch Pattern from `cli-dispatch-pattern.md`:
 
-```javascript
-// Single consensus call with all models
-response = mcp__pal__consensus({
-  step: """
-    PLAN VALIDATION:
-
-    Evaluate implementation plan for feature: {FEATURE_NAME}
-
-    PLAN SUMMARY:
-    {FULL_PLAN_CONTENT}
-
-    Score dimensions (max 20 total):
-    1. Problem Understanding (20%) - score 1-4 - Clear problem statement, root cause, scope
-    2. Architecture Quality (25%) - score 1-5 - Sound design, appropriate patterns
-    3. Risk Mitigation (20%) - score 1-4 - Risks identified, mitigations planned
-    4. Implementation Clarity (20%) - score 1-4 - Clear steps, dependencies mapped
-    5. Feasibility (15%) - score 1-3 - Realistic scope, resource considerations
-  """,
-  step_number: 1,
-  total_steps: 4,  // Initial analysis + 3 model responses
-  next_step_required: true,
-  findings: "Initial plan analysis complete.",
-  models: [
-    {
-      model: "gemini-3-pro-preview",
-      stance: "neutral",
-      stance_prompt: "Evaluate this plan objectively against the scoring dimensions."
-    },
-    {
-      model: "gpt-5.2",
-      stance: "for",
-      stance_prompt: "Advocate for this plan's strengths. Highlight what makes it well-designed."
-    },
-    {
-      model: "openrouter/x-ai/grok-4",
-      stance: "against",
-      stance_prompt: "Challenge this plan. Find weaknesses, risks, and areas of concern."
-    }
-  ],
-  relevant_files: ["{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]
-})
-
-// Continue workflow until all models have responded
-WHILE response.next_step_required:
-  response = mcp__pal__consensus({
-    step: "Processing model response",
-    step_number: response.step_number + 1,
-    total_steps: 4,
-    next_step_required: true,
-    findings: "Model evaluation: {summary_of_latest_response}",
-    continuation_id: response.continuation_id
-  })
-
-// Final synthesis happens automatically when all models complete
 ```
+| Parameter | Value |
+|-----------|-------|
+| ROLE | `consensus` |
+| PHASE_STEP | `6.1` |
+| MODE_CHECK | `analysis_mode in {complete, advanced}` |
+| GEMINI_PROMPT | "STANCE: advocate\n\nEvaluate this plan. Highlight strengths...\n\nPLAN:\n{FULL_PLAN_CONTENT}\n\nScore dimensions (max 20 total):\n1. Problem Understanding (20%) score 1-4\n2. Architecture Quality (25%) score 1-5\n3. Risk Mitigation (20%) score 1-4\n4. Implementation Clarity (20%) score 1-4\n5. Feasibility (15%) score 1-3" |
+| CODEX_PROMPT | "STANCE: challenger\n\nChallenge this plan. Find weaknesses...\n\nPLAN:\n{FULL_PLAN_CONTENT}\n\n(same scoring dimensions)" |
+| FILE_PATHS | ["{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"] |
+| REPORT_FILE | "analysis/cli-consensus-report.md" |
+| PREFERRED_SINGLE_CLI | `gemini` |
+```
+
+The coordinator synthesizes scores from both CLIs:
+- **Convergent scores** (delta ≤ 1.0): Use average → HIGH confidence
+- **Divergent scores** (delta > 4.0): FLAG for user review, re-dispatch with clarification
+- **Moderate divergence** (1.0 < delta ≤ 4.0): Use average, note disagreement
 
 ---
 
@@ -188,37 +148,34 @@ WHILE response.next_step_required:
 # Consensus Validation Report
 
 > Generated: {TIMESTAMP}
-> Models: gemini-3-pro-preview, gpt-5.2, grok-4
+> CLIs: gemini (advocate), codex (challenger)
 
 ## Overall Score: {TOTAL}/20 - {STATUS}
 
-### Per-Model Scores
+### Per-CLI Scores
 
-| Dimension | Weight | Gemini (Neutral) | GPT-5.2 (For) | Grok-4 (Against) | Avg |
-|-----------|--------|------------------|---------------|------------------|-----|
-| Problem Understanding | 20% | X | X | X | X.X |
-| Architecture Quality | 25% | X | X | X | X.X |
-| Risk Mitigation | 20% | X | X | X | X.X |
-| Implementation Clarity | 20% | X | X | X | X.X |
-| Feasibility | 15% | X | X | X | X.X |
-| **Total** | 100% | XX | XX | XX | **XX** |
+| Dimension | Weight | Gemini (Advocate) | Codex (Challenger) | Avg |
+|-----------|--------|-------------------|--------------------|----|
+| Problem Understanding | 20% | X | X | X.X |
+| Architecture Quality | 25% | X | X | X.X |
+| Risk Mitigation | 20% | X | X | X.X |
+| Implementation Clarity | 20% | X | X | X.X |
+| Feasibility | 15% | X | X | X.X |
+| **Total** | 100% | XX | XX | **XX** |
 
-### Debate Summary
+### Assessment Summary
 
-#### Gemini (Neutral) Assessment
-{summary}
-
-#### GPT-5.2 (Advocate) Highlights
+#### Gemini (Advocate) Highlights
 {strengths identified}
 
-#### Grok-4 (Challenger) Concerns
+#### Codex (Challenger) Concerns
 {weaknesses and risks}
 
-### Consensus Points
-- {point where all models agree}
+### Convergent Points
+- {point where both CLIs agree} → HIGH confidence
 
-### Disagreement Points
-- {point where models disagree} → FLAG for human decision
+### Divergent Points
+- {point where CLIs disagree} → FLAG for human decision
 
 ### Recommendations
 1. {actionable recommendation}
@@ -257,7 +214,7 @@ When validation score < 12:
 
 ## Internal Validation Fallback
 
-If PAL Consensus unavailable, use the Sequential Thinking fallback defined in `phase-6-validation.md` Step 6.4 (templates T14-T16 from `sequential-thinking-templates.md` Group 5).
+If CLI dispatch unavailable, use the Sequential Thinking fallback defined in `phase-6-validation.md` Step 6.4 (templates T14-T16 from `sequential-thinking-templates.md` Group 5).
 
 Scoring for internal validation:
 - Apply same 5 dimensions

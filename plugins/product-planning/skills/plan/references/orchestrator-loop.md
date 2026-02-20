@@ -166,6 +166,16 @@ FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 8b, 9]:
         UPDATE phase-6b-summary.md: flags.deep_reasoning_supplement = true
       # Continue to next phase regardless
 
+  # Post-phase: update requirements digest after Phase 3
+  # Phase 3 produces requirements-anchor.md which consolidates spec + user clarifications.
+  # Update the requirements_digest in state so subsequent dispatches use the enriched version.
+  IF phase == "3" AND summary.status == "completed":
+    IF file_exists({FEATURE_DIR}/requirements-anchor.md):
+      # Re-extract digest from enriched source (budget: config.requirements_context.digest_max_tokens)
+      anchor = READ({FEATURE_DIR}/requirements-anchor.md)
+      state.requirements_digest = EXTRACT_DIGEST(anchor, max_tokens=config.requirements_context.digest_max_tokens)
+      LOG: "Requirements digest updated from requirements-anchor.md (post-Phase 3)"
+
   # Update state
   ADD phase to state.completed_phases
   SET state.phase_summaries[phase] = summary_path
@@ -227,6 +237,20 @@ FUNCTION DISPATCH_COORDINATOR(phase):
   ELSE:
     context_section = ""
 
+  # --- Requirements Digest Injection ---
+  # Inject the requirements digest extracted in Phase 1 (Step 1.6c) into every dispatch.
+  # This ensures every coordinator has baseline visibility into the original requirements,
+  # even if the phase file doesn't list spec.md in artifacts_read.
+  # After Phase 3, the digest is updated with user clarifications if requirements-anchor.md exists.
+  # Gated by config toggle: config.requirements_context.inject_in_dispatch (default: true)
+  IF config.requirements_context.inject_in_dispatch AND state.requirements_digest:
+    requirements_section = """
+    ## Requirements Digest (from spec.md)
+    {state.requirements_digest}
+    """
+  ELSE:
+    requirements_section = ""
+
   prompt = """
     You are coordinating Phase {phase}: {phase_name} of the feature planning workflow.
 
@@ -237,6 +261,8 @@ FUNCTION DISPATCH_COORDINATOR(phase):
     Feature directory: {FEATURE_DIR}
     Analysis mode: {analysis_mode}
     Feature flags: {relevant_flags_and_values}
+
+    {requirements_section}
 
     ## Prior Phase Summaries (read these first)
     {for each summary in prior_summaries: {FEATURE_DIR}/.phase-summaries/{summary}}

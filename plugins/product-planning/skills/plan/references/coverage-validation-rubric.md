@@ -1,18 +1,17 @@
 # Test Coverage Validation Rubric
 
-Detailed scoring criteria for Phase T5 coverage validation using PAL Consensus.
+Detailed scoring criteria for Phase 8 coverage validation via CLI dispatch.
 
 ## Consensus Configuration
 
-### Models and Stances
+### CLIs and Stances
 
-| Model | Stance | Role |
-|-------|--------|------|
-| gemini-3-pro-preview | neutral | Evaluate objectively |
-| gpt-5.2 | for | Highlight strong coverage areas |
-| grok-4 | against | Find coverage gaps and weaknesses |
+| CLI | Stance | Role |
+|-----|--------|------|
+| gemini (CLI) | advocate | Highlight strong coverage areas, give benefit of doubt |
+| codex (CLI) | challenger | Find coverage gaps, weaknesses, and overlooked edge cases |
 
-Minimum models required for valid consensus: 2
+Minimum CLIs required for valid consensus: 1 (single CLI with self-challenge suffices)
 
 ---
 
@@ -117,69 +116,27 @@ Minimum models required for valid consensus: 2
 
 ---
 
-## Consensus Call Template
+## CLI Consensus Dispatch Template
 
-The PAL Consensus tool uses a single call with a `models` array, not separate calls per model.
-The workflow continues using `continuation_id` until all models have responded.
+Follow CLI Multi-CLI Dispatch Pattern from `cli-dispatch-pattern.md`:
 
-```javascript
-// Single consensus call with all models
-response = mcp__pal__consensus({
-  step: """
-    TEST COVERAGE VALIDATION:
-
-    Evaluate test coverage completeness for feature: {FEATURE_NAME}
-
-    TEST PLAN SUMMARY:
-    {FULL_TEST_PLAN_CONTENT}
-
-    SPEC WITH ACCEPTANCE CRITERIA:
-    {SPEC_WITH_ACS}
-
-    Score dimensions (weighted percentage):
-    1. AC Coverage (25%) - All acceptance criteria mapped to tests
-    2. Risk Coverage (25%) - All Critical/High risks have tests
-    3. UAT Completeness (20%) - Scripts clear for non-technical users
-    4. Test Independence (15%) - Tests can run in isolation
-    5. Maintainability (15%) - Tests verify behavior, not implementation
-  """,
-  step_number: 1,
-  total_steps: 4,  // Initial analysis + 3 model responses
-  next_step_required: true,
-  findings: "Initial test coverage analysis complete.",
-  models: [
-    {
-      model: "gemini-3-pro-preview",
-      stance: "neutral",
-      stance_prompt: "Evaluate test coverage objectively against the scoring dimensions."
-    },
-    {
-      model: "gpt-5.2",
-      stance: "for",
-      stance_prompt: "Highlight the strengths of this test coverage."
-    },
-    {
-      model: "openrouter/x-ai/grok-4",
-      stance: "against",
-      stance_prompt: "Find coverage gaps, missing edge cases, and unclear UAT scripts."
-    }
-  ],
-  relevant_files: ["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md"]
-})
-
-// Continue workflow until all models have responded
-WHILE response.next_step_required:
-  response = mcp__pal__consensus({
-    step: "Processing model response",
-    step_number: response.step_number + 1,
-    total_steps: 4,
-    next_step_required: true,
-    findings: "Model evaluation: {summary_of_latest_response}",
-    continuation_id: response.continuation_id
-  })
-
-// Final synthesis happens automatically when all models complete
 ```
+| Parameter | Value |
+|-----------|-------|
+| ROLE | `consensus` |
+| PHASE_STEP | `8.2` |
+| MODE_CHECK | `analysis_mode in {complete, advanced}` |
+| GEMINI_PROMPT | "STANCE: advocate\n\nHighlight the strengths of this test coverage.\n\nTEST PLAN:\n{FULL_TEST_PLAN_CONTENT}\n\nSPEC:\n{SPEC_WITH_ACS}\n\nScore dimensions (weighted %):\n1. AC Coverage (25%)\n2. Risk Coverage (25%)\n3. UAT Completeness (20%)\n4. Test Independence (15%)\n5. Maintainability (15%)" |
+| CODEX_PROMPT | "STANCE: challenger\n\nFind coverage gaps, missing edge cases, and unclear UAT scripts.\n\n(same test plan, spec, and scoring dimensions)" |
+| FILE_PATHS | ["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md"] |
+| REPORT_FILE | "analysis/cli-coverage-consensus-report.md" |
+| PREFERRED_SINGLE_CLI | `gemini` |
+```
+
+The coordinator synthesizes scores from both CLIs:
+- **Convergent scores** (delta ≤ 5%): Use average → HIGH confidence
+- **Divergent scores** (delta > 15%): FLAG for user review, re-dispatch with clarification
+- **Moderate divergence** (5% < delta ≤ 15%): Use average, note disagreement
 
 ---
 
@@ -189,20 +146,20 @@ WHILE response.next_step_required:
 # Test Coverage Validation Report
 
 > Generated: {TIMESTAMP}
-> Models: gemini-3-pro-preview, gpt-5.2, grok-4
+> CLIs: gemini (advocate), codex (challenger)
 
 ## Overall Score: {TOTAL}% - {STATUS}
 
-### Per-Model Scores
+### Per-CLI Scores
 
-| Dimension | Weight | Gemini | GPT-5.2 | Grok-4 | Avg |
-|-----------|--------|--------|---------|--------|-----|
-| AC Coverage | 25% | X% | X% | X% | X% |
-| Risk Coverage | 25% | X% | X% | X% | X% |
-| UAT Completeness | 20% | X% | X% | X% | X% |
-| Test Independence | 15% | X% | X% | X% | X% |
-| Maintainability | 15% | X% | X% | X% | X% |
-| **Total** | 100% | XX% | XX% | XX% | **XX%** |
+| Dimension | Weight | Gemini (Advocate) | Codex (Challenger) | Avg |
+|-----------|--------|-------------------|--------------------|----|
+| AC Coverage | 25% | X% | X% | X% |
+| Risk Coverage | 25% | X% | X% | X% |
+| UAT Completeness | 20% | X% | X% | X% |
+| Test Independence | 15% | X% | X% | X% |
+| Maintainability | 15% | X% | X% | X% |
+| **Total** | 100% | XX% | XX% | **XX%** |
 
 ### Coverage Matrix Summary
 
@@ -215,11 +172,11 @@ WHILE response.next_step_required:
 
 ### Strengths (Advocate)
 
-{GPT-5.2 highlights}
+{Gemini highlights}
 
 ### Gaps Found (Challenger)
 
-{Grok-4 concerns}
+{Codex concerns}
 
 ### Recommendations
 
@@ -255,7 +212,7 @@ When validation score < 65%:
 
 ## Internal Validation Fallback
 
-If PAL Consensus unavailable, use self-assessment:
+If CLI dispatch unavailable, use self-assessment:
 
 ```markdown
 ## Self-Assessment Checklist

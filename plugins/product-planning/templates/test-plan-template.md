@@ -7,7 +7,7 @@
 > **Created:** {DATE}
 > **Last Updated:** {UPDATED_DATE}
 > **Coverage Score:** {COVERAGE_PERCENT}%
-> **PAL Consensus:** {CONSENSUS_PERCENT}%
+> **CLI Consensus:** {CONSENSUS_PERCENT}%
 
 ---
 

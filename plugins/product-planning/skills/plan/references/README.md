@@ -21,18 +21,18 @@ Quick guide to when to read each reference file during skill development or debu
 | `phase-2-research.md` | Debugging research, code exploration, or flow analysis |
 | `phase-3-clarification.md` | Debugging clarification questions |
 | `phase-4-architecture.md` | Debugging architecture design, MPA, or ToT/S5 |
-| `phase-5-thinkdeep.md` | Debugging ThinkDeep multi-model analysis |
-| `phase-6-validation.md` | Debugging plan validation, PAL Consensus, or S6 debate |
+| `phase-5-thinkdeep.md` | Debugging Multi-CLI deep analysis |
+| `phase-6-validation.md` | Debugging plan validation, CLI Consensus Scoring, or S6 debate |
 | `phase-6b-expert-review.md` | Debugging expert security/simplicity review |
 | `phase-7-test-strategy.md` | Debugging test planning, QA MPA, or V-Model alignment |
 | `phase-8-coverage.md` | Debugging test coverage validation |
 | `phase-8b-asset-consolidation.md` | Debugging asset discovery, manifest generation, or user validation |
 | `phase-9-completion.md` | Debugging task generation or completion |
-| `thinkdeep-prompts.md` | Customizing PAL ThinkDeep perspective prompts |
-| `validation-rubric.md` | Understanding Phase 6 plan validation scoring |
-| `coverage-validation-rubric.md` | Understanding Phase 8 test coverage validation |
+| `thinkdeep-prompts.md` | Customizing deep analysis perspective prompts (CLI dispatch) |
+| `validation-rubric.md` | Understanding Phase 6 plan validation scoring (CLI Consensus) |
+| `coverage-validation-rubric.md` | Understanding Phase 8 test coverage validation (CLI Consensus) |
 | `v-model-methodology.md` | Understanding test level mapping and V-Model alignment |
-| `cli-dispatch-pattern.md` | Canonical CLI dual-CLI dispatch pattern (referenced by all CLI phase steps) |
+| `cli-dispatch-pattern.md` | Canonical CLI multi-CLI dispatch pattern (referenced by all CLI phase steps) |
 | `skill-loader-pattern.md` | Canonical dev-skills context loading via subagent delegation (referenced by Phases 2, 4, 6b, 7, 9) |
 | `deep-reasoning-dispatch-pattern.md` | Offering deep reasoning escalation after gate failures or security findings; understanding the manual user submission workflow |
 | `mpa-synthesis-pattern.md` | Adding or modifying MPA Deliberation (S1) or Convergence Detection (S2); understanding Jaccard similarity trade-offs |
@@ -41,12 +41,12 @@ Quick guide to when to read each reference file during skill development or debu
 
 CLI roles are defined as templates in `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/` and auto-deployed to projects at runtime (Phase 1). Dispatch uses Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`) instead of PAL MCP.
 
-### Dual-CLI MPA Pattern
-Each CLI role runs BOTH Gemini and Codex in parallel via `Bash(run_in_background=true)`. The coordinator synthesizes findings as convergent/divergent/unique, then runs self-critique via a Task subagent with ST Chain-of-Verification.
+### Multi-CLI MPA Pattern
+Each CLI role runs all available CLIs (Gemini, Codex, OpenCode) in parallel via `Bash(run_in_background=true)`. The coordinator synthesizes findings as unanimous/majority/divergent/unique, then runs self-critique via a Task subagent with ST Chain-of-Verification.
 
 ### Key Files
 - `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/README.md` — Role index and deployment docs
-- `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/*.txt` — 10 role prompt files (5 roles x 2 CLIs)
+- `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/*.txt` — 18 role prompt files (6 roles x 3 CLIs)
 - `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/*.json` — CLI client configurations
 - `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` `cli_integration:` section — All config
 - `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` — Process-group-safe dispatch script
@@ -55,7 +55,7 @@ Each CLI role runs BOTH Gemini and Codex in parallel via `Bash(run_in_background
 | Phase | Role | Step | Report |
 |-------|------|------|--------|
 | 1 | — | Step 1.5b: Detection + deployment | State only |
-| 5 | deepthinker | Step 5.6: Supplement ThinkDeep | `cli-deepthinker-report.md` |
+| 5 | deepthinker | Step 5.3: Multi-CLI deep analysis | `cli-deepthinker-{perspective}-report.md` |
 | 6 | planreviewer | Step 6.0a: Pre-validation review | `cli-planreview-report.md` |
 | 6b | securityauditor | Step 6b.1b: Security supplement | `cli-security-report.md` |
 | 7 | teststrategist | Step 7.3.5: Test review | `cli-testreview-report.md` |
@@ -102,14 +102,14 @@ Each CLI role runs BOTH Gemini and Codex in parallel via `Bash(run_in_background
 | `tot-workflow.md` | ~344 | Tree-of-Thoughts process |
 | `debate-protocol.md` | ~425 | Multi-round debate structure |
 | Others | <100 | Focused reference content |
-| `cli-dispatch-pattern.md` | ~160 | Canonical CLI dual-CLI dispatch pattern |
+| `cli-dispatch-pattern.md` | ~200 | Canonical CLI multi-CLI dispatch pattern |
 | `skill-loader-pattern.md` | ~100 | Dev-skills context loading via subagent delegation |
 | `phase-8b-asset-consolidation.md` | ~170 | Asset consolidation coordinator instructions |
 | `deep-reasoning-dispatch-pattern.md` | ~180 | Deep reasoning escalation dispatch pattern |
 | `mpa-synthesis-pattern.md` | ~130 | Shared MPA Deliberation (S1) + Convergence Detection (S2) algorithms |
 | `$PLUGIN/templates/asset-manifest-template.md` | ~90 | Asset manifest structure template |
 | `$PLUGIN/templates/deep-reasoning-templates.md` | ~200 | CTCO prompt templates for deep reasoning models |
-| `$PLUGIN/templates/cli-roles/*.txt` | ~80-120 | CLI role prompts (10 files) |
+| `$PLUGIN/templates/cli-roles/*.txt` | ~80-120 | CLI role prompts (18 files, 6 roles x 3 CLIs) |
 | `$PLUGIN/templates/cli-roles/README.md` | ~100 | CLI role index and patterns |
 
 ### Working with Dev-Skills Integration
@@ -148,6 +148,14 @@ External deep reasoning models (GPT-5 Pro, Google Deep Think) can be escalated t
 | 2+ CRITICAL security findings | 6b | `security_deep_dive` | `security_deep_dive` |
 | Algorithm keywords in spec | 1 (detect), 4/7 (surface) | `algorithm_escalation` | `abstract_algorithm_detection` |
 
+### Requirements Context Propagation
+The workflow uses three defence-in-depth mechanisms to prevent requirements dilution:
+1. **Requirements digest** — extracted in Phase 1 (Step 1.6c), injected in every coordinator dispatch prompt (~300 tokens)
+2. **Requirements anchor** — `requirements-anchor.md` produced by Phase 3 (Step 3.5), consolidates spec + user clarifications (~800 tokens)
+3. **Direct spec.md read** — Phases 5, 6, 6b list spec.md in `artifacts_read` for deep requirement context
+
+Config: `planning-config.yaml` `requirements_context:` section.
+
 ## Cross-References
 
 - `phase-workflows.md` references most other files
@@ -160,3 +168,5 @@ External deep reasoning models (GPT-5 Pro, Google Deep Think) can be escalated t
 - `deep-reasoning-dispatch-pattern.md` used by `orchestrator-loop.md` gate failure handler and Phase 6b security check
 - `mpa-synthesis-pattern.md` used by Phase 4 (Steps 4.1b, 4.1c) and Phase 7 (Steps 7.3.2b, 7.3.3b) for shared MPA algorithms
 - `phase-8b-asset-consolidation.md` feeds `asset-manifest.md` into Phase 9 for Phase 0 task generation
+- `phase-3-clarification.md` produces `requirements-anchor.md` directly read by Phases 4, 5, 6, 6b (prefer-anchor-over-spec fallback); other phases receive requirements context indirectly via orchestrator dispatch digest
+- `orchestrator-loop.md` injects requirements digest (from state) into every coordinator dispatch prompt

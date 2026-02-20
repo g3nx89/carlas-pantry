@@ -35,7 +35,7 @@ Authoring rules, design patterns, and quality standards for contributors modifyi
 ### MPA Pattern Extensibility
 - **Pattern**: Apply Multi-Perspective Analysis (MPA) to any phase requiring diverse viewpoints
 - **Implementation**: Launch 2-3 specialized agents in parallel, synthesize their outputs
-- **Applied to**: Phase 4 (architecture: minimal/clean/pragmatic) and Phase 7 (QA: general/security/performance)
+- **Applied to**: Phase 4 (architecture: grounding/ideality/resilience via Diagonal Matrix) and Phase 7 (QA: general/security/performance)
 - **Checklist**: When adding MPA, define: agent variants, mode availability, output synthesis rules
 
 ### Phase Reconciliation
@@ -52,19 +52,20 @@ Authoring rules, design patterns, and quality standards for contributors modifyi
 
 The following patterns leverage ST MCP parameters for sophisticated reasoning:
 
-#### Fork-Join for Architecture (st_fork_join_architecture)
-- **When**: Exploring multiple architecture options in Phase 4
-- **Pattern**: Frame → Branch × 3 (minimal, clean, pragmatic) → Synthesize
+#### Diagonal Matrix Fork-Join for Architecture (st_fork_join_architecture)
+- **When**: Exploring multiple architecture perspectives in Phase 4
+- **Pattern**: Frame → Branch × 3 (grounding, ideality, resilience) → Reconcile → Compose
 - **ST Parameters**: `branchFromThought`, `branchId`
 - **Mode**: Complete only
-- **Cost Impact**: +3 ST calls (~40% Phase 4 increase)
+- **Cost Impact**: +4 ST calls (~50% Phase 4 increase)
 
 ```
 T7a_FRAME (branchFromThought: null)
-    ├── T7b_BRANCH_MINIMAL (branchFromThought: 1, branchId: "minimal")
-    ├── T7c_BRANCH_CLEAN (branchFromThought: 1, branchId: "clean")
-    └── T7d_BRANCH_PRAGMATIC (branchFromThought: 1, branchId: "pragmatic")
-T8_SYNTHESIS (joins all branches)
+    ├── T7b_BRANCH_GROUNDING (branchFromThought: 1, branchId: "grounding")
+    ├── T7c_BRANCH_IDEALITY (branchFromThought: 1, branchId: "ideality")
+    └── T7d_BRANCH_RESILIENCE (branchFromThought: 1, branchId: "resilience")
+T8a_RECONCILE (tension map across 9 cells)
+T8b_COMPOSE (merge primaries with tension resolution)
 ```
 
 #### Revision for Reconciliation (st_revision_reconciliation)
@@ -121,7 +122,7 @@ T-AGENT-VALIDATION (quality check before proceed)
 | Parameter | Purpose | When to Use |
 |-----------|---------|-------------|
 | `branchFromThought` | Spawn exploration from a specific thought | Fork-Join, Red Team branching |
-| `branchId` | Name the branch (descriptive: "minimal", "redteam") | Always pair with `branchFromThought` |
+| `branchId` | Name the branch (descriptive: "grounding", "redteam") | Always pair with `branchFromThought` |
 | `isRevision` | Mark thought as updating prior conclusion | Reconciliation when new evidence contradicts |
 | `revisesThought` | Reference the thought being revised | Always pair with `isRevision: true` |
 | `needsMoreThoughts` | Signal chain should extend | Complexity exceeds estimate mid-chain |
@@ -135,7 +136,7 @@ ST template JSON must include these fields to avoid silent failures:
 - **For revision**: `isRevision`, `revisesThought`
 
 ### Branch Traceability
-- Use descriptive `branchId` strings ("minimal", "clean", "pragmatic", "redteam") not numeric IDs
+- Use descriptive `branchId` strings ("grounding", "ideality", "resilience", "redteam") not numeric IDs
 - Omit `branchId` in synthesis/join thoughts to signal return to main trunk
 
 ### Revision vs Extension
@@ -180,17 +181,17 @@ When adding new ST template groups:
 
 ## CLI Integration
 
-### Dual-CLI MPA Pattern
-- **Pattern**: Run Gemini + Codex in parallel via Bash process-group dispatch for each analysis role, then synthesize
-- **Rationale**: Gemini (1M context) excels at broad exploration; Codex excels at code-level precision
+### Multi-CLI MPA Pattern
+- **Pattern**: Run Gemini + Codex + OpenCode in parallel via Bash process-group dispatch for each analysis role, then synthesize
+- **Rationale**: Gemini (1M context) excels at broad exploration; Codex excels at code-level precision; OpenCode brings UX/Product lens (accessibility, user flows, product alignment)
 - **Implementation**: Each CLI step has 4 sub-steps: dispatch (parallel `Bash(run_in_background=true)`) → synthesis → self-critique (Task subagent) → write report
 - **Dispatch script**: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` — process-group-safe with 4-tier output extraction
 - **Self-critique isolation**: CoVe verification runs in a separate `Task(general-purpose)` subagent to avoid coordinator context pollution
 - **Modes**: Complete and Advanced only
 
 ### Role Design
-- **5 roles**: deepthinker, planreviewer, teststrategist, securityauditor, taskauditor
-- **10 prompt files**: Each role has both `gemini_{role}.txt` and `codex_{role}.txt` in `templates/cli-roles/`
+- **6 roles**: deepthinker, consensus, planreviewer, teststrategist, securityauditor, taskauditor
+- **18 prompt files**: Each role has `gemini_{role}.txt`, `codex_{role}.txt`, and `opencode_{role}.txt` in `templates/cli-roles/`
 - **EXPLORE directives**: Every role MUST include filesystem exploration instructions
 - **No researcher**: Removed — duplicates Research MCP (Context7/Ref/Tavily)
 - **No reconciliator**: Absorbed into teststrategist review protocol
@@ -201,8 +202,9 @@ When adding new ST template groups:
 - **Deployment**: Phase 1 auto-copies if missing or version marker mismatch
 
 ### Synthesis Categorization
-- **Convergent** (both CLIs agree): HIGH confidence, merge directly
-- **Divergent** (CLIs disagree): FLAG for user decision or use higher severity
+- **Unanimous** (all 3 CLIs agree): VERY HIGH confidence, merge directly
+- **Majority** (2 of 3 CLIs agree): HIGH confidence, note dissenting view
+- **Divergent** (all CLIs disagree): FLAG for user decision or use higher severity
 - **Unique** (one CLI only): VERIFY against existing findings before accepting
 
 ### Shared Dispatch Pattern (DRY)
@@ -213,7 +215,7 @@ When adding new ST template groups:
 
 | Anti-Pattern | Problem | Solution |
 |--------------|---------|----------|
-| CLI dispatch replaces ThinkDeep | Gemini CLI lacks PAL MCP access | CLI SUPPLEMENTS ThinkDeep |
+| Removing CLI fallback | CLI is now primary, not supplement | Ensure internal fallback still works when CLIs unavailable |
 | Running CLI dispatch in Standard/Rapid | Latency not justified | Restrict to Complete/Advanced |
 | Self-critique inline in coordinator | Context pollution | Use Task subagent |
 | Single-CLI without degradation notice | User unaware analysis reduced | Log degradation, set state.cli.mode |
@@ -223,8 +225,9 @@ When adding new ST template groups:
 
 ### External Prompt Authoring
 
-- CLI role prompt files (.txt) must include conditional availability notes for MCP tools (Gemini/Codex environments don't have Claude's MCP servers)
+- CLI role prompt files (.txt) must include conditional availability notes for MCP tools (Gemini/Codex/OpenCode environments don't have Claude's MCP servers)
 - CLI auto-approval flags (`--yolo`, `--dangerously-bypass-approvals-and-sandbox`) must have documented security trade-off notes in README
+- OpenCode uses non-interactive mode (`opencode run --format json -f <file>`) which auto-rejects permissions — no auto-approval flag needed
 
 ---
 
@@ -266,9 +269,9 @@ When adding new ST template groups:
 - Always clarify boundary conditions: `GREEN: score >= 16`, `YELLOW: score >= 12 AND score < 16`, `RED: score < 12`
 - Anti-pattern: Ambiguous "RED <12" with separate `not_ready: 11` field
 
-### External Model Names
-- Model identifiers (gpt-5.2, gemini-3-pro-preview) are configurable placeholders
-- Users should update to match their PAL/MCP server configurations
+### External CLI Names
+- CLI identifiers (gemini, codex) are configurable placeholders
+- Users should update to match their available CLI installations
 
 ### Feature Flag Dependencies
 - Flags that depend on other flags must declare `requires: [flag_names]`

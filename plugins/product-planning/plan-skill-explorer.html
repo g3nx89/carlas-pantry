@@ -46,7 +46,7 @@
   .badge { font-size: 10px; font-family: var(--mono); padding: 2px 6px; border-radius: 3px; }
   .badge.agent { background: rgba(59,130,246,0.15); color: #58a6ff; border: 1px solid rgba(59,130,246,0.25); }
   .badge.st { background: rgba(188,140,255,0.15); color: #bc8cff; border: 1px solid rgba(188,140,255,0.25); }
-  .badge.pal { background: rgba(247,120,186,0.15); color: #f778ba; border: 1px solid rgba(247,120,186,0.25); }
+  .badge.cli { background: rgba(45,212,191,0.15); color: #2dd4bf; border: 1px solid rgba(45,212,191,0.25); }
   .badge.mcp { background: rgba(210,153,34,0.15); color: #d29922; border: 1px solid rgba(210,153,34,0.25); }
   .badge.gate { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.25); }
   .badge.flag { background: rgba(248,81,73,0.15); color: #f85149; border: 1px solid rgba(248,81,73,0.25); }
@@ -79,7 +79,7 @@
   .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
   .legend-dot.c-agent { background: rgba(59,130,246,0.5); }
   .legend-dot.c-st { background: rgba(188,140,255,0.5); }
-  .legend-dot.c-pal { background: rgba(247,120,186,0.5); }
+  .legend-dot.c-cli { background: rgba(45,212,191,0.5); }
   .legend-dot.c-mcp { background: rgba(210,153,34,0.5); }
   .legend-dot.c-gate { background: rgba(63,185,80,0.5); }
   .legend-dot.c-flag { background: rgba(248,81,73,0.5); }
@@ -147,13 +147,13 @@
   <div class="header">
     <div>
       <h1>/product-planning:plan</h1>
-      <div class="subtitle">9-Phase Feature Planning Workflow (+ 6b Expert Review) with V-Model Test Strategy</div>
+      <div class="subtitle">9-Phase Feature Planning Workflow (+ 6b, 8b) with V-Model Test Strategy</div>
     </div>
     <div style="margin-left:auto;">
       <div class="legend">
         <div class="legend-item"><div class="legend-dot c-agent"></div>Agent</div>
         <div class="legend-item"><div class="legend-dot c-st"></div>Seq. Thinking</div>
-        <div class="legend-item"><div class="legend-dot c-pal"></div>PAL MCP</div>
+        <div class="legend-item"><div class="legend-dot c-cli"></div>CLI Dispatch</div>
         <div class="legend-item"><div class="legend-dot c-mcp"></div>Research MCP</div>
         <div class="legend-item"><div class="legend-dot c-gate"></div>Quality Gate</div>
         <div class="legend-item"><div class="legend-dot c-flag"></div>Feature Flag</div>
@@ -179,7 +179,7 @@
     <div class="control-group">
       <h3>MCP Availability</h3>
       <label class="toggle"><input type="checkbox" id="mcp-st" checked onchange="updateAll()"><span class="switch"></span><span>Sequential Thinking</span></label>
-      <label class="toggle"><input type="checkbox" id="mcp-pal" checked onchange="updateAll()"><span class="switch"></span><span>PAL (ThinkDeep/Consensus)</span></label>
+      <label class="toggle"><input type="checkbox" id="mcp-cli" checked onchange="updateAll()"><span class="switch"></span><span>CLI (Deep Analysis/Consensus)</span></label>
       <label class="toggle"><input type="checkbox" id="mcp-research" checked onchange="updateAll()"><span class="switch"></span><span>Research (Context7/Ref/Tavily)</span></label>
     </div>
     <div class="control-group">
@@ -240,7 +240,7 @@ function el(tag, attrs, children) {
 // ── State ───────────────────────────────────────────────────────────
 const state = {
   mode: 'standard', risk: 'medium',
-  mcpSt: true, mcpPal: true, mcpResearch: true,
+  mcpSt: true, mcpCli: true, mcpResearch: true,
   flags: {
     s1:true, s2:true, s3:false, s4:false, s5:false, s6:false,
     a1:false, a2:true, a3:true, a4:false, a5:true,
@@ -276,49 +276,49 @@ const PHASES = [
   { id:1, name:'Setup & Init', checkpoint:'SETUP',
     desc:'Verify prereqs, detect branch, check MCP, select mode, acquire lock',
     modes:['rapid','standard','advanced','complete'],
-    agents:[], st:[], pal:[], mcp:[], gates:[], flags:[],
+    agents:[], st:[], cli:[], mcp:[], gates:[], flags:[],
     details:['Check spec.md & constitution.md exist','Detect git branch to feature dir','MCP availability scan','Auto-suggest mode from spec analysis','Acquire planning lock'] },
   { id:2, name:'Research & Exploration', checkpoint:'RESEARCH',
     desc:'Codebase analysis, technology research, institutional knowledge',
     modes:['rapid','standard','advanced','complete'],
     agents:[{name:'code-explorer',modes:['standard','advanced','complete']},{name:'researcher',modes:['standard','advanced','complete']},{name:'learnings-researcher',modes:['standard','advanced','complete'],flag:'a2'},{name:'flow-analyzer',modes:['complete'],flag:'a1'}],
     st:[{name:'T4-T6 Codebase',modes:['complete']},{name:'TAO Loop',modes:['standard','advanced','complete'],flag:'stTao'},{name:'Checkpoint',modes:['standard','advanced','complete'],flag:'stChk'}],
-    pal:[], mcp:[{name:'Context7/Ref/Tavily',modes:['advanced','complete'],needsRes:true}],
+    cli:[], mcp:[{name:'Context7/Ref/Tavily',modes:['advanced','complete'],needsRes:true}],
     gates:[{name:'Research Completeness',modes:['advanced','complete'],flag:'s3'}],
     flags:['a1','a2','a3','stChk'],
     details:['Load spec.md + constitution.md','Adaptive research depth (A3)','Research MCP doc lookup','Launch code-explorer agents (MPA)','Launch learnings-researcher (A2)','User flow analysis (A1, Complete only)','TAO Loop synthesis','ST Checkpoint (Rule of 5)','Consolidate to research.md','Quality Gate: Research Completeness'] },
   { id:3, name:'Clarifying Questions', checkpoint:'CLARIFICATION',
     desc:'Generate & collect user responses for scope, edge cases, preferences',
     modes:['rapid','standard','advanced','complete'],
-    agents:[], st:[{name:'T1-T3 Decomposition',modes:['complete']}], pal:[], mcp:[], gates:[], flags:[],
+    agents:[], st:[{name:'T1-T3 Decomposition',modes:['complete']}], cli:[], mcp:[], gates:[], flags:[],
     details:['ST T1-T3 problem decomposition (Complete)','Generate questions: scope, edge cases, errors','BLOCKING: wait for all answers','Save decisions as IMMUTABLE'] },
   { id:4, name:'Architecture Design', checkpoint:'ARCHITECTURE',
     desc:'MPA architecture options, Fork-Join exploration, risk assessment',
     modes:['standard','advanced','complete'],
     agents:[{name:'software-architect x3',modes:['standard','advanced','complete']},{name:'wildcard-architect',modes:['complete'],flag:'s5'},{name:'arch-pruning-judge',modes:['complete'],flag:'s5'}],
     st:[{name:'T7-T10 Architecture',modes:['complete']},{name:'Fork-Join T7a-T8',modes:['complete'],flag:'stFork'},{name:'T11-T13 Risk',modes:['advanced','complete']},{name:'TAO Loop',modes:['standard','advanced','complete'],flag:'stTao'},{name:'Checkpoint',modes:['standard','advanced','complete'],flag:'stChk'}],
-    pal:[], mcp:[{name:'Context7/Ref patterns',modes:['advanced','complete'],needsRes:true}],
+    cli:[], mcp:[{name:'Context7/Ref patterns',modes:['advanced','complete'],needsRes:true}],
     gates:[{name:'Architecture Quality',modes:['advanced','complete'],flag:'s3'}],
     flags:['s4','s5','stFork','stTao','stChk'],
     details:['Research MCP: framework patterns','Launch 3 MPA architect agents','Wildcard architect (S5 ToT, Complete)','Architecture pruning judge (S5, Complete)','TAO Loop for agent synthesis','Fork-Join ST branching (Complete)','Risk assessment T11-T13 per option','ST Checkpoint (Rule of 5)','Present comparison table','Adaptive Strategy S4 selection','Quality Gate: Architecture Quality'] },
-  { id:5, name:'PAL ThinkDeep', checkpoint:'THINKDEEP',
-    desc:'Multi-model analysis: performance, maintainability, security',
+  { id:5, name:'Multi-CLI Deep Analysis', checkpoint:'THINKDEEP',
+    desc:'Multi-CLI analysis: performance, maintainability, security',
     modes:['advanced','complete'],
-    agents:[], st:[], pal:[{name:'ThinkDeep x9',modes:['complete']},{name:'ThinkDeep x6',modes:['advanced']}], mcp:[], gates:[], flags:[],
-    details:['Verify model availability via PAL listModels','Performance perspective (3 models)','Maintainability perspective (Complete only)','Security perspective (3 models)','Synthesize convergent vs divergent insights','Present findings for user decision'] },
+    agents:[], st:[], cli:[{name:'CLI Deep x6',modes:['complete']},{name:'CLI Deep x4',modes:['advanced']}], mcp:[], gates:[], flags:[],
+    details:['Verify CLI availability','Performance perspective (2 CLIs)','Maintainability perspective (Complete only)','Security perspective (2 CLIs)','Synthesize convergent vs divergent insights','Present findings for user decision'] },
   { id:6, name:'Plan Validation', checkpoint:'VALIDATION',
-    desc:'PAL Consensus scoring, groupthink detection',
+    desc:'CLI Consensus Scoring, score divergence detection',
     modes:['standard','advanced','complete'],
     agents:[],
     st:[{name:'T14-T16 Validation',modes:['complete']}],
-    pal:[{name:'Consensus (3 models)',modes:['complete']},{name:'Challenge (groupthink)',modes:['complete']},{name:'Debate (S6)',modes:['complete'],flag:'s6'}],
+    cli:[{name:'CLI Consensus (2 CLIs)',modes:['complete']},{name:'Score Divergence',modes:['complete']},{name:'Debate (S6)',modes:['complete'],flag:'s6'}],
     mcp:[], gates:[], flags:['s6'],
-    details:['PAL Consensus: 3 stances (neutral/for/against)','Score: 20pts across 5 dimensions','GREEN >=16, YELLOW >=12, RED <12','Groupthink detection via PAL Challenge','Multi-round debate (S6, Complete)','RED returns to Phase 4 for revision','Fallback: ST T14-T16 internal validation'] },
+    details:['CLI Consensus: 2 stances (advocate/challenger)','Score: 20pts across 5 dimensions','GREEN >=16, YELLOW >=12, RED <12','Score divergence detection','Multi-round debate (S6, Complete)','RED returns to Phase 4 for revision','Fallback: ST T14-T16 internal validation'] },
   { id:'6b', name:'Expert Review', checkpoint:'EXPERT_REVIEW',
     desc:'Security and simplicity expert review (A4 flag)',
     modes:['advanced','complete'],
     agents:[{name:'security-analyst',modes:['advanced','complete'],flag:'a4'},{name:'simplicity-reviewer',modes:['advanced','complete'],flag:'a4'}],
-    st:[], pal:[], mcp:[],
+    st:[], cli:[], mcp:[],
     gates:[],
     flags:['a4'],
     details:['Blocking security review','Simplicity / over-engineering review','Expert findings feed into Phase 7 test strategy','Only runs when A4 Expert Review flag enabled','Checkpoint: EXPERT_REVIEW'] },
@@ -327,21 +327,26 @@ const PHASES = [
     modes:['rapid','standard','advanced','complete'],
     agents:[{name:'qa-strategist',modes:['rapid','standard','advanced','complete']},{name:'qa-security',modes:['advanced','complete']},{name:'qa-performance',modes:['advanced','complete']}],
     st:[{name:'T-RISK-1..3 Analysis',modes:['complete','advanced']},{name:'T-RISK-REVISION',modes:['complete','advanced'],flag:'stRevision'},{name:'T-RISK-REDTEAM',modes:['complete','advanced'],flag:'stRedteam'},{name:'TAO Loop (QA)',modes:['standard','advanced','complete'],flag:'stTao'},{name:'Checkpoint',modes:['standard','advanced','complete'],flag:'stChk'}],
-    pal:[], mcp:[{name:'Testing patterns',modes:['advanced','complete'],needsRes:true}],
+    cli:[], mcp:[{name:'Testing patterns',modes:['advanced','complete'],needsRes:true}],
     gates:[{name:'Test Coverage',modes:['advanced','complete'],flag:'s3'}],
     flags:['stRevision','stRedteam','stTao','stChk'],
     details:['Research MCP: testing best practices','Risk Analysis: failure modes, prioritization','Launch QA agents (MPA)','Phase 5-7 reconciliation with ST Revision','Red Team adversarial branch','TAO Loop for QA synthesis','ST Checkpoint (Rule of 5)','Generate: unit, integration, e2e, UAT specs','Quality Gate: Test Coverage'] },
   { id:8, name:'Test Coverage Validation', checkpoint:'TEST_COVERAGE_VALIDATION',
-    desc:'Coverage matrix, PAL Consensus validation',
+    desc:'Coverage matrix, CLI Consensus validation',
     modes:['standard','advanced','complete'],
-    agents:[], st:[], pal:[{name:'Consensus (coverage)',modes:['advanced','complete']}], mcp:[], gates:[], flags:[],
-    details:['Build coverage matrix: AC to tests','PAL Consensus: 5 dimensions (100%)','GREEN >=80%, YELLOW >=65%, RED <65%','RED returns to Phase 7','Fallback: self-assessment checklist'] },
+    agents:[], st:[], cli:[{name:'CLI Consensus (coverage)',modes:['advanced','complete']}], mcp:[], gates:[], flags:[],
+    details:['Build coverage matrix: AC to tests','CLI Consensus: 5 dimensions (100%)','GREEN >=80%, YELLOW >=65%, RED <65%','RED returns to Phase 7','Fallback: self-assessment checklist'] },
+  { id:'8b', name:'Asset Consolidation', checkpoint:'ASSET_CONSOLIDATION',
+    desc:'Identify non-code assets, generate manifest, user validation',
+    modes:['rapid','standard','advanced','complete'],
+    agents:[], st:[], cli:[], mcp:[], gates:[], flags:[],
+    details:['Scan spec, design, plan, test-plan for asset references','Categorize: images, icons, UI copy, audio, fonts, configs, data fixtures','Generate asset-manifest.md with status tracking','Flag blocking vs non-blocking assets','User validation of manifest completeness'] },
   { id:9, name:'Task Generation & Completion', checkpoint:'COMPLETION',
     desc:'TDD-structured tasks, clarification loop, traceability matrix',
     modes:['rapid','standard','advanced','complete'],
     agents:[{name:'tech-lead',modes:['rapid','standard','advanced','complete']}],
     st:[{name:'T-TASK-1..4 Decomp',modes:['complete','advanced','standard'],flag:'stTask'}],
-    pal:[], mcp:[], gates:[], flags:['stTask','a5'],
+    cli:[], mcp:[], gates:[], flags:['stTask','a5'],
     details:['Load all planning + test artifacts','Extract test IDs for TDD integration','Launch tech-lead with ST decomposition','Task clarification loop (max 2 iterations)','Self-critique validation (5 questions)','Generate tasks.md (checklist format)','Task-to-test traceability matrix','Release lock, summary report','Post-planning menu (A5)'] }
 ];
 
@@ -359,6 +364,7 @@ const ARTIFACTS = [
   {name:'test-cases/e2e/',phase:7,modes:['advanced','complete']},
   {name:'test-cases/uat/',phase:7,modes:['standard','advanced','complete']},
   {name:'test-coverage-validation.md',phase:8,modes:['standard','advanced','complete']},
+  {name:'asset-manifest.md',phase:'8b',modes:['rapid','standard','advanced','complete']},
   {name:'tasks.md',phase:9,modes:['rapid','standard','advanced','complete']},
   {name:'task-test-traceability.md',phase:9,modes:['standard','advanced','complete']},
   {name:'data-model.md',phase:4,modes:['standard','advanced','complete']},
@@ -449,16 +455,16 @@ function countST() {
   });
   return c;
 }
-function countPAL() {
-  if (!state.mcpPal) return 0;
+function countCLI() {
+  if (!state.mcpCli) return 0;
   let c = 0;
   PHASES.forEach(p => {
     if (!phaseActive(p)) return;
-    p.pal.forEach(x => {
+    p.cli.forEach(x => {
       if (!isActive(x)) return;
-      if (x.name.includes('x9')) c += 9;
-      else if (x.name.includes('x6')) c += 6;
-      else if (x.name.includes('Consensus')) c += 4;
+      if (x.name.includes('x6')) c += 6;
+      else if (x.name.includes('x4')) c += 4;
+      else if (x.name.includes('Consensus')) c += 2;
       else c += 1;
     });
   });
@@ -475,7 +481,7 @@ function syncState() {
   state.mode = document.getElementById('mode-select').value;
   state.risk = document.getElementById('risk-select').value;
   state.mcpSt = document.getElementById('mcp-st').checked;
-  state.mcpPal = document.getElementById('mcp-pal').checked;
+  state.mcpCli = document.getElementById('mcp-cli').checked;
   state.mcpResearch = document.getElementById('mcp-research').checked;
   FLAG_DEFS.forEach(f => { state.flags[f.key] = document.getElementById(f.id).checked; });
 }
@@ -483,7 +489,7 @@ function syncDOM() {
   document.getElementById('mode-select').value = state.mode;
   document.getElementById('risk-select').value = state.risk;
   document.getElementById('mcp-st').checked = state.mcpSt;
-  document.getElementById('mcp-pal').checked = state.mcpPal;
+  document.getElementById('mcp-cli').checked = state.mcpCli;
   document.getElementById('mcp-research').checked = state.mcpResearch;
   FLAG_DEFS.forEach(f => { document.getElementById(f.id).checked = state.flags[f.key]; });
 }
@@ -523,7 +529,7 @@ function renderStats() {
     [PHASES.filter(p => phaseActive(p)).length, 'Phases'],
     [countAgents(), 'Agents'],
     [countST(), 'ST Calls'],
-    [countPAL(), 'PAL Calls'],
+    [countCLI(), 'CLI Dispatches'],
     ['$'+cost[0].toFixed(2)+'-'+cost[1].toFixed(2), 'Est. Cost'],
     [getDepth(), 'Research']
   ];
@@ -564,7 +570,7 @@ function renderPhases() {
     let hasBadge = false;
     p.agents.forEach(a => { if (isActive(a)) { badgeRow.appendChild(el('span',{class:'badge agent'},a.name)); hasBadge=true; } });
     if (state.mcpSt) p.st.forEach(s => { if (isActive(s)) { badgeRow.appendChild(el('span',{class:'badge st'},s.name)); hasBadge=true; } });
-    if (state.mcpPal) p.pal.forEach(x => { if (isActive(x)) { badgeRow.appendChild(el('span',{class:'badge pal'},x.name)); hasBadge=true; } });
+    if (state.mcpCli) p.cli.forEach(x => { if (isActive(x)) { badgeRow.appendChild(el('span',{class:'badge cli'},x.name)); hasBadge=true; } });
     p.mcp.forEach(m => { if (isActive(m)) { badgeRow.appendChild(el('span',{class:'badge mcp'},m.name)); hasBadge=true; } });
     p.gates.forEach(g => { if (isActive(g)) { badgeRow.appendChild(el('span',{class:'badge gate'},'Gate: '+g.name)); hasBadge=true; } });
     p.flags.forEach(f => { if (state.flags[f]) { badgeRow.appendChild(el('span',{class:'badge flag'},f)); hasBadge=true; } });
@@ -636,13 +642,13 @@ function renderPrompt() {
 
   const mcpParts = [];
   if (state.mcpSt) mcpParts.push('Sequential Thinking');
-  if (state.mcpPal) mcpParts.push('PAL');
+  if (state.mcpCli) mcpParts.push('CLI');
   if (state.mcpResearch) mcpParts.push('Research');
   parts.push('MCP: ' + (mcpParts.length ? mcpParts.join(', ') : 'none'));
 
   const activePhases = PHASES.filter(p => phaseActive(p));
   parts.push('Active phases: ' + activePhases.map(p => String(p.id)).join(' \u2192 '));
-  parts.push('Agents: ' + countAgents() + ' | ST calls: ' + countST() + ' | PAL calls: ' + countPAL());
+  parts.push('Agents: ' + countAgents() + ' | ST calls: ' + countST() + ' | CLI dispatches: ' + countCLI());
 
   const enabledFlags = Object.entries(state.flags).filter(([k,v]) => v).map(([k]) => k);
   if (enabledFlags.length > 0) parts.push('Flags: ' + enabledFlags.join(', '));
@@ -650,10 +656,10 @@ function renderPrompt() {
   const skipped = PHASES.filter(p => !phaseActive(p));
   if (skipped.length > 0) parts.push('Skipped: ' + skipped.map(p => 'P' + String(p.id) + ' ' + p.name).join(', '));
 
-  if (!state.mcpPal && ['complete','advanced'].includes(state.mode))
-    parts.push('\u26A0 PAL unavailable \u2192 degrades to Standard mode for validation');
+  if (!state.mcpCli && ['complete','advanced'].includes(state.mode))
+    parts.push('\u26A0 CLI unavailable \u2192 degrades to Standard mode for validation');
   if (!state.mcpSt && state.mode === 'complete')
-    parts.push('\u26A0 ST unavailable \u2192 degrades to Advanced mode (keeps PAL, loses ST)');
+    parts.push('\u26A0 ST unavailable \u2192 degrades to Advanced mode (keeps CLI, loses ST)');
 
   const artifacts = ARTIFACTS.filter(a => a.modes.includes(state.mode) && (!a.flag || state.flags[a.flag]));
   parts.push('Output artifacts: ' + artifacts.map(a => a.name).join(', '));
@@ -670,20 +676,20 @@ const CONFIG_SECTIONS = [
     id: 'cfg-modes',
     title: 'Analysis Modes',
     path: 'analysis_modes',
-    explain: 'Defines the four hierarchical modes. Each mode sets how many agents launch, whether PAL/ST MCP is used, and the estimated cost. The workflow reads <code>analysis_modes.{mode}</code> at Phase 1 and uses it to gate every subsequent phase.',
-    tip: 'Graceful degradation is automatic: if PAL MCP is unavailable, Complete/Advanced fall back to Standard. If ST is also missing, Complete falls to Advanced.',
+    explain: 'Defines the four hierarchical modes. Each mode sets how many agents launch, whether CLI/ST is used, and the estimated cost. The workflow reads <code>analysis_modes.{mode}</code> at Phase 1 and uses it to gate every subsequent phase.',
+    tip: 'Graceful degradation is automatic: if CLI dispatch is unavailable, Complete/Advanced fall back to Standard. If ST is also missing, Complete falls to Advanced.',
     kvFn: function() {
       const modes = {
-        complete: { desc:'Full analysis with PAL ThinkDeep + ST + Consensus + Full Test Plan', agents:6, td:9, st:true, con:true, mcp:true, cost:'$0.80-1.50' },
-        advanced: { desc:'MPA + ThinkDeep (reduced) + Test Plan', agents:5, td:6, st:false, con:true, mcp:true, cost:'$0.45-0.75' },
-        standard: { desc:'MPA only (no PAL/ST) + Basic Test Plan', agents:4, td:0, st:false, con:false, mcp:false, cost:'$0.15-0.30' },
+        complete: { desc:'Full analysis with CLI Deep Analysis + ST + Consensus + Full Test Plan', agents:6, td:6, st:true, con:true, mcp:true, cost:'$0.80-1.50' },
+        advanced: { desc:'MPA + CLI Deep Analysis (reduced) + Test Plan', agents:5, td:4, st:false, con:true, mcp:true, cost:'$0.45-0.75' },
+        standard: { desc:'MPA only (no CLI/ST) + Basic Test Plan', agents:4, td:0, st:false, con:false, mcp:false, cost:'$0.15-0.30' },
         rapid:    { desc:'Single agent fast path + Minimal Test Plan', agents:2, td:0, st:false, con:false, mcp:false, cost:'$0.05-0.12' }
       };
       return Object.entries(modes).map(([k,v]) => ({
         key: k,
         val: v.desc,
         active: state.mode === k,
-        detail: 'agents: '+v.agents+' | thinkdeep: '+v.td+' | st: '+(v.st?'yes':'no')+' | consensus: '+(v.con?'yes':'no')+' | cost: '+v.cost
+        detail: 'agents: '+v.agents+' | deep_analysis: '+v.td+' | st: '+(v.st?'yes':'no')+' | consensus: '+(v.con?'yes':'no')+' | cost: '+v.cost
       }));
     }
   },
@@ -700,14 +706,14 @@ const CONFIG_SECTIONS = [
         { key:'s3_judge_gates', flag:'s3', modes:'adv, complete', req:null, mcp:false, cost:'1 agent/gate', desc:'Quality gates between phases (3 gates)' },
         { key:'s4_adaptive_strategy', flag:'s4', modes:'adv, complete', req:null, mcp:false, cost:'minimal', desc:'SELECT_AND_POLISH / FULL_SYNTHESIS / REDESIGN selection' },
         { key:'s5_tot_architecture', flag:'s5', modes:'complete', req:'s4', mcp:false, cost:'8 agents + 3 judges', desc:'Hybrid Tree-of-Thoughts architecture exploration' },
-        { key:'s6_multi_judge_debate', flag:'s6', modes:'complete', req:'s3', mcp:true, cost:'3 PAL rounds', desc:'Multi-round debate for plan validation' },
+        { key:'s6_multi_judge_debate', flag:'s6', modes:'complete', req:'s3', mcp:true, cost:'3 CLI rounds', desc:'Multi-round debate for plan validation' },
         { key:'a1_flow_analysis', flag:'a1', modes:'complete', req:null, mcp:false, cost:'1 agent', desc:'User flow analysis to discover edge cases' },
         { key:'a2_learnings_researcher', flag:'a2', modes:'std+', req:null, mcp:false, cost:'1 agent', desc:'Institutional knowledge base integration' },
         { key:'a3_adaptive_depth', flag:'a3', modes:'all', req:null, mcp:false, cost:'none', desc:'Risk-based research depth adjustment matrix' },
         { key:'a4_expert_review', flag:'a4', modes:'adv, complete', req:null, mcp:false, cost:'2 agents', desc:'Security + simplicity expert review in Phase 6b' },
         { key:'a5_post_planning_menu', flag:'a5', modes:'all', req:null, mcp:false, cost:'none', desc:'Interactive next-step menu after completion' },
         { key:'st_fork_join_architecture', flag:'stFork', modes:'complete', req:null, mcp:true, cost:'+3 ST calls', desc:'Fork-Join branching for Phase 4 architecture' },
-        { key:'st_revision_reconciliation', flag:'stRevision', modes:'adv, complete', req:null, mcp:true, cost:'+1 ST call', desc:'Revision when ThinkDeep contradicts risk analysis' },
+        { key:'st_revision_reconciliation', flag:'stRevision', modes:'adv, complete', req:null, mcp:true, cost:'+1 ST call', desc:'Revision when deep analysis contradicts risk analysis' },
         { key:'st_redteam_analysis', flag:'stRedteam', modes:'adv, complete', req:null, mcp:true, cost:'+2 ST calls', desc:'Adversarial red team branch in Phase 7' },
         { key:'st_tao_loops', flag:'stTao', modes:'std+', req:null, mcp:true, cost:'+3 ST calls/phase', desc:'TAO structured pause after MPA agent outputs' },
         { key:'st_dynamic_extension', flag:'stDynExt', modes:'complete', req:null, mcp:true, cost:'0-2 ST calls', desc:'Extend ST chains when complexity exceeds estimates' },
@@ -792,24 +798,23 @@ const CONFIG_SECTIONS = [
     }
   },
   {
-    id: 'cfg-pal',
-    title: 'PAL ThinkDeep & Consensus',
-    path: 'pal',
-    explain: 'Configures the external multi-model analysis engine. <strong>ThinkDeep</strong> (Phase 5) sends architecture plans to 3 external models across 2-3 perspectives. <strong>Consensus</strong> (Phases 6, 8) uses 3 models with different stances (neutral/advocate/challenger) to score plans. Model names are <strong>configurable placeholders</strong> \u2014 update them to match your PAL MCP server.',
-    tip: 'The continuation_id parameter chains multiple ThinkDeep calls within the same perspective, building cumulative context across models.',
+    id: 'cfg-cli',
+    title: 'CLI Deep Analysis & Consensus',
+    path: 'cli',
+    explain: 'Configures external multi-CLI analysis via Bash dispatch. <strong>Deep Analysis</strong> (Phase 5) dispatches architecture plans to 2 CLIs (Gemini + Codex) across 2-3 perspectives. <strong>Consensus Scoring</strong> (Phases 6, 8) uses 2 CLIs with different stances (advocate/challenger) to score plans. CLI roles are defined in <code>templates/cli-roles/</code>.',
+    tip: 'The dispatch infrastructure uses setsid + timeout for process-group management. Each CLI gets a role-specific prompt file and writes to an output file.',
     kvFn: function() {
-      const palAvail = state.mcpPal;
+      const cliAvail = state.mcpCli;
       const isAdv = ['advanced','complete'].includes(state.mode);
       const isCom = state.mode === 'complete';
       return [
-        { key:'thinkdeep.models[0]', val:'gpt-5.2', active: palAvail && isAdv, detail:'Primary analysis model (configurable placeholder)' },
-        { key:'thinkdeep.models[1]', val:'gemini-3-pro-preview', active: palAvail && isAdv, detail:'Secondary analysis model (configurable placeholder)' },
-        { key:'thinkdeep.models[2]', val:'openrouter/x-ai/grok-4', active: palAvail && isAdv, detail:'Diversity model (configurable placeholder)' },
-        { key:'thinkdeep.perspectives', val: isCom ? 'performance, maintainability, security (3)' : isAdv ? 'performance, security (2)' : 'N/A', active: palAvail && isAdv, detail: isCom ? 'Complete: 3 persp x 3 models = 9 calls' : isAdv ? 'Advanced: 2 persp x 3 models = 6 calls' : 'Not active in this mode' },
-        { key:'consensus.dimensions', val:'5 dimensions, 20pts total', active: palAvail && isCom, detail:'problem_understanding(20%), architecture_quality(25%), risk_mitigation(20%), implementation_clarity(20%), feasibility(15%)' },
-        { key:'consensus.thresholds', val:'GREEN >= 16 | YELLOW >= 12 | RED < 12', active: palAvail && isCom, detail:'RED triggers return to Phase 4 for revision' },
-        { key:'consensus.stances', val:'neutral (gemini) + for (gpt) + against (grok)', active: palAvail && isCom, detail:'Adversarial stance assignment prevents groupthink' },
-        { key:'consensus.groupthink', val:'score_range < 0.5 triggers PAL Challenge', active: palAvail && isCom, detail:'When all models agree too closely, force critical examination' }
+        { key:'cli.gemini', val:'Gemini CLI', active: cliAvail && isAdv, detail:'Broad exploration perspective' },
+        { key:'cli.codex', val:'Codex CLI', active: cliAvail && isAdv, detail:'Code-level analysis perspective' },
+        { key:'deep_analysis.perspectives', val: isCom ? 'performance, maintainability, security (3)' : isAdv ? 'performance, security (2)' : 'N/A', active: cliAvail && isAdv, detail: isCom ? 'Complete: 3 persp x 2 CLIs = 6 dispatches' : isAdv ? 'Advanced: 2 persp x 2 CLIs = 4 dispatches' : 'Not active in this mode' },
+        { key:'consensus.dimensions', val:'5 dimensions, 20pts total', active: cliAvail && isCom, detail:'problem_understanding(20%), architecture_quality(25%), risk_mitigation(20%), implementation_clarity(20%), feasibility(15%)' },
+        { key:'consensus.thresholds', val:'GREEN >= 16 | YELLOW >= 12 | RED < 12', active: cliAvail && isCom, detail:'RED triggers return to Phase 4 for revision' },
+        { key:'consensus.stances', val:'advocate (gemini) + challenger (codex)', active: cliAvail && isCom, detail:'Stance-differentiated scoring prevents groupthink' },
+        { key:'consensus.divergence', val:'score_range >= 4 triggers iteration', active: cliAvail && isCom, detail:'When CLIs disagree significantly, trigger re-evaluation' }
       ];
     }
   },
@@ -839,7 +844,7 @@ const CONFIG_SECTIONS = [
     explain: 'The workflow persists state in <code>{FEATURE_DIR}/.planning-state.local.md</code> using YAML frontmatter + markdown body. <strong>Checkpoints</strong> mark phase completion for resumability. <strong>Immutable fields</strong> prevent re-asking user decisions. A <strong>lock file</strong> prevents concurrent execution (auto-expires after 60 min).',
     tip: 'When resuming a session, the orchestrator reads state, skips to the last checkpoint, and never re-asks questions stored in user_decisions. This is critical for workflow reliability.',
     kvFn: function() {
-      const checkpoints = ['SETUP','RESEARCH','CLARIFICATION','ARCHITECTURE','THINKDEEP','VALIDATION','EXPERT_REVIEW','TEST_STRATEGY','TEST_COVERAGE_VALIDATION','COMPLETION'];
+      const checkpoints = ['SETUP','RESEARCH','CLARIFICATION','ARCHITECTURE','THINKDEEP','VALIDATION','EXPERT_REVIEW','TEST_STRATEGY','TEST_COVERAGE_VALIDATION','ASSET_CONSOLIDATION','COMPLETION'];
       const activeCheckpoints = PHASES.filter(p => phaseActive(p)).map(p => p.checkpoint);
       return [
         ...checkpoints.map(c => ({
@@ -962,13 +967,13 @@ const CONFIG_SECTIONS = [
     path: 'degradation + research_mcp.degradation',
     explain: 'Defines automatic fallback behavior when MCP servers are unavailable. The system <strong>never fails silently</strong> \u2014 it logs the degradation, marks state as degraded, and uses internal reasoning as a substitute. This is why the workflow works even with zero MCP servers configured.',
     kvFn: function() {
-      const palOff = !state.mcpPal;
+      const cliOff = !state.mcpCli;
       const stOff = !state.mcpSt;
       const resOff = !state.mcpResearch;
       return [
-        { key:'if_pal_unavailable.complete', val:'\u2192 standard', active: palOff && state.mode==='complete', detail:'Loses ThinkDeep + Consensus, keeps MPA agents' },
-        { key:'if_pal_unavailable.advanced', val:'\u2192 standard', active: palOff && state.mode==='advanced', detail:'Loses ThinkDeep, keeps MPA agents' },
-        { key:'if_st_unavailable.complete', val:'\u2192 advanced', active: stOff && state.mode==='complete', detail:'Keeps PAL but loses structured reasoning templates' },
+        { key:'if_cli_unavailable.complete', val:'\u2192 standard', active: cliOff && state.mode==='complete', detail:'Loses CLI Deep Analysis + Consensus, keeps MPA agents' },
+        { key:'if_cli_unavailable.advanced', val:'\u2192 standard', active: cliOff && state.mode==='advanced', detail:'Loses CLI Deep Analysis, keeps MPA agents' },
+        { key:'if_st_unavailable.complete', val:'\u2192 advanced', active: stOff && state.mode==='complete', detail:'Keeps CLI but loses structured reasoning templates' },
         { key:'if_st_unavailable', val:'use_internal_reasoning: true', active: stOff, detail:'Agents use inline reasoning instead of ST MCP calls' },
         { key:'research.context7_unavailable', val:'\u2192 ref', active: resOff, detail:'Ref handles library docs as fallback' },
         { key:'research.ref_unavailable', val:'\u2192 tavily with domain filter', active: resOff, detail:'Tavily with include_domains for targeted search' },
@@ -1011,10 +1016,7 @@ function renderConfig() {
 
       // Explanation
       const explainDiv = el('div', {class:'cfg-explain'});
-      // Use a temp element to safely set explanation (contains <code> and <strong> tags from our own hardcoded data)
-      const tempDiv = document.createElement('div');
-      tempDiv.textContent = '';
-      // We need to render the HTML tags in explain text. Since this is all hardcoded data (no user input),
+      // Render the HTML tags in explain text. Since this is all hardcoded data (no user input),
       // we create elements manually for the common patterns.
       const explainText = section.explain;
       renderRichText(explainDiv, explainText);

@@ -39,9 +39,9 @@ Main skill orchestrating 9-phase workflow including test strategy and task gener
 1. Setup - Initialize workspace, detect state
 2. Research - Codebase exploration, technology research
 3. Clarification - User questions, gap resolution
-4. Architecture - MPA design options (minimal/clean/pragmatic)
-5. ThinkDeep - PAL multi-model insights
-6. Validation - PAL Consensus plan validation
+4. Architecture - Diagonal Matrix MPA (Inside-Out/Outside-In/Failure-First × Structure/Data/Behavior)
+5. ThinkDeep - Multi-CLI deep analysis
+6. Validation - CLI Consensus Scoring
 7. Test Strategy - V-Model test planning, UAT generation
 8. Test Coverage - Coverage validation
 9. **Task Generation & Completion** - TDD-structured task breakdown with full test integration

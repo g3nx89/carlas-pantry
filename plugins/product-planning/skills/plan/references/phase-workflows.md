@@ -12,8 +12,8 @@
 | 2 | phase-2-research.md | 371 | Coordinator | Research, code exploration, flow analysis |
 | 3 | phase-3-clarification.md | 70 | Conditional | User questions, gap resolution |
 | 4 | phase-4-architecture.md | 386 | Coordinator | MPA/ToT architecture design |
-| 5 | phase-5-thinkdeep.md | 161 | Coordinator | Multi-model analysis |
-| 6 | phase-6-validation.md | 194 | Coordinator | PAL Consensus / S6 debate |
+| 5 | phase-5-thinkdeep.md | 150 | Coordinator | Multi-CLI deep analysis |
+| 6 | phase-6-validation.md | 194 | Coordinator | CLI Consensus Scoring / S6 debate |
 | 6b | phase-6b-expert-review.md | 122 | Coordinator | Security + simplicity review |
 | 7 | phase-7-test-strategy.md | 439 | Coordinator | V-Model test planning (MPA) |
 | 8 | phase-8-coverage.md | 144 | Coordinator | Coverage validation |

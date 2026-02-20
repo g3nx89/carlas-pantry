@@ -437,9 +437,9 @@ WHILE iteration < max_iterations:
 
 ## Step 9.5b: CLI Task Audit
 
-**Purpose:** Audit task breakdown for completeness (Gemini) and code-level accuracy (Codex) via CLI dual-CLI dispatch.
+**Purpose:** Audit task breakdown for completeness (Gemini), code-level accuracy (Codex), and user story coverage (OpenCode) via CLI multi-CLI dispatch.
 
-Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
+Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
@@ -448,6 +448,7 @@ Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/pl
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
 | GEMINI_PROMPT | `Audit task completeness for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Tasks: {FEATURE_DIR}/tasks.md. Focus: Requirements mapping, missing infrastructure tasks, scope coverage.` |
 | CODEX_PROMPT | `Verify task breakdown against codebase for feature: {FEATURE_NAME}. Tasks: {FEATURE_DIR}/tasks.md. Design: {FEATURE_DIR}/design.md. Focus: File path verification, dependency ordering, code structure alignment.` |
+| OPENCODE_PROMPT | `Audit user story coverage and UX task completeness for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Tasks: {FEATURE_DIR}/tasks.md. Focus: User story to task mapping, missing UX tasks (empty states, loading, errors), definition of done UX criteria, accessibility task coverage.` |
 | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/tasks.md", "{FEATURE_DIR}/design.md"]` |
 | REPORT_FILE | `analysis/cli-taskaudit-report.md` |
 | PREFERRED_SINGLE_CLI | `codex` |

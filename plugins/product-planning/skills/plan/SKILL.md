@@ -1,6 +1,6 @@
 ---
 name: feature-planning
-description: This skill should be used when the user asks to "plan a feature", "create an implementation plan", "design the architecture", "break down a feature into tasks", "decompose a specification", "plan development", "plan tests", or needs multi-perspective analysis for feature implementation. Provides 9-phase workflow with MPA agents, PAL ThinkDeep validation, V-Model test planning, and consensus scoring.
+description: This skill should be used when the user asks to "plan a feature", "create an implementation plan", "design the architecture", "break down a feature into tasks", "decompose a specification", "plan development", "plan tests", or needs multi-perspective analysis for feature implementation. Provides 9-phase workflow with MPA agents, CLI deep analysis, V-Model test planning, and consensus scoring.
 version: 3.0.0
 allowed-tools:
   # File operations
@@ -20,12 +20,7 @@ allowed-tools:
   - AskUserQuestion
   # Sequential Thinking MCP
   - mcp__sequential-thinking__sequentialthinking
-  # PAL MCP (multi-model analysis)
-  - mcp__pal__thinkdeep
-  - mcp__pal__consensus
-  - mcp__pal__listmodels
-  - mcp__pal__challenge
-  # CLI dispatch (Bash-based, replaces PAL clink)
+  # CLI dispatch (Bash-based, replaces PAL MCP)
   - Bash(dispatch:*)
   # Research MCP - Context7 (library documentation)
   - mcp__context7__resolve-library-id
@@ -48,7 +43,7 @@ Transform feature specifications into actionable implementation plans with integ
 
 1. **State Preservation** - Checkpoint after user decisions. User decisions are IMMUTABLE once saved.
 2. **Resume Compliance** - When resuming, NEVER re-ask questions from `user_decisions`.
-3. **Delegation** - Complex analysis uses MPA agents + PAL ThinkDeep. Do NOT attempt inline analysis.
+3. **Delegation** - Complex analysis uses MPA agents + CLI deep analysis. Do NOT attempt inline analysis.
 4. **Mode Selection** - ALWAYS ask user to choose analysis mode before proceeding.
 5. **Lock Protocol** - Acquire lock at start, release at completion. Check for stale locks (>60 min).
 6. **Config Reference** - Use `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` for all settings.
@@ -56,21 +51,22 @@ Transform feature specifications into actionable implementation plans with integ
 8. **Delegation Protocol** - Delegated phases execute via `Task(subagent_type="general-purpose")` coordinators. Phase 1 is inline. Phase 3 is conditional (inline for Standard/Rapid).
 9. **Summary-Only Context** - Between phases, read ONLY summary files from `{FEATURE_DIR}/.phase-summaries/`. Never read full phase instruction files or raw artifacts in orchestrator context.
 10. **No User Interaction from Coordinators** - Coordinators set `status: needs-user-input` in their summary. The orchestrator mediates ALL user prompts via `AskUserQuestion`.
+11. **Requirements Context Propagation** - The orchestrator injects a requirements digest (~300 tokens from spec.md) into every coordinator dispatch prompt. Phase 3 produces `requirements-anchor.md` (spec + clarifications). Phases 5, 6, 6b read spec.md directly. See `config/planning-config.yaml` `requirements_context:` for budgets.
 
 ## Analysis Modes
 
 | Mode | Description | MCP Required | Base Cost | With CLI |
 |------|-------------|--------------|-----------|----------|
-| **Complete** | MPA + ThinkDeep (9) + ST + Consensus + Full Test Plan | Yes | $0.80-1.50 | $1.10-2.00 |
-| **Advanced** | MPA + ThinkDeep (6) + Test Plan | Yes | $0.45-0.75 | $0.55-0.90 |
+| **Complete** | MPA + ThinkDeep (9) + ST + Consensus + Full Test Plan | Yes | $1.00-1.80 | $1.30-2.50 |
+| **Advanced** | MPA + ThinkDeep (6) + Test Plan | Yes | $0.55-0.95 | $0.70-1.10 |
 | **Standard** | MPA only + Basic Test Plan | No | $0.15-0.30 | N/A |
 | **Rapid** | Single agent + Minimal Test Plan | No | $0.05-0.12 | N/A |
 
 Costs are base estimates without ST or CLI enhancements. See `config/planning-config.yaml` blessed profiles for full costs with all enhancements enabled.
 
-**CLI Dual-CLI Dispatch** (Complete/Advanced): When `cli_custom_roles` is enabled and CLI tools are installed, phases 5, 6, 6b, 7, and 9 run supplemental analysis via Gemini + Codex in parallel using Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`), then synthesize and self-critique findings. This adds ~5-7 min total latency but provides broader coverage.
+**CLI Multi-CLI Dispatch** (Complete/Advanced): When `cli_custom_roles` is enabled and CLI tools are installed, phases 5, 6, 6b, 7, and 9 run supplemental analysis via Gemini + Codex + OpenCode in parallel using Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`), then synthesize and self-critique findings. Each CLI brings a different lens: Gemini (strategic/broad), Codex (code-level/challenger), OpenCode (UX/product). Tri-CLI synthesis uses unanimous (VERY HIGH), majority (HIGH), and divergent (FLAG) confidence levels. This adds ~6-9 min total latency but provides broader coverage.
 
-Graceful degradation: If PAL unavailable, fall back to Standard/Rapid modes. If CLIs unavailable, skip CLI steps (standard agents still run).
+Graceful degradation: If CLIs unavailable, fall back to Standard/Rapid modes (internal agents only). If ST unavailable, fall back to Advanced mode.
 
 ## Workflow Phases
 
@@ -96,7 +92,7 @@ Graceful degradation: If PAL unavailable, fall back to Standard/Rapid modes. If 
 │  └────┬────┘                              │                 │   │
 │       ↓                                   │                 │   │
 │  ┌─────────┐                              │                 │   │
-│  │ Phase 5 │ PAL ThinkDeep ───────────────┼→ Integration    │   │
+│  │ Phase 5 │ Multi-CLI Deep Analysis ─────┼→ Integration    │   │
 │  └────┬────┘                              │                 │   │
 │       ↓                                   │                 │   │
 │  ┌─────────┐                              │                 │   │
@@ -213,6 +209,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 | `design.md` | Final architecture design |
 | `plan.md` | Implementation plan |
 | `tasks.md` | Dependency-ordered tasks with TDD structure (TEST->IMPLEMENT->VERIFY) |
+| `requirements-anchor.md` | Consolidated requirements: spec + user clarifications (Phase 3) |
 | `research.md` | Codebase analysis findings |
 | `test-plan.md` | V-Model test strategy with coverage matrix |
 | `test-cases/unit/` | Unit test specifications (TDD-ready) |
@@ -236,7 +233,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `references/orchestrator-loop.md` — Dispatch loop, crash recovery, state migration
 
 ### Existing References
-- `references/thinkdeep-prompts.md` — PAL ThinkDeep perspective prompts
+- `references/thinkdeep-prompts.md` — Deep analysis perspective prompts (used by CLI deepthinker dispatch)
 - `references/validation-rubric.md` — Consensus scoring criteria
 - `references/v-model-methodology.md` — V-Model testing reference
 - `references/coverage-validation-rubric.md` — Test coverage scoring
@@ -248,7 +245,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `references/tot-workflow.md` — Hybrid ToT-MPA workflow (S5)
 - `references/debate-protocol.md` — Multi-round debate validation (S6)
 - `references/research-mcp-patterns.md` — Research MCP server usage guide
-- `references/cli-dispatch-pattern.md` — Canonical CLI dual-CLI dispatch pattern (retry, synthesis, self-critique)
+- `references/cli-dispatch-pattern.md` — Canonical CLI multi-CLI dispatch pattern (retry, synthesis, self-critique)
 - `references/skill-loader-pattern.md` — Canonical dev-skills context loading via subagent delegation (Phases 2, 4, 6b, 7, 9)
 - `references/deep-reasoning-dispatch-pattern.md` — Deep reasoning escalation workflow (gate failures, security deep dive, algorithm escalation)
 - `references/mpa-synthesis-pattern.md` — Shared MPA Deliberation (S1) + Convergence Detection (S2) algorithms (used by Phase 4 and Phase 7)

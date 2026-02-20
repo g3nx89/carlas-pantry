@@ -12,7 +12,7 @@ Templates are organized by planning phase and loaded on-demand during structured
 | Problem Decomposition | T1-T3 | 3 | Understanding the feature request |
 | Codebase Analysis | T4-T6 | 3 | Exploring existing patterns |
 | Architecture Design | T7-T10 | 4 | Designing implementation approach |
-| Fork-Join Architecture | T7a-T8 | 5 | Phase 4 Complete mode (branching exploration) |
+| Diagonal Matrix Architecture | T7a-T8b | 6 | Phase 4 Complete mode (branching exploration) |
 | Risk Assessment | T11-T13 | 3 | Identifying and mitigating risks |
 | Plan Validation | T14-T16 | 3 | Validating plan quality |
 | Test Risk Analysis | T-RISK-1 to T-RISK-3 | 3 | V-Model test planning (Phase 7) |
@@ -143,7 +143,7 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 1/4: Generating architecture options. OPTION A (Minimal Change): [description] - Pros: [list], Cons: [list]. OPTION B (Clean Architecture): [description] - Pros: [list], Cons: [list]. OPTION C (Pragmatic Balance): [description] - Pros: [list], Cons: [list]. HYPOTHESIS: Three viable options identified with different trade-offs. CONFIDENCE: medium.",
+  "thought": "Step 1/4: Generating architecture options. OPTION A (Structural Grounding — Inside-Out × Structure): [description] - Pros: [list], Cons: [list]. OPTION B (Contract Ideality — Outside-In × Data): [description] - Pros: [list], Cons: [list]. OPTION C (Resilience Architecture — Failure-First × Behavior): [description] - Pros: [list], Cons: [list]. HYPOTHESIS: Three viable options identified with different trade-offs. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 4,
   "nextThoughtNeeded": true
@@ -152,10 +152,10 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 **Purpose:** Generate multiple architecture approaches for comparison.
 
-**Required Options:**
-- **Minimal Change:** Smallest delta to existing code
-- **Clean Architecture:** Best practices, may require refactoring
-- **Pragmatic Balance:** Middle ground optimizing for delivery + quality
+**Required Options (Diagonal Matrix):**
+- **Structural Grounding (Inside-Out × Structure):** Starts from existing codebase internals, primary concern is structural integrity
+- **Contract Ideality (Outside-In × Data):** Starts from external contracts and APIs, primary concern is data flow correctness
+- **Resilience Architecture (Failure-First × Behavior):** Starts from failure scenarios, primary concern is behavioral robustness
 
 ---
 
@@ -423,107 +423,148 @@ These templates are used in Phase 7 (Test Strategy) for V-Model test planning.
 
 ---
 
-## Group 7: Fork-Join Architecture Design (T7a-T8)
+## Group 7: Diagonal Matrix Architecture Design (T7a-T8b)
 
-These templates use **branching** to explore multiple architecture approaches in parallel, then synthesize the best elements. Use in Phase 4 Complete mode when multiple viable options exist.
+These templates use **branching** to explore architecture through a **Diagonal Matrix** combining two orthogonal dimensions:
+
+- **Perspectives** (from where you look): Inside-Out, Outside-In, Failure-First
+- **Concerns** (what you analyze): Structure, Data, Behavior
+
+Three agents cover 9 cells diagonally (1 primary + 2 secondary each). The join changes from **selection** to **reconciliation + composition**, using 100% of all agent output.
+
+```
+                  │ Structure  │   Data     │  Behavior  │
+─────────────────┼────────────┼────────────┼────────────┤
+  Inside-Out     │ ★ PRIMARY  │  secondary │  secondary │  → Structural Grounding
+  Outside-In     │  secondary │ ★ PRIMARY  │  secondary │  → Contract Ideality
+  Failure-First  │  secondary │  secondary │ ★ PRIMARY  │  → Resilience Architecture
+```
+
+Use in Phase 4 Complete mode when multiple viable options exist.
 
 ### T7a_FRAME (Decision Fork Point)
 
 ```json
 {
-  "thought": "Step 1/8: FRAME the architecture decision. PROBLEM: {feature_summary}. CONSTRAINTS: {patterns_found}. SUCCESS CRITERIA: {quality_dimensions}. BRANCHING into 3 exploration paths: minimal, clean, pragmatic. HYPOTHESIS: Three distinct approaches exist; exploration will reveal trade-offs. CONFIDENCE: medium.",
+  "thought": "Step 1/9: FRAME the architecture decision. PROBLEM: {feature_summary}. CONSTRAINTS: {patterns_found}. SUCCESS CRITERIA: {quality_dimensions}. DIAGONAL MATRIX: crossing Perspectives (Inside-Out, Outside-In, Failure-First) × Concerns (Structure, Data, Behavior). BRANCHING into 3 diagonal paths: structural_grounding (Inside-Out × Structure), contract_ideality (Outside-In × Data), resilience_architecture (Failure-First × Behavior). HYPOTHESIS: Three diagonal perspectives will surface complementary insights across all 9 cells. CONFIDENCE: medium.",
   "thoughtNumber": 1,
-  "totalThoughts": 8,
+  "totalThoughts": 9,
   "nextThoughtNeeded": true
 }
 ```
 
-**Purpose:** Establish the decision context and spawn three parallel exploration branches.
+**Purpose:** Establish the decision context and spawn three diagonal exploration branches.
 
 **Key Outputs:**
 - Clear problem statement
 - Constraints from codebase patterns
 - Quality dimensions to optimize
-- Branch definitions
+- Diagonal matrix branch definitions (perspective × concern)
 
 ---
 
-### T7b_BRANCH_MINIMAL
+### T7b_BRANCH_GROUNDING
 
 ```json
 {
-  "thought": "BRANCH: Minimal Change. APPROACH: Smallest footprint modification. COMPONENTS: [files to modify]. PROS: Low risk, fast. CONS: May accumulate tech debt. PROBABILITY: 0.85. HYPOTHESIS: Minimal approach viable if {conditions}. CONFIDENCE: high.",
+  "thought": "BRANCH: Structural Grounding (Inside-Out × Structure). PRIMARY: Analyze structural integrity from existing codebase internals — module boundaries, dependency graph, abstraction layers. SECONDARY (Data): How data shapes flow through existing structure. SECONDARY (Behavior): How behavioral patterns emerge from structural choices. COMPONENTS: [files to modify/extend]. PROS: Low risk, leverages proven structure. CONS: May miss external contract requirements. PROBABILITY: 0.85. HYPOTHESIS: Inside-Out perspective reveals structural leverage points at {locations}. CONFIDENCE: high.",
   "thoughtNumber": 2,
-  "totalThoughts": 8,
+  "totalThoughts": 9,
   "nextThoughtNeeded": true,
   "branchFromThought": 1,
-  "branchId": "minimal"
+  "branchId": "grounding"
 }
 ```
 
-**Purpose:** Explore the minimal-change path in isolation.
+**Purpose:** Explore the Inside-Out × Structure diagonal in isolation.
 
 **Branch Parameters:**
 - `branchFromThought: 1` - Branches from the FRAME step
-- `branchId: "minimal"` - Names this branch for later reference
+- `branchId: "grounding"` - Names this branch for later reference
+
+**Coverage:** Primary = Structure cell, Secondary = Inside-Out × Data, Inside-Out × Behavior
 
 ---
 
-### T7c_BRANCH_CLEAN
+### T7c_BRANCH_IDEALITY
 
 ```json
 {
-  "thought": "BRANCH: Clean Architecture. APPROACH: Separation of concerns, dependency injection. COMPONENTS: [new abstractions]. PROS: Maintainability, testability. CONS: Higher upfront cost. PROBABILITY: 0.70. HYPOTHESIS: Clean approach requires {scope} refactoring. CONFIDENCE: high.",
+  "thought": "BRANCH: Contract Ideality (Outside-In × Data). PRIMARY: Design ideal data contracts from external consumer perspective — API shapes, validation schemas, data transformation boundaries. SECONDARY (Structure): What structural components are implied by ideal contracts. SECONDARY (Behavior): What behavioral guarantees contracts must enforce. COMPONENTS: [new contracts/interfaces]. PROS: Clean API boundaries, consumer-driven design. CONS: May require internal restructuring. PROBABILITY: 0.70. HYPOTHESIS: Outside-In perspective defines contract boundaries at {interfaces}. CONFIDENCE: high.",
   "thoughtNumber": 3,
-  "totalThoughts": 8,
+  "totalThoughts": 9,
   "nextThoughtNeeded": true,
   "branchFromThought": 1,
-  "branchId": "clean"
+  "branchId": "ideality"
 }
 ```
 
-**Purpose:** Explore the clean architecture path in isolation.
+**Purpose:** Explore the Outside-In × Data diagonal in isolation.
+
+**Coverage:** Primary = Data cell, Secondary = Outside-In × Structure, Outside-In × Behavior
 
 ---
 
-### T7d_BRANCH_PRAGMATIC
+### T7d_BRANCH_RESILIENCE
 
 ```json
 {
-  "thought": "BRANCH: Pragmatic Balance. APPROACH: Trade-off between clean and speed. COMPONENTS: [selective improvements]. PROBABILITY: 0.80. HYPOTHESIS: Pragmatic approach balances at {trade-off points}. CONFIDENCE: high.",
+  "thought": "BRANCH: Resilience Architecture (Failure-First × Behavior). PRIMARY: Design behavioral robustness starting from failure scenarios — error propagation, recovery paths, degraded operation modes. SECONDARY (Structure): What structural patterns support failure isolation. SECONDARY (Data): What data integrity guarantees survive failures. COMPONENTS: [error handlers, circuit breakers, fallback paths]. PROS: Production-hardened from day one. CONS: Higher upfront complexity. PROBABILITY: 0.75. HYPOTHESIS: Failure-First perspective identifies {N} critical failure modes requiring architectural support. CONFIDENCE: high.",
   "thoughtNumber": 4,
-  "totalThoughts": 8,
+  "totalThoughts": 9,
   "nextThoughtNeeded": true,
   "branchFromThought": 1,
-  "branchId": "pragmatic"
+  "branchId": "resilience"
 }
 ```
 
-**Purpose:** Explore a middle-ground approach.
+**Purpose:** Explore the Failure-First × Behavior diagonal in isolation.
+
+**Coverage:** Primary = Behavior cell, Secondary = Failure-First × Structure, Failure-First × Data
 
 ---
 
-### T8_SYNTHESIS (Join)
+### T8a_RECONCILE (Join Pass 1: Tension Map)
 
 ```json
 {
-  "thought": "SYNTHESIS: Comparing branches. SCORES: Minimal={M}/5, Clean={C}/5, Pragmatic={P}/5. WINNER: {selected}. RATIONALE: {why}. MERGED ELEMENTS: {best from each}. HYPOTHESIS: {selected} is optimal because {rationale}. CONFIDENCE: high.",
+  "thought": "RECONCILE (Pass 1): Building tension map across 9 matrix cells. For each cell (Perspective × Concern), compare what each agent said. STRUCTURE: Grounding says {G}, Ideality implies {I}, Resilience requires {R} — tension: {LOW|MEDIUM|HIGH}. DATA: Grounding assumes {G}, Ideality defines {I}, Resilience protects {R} — tension: {LOW|MEDIUM|HIGH}. BEHAVIOR: Grounding inherits {G}, Ideality enforces {I}, Resilience prioritizes {R} — tension: {LOW|MEDIUM|HIGH}. TOTAL: {N} low-tension cells (direct merge), {M} medium-tension cells (enrichment needed), {P} high-tension cells (resolution required). HYPOTHESIS: Tension map reveals {N+M+P} integration points with {P} requiring explicit resolution. CONFIDENCE: medium.",
   "thoughtNumber": 5,
-  "totalThoughts": 8,
+  "totalThoughts": 9,
   "nextThoughtNeeded": true
 }
 ```
 
-**Purpose:** Join the branches back together and select the winning approach.
+**Purpose:** Build a 9-cell tension map comparing what each agent said about each concern. Classifies tensions as low/medium/high.
 
 **Key Outputs:**
-- Comparative scores per dimension
-- Selected approach with rationale
-- Merged elements from other branches (optional)
+- Per-cell tension classification across all 9 matrix cells
+- Identification of convergent areas (low tension) vs. conflict areas (high tension)
+- Input for Pass 2 composition strategy
 
-**Note:** After T8_SYNTHESIS, continue with standard T9_COMPONENT_DESIGN and T10_AC_MAPPING using the selected approach.
+---
 
-**Checkpoint Rule:** The Fork-Join chain spans 8 thoughts (T7a through T10 continuation). Per the Rule of 5, insert a T-CHECKPOINT between T8_SYNTHESIS (thought 5) and T9 (thought 6) to consolidate branch findings before proceeding to component design.
+### T8b_COMPOSE (Join Pass 2: Merge with Resolution)
+
+```json
+{
+  "thought": "COMPOSE (Pass 2): Merging primaries with tension resolution. STRUCTURE (from Grounding primary): {deep analysis}. Enriched by Ideality structural implications + Resilience structural requirements. DATA (from Ideality primary): {deep analysis}. Enriched by Grounding data flow insights + Resilience data integrity guarantees. BEHAVIOR (from Resilience primary): {deep analysis}. Enriched by Grounding behavioral patterns + Ideality behavioral contracts. HIGH-TENSION RESOLUTIONS: {cell}: chose {approach} because {rationale}. COMPOSITION STRATEGY: {DIRECT_COMPOSITION|NEGOTIATED_COMPOSITION|REFRAME}. HYPOTHESIS: Composed architecture integrates all 3 primaries with {P} tension resolutions applied. CONFIDENCE: high.",
+  "thoughtNumber": 6,
+  "totalThoughts": 9,
+  "nextThoughtNeeded": true
+}
+```
+
+**Purpose:** Take deep analysis from each primary concern (Structure from Grounding, Data from Ideality, Behavior from Resilience), enrich with secondary insights, and apply tension resolutions.
+
+**Key Outputs:**
+- Merged architecture combining all three primary analyses
+- Tension resolutions with rationale for each high-tension cell
+- Composition strategy determination
+
+**Note:** After T8b_COMPOSE, continue with standard T9_COMPONENT_DESIGN and T10_AC_MAPPING using the composed architecture.
+
+**Checkpoint Rule:** The Diagonal Matrix chain spans 9 thoughts (T7a through T10 continuation). Per the Rule of 5, insert a T-CHECKPOINT between T8a_RECONCILE (thought 5) and T8b_COMPOSE (thought 6) to consolidate diagonal findings before proceeding to composition.
 
 ---
 
@@ -665,7 +706,7 @@ TAO (Think-Analyze-Output) Loop templates provide structured pause points betwee
 
 **Strategies by Category:**
 - **Convergent:** Direct incorporation (no user decision needed)
-- **Divergent:** Present options to user OR apply adaptive strategy (SELECT_AND_POLISH, FULL_SYNTHESIS)
+- **Divergent:** Present options to user OR apply adaptive strategy (DIRECT_COMPOSITION, NEGOTIATED_COMPOSITION)
 - **Gaps:** Accept as known unknowns OR trigger research agent
 
 ---
@@ -775,7 +816,7 @@ Key Outputs:
 | Agent | Uses Templates | Purpose |
 |-------|---------------|---------|
 | code-explorer | T4-T6, T-AGENT series, T-CHECKPOINT | Codebase analysis with TAO synthesis |
-| software-architect | T7-T10, T7a-T8 (Fork-Join), T11-T13, T-CHECKPOINT | Architecture design with risk assessment |
+| software-architect | T7-T10, T7a-T8b (Diagonal Matrix), T11-T13, T-CHECKPOINT | Architecture design with risk assessment |
 | tech-lead | T1-T3, T-TASK series, T-CHECKPOINT | Problem decomposition and task breakdown |
 | orchestrator | T14-T16, T-AGENT series, T-CHECKPOINT | Validation and synthesis |
 | qa-strategist | T-RISK-1 to T-RISK-3, T-RISK-REVISION, T-RISK-REDTEAM series (3 templates), T-CHECKPOINT | Test risk analysis (Phase 7) |
@@ -791,7 +832,7 @@ Key Outputs:
 | Problem Decomposition (T1-T3) | ❌ | ❌ | ✅ | ✅ |
 | Codebase Analysis (T4-T6) | ❌ | ❌ | ❌ | ✅ |
 | Architecture Design (T7-T10) | ❌ | ❌ | ❌ | ✅ |
-| Fork-Join (T7a-T8) | ❌ | ❌ | ❌ | ✅ |
+| Diagonal Matrix (T7a-T8b) | ❌ | ❌ | ❌ | ✅ |
 | Risk Assessment (T11-T13) | ❌ | ❌ | ✅ | ✅ |
 | Plan Validation (T14-T16) | ❌ | ❌ | ❌ | ✅ |
 | Test Risk Analysis (T-RISK-1 to T-RISK-3) | ❌ | ❌ | ✅ | ✅ |
@@ -961,14 +1002,14 @@ Set `nextThoughtNeeded: false` after T10 when ALL are true:
 - ✅ Acceptance criteria mapped to components
 - ✅ Self-critique passed (5/5 questions verified)
 
-### Fork-Join Architecture (T7a-T8) Termination
+### Diagonal Matrix Architecture (T7a-T8b) Termination
 
-Set `nextThoughtNeeded: false` after T8_SYNTHESIS when ALL are true:
-- ✅ All three branches explored (minimal, clean, pragmatic)
-- ✅ Comparative scores documented
-- ✅ Winner selected with explicit rationale
-- ✅ Best elements from other branches considered for merge
-- ✅ T-CHECKPOINT inserted after T8_SYNTHESIS (thought 5) before continuing to T9
+Set `nextThoughtNeeded: false` after T8b_COMPOSE when ALL are true:
+- ✅ All three diagonal branches explored (grounding, ideality, resilience)
+- ✅ Tension map built across all 9 matrix cells (T8a_RECONCILE)
+- ✅ Primaries composed with tension resolutions documented (T8b_COMPOSE)
+- ✅ Composition strategy determined (DIRECT_COMPOSITION / NEGOTIATED_COMPOSITION / REFRAME)
+- ✅ T-CHECKPOINT inserted between T8a_RECONCILE (thought 5) and T8b_COMPOSE (thought 6)
 
 ### Risk Assessment (T11-T13) Termination
 

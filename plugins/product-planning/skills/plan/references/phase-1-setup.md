@@ -9,7 +9,7 @@ artifacts_read: []
 artifacts_written: []
 agents: []
 mcp_tools:
-  - "mcp__pal__listmodels"
+  # PAL MCP removed — CLI dispatch (Step 1.5b) replaces model availability checks
   - "mcp__sequential-thinking__sequentialthinking"
 feature_flags:
   - "cli_context_isolation"
@@ -78,10 +78,8 @@ CREATE LOCK_FILE with pid, timestamp, user
 
 ```
 CHECK tools:
-  # Core MCP (required for Complete/Advanced modes)
+  # Core MCP (optional, enhances Complete mode)
   - mcp__sequential-thinking__sequentialthinking
-  - mcp__pal__thinkdeep
-  - mcp__pal__consensus
 
   # Research MCP (optional, enhances Phases 2, 4, 7)
   - mcp__context7__query-docs
@@ -89,6 +87,10 @@ CHECK tools:
   - mcp__tavily__tavily_search
 
 DISPLAY availability status
+
+# NOTE: PAL MCP tools (thinkdeep, consensus, challenge, listmodels) have been
+# replaced by CLI dispatch via dispatch-cli-agent.sh. Complete/Advanced modes
+# now require CLI availability (detected in Step 1.5b) instead of PAL MCP.
 
 IF research MCP unavailable:
   LOG: "Research MCP servers unavailable - Steps 2.1c, 4.0, 7.1b will use internal knowledge"
@@ -118,19 +120,25 @@ IF feature_flags.cli_context_isolation.enabled:
      # Smoke test each CLI with a 30-second timeout
      gemini_exit = Bash("{SCRIPT} --cli gemini --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-gemini.txt --timeout 30")
      codex_exit = Bash("{SCRIPT} --cli codex --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-codex.txt --timeout 30")
+     opencode_exit = Bash("{SCRIPT} --cli opencode --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-opencode.txt --timeout 30")
 
      gemini_available = (gemini_exit != 3)  # exit 3 = CLI not found
      codex_available = (codex_exit != 3)
+     opencode_available = (opencode_exit != 3)
+     available_count = COUNT(true values in [gemini_available, codex_available, opencode_available])
 
      # Determine CLI mode
-     IF gemini_available AND codex_available:
+     IF available_count == 3:
+       cli_mode = "tri"
+       LOG: "Tri-CLI mode: full analysis with Gemini, Codex, and OpenCode"
+     ELSE IF available_count == 2:
        cli_mode = "dual"
-     ELSE IF gemini_available:
-       cli_mode = "single_gemini"
-       LOG: "Codex CLI not available — CLI dispatch will use single-CLI mode (Gemini only)"
-     ELSE IF codex_available:
-       cli_mode = "single_codex"
-       LOG: "Gemini CLI not available — CLI dispatch will use single-CLI mode (Codex only)"
+       missing = [name for name, avail in CLIs if not avail]
+       LOG: "{missing[0]} CLI not available — CLI dispatch will use dual-CLI mode"
+     ELSE IF available_count == 1:
+       available_cli = [name for name, avail in CLIs if avail][0]
+       cli_mode = "single_{available_cli}"
+       LOG: "Only {available_cli} available — CLI dispatch will use single-CLI mode"
      ELSE:
        cli_mode = "disabled"
        LOG: "No CLIs available — skipping CLI integration"
@@ -143,7 +151,7 @@ IF feature_flags.cli_context_isolation.enabled:
      # Check version marker
      IF TARGET does not exist OR TARGET version marker != SOURCE version marker:
        COPY all .txt and .json files from SOURCE to TARGET
-       LOG: "Deployed CLI role templates (version 1.0.0)"
+       LOG: "Deployed CLI role templates (version 1.1.0)"
        roles_deployed = true
      ELSE:
        LOG: "CLI role templates already deployed and up to date"
@@ -151,10 +159,11 @@ IF feature_flags.cli_context_isolation.enabled:
 
   4. UPDATE state:
      cli:
-       available: {gemini_available OR codex_available}
+       available: {available_count >= 1}
        capabilities:
          gemini: {gemini_available}
          codex: {codex_available}
+         opencode: {opencode_available}
        roles_deployed: {roles_deployed}
        mode: {cli_mode}
        dispatch_infrastructure:
@@ -404,6 +413,31 @@ IF feature_flags.s10_team_presets.enabled:
   4. LOG: "Team preset: {selected_preset or 'default'}"
 ```
 
+## Step 1.6c: Requirements Digest Extraction
+
+**Purpose:** Extract a compact requirements digest from spec.md to inject into every coordinator dispatch prompt. This ensures every phase has baseline visibility into the original requirements, regardless of whether it reads spec.md directly.
+
+```
+READ {FEATURE_DIR}/spec.md
+
+EXTRACT requirements_digest (budget: config.requirements_context.digest_max_tokens, default 300 tokens):
+
+  ## Requirements Digest
+  **Feature:** {one-line summary of what the feature does}
+  **Acceptance Criteria:**
+  {numbered list of acceptance criteria — abbreviated if needed to stay within budget}
+  **Key Constraints:** {2-3 bullet points: technical constraints, dependencies, non-functional requirements}
+
+# If spec.md has no explicit acceptance criteria, synthesize from the feature description
+# If spec.md is very short (<100 words), use the full text as the digest
+
+STORE in state:
+  requirements_digest: |
+    {the extracted digest text}
+
+LOG: "Requirements digest extracted ({word_count} words, estimated {token_count} tokens)"
+```
+
 ## Step 1.7: Workspace Preparation
 
 ```
@@ -420,5 +454,6 @@ After completing all setup steps, the orchestrator writes `{FEATURE_DIR}/.phase-
 - Feature directory and branch paths
 - Whether this is a fresh start or resume
 - Any mode auto-suggestion details
+- Requirements digest (compact summary for downstream injection)
 
 **Checkpoint: SETUP**

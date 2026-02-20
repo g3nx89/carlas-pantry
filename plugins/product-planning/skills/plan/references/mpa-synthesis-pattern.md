@@ -19,7 +19,7 @@ feature_flags:
 
 | Parameter | Phase 4 (Architecture) | Phase 7 (Test Strategy) |
 |-----------|------------------------|-------------------------|
-| `AGENT_OUTPUTS` | `[minimal, clean, pragmatic]` | `[general, security, performance]` |
+| `AGENT_OUTPUTS` | `[grounding, ideality, resilience]` | `[general, security, performance]` |
 | `AGENT_LIST` | Architecture agents from Step 4.1 | QA agents from Step 7.3 |
 | `PHASE_ID` | `"4"` | `"7"` |
 | `LOW_CONVERGENCE_STRATEGY` | `"present_all_options"` | `"include_all_flag_conflicts"` |

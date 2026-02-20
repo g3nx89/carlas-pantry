@@ -8,9 +8,9 @@ This file provides guidance to Claude Code when working with this plugin. Inheri
 
 Plugin for feature planning, task decomposition, and **integrated test strategy generation** using SDD (Subagent-Driven Development) patterns with:
 - **Multi-Perspective Analysis (MPA)** - Parallel agents with different focuses
-- **PAL ThinkDeep** - External model insights (performance, maintainability, security)
-- **PAL Consensus** - Multi-model validation with scoring rubric
-- **CLI Dual-CLI Dispatch** - Gemini + Codex in parallel via Bash process-group dispatch
+- **CLI Deep Analysis** - Multi-perspective architecture insights via CLI dispatch (replaces PAL ThinkDeep)
+- **CLI Consensus Scoring** - Multi-CLI validation with dimensional scoring rubric (replaces PAL Consensus)
+- **CLI Multi-CLI Dispatch** - Gemini + Codex + OpenCode in parallel via Bash process-group dispatch
 - **Sequential Thinking** - Structured reasoning templates
 - **Research MCP Integration** - Context7/Ref/Tavily for authoritative documentation lookup
 - **V-Model Test Planning** - Comprehensive test strategy aligned with development phases (integrated)
@@ -49,7 +49,7 @@ The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includ
 │       ↓                                                          │
 │  Phase 4: Architecture Design ──────────→ E2E Tests             │
 │       ↓                                                          │
-│  Phase 5: PAL ThinkDeep ────────────────→ Integration Tests     │
+│  Phase 5: CLI Deep Analysis ────────────→ Integration Tests     │
 │       ↓                                                          │
 │  Phase 6: Plan Validation                                        │
 │       ↓                                                          │
@@ -78,12 +78,12 @@ The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includ
 | 1 | Setup | Initialize workspace, detect state, select analysis mode |
 | 2 | Research | Codebase exploration, technology research |
 | 3 | Clarification | User questions, gap resolution |
-| 4 | Architecture | MPA design options (minimal/clean/pragmatic) |
-| 5 | ThinkDeep | PAL multi-model insights (Complete/Advanced modes) |
-| 6 | Validation | PAL Consensus plan validation |
+| 4 | Architecture | Diagonal Matrix MPA (Inside-Out/Outside-In/Failure-First × Structure/Data/Behavior) |
+| 5 | ThinkDeep | CLI multi-perspective deep analysis (Complete/Advanced modes) |
+| 6 | Validation | CLI Consensus plan scoring |
 | 6b | Expert Review | Security/quality gate, blocking on critical findings |
 | 7 | Test Strategy | V-Model test planning, UAT generation |
-| 8 | Test Coverage | Coverage validation, PAL Consensus |
+| 8 | Test Coverage | Coverage validation, CLI Consensus scoring |
 | 8b | Asset Consolidation | Identify non-code assets, generate manifest, user validation |
 | 9 | Task Generation | TDD-structured tasks with test refs, clarification loop |
 
@@ -100,16 +100,20 @@ See `config/planning-config.yaml` for cost estimates, `analysis_modes`, `blessed
 
 The plugin gracefully degrades when MCP tools are unavailable.
 
-### PAL ThinkDeep Integration
+### CLI Deep Analysis (Phase 5)
 
-Phase 5 executes multi-model analysis across perspectives:
+Phase 5 dispatches Gemini + Codex + OpenCode CLIs across perspectives via `dispatch-cli-agent.sh`:
 - **Performance** - Scalability, latency, resource efficiency
-- **Maintainability** - Code quality, extensibility, technical debt
+- **Maintainability** - Code quality, extensibility, technical debt (Complete mode only)
 - **Security** - Threat modeling, compliance, vulnerabilities
 
-Models are configurable in `config/planning-config.yaml` — update to match your PAL/MCP server.
+Each CLI brings a different analytical lens: Gemini (strategic/broad), Codex (code-level/challenger), OpenCode (UX/product). Tri-CLI synthesis uses unanimous (VERY HIGH), majority (HIGH), and divergent (FLAG) confidence levels.
 
-### PAL Consensus Validation
+CLIs are configurable in `config/planning-config.yaml` `cli_analysis.deep_analysis.clis`. The dispatch script supports any CLI binary.
+
+### CLI Consensus Scoring (Phases 6, 8)
+
+Phases 6 and 8 dispatch CLIs with stance-differentiated scoring prompts (advocate + challenger + product_lens), then average dimensional scores. Replaces PAL Consensus MCP.
 
 **Phase 6 (Plan):** 20 points across 5 dimensions (Problem Understanding, Architecture Quality, Risk Mitigation, Implementation Clarity, Feasibility). See `config/planning-config.yaml` for thresholds and weights.
 
@@ -193,7 +197,7 @@ Phase 9 generates tasks structured as TEST → IMPLEMENT → VERIFY cycles:
 25+ templates in `templates/sequential-thinking-templates.md`, organized into groups:
 - **T1-T3:** Problem Decomposition
 - **T4-T6:** Codebase Analysis
-- **T7-T10 / T7a-T8:** Architecture Design (linear + fork-join)
+- **T7-T10 / T7a-T8b:** Architecture Design (linear + Diagonal Matrix fork-join)
 - **T11-T13:** Risk Assessment
 - **T14-T16:** Plan Validation
 - **T-RISK series:** Test Risk Analysis (including revision and red-team branching)
@@ -204,10 +208,10 @@ For advanced ST patterns (fork-join, revision, red team, TAO loop), see `docs/co
 
 ### MPA (Multi-Perspective Analysis)
 
-Architecture design (Phase 4) uses 3 parallel specialist agents:
-- Minimal Change approach
-- Clean Architecture approach
-- Pragmatic Balance approach
+Architecture design (Phase 4) uses Diagonal Matrix MPA with 3 parallel specialist agents exploring orthogonal perspectives × concerns:
+- Structural Grounding (Inside-Out × Structure)
+- Contract Ideality (Outside-In × Data)
+- Resilience Architecture (Failure-First × Behavior)
 
 Phase 7 QA uses the same MPA pattern with security/performance specialists.
 
@@ -265,6 +269,7 @@ All limits, thresholds, and settings are in `config/planning-config.yaml`.
 | `design.md` | Final architecture design |
 | `plan.md` | Implementation plan |
 | `tasks.md` | Dependency-ordered tasks with TDD structure and test refs |
+| `requirements-anchor.md` | Consolidated requirements: spec + user clarifications (Phase 3) |
 | `research.md` | Codebase analysis findings |
 | `test-plan.md` | V-Model test strategy |
 | `test-cases/unit/` | Unit test specifications |
@@ -289,12 +294,10 @@ Use `$CLAUDE_PLUGIN_ROOT` to reference plugin-relative paths in agents and skill
 
 ## MCP Dependencies
 
-### Core MCP (Optional but recommended)
+### Core MCP (Optional, enhances Complete mode)
 - `mcp__sequential-thinking__sequentialthinking` - Structured reasoning
-- `mcp__pal__thinkdeep` - External model insights
-- `mcp__pal__consensus` - Multi-model validation
-- `mcp__pal__listmodels` - Model availability check
-- `mcp__pal__challenge` - Groupthink detection
+
+> **PAL MCP Removed:** `mcp__pal__thinkdeep`, `mcp__pal__consensus`, `mcp__pal__listmodels`, and `mcp__pal__challenge` have been replaced by CLI dispatch via `dispatch-cli-agent.sh`. Complete/Advanced modes now require CLI availability (Gemini/Codex/OpenCode) instead of PAL MCP.
 
 ### Research MCP (Optional but recommended)
 Used in Phases 2, 4, and 7 for authoritative documentation lookup.

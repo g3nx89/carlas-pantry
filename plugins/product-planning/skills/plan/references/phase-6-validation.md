@@ -8,16 +8,16 @@ prior_summaries:
   - ".phase-summaries/phase-4-summary.md"
   - ".phase-summaries/phase-5-summary.md"
 artifacts_read:
+  - "spec.md"          # requirements context: acceptance criteria, user stories — needed for "Problem Understanding" scoring
   - "plan.md"
   - "design.md"
 artifacts_written:
   - "analysis/validation-report.md"
   - "analysis/cli-planreview-report.md"  # conditional: CLI dispatch enabled
+  - "analysis/cli-consensus-report.md"  # conditional: CLI dispatch enabled
 agents:
   - "product-planning:debate-judge"
 mcp_tools:
-  - "mcp__pal__consensus"
-  - "mcp__pal__challenge"
   - "mcp__sequential-thinking__sequentialthinking"
 feature_flags:
   - "s6_multi_judge_debate"
@@ -49,34 +49,52 @@ When `a6_context_protocol` is enabled (check feature flags):
 2. **CHECK** open questions — if your analysis resolves any, include the resolution in your `key_decisions`.
 3. **CONTRIBUTE** your findings as `key_decisions`, `open_questions`, and `risks_identified` in your phase summary YAML.
 
+## Step 6.0: Load Requirements Context
+
+```
+# Prefer requirements-anchor.md (consolidates spec + user clarifications from Phase 3)
+# Fall back to raw spec.md if anchor not available or empty
+
+IF file_exists({FEATURE_DIR}/requirements-anchor.md) AND not_empty({FEATURE_DIR}/requirements-anchor.md):
+  requirements_file = "{FEATURE_DIR}/requirements-anchor.md"
+  LOG: "Requirements context: using requirements-anchor.md (enriched)"
+ELSE:
+  requirements_file = "{FEATURE_DIR}/spec.md"
+  LOG: "Requirements context: using spec.md (raw)"
+
+# Read requirements content for use in CLI scoring prompts (Step 6.2)
+requirements_content = READ(requirements_file)
+```
+
 ## Step 6.0a: CLI Plan Review
 
-**Purpose:** Pre-validation adversarial review via CLI dual-CLI dispatch before PAL Consensus or Multi-Judge Debate.
+**Purpose:** Pre-validation adversarial review via CLI multi-CLI dispatch before CLI Consensus Scoring or Multi-Judge Debate.
 
-Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
+Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
 | ROLE | `planreviewer` |
 | PHASE_STEP | `6.0a` |
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
-| GEMINI_PROMPT | `Strategic plan review for feature: {FEATURE_NAME}. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Strategic risks, scope assessment, Red Team/Blue Team analysis.` |
-| CODEX_PROMPT | `Technical feasibility review for feature: {FEATURE_NAME}. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Code structure support, dependency compatibility, import path resolution.` |
-| FILE_PATHS | `["{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]` |
+| GEMINI_PROMPT | `Strategic plan review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Strategic risks, scope assessment, Red Team/Blue Team analysis. Cross-check plan against acceptance criteria in spec.md.` |
+| CODEX_PROMPT | `Technical feasibility review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Code structure support, dependency compatibility, import path resolution. Verify plan covers all technical constraints from spec.md.` |
+| OPENCODE_PROMPT | `Product risk review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: User journey gaps, missing user flows, feature completeness from user perspective, UX dead-ends. Validate against user stories in spec.md.` |
+| FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]` |
 | REPORT_FILE | `analysis/cli-planreview-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
 | POST_WRITE | `APPEND CLI review summary to consensus_context for Step 6.1` |
 
-## Step 6.0: Multi-Judge Debate Validation (S6)
+## Step 6.0b: Multi-Judge Debate Validation (S6)
 
 **Complete mode only. Feature flag: `s6_multi_judge_debate`**
 
 Execute multi-round debate validation:
 
 1. **Round 1: Independent Analysis** — 3 judges evaluate independently
-   - Neutral (gemini-3-pro-preview)
-   - Advocate (gpt-5.2)
-   - Challenger (grok-4)
+   - Neutral (internal agent)
+   - Advocate (Gemini CLI)
+   - Challenger (Codex CLI)
 2. **Consensus Check** — If all scores within 0.5, synthesize and proceed
 3. **Round 2: Rebuttal** — Each judge reads others' positions, writes rebuttals, may revise
 4. **Consensus Check** — If converged, synthesize and proceed
@@ -84,105 +102,123 @@ Execute multi-round debate validation:
 
 Reference: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/debate-protocol.md`
 
-If S6 debate produces a verdict, skip Step 6.1 (standard PAL Consensus).
+If S6 debate produces a verdict, skip Step 6.1 (standard CLI Consensus).
 
-## Step 6.1: PAL Consensus (Standard Flow)
+## Step 6.1: CLI Consensus Scoring (Standard Flow)
 
-**When S6 is disabled or unavailable:** Execute PAL Consensus with models array.
-
-IF mode == Complete AND Consensus available:
+**When S6 debate is disabled or unavailable:** Execute consensus scoring via CLI dispatch.
 
 ```
-# Step 1: Initialize consensus workflow with models array
-response = mcp__pal__consensus({
-  step: """
-    PLAN VALIDATION:
+IF mode in {Complete, Advanced} AND state.cli.available:
 
-    Evaluate implementation plan for feature: {FEATURE_NAME}
+  # Dispatch ALL CLIs with stance-differentiated scoring prompts
+  Follow CLI Multi-CLI Dispatch Pattern from $CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md with:
 
-    PLAN SUMMARY:
-    {plan_summary}
+  | Parameter | Value |
+  |-----------|-------|
+  | ROLE | `consensus` |
+  | PHASE_STEP | `6.1` |
+  | MODE_CHECK | `analysis_mode in {complete, advanced}` |
+  | GEMINI_PROMPT | see below (advocate stance + scoring rubric) |
+  | CODEX_PROMPT | see below (challenger stance + scoring rubric) |
+  | OPENCODE_PROMPT | see below (product_lens stance + scoring rubric) |
+  | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]` |
+  | REPORT_FILE | `analysis/cli-consensus-report.md` |
+  | PREFERRED_SINGLE_CLI | `gemini` |
+  | POST_WRITE | none |
 
-    ARCHITECTURE:
-    {selected_architecture}
+  # Requirements content loaded from Step 6.0 (requirements_file → requirements_content)
+
+  GEMINI_PROMPT:
+    "STANCE: ADVOCATE — Highlight strengths, give benefit of doubt on ambiguous items.
+
+    Score this implementation plan for feature: {FEATURE_NAME}
+
+    ORIGINAL REQUIREMENTS:
+    {requirements_content}
+
+    PLAN: {plan_summary}
+    ARCHITECTURE: {selected_architecture}
 
     Score dimensions (max 20 total):
-    1. Problem Understanding (20%) — score 1-4
+    1. Problem Understanding (20%) — score 1-4. Cross-check against the ORIGINAL REQUIREMENTS above.
     2. Architecture Quality (25%) — score 1-5
     3. Risk Mitigation (20%) — score 1-4
     4. Implementation Clarity (20%) — score 1-4
     5. Feasibility (15%) — score 1-3
-  """,
-  step_number: 1,
-  total_steps: 4,
-  next_step_required: true,
-  findings: "Initial plan analysis complete.",
-  models: [
-    {model: "gemini-3-pro-preview", stance: "neutral", stance_prompt: "Evaluate objectively"},
-    {model: "gpt-5.2", stance: "for", stance_prompt: "Advocate for strengths"},
-    {model: "openrouter/x-ai/grok-4", stance: "against", stance_prompt: "Challenge weaknesses"}
-  ],
-  relevant_files: ["{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]
-})
 
-# Continue workflow with continuation_id until complete
-WHILE response.next_step_required:
-  current_step = response.step_number + 1
-  is_final = (current_step >= 4)  # Final step = synthesis
+    Return per-dimension scores with evidence."
 
-  response = mcp__pal__consensus({
-    step: IF is_final THEN "Final synthesis of all perspectives" ELSE "Processing model response",
-    step_number: current_step,
-    total_steps: 4,
-    next_step_required: NOT is_final,
-    findings: "Model evaluation: {summary}",
-    continuation_id: response.continuation_id
-  })
+  CODEX_PROMPT:
+    "STANCE: CHALLENGER — Actively find gaps, risks, and overlooked failure modes. Score conservatively.
+
+    Score this implementation plan for feature: {FEATURE_NAME}
+
+    ORIGINAL REQUIREMENTS:
+    {requirements_content}
+
+    PLAN: {plan_summary}
+    ARCHITECTURE: {selected_architecture}
+
+    Score dimensions (max 20 total):
+    1. Problem Understanding (20%) — score 1-4. Verify plan addresses ALL acceptance criteria from requirements.
+    2. Architecture Quality (25%) — score 1-5
+    3. Risk Mitigation (20%) — score 1-4
+    4. Implementation Clarity (20%) — score 1-4
+    5. Feasibility (15%) — score 1-3
+
+    Return per-dimension scores with evidence."
+
+  OPENCODE_PROMPT:
+    "STANCE: PRODUCT_LENS — Evaluate from user experience and product alignment perspective. Score based on user value delivery, accessibility, and product-market fit.
+
+    Score this implementation plan for feature: {FEATURE_NAME}
+
+    ORIGINAL REQUIREMENTS:
+    {requirements_content}
+
+    PLAN: {plan_summary}
+    ARCHITECTURE: {selected_architecture}
+
+    Score dimensions (max 20 total):
+    1. Problem Understanding (20%) — score 1-4. Validate against user stories from requirements.
+    2. Architecture Quality (25%) — score 1-5
+    3. Risk Mitigation (20%) — score 1-4
+    4. Implementation Clarity (20%) — score 1-4
+    5. Feasibility (15%) — score 1-3
+
+    Return per-dimension scores with evidence."
+
+  # Extract and average scores from all CLI outputs
+  gemini_scores = PARSE dimensional scores from gemini output
+  codex_scores = PARSE dimensional scores from codex output
+  opencode_scores = PARSE dimensional scores from opencode output (if available)
+  final_scores = AVERAGE(all available CLI scores) per dimension
+  total_score = SUM(final_scores)
 ```
 
-## Step 6.1b: Groupthink Detection with Challenge
+## Step 6.1b: Score Divergence Check
 
-**Purpose:** Detect potential groupthink when all models agree too closely.
+**Purpose:** Detect scoring divergence between CLIs and reconcile if needed.
 
 ```
-# Extract scores from each model's response
-scores = [gemini_score, gpt_score, grok_score]
-score_range = max(scores) - min(scores)
+# Check score divergence between CLIs
+score_delta = abs(gemini_total - codex_total)
 
-IF score_range < 0.5:  # All models agree within 0.5 points
-  LOG: "GROUPTHINK WARNING: Score variance < 0.5 ({min_score}-{max_score})"
+IF score_delta < 1.0:  # CLIs agree very closely
+  LOG: "Low divergence ({score_delta}) — scores are consistent"
+  # Accept averaged scores
 
-  # Use PAL Challenge to force critical examination
-  challenge_response = mcp__pal__challenge({
-    prompt: """
-      All models scored this plan similarly ({min_score}-{max_score}/20).
-
-      Is this genuinely well-designed, or are we missing something?
-
-      EXAMINE CRITICALLY:
-      1. Are there hidden risks not surfaced by any model?
-      2. Are there alternative approaches none of the models considered?
-      3. Are the scoring criteria too lenient for this problem domain?
-
-      PLAN SUMMARY:
-      {plan_summary}
-
-      CONSENSUS RESPONSE:
-      {consensus_synthesis}
-    """
-  })
-
-  IF challenge_response.identifies_issues:
-    # Append challenge findings to validation report
-    APPEND to validation_report:
-      "### Groupthink Challenge Results
-       {challenge_response.analysis}"
-
-    # Note for orchestrator: user should review challenge findings
-    FLAG challenge_findings for user review
+ELIF score_delta > 4.0:  # CLIs strongly disagree
+  LOG: "HIGH divergence ({score_delta}) — re-dispatching with challenge prompt"
+  # Re-dispatch the lower-scoring CLI with explicit challenge:
+  # "The other evaluator scored this plan {other_score}/20.
+  #  Your score was {this_score}/20. Review the {score_delta}-point gap.
+  #  Are you being too lenient or too harsh? Revise if justified."
+  # Use updated score for final average
 
 ELSE:
-  LOG: "Score variance acceptable ({score_range}) - no groupthink detected"
+  LOG: "Moderate divergence ({score_delta}) — using averaged scores"
 ```
 
 ## Step 6.2: Score Calculation
@@ -218,7 +254,7 @@ If RED: Set `status: needs-user-input` with `block_reason` explaining what faile
 
 ## Step 6.4: Internal Validation (Fallback)
 
-IF Consensus not available:
+IF CLI dispatch not available:
 
 ```
 mcp__sequential-thinking__sequentialthinking(T14: Completeness Check)

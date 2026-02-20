@@ -53,6 +53,11 @@ case "$CLI_NAME" in
   gemini)
     CLI_CMD="gemini --non-interactive --yolo --output-format json < $PROMPT_FILE"
     ;;
+  opencode)
+    # Instruction text can be overridden via OPENCODE_INSTRUCTION env var
+    OPENCODE_INSTRUCTION="${OPENCODE_INSTRUCTION:-Execute the analysis instructions in the attached file. Return your complete findings in the specified output format.}"
+    CLI_CMD="opencode run --format json -f $PROMPT_FILE '$OPENCODE_INSTRUCTION'"
+    ;;
   *)
     CLI_CMD="$CLI_NAME < $PROMPT_FILE"
     ;;
@@ -118,7 +123,7 @@ SUMMARY_FOUND=false
 
 # Tier 1: jq JSON envelope extraction
 if command -v jq &>/dev/null && [[ -s "$RAW_OUTPUT" ]]; then
-  jq -r '.message // .response // empty' "$RAW_OUTPUT" > "$OUTPUT_FILE" 2>/dev/null
+  jq -r '.message // .response // .output // .result // empty' "$RAW_OUTPUT" > "$OUTPUT_FILE" 2>/dev/null
   if [[ -s "$OUTPUT_FILE" ]] && [[ "$(head -c 1 "$OUTPUT_FILE")" != "{" ]]; then
     PARSE_TIER=1
     PARSE_METHOD="json_jq"
@@ -132,8 +137,8 @@ if [[ "$PARSE_TIER" -eq 0 ]] && command -v python3 &>/dev/null && [[ -s "$RAW_OU
   python3 -c "
 import re, sys
 text = open(sys.argv[1]).read()
-# Try .message first (Codex), then .response (Gemini)
-for field in ['message', 'response']:
+# Try .message (Codex), .response (Gemini), .output/.result (OpenCode)
+for field in ['message', 'response', 'output', 'result']:
     m = re.search(r'\"' + field + r'\"\s*:\s*\"((?:[^\"\\\\]|\\\\.)*)\"', text, re.DOTALL)
     if m:
         val = m.group(1)

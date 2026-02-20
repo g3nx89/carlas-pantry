@@ -9,7 +9,8 @@ prior_summaries:
 artifacts_read:
   - "spec.md"
   - "research.md"
-artifacts_written: []
+artifacts_written:
+  - "requirements-anchor.md"  # consolidated requirements: spec + user clarifications
 agents: []
 mcp_tools:
   - "mcp__sequential-thinking__sequentialthinking"
@@ -148,5 +149,56 @@ Include in phase summary YAML:
 - `specify_score: {score}` (0-10, null if gate disabled)
 - `specify_dimensions: { value, scope, acceptance, constraints, risk }` (null if gate disabled)
 - `flags.low_specify_score: true` (if applicable)
+
+## Step 3.5: Generate Requirements Anchor
+
+**Purpose:** Produce a consolidated, structured requirements document that merges the original spec with user clarifications. This document becomes the single source of truth for requirements context in all downstream phases (5, 6, 6b, 7, 8, 9).
+
+```
+READ {FEATURE_DIR}/spec.md
+
+# Collect user clarifications (from Step 3.3 responses)
+# In coordinator mode: already parsed from phase-3-user-input.md
+# In inline mode: already collected via AskUserQuestion
+
+WRITE {FEATURE_DIR}/requirements-anchor.md with:
+
+  ---
+  generated_by: "phase-3"
+  source_spec: "spec.md"
+  includes_clarifications: true
+  specify_score: {specify_score or null}
+  ---
+
+  # Requirements Anchor — {FEATURE_NAME}
+
+  > Auto-generated from spec.md + Phase 3 user clarifications.
+  > This document is the consolidated requirements reference for all downstream phases.
+
+  ## Feature Summary
+  {2-3 sentence summary of what the feature does and why, from spec.md}
+
+  ## Acceptance Criteria
+  {Numbered list of ALL acceptance criteria from spec.md — preserve original wording}
+  {Add any criteria clarified or added through user Q&A, marked with "(clarified)"}
+
+  ## User Stories
+  {List user stories from spec.md, if present}
+  {If none in spec, synthesize from acceptance criteria: "As a [role], I want [action], so that [benefit]"}
+
+  ## Key Constraints
+  {Technical constraints, dependencies, non-functional requirements from spec.md}
+  {Include user-clarified constraints, marked with "(clarified)"}
+
+  ## User Decisions
+  {Key decisions from Phase 3 Q&A that affect requirements interpretation}
+  {Format: "Q: {question} → A: {answer}"}
+
+  ## Scope Boundaries
+  {What is in scope vs out of scope, from spec.md + clarifications}
+
+BUDGET: Keep under config.requirements_context.anchor_max_tokens (default: 800 tokens)
+If spec is very large, prioritize: acceptance criteria > constraints > user stories > scope
+```
 
 **Checkpoint: CLARIFICATION**

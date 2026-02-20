@@ -1,5 +1,5 @@
 # Planning Configuration
-# Configuration for /product-planning:plan command with ST/PAL integration
+# Configuration for /product-planning:plan command with ST/CLI integration
 
 # =============================================================================
 # FEATURE FLAGS
@@ -74,7 +74,7 @@ feature_flags:
     description: "Multi-round debate for validation"
     rollback: "Set false to use single-round"
     modes: [complete]
-    requires_mcp: true  # Requires PAL Consensus
+    requires_mcp: false  # PAL removed — S6 debate uses CLI dispatch or internal judges
     requires: [s3_judge_gates]  # Debates need judge infrastructure for scoring
 
   # Sequential Thinking Enhancements
@@ -335,49 +335,77 @@ institutional_knowledge:
     continue_without: true
 
 # =============================================================================
+# REQUIREMENTS CONTEXT PROPAGATION
+# =============================================================================
+# Controls how original requirements (spec.md) are propagated across phases
+# to prevent context dilution in multi-phase workflows.
+#
+# Three mechanisms work together (defence in depth):
+# 1. Requirements Digest: compact summary injected into every coordinator dispatch (~300 tokens)
+# 2. Requirements Anchor: consolidated spec + user clarifications written by Phase 3 (~800 tokens)
+# 3. Direct spec.md read: phases that need deep requirement context list spec.md in artifacts_read
+
+requirements_context:
+  # Requirements digest: extracted in Phase 1, injected in every coordinator dispatch prompt
+  digest_max_tokens: 300
+  inject_in_dispatch: true    # Set false to disable digest injection in coordinator prompts
+
+  # Requirements anchor: consolidated document written by Phase 3
+  anchor_max_tokens: 800
+  anchor_file: "requirements-anchor.md"
+
+  # Priority order when anchor content exceeds budget (most important first)
+  anchor_priority:
+    - "acceptance_criteria"
+    - "key_constraints"
+    - "user_stories"
+    - "scope_boundaries"
+    - "user_decisions"
+
+# =============================================================================
 # ANALYSIS MODES
 # =============================================================================
 # Hierarchical modes with graceful degradation when MCP tools unavailable
 
 analysis_modes:
   complete:
-    description: "Full analysis with PAL ThinkDeep + Sequential Thinking + Consensus + Full Test Plan"
+    description: "Full analysis with CLI Deep Analysis + Sequential Thinking + Consensus + Full Test Plan"
     mpa_agents: 6  # code-explorer, software-architect, tech-lead + 3 QA agents (MPA)
-    pal_thinkdeep_total_calls: 9  # 3 perspectives × 3 models
+    cli_deep_analysis_dispatches: 9  # 3 perspectives × 3 CLIs
     sequential_thinking_enabled: true
-    pal_consensus_enabled: true  # Both plan validation AND test coverage validation
+    cli_consensus_enabled: true  # Both plan validation AND test coverage validation
     requires_mcp: true
-    estimated_cost: "$0.80-1.50"  # Includes 9-phase workflow with test planning
+    estimated_cost: "$1.00-1.80"  # Includes 9-phase workflow with test planning
 
   advanced:
-    description: "MPA + ThinkDeep (reduced perspectives) + Test Plan"
+    description: "MPA + CLI Deep Analysis (reduced perspectives) + Test Plan"
     mpa_agents: 5  # code-explorer, software-architect, tech-lead + 2 QA agents
-    pal_thinkdeep_total_calls: 6  # 2 perspectives × 3 models
+    cli_deep_analysis_dispatches: 6  # 2 perspectives × 3 CLIs
     sequential_thinking_enabled: true  # Enabled for ST features: risk, revision, redteam, TAO, checkpoint, task decomposition
-    pal_consensus_enabled: true  # Test coverage validation only
+    cli_consensus_enabled: true  # Test coverage validation only
     requires_mcp: true
-    estimated_cost: "$0.45-0.75"
+    estimated_cost: "$0.55-0.95"
 
   standard:
-    description: "MPA only (no PAL/ST) + Basic Test Plan"
+    description: "MPA only (no CLI deep analysis/ST) + Basic Test Plan"
     mpa_agents: 4  # code-explorer, software-architect, tech-lead + qa-strategist
-    pal_thinkdeep_total_calls: 0
+    cli_deep_analysis_dispatches: 0
     sequential_thinking_enabled: false
-    pal_consensus_enabled: false
+    cli_consensus_enabled: false
     requires_mcp: false
     estimated_cost: "$0.15-0.30"
 
   rapid:
     description: "Single agent fast path + Minimal Test Plan"
     mpa_agents: 2  # software-architect + qa-strategist
-    pal_thinkdeep_total_calls: 0
+    cli_deep_analysis_dispatches: 0
     sequential_thinking_enabled: false
-    pal_consensus_enabled: false
+    cli_consensus_enabled: false
     requires_mcp: false
     estimated_cost: "$0.05-0.12"
 
-# Note on model names: The model identifiers (gpt-5.2, gemini-3-pro-preview, grok-4) are
-# configurable placeholders. Update these to match your available PAL/MCP model configurations.
+# Note on CLI names: The CLI identifiers (gemini, codex) are configurable.
+# Update these to match your available CLI installations.
 
 # =============================================================================
 # MODE AUTO-SUGGESTION
@@ -404,7 +432,7 @@ mode_suggestion:
         OR:
           estimated_files: ">= 15"
       suggest: advanced
-      rationale: "Significant risk or large scope benefits from PAL insights"
+      rationale: "Significant risk or large scope benefits from CLI deep analysis"
 
     - name: "moderate_feature"
       conditions:
@@ -432,11 +460,11 @@ mode_suggestion:
 
 # Graceful degradation rules
 degradation:
-  if_pal_unavailable:
-    complete: standard
+  if_cli_unavailable:
+    complete: standard  # Without CLI dispatch, falls back to standard (internal agents only)
     advanced: standard
   if_st_unavailable:
-    complete: advanced  # Keeps PAL but loses ST
+    complete: advanced  # Keeps CLI analysis but loses ST structured reasoning
     use_internal_reasoning: true
     mark_degraded: true
 
@@ -456,7 +484,7 @@ sequential_thinking:
     test_risk_analysis: [T-RISK-1, T-RISK-2, T-RISK-3]
 
     # NEW: Fork-Join architecture exploration (st_fork_join_architecture)
-    architecture_fork_join: [T7a, T7b, T7c, T7d, T8]
+    architecture_fork_join: [T7a, T7b, T7c, T7d, T8a, T8b]
 
     # NEW: Revision for reconciliation (st_revision_reconciliation)
     test_risk_revision: [T-RISK-REVISION]
@@ -482,10 +510,10 @@ sequential_thinking:
     research: [codebase_analysis, agent_analysis, checkpoint]  # TAO + checkpoint for long explorations
     clarification: [problem_decomposition]
     architecture: [architecture_design, architecture_fork_join, risk_assessment, agent_analysis, checkpoint]  # Fork-Join, TAO, checkpoint
-    thinkdeep: null  # PAL ThinkDeep handles this
+    thinkdeep: null  # CLI deep analysis handles this
     validation: [plan_validation]
     test_strategy: [test_risk_analysis, test_risk_revision, test_risk_redteam, agent_analysis, checkpoint]  # Revision, Red Team, TAO, checkpoint
-    test_coverage_validation: null  # PAL Consensus handles this
+    test_coverage_validation: null  # CLI consensus scoring handles this
     completion: [task_decomposition]  # Task breakdown uses structured decomposition
 
   # Feature flag to template group mapping
@@ -502,18 +530,18 @@ sequential_thinking:
   checkpoint_after_group: true
 
 # =============================================================================
-# PAL THINKDEEP
+# CLI DEEP ANALYSIS (replaces PAL ThinkDeep)
 # =============================================================================
 
-pal:
-  thinkdeep:
-    # Models to use (in order of preference)
-    # NOTE: These are configurable placeholders. Update to match your PAL MCP server's
-    # available models. Common alternatives: claude-3-opus, gpt-4-turbo, gemini-pro
-    models:
-      - gpt-5.2
-      - gemini-3-pro-preview
-      - openrouter/x-ai/grok-4  # For diversity
+cli_analysis:
+  deep_analysis:
+    # CLIs to use (maps to dispatch-cli-agent.sh --cli parameter)
+    # NOTE: These are the CLI binaries dispatched via Bash process-group dispatch.
+    # Add new entries when additional CLIs become available (script supports any CLI).
+    clis:
+      - gemini    # Broad exploration, large context window
+      - codex     # Code-level precision, import chain analysis
+      - opencode  # UX/Product lens, accessibility, user flow analysis
 
     # Architecture-focused perspectives
     perspectives:
@@ -531,7 +559,7 @@ pal:
           3. Resource efficiency (memory, CPU, I/O patterns)
           4. Caching strategies and data locality
           5. Async patterns and parallelization opportunities
-        run_on_all_models: true
+        dispatch_to_all_clis: true
 
       maintainability:
         focus: code_quality, extensibility, technical_debt, modularity
@@ -547,7 +575,7 @@ pal:
           3. Technical debt introduced vs. avoided
           4. Testing strategy and testability
           5. Code patterns that aid or hinder maintainability
-        run_on_all_models: true
+        dispatch_to_all_clis: true
 
       security:
         focus: threat_modeling, compliance, vulnerabilities, data_protection
@@ -563,18 +591,18 @@ pal:
           3. Data protection (at rest, in transit)
           4. Input validation and injection prevention
           5. Compliance considerations (GDPR, SOC2, etc.)
-        run_on_all_models: true
+        dispatch_to_all_clis: true
 
     # Mode variations
     mode_matrix:
       complete:
         perspectives: [performance, maintainability, security]
-        models_per_perspective: 3
-        total_calls: 9
+        clis_per_perspective: 3
+        total_dispatches: 9
       advanced:
         perspectives: [performance, security]  # Skip maintainability
-        models_per_perspective: 3
-        total_calls: 6
+        clis_per_perspective: 3
+        total_dispatches: 6
 
     # Problem context template
     problem_context_template: |
@@ -596,23 +624,28 @@ pal:
       priority_from_convergence: true  # Agreement = higher priority
 
   # =============================================================================
-  # PAL CONSENSUS
+  # CLI CONSENSUS SCORING (replaces PAL Consensus)
   # =============================================================================
 
   consensus:
-    min_models: 2  # Minimum for valid consensus
+    min_clis: 1  # Minimum for valid consensus (1 CLI with self-challenge suffices)
 
-    # Models with stances
-    models:
-      - model: gemini-3-pro-preview
-        stance: neutral
-        stance_prompt: "Evaluate objectively"
-      - model: gpt-5.2
-        stance: for
-        stance_prompt: "Advocate for this plan's strengths"
-      - model: openrouter/x-ai/grok-4
-        stance: against
-        stance_prompt: "Challenge this plan. Find weaknesses and risks."
+    # CLI stance assignments
+    cli_stances:
+      gemini:
+        stance: advocate
+        stance_prompt: "Highlight strengths, give benefit of doubt on ambiguous items"
+      codex:
+        stance: challenger
+        stance_prompt: "Actively find gaps, risks, and overlooked failure modes. Score conservatively."
+      opencode:
+        stance: product_lens
+        stance_prompt: "Evaluate from user experience and product alignment perspective. Score based on user value delivery, accessibility, and product-market fit."
+
+    # Score divergence thresholds
+    divergence:
+      low: 1.0       # < 1.0: accept averaged scores
+      high: 4.0       # > 4.0: re-dispatch with challenge prompt
 
     # Scoring dimensions (20 points total, 4 per dimension)
     dimensions:
@@ -945,7 +978,7 @@ test_planning:
 
   # Coverage validation settings
   coverage:
-    # PAL Consensus for test coverage validation
+    # CLI Consensus for test coverage validation
     consensus:
       dimensions:
         ac_coverage:
@@ -1192,7 +1225,7 @@ blessed_profiles:
     use_case: "Normal features, moderate complexity, established patterns"
 
   advanced_default:
-    description: "Important features requiring PAL insights"
+    description: "Important features requiring CLI deep analysis"
     mode: advanced
     flags:
       # All universal flags: true
@@ -1502,7 +1535,8 @@ research_mcp:
 # CLI INTEGRATION
 # =============================================================================
 # Configuration for CLI dispatch (Bash process-group dispatch) with custom roles
-# Replaces PAL clink MCP dispatch. See skills/plan/references/cli-dispatch-pattern.md
+# CLI dispatch infrastructure. See skills/plan/references/cli-dispatch-pattern.md
+# Replaces both PAL clink MCP dispatch and PAL ThinkDeep/Consensus MCP tools.
 
 cli_integration:
   # Dispatch script configuration
@@ -1519,7 +1553,7 @@ cli_integration:
   auto_setup:
     source_dir: "$CLAUDE_PLUGIN_ROOT/templates/cli-roles/"
     target_dir: "PROJECT_ROOT/conf/cli_clients/"
-    version_marker: "cli_role_version: 1.0.0"
+    version_marker: "cli_role_version: 1.1.0"
 
   # Available CLIs and their capabilities
   clis:
@@ -1535,13 +1569,20 @@ cli_integration:
       auto_approval_flag: "--dangerously-bypass-approvals-and-sandbox"
       best_for: "Import chains, coupling analysis, code-level security, file path verification"
 
-  # Dual-CLI MPA pattern
-  dual_cli:
+    opencode:
+      context_size: "200K tokens"
+      capabilities: [ux_analysis, accessibility_audit, user_flow_tracing, product_alignment]
+      auto_approval_flag: ""  # Non-interactive mode auto-rejects permissions
+      best_for: "User experience assessment, accessibility analysis, product alignment, user flow validation"
+
+  # Multi-CLI MPA pattern
+  multi_cli:
     enabled: true
-    synthesis_strategy: "convergent_divergent_unique"
-    # Convergent (both agree) -> HIGH confidence
-    # Divergent (disagree) -> FLAG for user decision
-    # Unique (one only) -> VERIFY against existing findings
+    synthesis_strategy: "unanimous_majority_divergent_unique"
+    # Unanimous (3 agree)  -> VERY HIGH confidence
+    # Majority (2 agree)   -> HIGH confidence
+    # All disagree         -> FLAG for user decision
+    # Unique (1 only)      -> VERIFY against existing findings
 
   # Self-critique configuration
   self_critique:
@@ -1552,35 +1593,47 @@ cli_integration:
       max: 5
     rationale: "Runs in separate context to avoid coordinator pollution"
 
-  # Custom roles (5 roles x 2 CLIs = 10 prompt files)
+  # Custom roles (6 roles x 2 CLIs = 12 prompt files)
   roles:
     deepthinker:
       gemini_focus: "Broad architecture exploration, tech stack, pattern conflicts"
       codex_focus: "Import chain analysis, coupling assessment, complexity hotspots"
+      opencode_focus: "User flow impact analysis, accessibility implications, UX patterns, design system alignment"
       phases: [5]
+      modes: [complete, advanced]
+
+    consensus:
+      gemini_focus: "Strategic plan/coverage assessment, broad codebase exploration"
+      codex_focus: "Code-level feasibility verification, dependency checking, file:line evidence"
+      opencode_focus: "Product alignment scoring, user story coverage, UX quality, feature completeness"
+      phases: [6, 8]
       modes: [complete, advanced]
 
     planreviewer:
       gemini_focus: "Strategic risks, scope assessment, Red Team/Blue Team"
       codex_focus: "Technical feasibility, code structure support, dependency compatibility"
+      opencode_focus: "Product risk assessment, user journey gaps, feature completeness from user perspective"
       phases: [6]
       modes: [complete, advanced]
 
     teststrategist:
       gemini_focus: "Test infra discovery, framework patterns, coverage gaps, ThinkDeep reconciliation"
       codex_focus: "Test code patterns, assertion quality, mock patterns, test isolation"
+      opencode_focus: "UAT quality assessment, user acceptance scenarios, accessibility testing, exploratory testing"
       phases: [7]
       modes: [complete]
 
     securityauditor:
       gemini_focus: "Supply chain security, architectural attack surface, compliance"
       codex_focus: "OWASP code-level vulnerabilities, injection points, hardcoded secrets"
+      opencode_focus: "User data privacy, consent flows, PII handling, security UX (error messages, auth flows)"
       phases: [6b]
       modes: [complete, advanced]
 
     taskauditor:
       gemini_focus: "Requirements mapping, missing infrastructure, scope coverage"
       codex_focus: "File path verification, dependency ordering, code structure alignment"
+      opencode_focus: "User story coverage, definition of done alignment, UX task completeness, missing user-facing tasks"
       phases: [9]
       modes: [complete, advanced]
 
@@ -1594,25 +1647,31 @@ cli_integration:
     default_seconds: 120
     per_role:
       deepthinker: 180   # Broad exploration needs more time
+      consensus: 120     # Dimensional scoring with stance
       planreviewer: 120
       teststrategist: 150
       securityauditor: 150
       taskauditor: 120
+    per_cli:
+      gemini: 120        # Fast with large context
+      codex: 90          # Fastest for code-level analysis
+      opencode: 150      # UX analysis may need more time
 
-  # Latency estimates (per-role, includes both CLIs + synthesis + self-critique)
+  # Latency estimates (per-role, includes all CLIs + synthesis + self-critique)
   latency:
-    deepthinker: "60-90s"
-    planreviewer: "45-75s"
-    teststrategist: "60-90s"
-    securityauditor: "60-90s"
-    taskauditor: "45-60s"
-    total_cumulative: "~5-7 min for all roles"
+    deepthinker: "75-120s"
+    planreviewer: "60-90s"
+    teststrategist: "75-120s"
+    securityauditor: "75-120s"
+    taskauditor: "60-90s"
+    total_cumulative: "~6-9 min for all roles"
 
   # Fallback behavior
   fallback:
     if_cli_unavailable: "skip_cli_steps"
-    if_one_cli_missing: "single_cli_mode"
-    if_both_missing: "skip_cli_steps"
+    if_one_cli_missing: "reduced_cli_mode"
+    if_two_cli_missing: "single_cli_mode"
+    if_all_missing: "skip_cli_steps"
     log_fallback: true
 
 # =============================================================================

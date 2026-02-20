@@ -380,7 +380,7 @@ IF feature_flags.s6_multi_judge_debate.enabled AND analysis_mode == complete:
 
 ```yaml
 IF NOT feature_flags.s6_multi_judge_debate.enabled OR analysis_mode != complete:
-  USE single-round PAL Consensus (current behavior)
+  USE single-round CLI Consensus Scoring (current behavior)
 ```
 
 ## Cost Analysis

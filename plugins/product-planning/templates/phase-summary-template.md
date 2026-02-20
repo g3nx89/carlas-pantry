@@ -128,7 +128,7 @@ timestamp: "2026-02-06T14:30:00Z"
 analysis_mode: "complete"
 decisions:
   - key: "selected_architecture"
-    value: "clean_architecture_option_2"
+    value: "ideality_perspective"
     immutable: true
 gate:
   name: "Architecture Quality"
@@ -136,19 +136,19 @@ gate:
   verdict: "GREEN"
   retries: 0
 artifacts_written:
-  - path: "design.minimal.md"
-    description: "Minimal change architecture design"
-  - path: "design.clean.md"
-    description: "Clean architecture design"
-  - path: "design.pragmatic.md"
-    description: "Pragmatic balance design"
+  - path: "design.grounding.md"
+    description: "Structural Grounding perspective (Inside-Out × Structure)"
+  - path: "design.ideality.md"
+    description: "Contract Ideality perspective (Outside-In × Data)"
+  - path: "design.resilience.md"
+    description: "Resilience Architecture perspective (Failure-First × Behavior)"
   - path: "design.md"
-    description: "Final selected architecture (clean)"
+    description: "Final composed architecture design"
 summary: |
-  Generated 3 MPA architecture options. Clean Architecture selected by user.
+  Generated 3 Diagonal Matrix architecture perspectives. Contract Ideality composed as anchor.
   Key integration point: shared auth service (existing).
   Risk: payment provider SDK lacks TypeScript types - needs adapter.
-  Fork-Join ST explored 3 branches; pragmatic branch nearly tied.
+  Diagonal Matrix ST explored 3 perspectives; low tension across matrix cells.
 flags:
   requires_user_input: false
   block_reason: null
@@ -157,7 +157,7 @@ flags:
 ---
 
 ## Key Findings
-- Clean Architecture option selected (Option 2) - scored highest on extensibility
+- Contract Ideality perspective composed as anchor - scored highest on extensibility
 - Shared authentication service exists at src/services/auth.ts
 - Payment SDK integration needs TypeScript adapter layer
 

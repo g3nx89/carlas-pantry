@@ -7,6 +7,7 @@ modes: [complete, advanced]
 prior_summaries:
   - ".phase-summaries/phase-6-summary.md"
 artifacts_read:
+  - "spec.md"          # requirements context: data types, compliance requirements, user-facing operations
   - "design.md"
   - "plan.md"
 artifacts_written:
@@ -97,6 +98,15 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
 Launch both agents in parallel:
 
 ```
+# Prefer requirements-anchor.md (consolidates spec + user clarifications from Phase 3)
+# Fall back to raw spec.md if anchor not available or empty
+IF file_exists({FEATURE_DIR}/requirements-anchor.md) AND not_empty({FEATURE_DIR}/requirements-anchor.md):
+  requirements_file = "{FEATURE_DIR}/requirements-anchor.md"
+  LOG: "Requirements context: using requirements-anchor.md (enriched)"
+ELSE:
+  requirements_file = "{FEATURE_DIR}/spec.md"
+  LOG: "Requirements context: using spec.md (raw)"
+
 # Security Review (blocking on CRITICAL/HIGH)
 Task(
   subagent_type: "product-planning:security-analyst",
@@ -104,10 +114,14 @@ Task(
     Review architecture for security vulnerabilities.
 
     Artifacts:
+    - {requirements_file}  (requirements: data types processed, compliance needs, user-facing operations)
     - {FEATURE_DIR}/design.md
     - {FEATURE_DIR}/plan.md
 
     Apply STRIDE methodology.
+    Use requirements to identify: what data is processed (PII, financial, health),
+    what compliance requirements exist (GDPR, HIPAA, SOC2), and what user-facing
+    operations need protection (auth, payments, data export).
     Flag CRITICAL/HIGH findings as blocking.
   """,
   description: "Security review"
@@ -120,9 +134,13 @@ Task(
     Review plan for unnecessary complexity.
 
     Artifacts:
+    - {requirements_file}  (requirements: acceptance criteria, scope boundaries)
     - {FEATURE_DIR}/design.md
     - {FEATURE_DIR}/plan.md
 
+    Use requirements to assess whether architectural complexity is justified
+    by actual acceptance criteria. Flag components that exceed what the
+    requirements demand.
     Identify over-engineering opportunities.
     All findings are advisory.
   """,
@@ -132,18 +150,19 @@ Task(
 
 ## Step 6b.1b: CLI Security Audit (Supplement)
 
-**Purpose:** Supplement standard security review with CLI dual-CLI security analysis. Standard agents STILL run in parallel — CLI dispatch adds breadth.
+**Purpose:** Supplement standard security review with CLI multi-CLI security analysis. Standard agents STILL run in parallel — CLI dispatch adds breadth.
 
-Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
+Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
 | ROLE | `securityauditor` |
 | PHASE_STEP | `6b.1b` |
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
-| GEMINI_PROMPT | `Architectural security and supply chain review for feature: {FEATURE_NAME}. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Supply chain security, trust boundaries, compliance patterns.` |
-| CODEX_PROMPT | `OWASP code-level security audit for feature: {FEATURE_NAME}. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Injection points, hardcoded secrets, auth implementation flaws.` |
-| FILE_PATHS | `["{FEATURE_DIR}/design.md", "{FEATURE_DIR}/plan.md"]` |
+| GEMINI_PROMPT | `Architectural security and supply chain review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Supply chain security, trust boundaries, compliance patterns. Cross-check against compliance requirements in spec.md.` |
+| CODEX_PROMPT | `OWASP code-level security audit for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Injection points, hardcoded secrets, auth implementation flaws. Check data types from spec.md for sensitive data handling.` |
+| OPENCODE_PROMPT | `Privacy and security UX review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Consent flows, PII handling, auth flow usability, error message information leakage, data rights (access/deletion). Validate against user stories in spec.md.` |
+| FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/design.md", "{FEATURE_DIR}/plan.md"]` |
 | REPORT_FILE | `analysis/cli-security-report.md` |
 | PREFERRED_SINGLE_CLI | `codex` |
 | POST_WRITE | `Merge CLI security findings with standard agent findings in Step 6b.2` |

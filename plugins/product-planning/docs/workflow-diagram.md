@@ -82,15 +82,15 @@ flowchart TB
         direction TB
         P4_0a["Dev-Skills Loader (4.0a)<br/>api-patterns, database, c4,<br/>mermaid, frontend"]
         P4_1["Architecture Pattern Research<br/>Research MCP"]
-        P4_2["Launch 3 Architects (MPA)<br/>Minimal / Clean / Pragmatic"]
+        P4_2["Launch 3 Architects (MPA)<br/>Grounding / Ideality / Resilience"]
         P4_2w["Wildcard Architect (S5/ToT)<br/>Unconstrained exploration"]
         P4_3["TAO Loop Analysis"]
-        P4_4["Fork-Join ST T7a-T8<br/>Branch exploration"]
+        P4_4["Diagonal Matrix ST T7a-T8b<br/>Branch exploration"]
         P4_4p["Architecture Pruning Judge<br/>Ranked-choice voting"]
         P4_5["Risk Assessment T11-T13"]
         P4_6["Present Options<br/>Comparison Table"]
         P4_7["Record Architecture Decision"]
-        P4_8["Adaptive Strategy (S4)<br/>Select/Synthesize/Redesign"]
+        P4_8["Adaptive Strategy (S4)<br/>Direct/Negotiated/Reframe"]
         P4_G{"Gate 2:<br/>Architecture Quality"}
 
         P4_0a --> P4_2
@@ -99,17 +99,16 @@ flowchart TB
         P4_4 --> P4_4p --> P4_5 --> P4_6 --> P4_7 --> P4_8 --> P4_G
     end
 
-    %% Phase 5: PAL ThinkDeep
-    subgraph P5[" Phase 5: PAL ThinkDeep Analysis "]
+    %% Phase 5: Multi-CLI Deep Analysis
+    subgraph P5[" Phase 5: Multi-CLI Deep Analysis "]
         direction TB
-        P5_1["Check Model Availability<br/>PAL ListModels"]
+        P5_1["Check CLI Availability<br/>state.cli.capabilities"]
         P5_2["Prepare Context<br/>Selected Architecture"]
-        P5_3["ThinkDeep Matrix<br/>3 perspectives x 3 models"]
+        P5_3["CLI Deep Analysis<br/>3 perspectives x 2 CLIs"]
         P5_4["Synthesize Insights<br/>Convergent vs Divergent"]
         P5_5["Present Findings"]
-        P5_6["CLI Deepthinker<br/>Gemini + Codex parallel"]
 
-        P5_1 --> P5_2 --> P5_3 --> P5_4 --> P5_5 --> P5_6
+        P5_1 --> P5_2 --> P5_3 --> P5_4 --> P5_5
     end
 
     %% Phase 6: Plan Validation
@@ -117,8 +116,8 @@ flowchart TB
         direction TB
         P6_0a["CLI Plan Review (6.0a)<br/>planreviewer: strategic + feasibility"]
         P6_0["Multi-Judge Debate (S6)<br/>3 rounds: analysis/rebuttal/final"]
-        P6_1["PAL Consensus<br/>3 models: neutral/advocate/challenger"]
-        P6_2["Groupthink Detection<br/>PAL Challenge if variance < 0.5"]
+        P6_1["CLI Consensus Scoring<br/>advocate + challenger stances"]
+        P6_2["Score Divergence Check<br/>delta thresholds: low/moderate/high"]
         P6_3["Score Calculation<br/>20 points across 5 dimensions"]
         P6_V{"Validation<br/>Score?"}
         P6_G["GREEN: Proceed"]
@@ -174,7 +173,7 @@ flowchart TB
     subgraph P8[" Phase 8: Test Coverage Validation "]
         direction TB
         P8_1["Prepare Coverage Matrix<br/>AC + Risks + Stories"]
-        P8_2["PAL Consensus<br/>100% across 5 dimensions"]
+        P8_2["CLI Consensus Scoring<br/>100% across 5 dimensions"]
         P8_V{"Coverage<br/>Score?"}
         P8_G["GREEN: Proceed"]
         P8_Y["YELLOW: Document Gaps"]
@@ -257,27 +256,27 @@ flowchart TB
 flowchart LR
     subgraph COMPLETE["Complete Mode<br/>Base: $0.80-$1.50 | With CLI: $1.10-$2.00"]
         C1["MPA: All Agents"]
-        C2["ThinkDeep: 9 calls"]
-        C3["PAL Consensus"]
+        C2["CLI Deep Analysis: 6 dispatches"]
+        C3["CLI Consensus Scoring"]
         C4["Fork-Join ST"]
         C5["Red Team Branch"]
         C6["Full Test Plan"]
         C7["Expert Review (A4)"]
         C8["Flow Analysis (A1)"]
         C9["Multi-Judge Debate (S6)"]
-        C10["CLI: 5 roles"]
+        C10["CLI: 6 roles"]
         C11["Dev-Skills Loading"]
     end
 
     subgraph ADVANCED["Advanced Mode<br/>Base: $0.45-$0.75 | With CLI: $0.55-$0.90"]
         A1["MPA: All Agents"]
-        A2["ThinkDeep: 6 calls"]
-        A3["PAL Consensus"]
+        A2["CLI Deep Analysis: 4 dispatches"]
+        A3["CLI Consensus Scoring"]
         A4["Linear ST"]
         A5["Red Team Branch"]
         A6["Test Plan"]
         A7["Expert Review (A4)"]
-        A8["CLI: 5 roles"]
+        A8["CLI: 6 roles"]
         A9["Dev-Skills Loading"]
     end
 
@@ -379,9 +378,9 @@ flowchart TB
 
     subgraph P4_MPA["Phase 4 MPA"]
         direction LR
-        AR1["Architect 1<br/>Minimal Change"]
-        AR2["Architect 2<br/>Clean Architecture"]
-        AR3["Architect 3<br/>Pragmatic Balance"]
+        AR1["Architect 1<br/>Structural Grounding<br/>(Inside-Out × Structure)"]
+        AR2["Architect 2<br/>Contract Ideality<br/>(Outside-In × Data)"]
+        AR3["Architect 3<br/>Resilience Architecture<br/>(Failure-First × Behavior)"]
     end
 
     subgraph P7_MPA["Phase 7 MPA"]
@@ -414,7 +413,7 @@ flowchart TB
     style TAO fill:#50E3C2,stroke:#3BB09A,color:#333
 ```
 
-## CLI Dual-CLI Dispatch Pattern
+## CLI Multi-CLI Dispatch Pattern
 
 ```mermaid
 flowchart TB
@@ -423,15 +422,17 @@ flowchart TB
 
     subgraph CHECK["Availability Check"]
         CK1{"CLI<br/>Enabled?"}
-        CK2{"Both CLIs<br/>Installed?"}
-        CK3["Dual-CLI Mode"]
-        CK4["Single-CLI Degraded"]
+        CK2{"How Many CLIs<br/>Installed?"}
+        CK3["Tri-CLI Mode"]
+        CK4["Reduced-CLI Mode<br/>(2 of 3)"]
+        CK4b["Single-CLI Degraded"]
         CK5["Skip CLI"]
 
         CK1 -->|Yes| CK2
         CK1 -->|No| CK5
-        CK2 -->|Both| CK3
-        CK2 -->|One| CK4
+        CK2 -->|All 3| CK3
+        CK2 -->|2 of 3| CK4
+        CK2 -->|1 of 3| CK4b
         CK2 -->|None| CK5
     end
 
@@ -439,11 +440,13 @@ flowchart TB
         direction LR
         G["Gemini CLI<br/>1M context window<br/>Broad exploration"]
         C["Codex CLI<br/>Code-level precision<br/>Implementation focus"]
+        O["OpenCode CLI<br/>UX/Product lens<br/>Accessibility & flows"]
     end
 
     subgraph SYNTH["Step 2: Synthesis"]
-        SY1["Convergent: HIGH confidence<br/>Both CLIs agree"]
-        SY2["Divergent: FLAG for decision<br/>CLIs disagree"]
+        SY0["Unanimous: VERY HIGH confidence<br/>All 3 CLIs agree"]
+        SY1["Majority: HIGH confidence<br/>2 of 3 CLIs agree"]
+        SY2["Divergent: FLAG for decision<br/>All CLIs disagree"]
         SY3["Unique: VERIFY first<br/>One CLI only"]
     end
 
@@ -467,9 +470,10 @@ flowchart TB
 
     CK3 --> DISPATCH
     CK4 --> DISPATCH
+    CK4b --> DISPATCH
     DISPATCH --> SYNTH --> CRITIQUE --> REPORT
 
-    class G,C,R1,R2,R3,R4,R5 cli
+    class G,C,O,R1,R2,R3,R4,R5 cli
     class SYNTH synthesis
 ```
 
@@ -526,16 +530,17 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    subgraph FORKJOIN["Fork-Join Pattern<br/>Phase 4: Architecture"]
+    subgraph FORKJOIN["Diagonal Matrix Fork-Join<br/>Phase 4: Architecture"]
         direction TB
         F1["T7a_FRAME<br/>Decision Point"]
-        F2["T7b_MINIMAL<br/>branchId: minimal"]
-        F3["T7c_CLEAN<br/>branchId: clean"]
-        F4["T7d_PRAGMATIC<br/>branchId: pragmatic"]
-        F5["T8_SYNTHESIS<br/>Join Branches"]
+        F2["T7b_GROUNDING<br/>branchId: grounding"]
+        F3["T7c_IDEALITY<br/>branchId: ideality"]
+        F4["T7d_RESILIENCE<br/>branchId: resilience"]
+        F5a["T8a_RECONCILE<br/>Tension Map"]
+        F5b["T8b_COMPOSE<br/>Merge & Resolve"]
 
         F1 --> F2 & F3 & F4
-        F2 & F3 & F4 --> F5
+        F2 & F3 & F4 --> F5a --> F5b
     end
 
     subgraph REDTEAM["Red Team Pattern<br/>Phase 7: Security"]
@@ -651,9 +656,9 @@ flowchart LR
     end
 
     subgraph P4_OUT["Phase 4"]
-        O4A["design.minimal.md"]
-        O4B["design.clean.md"]
-        O4C["design.pragmatic.md"]
+        O4A["design.grounding.md"]
+        O4B["design.ideality.md"]
+        O4C["design.resilience.md"]
         O4D["design.md"]
         O4s["skill-context.md<br/>(conditional)"]
     end
@@ -826,12 +831,12 @@ flowchart TD
 | Color | Meaning |
 |-------|---------|
 | Blue | Core workflow phases and steps |
-| Purple | MCP-dependent features (PAL, ST, Research) |
+| Purple | MCP-dependent features (ST, Research) |
 | Green | Outputs and success paths |
 | Orange | Decision points, warnings, and dev-skills integration |
 | Red | Quality gates, failure paths, and escalation triggers |
 | Teal | Sub-phases and synthesis |
-| Pink | CLI Dual-CLI integration |
+| Pink | CLI Multi-CLI integration |
 | Violet | Deep reasoning escalation dispatch |
 
 ## Usage

@@ -53,7 +53,7 @@ Before taking any action, think through the problem systematically using these e
 ```
 IF mcp__sequential-thinking__sequentialthinking IS AVAILABLE:
   IF mode IN {Complete, Advanced}:
-    → MUST invoke Fork-Join pattern (T7a-T8)
+    → MUST invoke Diagonal Matrix Fork-Join pattern (T7a-T8b)
     → MUST invoke Risk Assessment (T11-T13) after synthesis
     → MUST invoke Checkpoint every 5 thoughts
   ELSE:
@@ -62,79 +62,90 @@ ELSE:
   → Use markdown-structured reasoning (fallback)
 ```
 
-### Fork-Join Pattern for Architecture (Complete Mode)
+### Diagonal Matrix Fork-Join Pattern for Architecture (Complete Mode)
 
-YOU MUST use Fork-Join when exploring multiple architecture options. This pattern:
-- Prevents premature convergence on first idea
-- Creates auditable branch exploration
-- Forces explicit synthesis and rationale
+YOU MUST use Diagonal Matrix Fork-Join when exploring architecture. This pattern:
+- Crosses two orthogonal dimensions (Perspectives × Concerns) for comprehensive coverage
+- Each branch covers unique territory (1 primary + 2 secondary concern cells)
+- Two-pass join uses 100% of agent output (composition, not selection)
 
 **Step 1: Frame the decision** (T7a_FRAME)
 ```javascript
 mcp__sequential-thinking__sequentialthinking({
-  thought: "Step 1/8: FRAME the architecture decision. PROBLEM: {feature_summary}. CONSTRAINTS: {patterns_found}. SUCCESS CRITERIA: {quality_dimensions}. BRANCHING into 3 exploration paths: minimal, clean, pragmatic.",
+  thought: "Step 1/9: FRAME the architecture decision. PROBLEM: {feature_summary}. CONSTRAINTS: {patterns_found}. SUCCESS CRITERIA: {quality_dimensions}. DIAGONAL MATRIX: Perspectives (Inside-Out, Outside-In, Failure-First) × Concerns (Structure, Data, Behavior). BRANCHING into 3 diagonal paths: grounding, ideality, resilience.",
   thoughtNumber: 1,
-  totalThoughts: 8,
+  totalThoughts: 9,
   nextThoughtNeeded: true,
-  hypothesis: "Three distinct approaches exist; exploration will reveal trade-offs",
+  hypothesis: "Three diagonal perspectives will surface complementary insights across all 9 cells",
   confidence: "medium"
 })
 ```
 
-**Step 2-4: Branch into perspectives** (T7b, T7c, T7d)
+**Step 2-4: Branch into diagonal perspectives** (T7b, T7c, T7d)
 ```javascript
-// Minimal branch
+// Structural Grounding branch (Inside-Out × Structure)
 mcp__sequential-thinking__sequentialthinking({
-  thought: "BRANCH: Minimal Change. APPROACH: Smallest footprint modification. COMPONENTS: [files to modify]. PROS: Low risk, fast. CONS: May accumulate tech debt. PROBABILITY: 0.85.",
+  thought: "BRANCH: Structural Grounding (Inside-Out × Structure). PRIMARY: Structural integrity from existing internals. SECONDARY (Data): How data shapes flow through structure. SECONDARY (Behavior): Behavioral patterns from structural choices. COMPONENTS: [files to modify/extend]. PROBABILITY: 0.85.",
   thoughtNumber: 2,
-  totalThoughts: 8,
+  totalThoughts: 9,
   nextThoughtNeeded: true,
   branchFromThought: 1,
-  branchId: "minimal",
-  hypothesis: "Minimal approach viable if {conditions}",
+  branchId: "grounding",
+  hypothesis: "Inside-Out perspective reveals structural leverage points at {locations}",
   confidence: "high"
 })
 
-// Clean branch
+// Contract Ideality branch (Outside-In × Data)
 mcp__sequential-thinking__sequentialthinking({
-  thought: "BRANCH: Clean Architecture. APPROACH: Separation of concerns, DI. COMPONENTS: [new abstractions]. PROS: Maintainability. CONS: Higher upfront cost. PROBABILITY: 0.70.",
+  thought: "BRANCH: Contract Ideality (Outside-In × Data). PRIMARY: Ideal data contracts from consumer perspective. SECONDARY (Structure): Structural implications of contracts. SECONDARY (Behavior): Behavioral guarantees contracts enforce. COMPONENTS: [new contracts/interfaces]. PROBABILITY: 0.70.",
   thoughtNumber: 3,
-  totalThoughts: 8,
+  totalThoughts: 9,
   nextThoughtNeeded: true,
   branchFromThought: 1,
-  branchId: "clean",
-  hypothesis: "Clean approach requires {scope} refactoring",
+  branchId: "ideality",
+  hypothesis: "Outside-In perspective defines contract boundaries at {interfaces}",
   confidence: "high"
 })
 
-// Pragmatic branch
+// Resilience Architecture branch (Failure-First × Behavior)
 mcp__sequential-thinking__sequentialthinking({
-  thought: "BRANCH: Pragmatic Balance. APPROACH: Trade-off between clean and speed. COMPONENTS: [selective improvements]. PROBABILITY: 0.80.",
+  thought: "BRANCH: Resilience Architecture (Failure-First × Behavior). PRIMARY: Behavioral robustness from failure scenarios. SECONDARY (Structure): Failure isolation patterns. SECONDARY (Data): Data integrity under failure. COMPONENTS: [error handlers, circuit breakers]. PROBABILITY: 0.75.",
   thoughtNumber: 4,
-  totalThoughts: 8,
+  totalThoughts: 9,
   nextThoughtNeeded: true,
   branchFromThought: 1,
-  branchId: "pragmatic",
-  hypothesis: "Pragmatic approach balances at {trade-off points}",
+  branchId: "resilience",
+  hypothesis: "Failure-First perspective identifies {N} critical failure modes",
   confidence: "high"
 })
 ```
 
-**Step 5: Synthesize** (T8_SYNTHESIS)
+**Step 5: Reconcile** (T8a_RECONCILE — tension map)
 ```javascript
 mcp__sequential-thinking__sequentialthinking({
-  thought: "SYNTHESIS: Comparing branches. SCORES: Minimal={M}/5, Clean={C}/5, Pragmatic={P}/5. WINNER: {selected}. RATIONALE: {why}. MERGED ELEMENTS: {best from each}.",
+  thought: "RECONCILE (Pass 1): Building tension map across 9 matrix cells. For each cell, compare what each agent said. STRUCTURE: Grounding={G}, Ideality implies={I}, Resilience requires={R} — tension: {level}. DATA: similar. BEHAVIOR: similar. TOTAL: {N} low, {M} medium, {P} high tension cells.",
   thoughtNumber: 5,
-  totalThoughts: 8,
+  totalThoughts: 9,
   nextThoughtNeeded: true,
-  // No branchId - back to main trunk
-  hypothesis: "{selected} is optimal because {rationale}",
+  hypothesis: "Tension map reveals {N+M+P} integration points with {P} requiring resolution",
+  confidence: "medium"
+})
+```
+
+**Step 6: Compose** (T8b_COMPOSE — merge with resolution)
+```javascript
+mcp__sequential-thinking__sequentialthinking({
+  thought: "COMPOSE (Pass 2): Merging primaries. STRUCTURE (from Grounding): {analysis}. DATA (from Ideality): {analysis}. BEHAVIOR (from Resilience): {analysis}. HIGH-TENSION RESOLUTIONS: {cell}: chose {approach} because {rationale}. COMPOSITION STRATEGY: {strategy}.",
+  thoughtNumber: 6,
+  totalThoughts: 9,
+  nextThoughtNeeded: true,
+  hypothesis: "Composed architecture integrates all 3 primaries with {P} resolutions",
   confidence: "high"
 })
 ```
 
-**Step 6-8: Continue with selected approach**
-- T9: Component Design for winner
+**Step 7-9: Continue with composed architecture**
+- T9: Component Design for composed architecture
 - T10: Acceptance Criteria Mapping
 
 ### Risk Assessment for Selected Architecture (T11-T13)
@@ -184,7 +195,7 @@ For architecture explorations exceeding 5 thoughts, invoke T-CHECKPOINT:
 
 ```javascript
 mcp__sequential-thinking__sequentialthinking({
-  thought: "CHECKPOINT at thought {N}. APPROACHES EXPLORED: {list}. LEADING OPTION: {approach}. OPEN QUESTIONS: {list}. CONFIDENCE: {level}. ESTIMATE CHECK: {totalThoughts} {adequate|needs extension}.",
+  thought: "CHECKPOINT at thought {N}. PERSPECTIVES EXPLORED: {list}. TENSION MAP STATUS: {N} cells mapped. OPEN QUESTIONS: {list}. CONFIDENCE: {level}. ESTIMATE CHECK: {totalThoughts} {adequate|needs extension}.",
   thoughtNumber: 5,
   totalThoughts: 10,
   nextThoughtNeeded: true,
@@ -225,22 +236,25 @@ mcp__sequential-thinking__sequentialthinking({
 If `mcp__sequential-thinking__sequentialthinking` is not available, use inline reasoning with the same structure:
 
 ```markdown
-## Architecture Decision Framework
+## Architecture Decision Framework (Diagonal Matrix)
 
 ### 1. FRAME
-[Problem, constraints, success criteria]
+[Problem, constraints, success criteria, Perspective × Concern matrix]
 
-### 2. BRANCH: Minimal
-[Exploration of minimal approach]
+### 2. BRANCH: Structural Grounding (Inside-Out × Structure)
+[Exploration from existing internals, primary: structure, secondary: data + behavior]
 
-### 3. BRANCH: Clean
-[Exploration of clean architecture]
+### 3. BRANCH: Contract Ideality (Outside-In × Data)
+[Exploration from external contracts, primary: data, secondary: structure + behavior]
 
-### 4. BRANCH: Pragmatic
-[Exploration of pragmatic balance]
+### 4. BRANCH: Resilience Architecture (Failure-First × Behavior)
+[Exploration from failure scenarios, primary: behavior, secondary: structure + data]
 
-### 5. SYNTHESIS
-[Comparison and selection]
+### 5. RECONCILE
+[Build 9-cell tension map comparing perspectives across concerns]
+
+### 6. COMPOSE
+[Merge primaries with tension resolutions applied]
 ```
 
 ---

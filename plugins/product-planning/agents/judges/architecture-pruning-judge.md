@@ -83,7 +83,7 @@ Total Score = (Weighted Criteria Score × 0.7) + (Ranked Position Points × 0.3)
 
 After scoring, check diversity:
 - If top 4 are too similar (same category), force-include the highest-scoring option from a different category
-- Categories: Minimal Change, Clean Architecture, Pragmatic, Innovative/Wildcard
+- Perspectives: Inside-Out (Grounding), Outside-In (Ideality), Failure-First (Resilience), Innovative/Wildcard
 
 ## Output Format
 
@@ -98,7 +98,8 @@ evaluation_round: "pruning"
 per_option_evaluation:
   option_a:
     name: "{option name/label}"
-    category: "minimal|clean|pragmatic|wildcard"
+    perspective: "inside_out|outside_in|failure_first|wildcard"
+    primary_concern: "structure|data|behavior|unconstrained"
     criteria_scores:
       requirement_fit: X/5
       pattern_alignment: X/5
@@ -122,7 +123,8 @@ ranked_choice:
   third: "{option_id}"
 
 diversity_check:
-  categories_in_top_4: ["{category1}", "{category2}", ...]
+  perspectives_in_top_4: ["{perspective1}", "{perspective2}", ...]
+  concerns_in_top_4: ["{concern1}", "{concern2}", ...]
   diversity_override_needed: true|false
   override_action: "{what was done to preserve diversity}"
 
@@ -190,7 +192,7 @@ option_d:
   weighted_score: 3.4
   rank: 4
   verdict: ADVANCE
-  rationale: "Pragmatic balance, borderline but advances"
+  rationale: "Borderline scores, advances for diversity"
 
 option_e:
   weighted_score: 2.8
@@ -204,14 +206,14 @@ option_e:
 ```yaml
 # Without override:
 top_4: [option_a, option_b, option_c, option_d]
-categories: [minimal, minimal, minimal, pragmatic]
-problem: "3 minimal approaches, missing clean/wildcard perspective"
+perspectives: [inside_out, inside_out, inside_out, failure_first]
+problem: "3 Inside-Out approaches, missing Outside-In/wildcard perspective"
 
 # With override:
 diversity_override_needed: true
-override_action: "Replaced option_d (pragmatic, score 3.4) with option_f (wildcard, score 3.1)"
+override_action: "Replaced option_d (failure_first, score 3.4) with option_f (wildcard, score 3.1)"
 new_top_4: [option_a, option_b, option_c, option_f]
-categories: [minimal, minimal, pragmatic, wildcard]
+perspectives: [inside_out, inside_out, failure_first, wildcard]
 ```
 
 ## Self-Critique

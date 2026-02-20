@@ -473,9 +473,9 @@ After all QA agents complete AND reconciliation is done:
 
 ## Step 7.3.5: CLI Test Strategy Review
 
-**Purpose:** Review and validate QA agent outputs using CLI dual-CLI dispatch. Gemini discovers test infrastructure and framework patterns; Codex verifies test code quality and patterns. Also absorbs ThinkDeep reconciliation duties.
+**Purpose:** Review and validate QA agent outputs using CLI multi-CLI dispatch. Gemini discovers test infrastructure and framework patterns; Codex verifies test code quality and patterns; OpenCode assesses UAT quality and accessibility testing. Also absorbs ThinkDeep reconciliation duties.
 
-Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
+Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
@@ -484,10 +484,11 @@ Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/pl
 | MODE_CHECK | `analysis_mode == "complete"` |
 | GEMINI_PROMPT | `Review test strategy for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. ThinkDeep insights: {FEATURE_DIR}/analysis/thinkdeep-insights.md (if exists). Focus: Test infrastructure discovery, framework compatibility, coverage gaps, ThinkDeep-to-test reconciliation.` |
 | CODEX_PROMPT | `Review test code quality for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. Focus: Existing test patterns, assertion quality, mock patterns, test isolation.` |
+| OPENCODE_PROMPT | `Review UAT quality and accessibility test coverage for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. Focus: UAT script clarity (Given-When-Then readability), accessibility testing (keyboard nav, screen reader), exploratory testing charters from user perspective.` |
 | FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/analysis/thinkdeep-insights.md", "{FEATURE_DIR}/analysis/test-strategy-general.md"]` |
 | REPORT_FILE | `analysis/cli-testreview-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
-| POST_WRITE | `Update test-plan.md with coverage gap additions (Gemini), pattern alignment recommendations (Codex), and ThinkDeep reconciliation report` |
+| POST_WRITE | `Update test-plan.md with coverage gap additions (Gemini), pattern alignment recommendations (Codex), UAT/accessibility improvements (OpenCode), and ThinkDeep reconciliation report` |
 
 ## Step 7.4: Generate UAT Scripts
 

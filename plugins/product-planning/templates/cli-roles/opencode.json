@@ -1,0 +1,14 @@
+{
+  "name": "opencode",
+  "command": "opencode",
+  "config_version": "1.1.0",
+  "additional_args": [],
+  "roles": {
+    "deepthinker": { "prompt_path": "opencode_deepthinker.txt" },
+    "consensus": { "prompt_path": "opencode_consensus.txt" },
+    "planreviewer": { "prompt_path": "opencode_planreviewer.txt" },
+    "teststrategist": { "prompt_path": "opencode_teststrategist.txt" },
+    "securityauditor": { "prompt_path": "opencode_securityauditor.txt" },
+    "taskauditor": { "prompt_path": "opencode_taskauditor.txt" }
+  }
+}

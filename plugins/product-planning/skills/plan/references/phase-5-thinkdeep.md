@@ -1,20 +1,21 @@
 ---
 phase: "5"
-phase_name: "PAL ThinkDeep Analysis"
+phase_name: "Multi-CLI Deep Analysis"
 checkpoint: "THINKDEEP"
 delegation: "coordinator"
 modes: [complete, advanced]
 prior_summaries:
   - ".phase-summaries/phase-4-summary.md"
 artifacts_read:
+  - "spec.md"          # requirements context: acceptance criteria, user stories, constraints
   - "design.md"
 artifacts_written:
   - "analysis/thinkdeep-insights.md"
-  - "analysis/cli-deepthinker-report.md"  # conditional: CLI dispatch enabled
+  - "analysis/cli-deepthinker-performance-report.md"  # conditional: per-perspective
+  - "analysis/cli-deepthinker-maintainability-report.md"  # conditional: Complete only
+  - "analysis/cli-deepthinker-security-report.md"  # conditional: per-perspective
 agents: []
-mcp_tools:
-  - "mcp__pal__thinkdeep"
-  - "mcp__pal__listmodels"
+mcp_tools: []
 feature_flags:
   - "cli_context_isolation"
   - "cli_custom_roles"
@@ -23,7 +24,7 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
 ---
 
-# Phase 5: PAL ThinkDeep Analysis
+# Phase 5: Multi-CLI Deep Analysis
 
 > **COORDINATOR INSTRUCTIONS**
 > You are a phase coordinator dispatched by the lean orchestrator.
@@ -46,119 +47,107 @@ When `a6_context_protocol` is enabled (check feature flags):
 
 ```
 IF analysis_mode in {standard, rapid}: → Skip phase (write summary with status: skipped)
-IF PAL unavailable: → Skip (graceful degradation, write summary with status: skipped)
+IF state.cli.available == false OR state.cli.mode == "disabled": → Skip (graceful degradation, write summary with status: skipped)
 ```
 
-## Step 5.1b: Verify Model Availability
+## Step 5.1b: Verify CLI Availability
 
 ```
-# Query available models from PAL MCP server
-available_models = mcp__pal__listmodels()
+# Read CLI capabilities already populated by Phase 1 Step 1.5b
+cli_capabilities = state.cli.capabilities
+cli_mode = state.cli.mode  # "tri", "dual", "single_*", or "disabled"
 
-# Define required models for ThinkDeep (configurable in planning-config.yaml)
-required_models = ["gpt-5.2", "gemini-3-pro-preview", "openrouter/x-ai/grok-4"]
+LOG: "CLI mode: {cli_mode}"
 
-# Check availability and find alternatives if needed
-model_substitutions = {}
-unavailable_count = 0
-
-FOR model IN required_models:
-  IF model NOT IN available_models.models:
-    LOG: "Warning: {model} unavailable"
-    unavailable_count += 1
-
-    # Try to find alternative from same provider family
-    alternative = find_alternative(model, available_models.models)
-    IF alternative:
-      LOG: "Substituting {model} → {alternative}"
-      model_substitutions[model] = alternative
-    ELSE:
-      LOG: "No alternative found for {model}"
-
-# Determine if we can proceed
-IF unavailable_count >= len(required_models):
-  LOG: "No ThinkDeep models available - skipping to Phase 6"
+IF cli_mode == "disabled" OR no CLIs available:
+  LOG: "No CLIs available — skipping to Phase 6"
   → Write summary with status: skipped (graceful degradation)
-
-ELSE IF unavailable_count >= 2:
-  LOG: "Insufficient models for full analysis - degrading to reduced ThinkDeep"
-  # Continue with available models only
-
-# Apply substitutions to models list used in Step 5.3
-FOR original, substitute IN model_substitutions:
-  REPLACE original with substitute in thinkdeep_models
 ```
 
 ## Step 5.2: Prepare Context
 
 ```
+READ feature requirements: {FEATURE_DIR}/spec.md
 READ selected architecture: {FEATURE_DIR}/design.md
 
+# Prefer requirements-anchor.md (consolidates spec + user clarifications from Phase 3)
+# Fall back to raw spec.md if anchor not available or empty
+IF file_exists({FEATURE_DIR}/requirements-anchor.md) AND not_empty({FEATURE_DIR}/requirements-anchor.md):
+  requirements_file = "{FEATURE_DIR}/requirements-anchor.md"
+  LOG: "Requirements context: using requirements-anchor.md (enriched)"
+ELSE:
+  requirements_file = "{FEATURE_DIR}/spec.md"
+  LOG: "Requirements context: using spec.md (raw)"
+
+READ requirements_file
+
 PREPARE problem_context with:
-  - Feature summary
-  - Selected architecture approach
+  - Feature summary (from requirements_file)
+  - Acceptance criteria (from requirements_file)
+  - Key constraints and non-functional requirements (from requirements_file)
+  - Selected architecture approach (from design.md)
   - Codebase patterns (from Phase 4 summary context)
 ```
 
-## Step 5.3: Execute ThinkDeep Matrix
+## Step 5.3: Execute CLI Deep Analysis Matrix
 
-| Mode | Perspectives | Models | Total Calls |
-|------|--------------|--------|-------------|
+| Mode | Perspectives | CLIs | Total Dispatches |
+|------|--------------|------|------------------|
 | Complete | 3 (perf, maint, sec) | 3 | 9 |
 | Advanced | 2 (perf, sec) | 3 | 6 |
 
-For each perspective x model:
+All dispatches are independent and can be launched simultaneously.
+
+For each perspective, follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md`:
 
 ```
-# Initialize continuation tracking per perspective
-continuation_ids = {}
+# Determine perspectives based on analysis mode
+IF analysis_mode == "complete":
+  perspectives = [performance, maintainability, security]
+ELSE IF analysis_mode == "advanced":
+  perspectives = [performance, security]
 
-FOR each perspective IN [performance, maintainability, security]:
-  FOR i, model IN enumerate(models):
+FOR each perspective IN perspectives:
 
-    response = mcp__pal__thinkdeep({
-      step: """
-        Analyze this architecture from a {PERSPECTIVE} perspective.
+  # Load perspective prompt from config (pal.thinkdeep.perspectives.{perspective}.prompt_template)
+  # and fill with architecture context from design.md
 
-        FEATURE: {FEATURE_NAME}
-        ARCHITECTURE: {selected_approach}
+  Follow CLI Multi-CLI Dispatch Pattern from $CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md with:
 
-        MY CURRENT ANALYSIS:
-        {architecture_summary}
-
-        EXTEND MY ANALYSIS - Focus on:
-        {perspective_focus_areas}
-      """,
-      step_number: 1,
-      total_steps: 1,
-      next_step_required: false,
-      model: "{model}",
-      thinking_mode: "high",
-      confidence: "medium",
-      hypothesis: "Architecture is sound from {PERSPECTIVE} perspective - validating assumptions",
-      focus_areas: ["{perspective_focus}"],
-      findings: "{initial_findings_from_architecture}",
-      problem_context: "{problem_context_template}",
-      relevant_files: ["{ABSOLUTE_PATH}/design.md"],
-      continuation_id: continuation_ids.get(perspective) or null
-    })
-
-    # Store continuation_id for next model in same perspective
-    IF i == 0:
-      continuation_ids[perspective] = response.continuation_id
+  | Parameter | Value |
+  |-----------|-------|
+  | ROLE | `deepthinker` |
+  | PHASE_STEP | `5.3.{perspective}` |
+  | MODE_CHECK | `analysis_mode in {complete, advanced}` |
+  | GEMINI_PROMPT | Perspective prompt from config with architecture AND requirements context. Focus: Broad architecture exploration, tech stack validation, pattern conflicts for {perspective}. Include design.md content AND acceptance criteria from spec.md/requirements-anchor.md. |
+  | CODEX_PROMPT | Perspective prompt from config with architecture AND requirements context. Focus: Import chain analysis, coupling assessment, code-level complexity for {perspective}. Include design.md content AND key constraints from spec.md/requirements-anchor.md. |
+  | OPENCODE_PROMPT | Perspective prompt from config with architecture AND requirements context. Focus: User flow impact, accessibility implications, UX pattern evaluation, design system alignment for {perspective}. Include design.md content AND user stories from spec.md/requirements-anchor.md. |
+  | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/design.md"]` |
+  | REPORT_FILE | `analysis/cli-deepthinker-{perspective}-report.md` |
+  | PREFERRED_SINGLE_CLI | `gemini` |
+  | POST_WRITE | none (synthesis happens in Step 5.4) |
 ```
+
+**Note:** All 9 (Complete) or 6 (Advanced) dispatches can be launched simultaneously since each perspective's dispatch is fully independent. The CLI dispatch pattern handles per-perspective retry and circuit breaker logic internally.
 
 ## Step 5.4: Synthesize Insights
 
+Read per-perspective CLI reports:
+- `{FEATURE_DIR}/analysis/cli-deepthinker-performance-report.md`
+- `{FEATURE_DIR}/analysis/cli-deepthinker-maintainability-report.md` (Complete mode only)
+- `{FEATURE_DIR}/analysis/cli-deepthinker-security-report.md`
+
 Write `{FEATURE_DIR}/analysis/thinkdeep-insights.md`:
-- Per-model findings
-- **Convergent insights** (all agree) → CRITICAL priority
-- **Divergent insights** (disagree) → FLAG for decision
+- Per-perspective findings (from CLI reports)
+- **Unanimous insights** (all CLIs and/or multiple perspectives agree) → CRITICAL priority
+- **Majority insights** (2 of 3 CLIs agree) → HIGH priority
+- **Divergent insights** (CLIs or perspectives all disagree) → FLAG for decision
+- **Unique insights** (single CLI or single perspective only) → VERIFY against existing findings
 - Recommended architecture updates
 
 ## Step 5.5: Present Findings
 
-**USER INTERACTION:** The user should review ThinkDeep findings.
+**USER INTERACTION:** The user should review deep analysis findings.
 
 Set `status: needs-user-input` in your summary with:
 - `block_reason`: Summary of findings, asking user to choose:
@@ -169,21 +158,3 @@ Set `status: needs-user-input` in your summary with:
 On re-dispatch, read `{FEATURE_DIR}/.phase-summaries/phase-5-user-input.md` for the selection.
 
 **Checkpoint: THINKDEEP**
-
-## Step 5.6: CLI Deepthinker Supplement
-
-**Purpose:** Supplement ThinkDeep matrix with broad codebase exploration (Gemini) and code-level coupling analysis (Codex) via CLI dispatch. Runs AFTER user reviews ThinkDeep findings.
-
-Follow the **CLI Dual-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md` with these parameters:
-
-| Parameter | Value |
-|-----------|-------|
-| ROLE | `deepthinker` |
-| PHASE_STEP | `5.6` |
-| MODE_CHECK | `analysis_mode in {complete, advanced}` |
-| GEMINI_PROMPT | `Supplement ThinkDeep analysis for feature: {FEATURE_NAME}. Architecture: {FEATURE_DIR}/design.md. ThinkDeep findings so far: {FEATURE_DIR}/analysis/thinkdeep-insights.md. Focus: Broad architecture exploration, tech stack validation, pattern conflicts.` |
-| CODEX_PROMPT | `Supplement ThinkDeep analysis for feature: {FEATURE_NAME}. Architecture: {FEATURE_DIR}/design.md. ThinkDeep findings so far: {FEATURE_DIR}/analysis/thinkdeep-insights.md. Focus: Import chain analysis, coupling assessment, code-level complexity.` |
-| FILE_PATHS | `["{FEATURE_DIR}/design.md", "{FEATURE_DIR}/analysis/thinkdeep-insights.md"]` |
-| REPORT_FILE | `analysis/cli-deepthinker-report.md` |
-| PREFERRED_SINGLE_CLI | `gemini` |
-| POST_WRITE | `APPEND CLI supplement section to {FEATURE_DIR}/analysis/thinkdeep-insights.md` |

@@ -8,12 +8,12 @@ prior_summaries:
   - ".phase-summaries/phase-2-summary.md"
   - ".phase-summaries/phase-3-summary.md"
 artifacts_read:
-  - "spec.md"
+  - "spec.md"          # requirements context: acceptance criteria, user stories, constraints
   - "research.md"
 artifacts_written:
-  - "design.minimal.md"
-  - "design.clean.md"
-  - "design.pragmatic.md"
+  - "design.grounding.md"
+  - "design.ideality.md"
+  - "design.resilience.md"
   - "design.md"
   - ".phase-summaries/phase-4-skill-context.md"  # conditional: dev_skills_integration enabled
 agents:
@@ -133,6 +133,23 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
     "## Domain Reference (from dev-skills)\n{section content}"
 ```
 
+## Step 4.0b: Load Requirements Context
+
+```
+# Prefer requirements-anchor.md (consolidates spec + user clarifications from Phase 3)
+# Fall back to raw spec.md if anchor not available or empty
+
+IF file_exists({FEATURE_DIR}/requirements-anchor.md) AND not_empty({FEATURE_DIR}/requirements-anchor.md):
+  requirements_file = "{FEATURE_DIR}/requirements-anchor.md"
+  LOG: "Requirements context: using requirements-anchor.md (enriched)"
+ELSE:
+  requirements_file = "{FEATURE_DIR}/spec.md"
+  LOG: "Requirements context: using spec.md (raw)"
+
+# Use requirements_file as the source for acceptance criteria, user stories,
+# and constraints when preparing architect agent prompts (Step 4.1)
+```
+
 ## Step 4.0: Architecture Pattern Research (Research MCP)
 
 **Purpose:** Fetch framework-specific architecture patterns BEFORE launching architect agents.
@@ -184,34 +201,34 @@ ELSE:
   AGENT_LIST = default agents per mode
 ```
 
-**Standard/Advanced modes (when S5 ToT disabled):** Launch 3 architecture agents (MPA) in parallel:
+**Standard/Advanced modes (when S5 ToT disabled):** Launch 3 architecture agents (Diagonal Matrix MPA) in parallel:
 
 ```
-Task(subagent_type: "product-planning:software-architect", prompt: "MINIMAL CHANGE focus...")
-Task(subagent_type: "product-planning:software-architect", prompt: "CLEAN ARCHITECTURE focus...")
-Task(subagent_type: "product-planning:software-architect", prompt: "PRAGMATIC BALANCE focus...")
+Task(subagent_type: "product-planning:software-architect", prompt: "STRUCTURAL GROUNDING focus (Inside-Out × Structure)...")
+Task(subagent_type: "product-planning:software-architect", prompt: "CONTRACT IDEALITY focus (Outside-In × Data)...")
+Task(subagent_type: "product-planning:software-architect", prompt: "RESILIENCE ARCHITECTURE focus (Failure-First × Behavior)...")
 ```
 
 Output to:
-- `{FEATURE_DIR}/design.minimal.md`
-- `{FEATURE_DIR}/design.clean.md`
-- `{FEATURE_DIR}/design.pragmatic.md`
+- `{FEATURE_DIR}/design.grounding.md`
+- `{FEATURE_DIR}/design.ideality.md`
+- `{FEATURE_DIR}/design.resilience.md`
 
 ### Step 4.1-alt: Hybrid ToT-MPA Workflow (S5)
 
 **Complete mode only. Feature flag: `s5_tot_architecture` (requires: `s4_adaptive_strategy`)**
 
 1. **Phase 4a: Seeded Exploration** — Generate 8 approaches:
-   - Minimal perspective: 2 seeded
-   - Clean perspective: 2 seeded
-   - Pragmatic perspective: 2 seeded
+   - Inside-Out perspective (Structural Grounding): 2 seeded
+   - Outside-In perspective (Contract Ideality): 2 seeded
+   - Failure-First perspective (Resilience Architecture): 2 seeded
    - Wildcard: 2 unconstrained (via product-planning:wildcard-architect)
 2. **Phase 4b: Multi-Criteria Pruning** — 3 architecture-pruning-judge agents evaluate all 8, select top 4
 3. **Phase 4c: Competitive Expansion** — 4 agents develop full designs
 4. **Phase 4d: Evaluation + Adaptive Selection** — Apply S4 strategy:
-   - SELECT_AND_POLISH: Clear winner (gap >=0.5, score >=3.0)
-   - FULL_SYNTHESIS: Tie (all >=3.0, gap <0.5)
-   - REDESIGN: All weak (any <3.0) → Return to 4a
+   - DIRECT_COMPOSITION: Clear winner (gap >=0.5, score >=3.0) — low tension
+   - NEGOTIATED_COMPOSITION: Balanced (all >=3.0, gap <0.5) — user resolves tensions
+   - REFRAME: Weak perspective (any <3.0) → Re-dispatch specific agent
 
 Reference: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/tot-workflow.md`
 Reference: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/adaptive-strategy-logic.md`
@@ -222,7 +239,7 @@ Follow the **MPA Deliberation** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/
 
 | Parameter | Value |
 |-----------|-------|
-| `AGENT_OUTPUTS` | `[minimal, clean, pragmatic]` |
+| `AGENT_OUTPUTS` | `[grounding, ideality, resilience]` |
 | `AGENT_LIST` | Architecture agents from Step 4.1 |
 | `PHASE_ID` | `"4"` |
 | `INSIGHT_FOCUS` | Key insights, unique patterns, novel approaches |
@@ -234,7 +251,7 @@ Follow the **Convergence Detection** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/
 
 | Parameter | Value |
 |-----------|-------|
-| `AGENT_OUTPUTS` | `[minimal, clean, pragmatic]` |
+| `AGENT_OUTPUTS` | `[grounding, ideality, resilience]` |
 | `PHASE_ID` | `"4"` |
 | `LOW_CONVERGENCE_STRATEGY` | `"present_all_options"` |
 
@@ -267,7 +284,7 @@ ELSE:
 - Explicitly categorizes findings before merging
 - Provides structured pause for reflection
 
-## Step 4.3: Sequential Thinking with Fork-Join (Complete Mode)
+## Step 4.3: Sequential Thinking with Diagonal Matrix Fork-Join (Complete Mode)
 
 IF mode == Complete AND ST available:
 
@@ -275,18 +292,20 @@ IF mode == Complete AND ST available:
 # Check feature flag for Fork-Join
 IF feature_flags.st_fork_join_architecture.enabled:
 
-  # Fork phase (i): Frame the decision point
+  # Fork phase (i): Frame the decision point with Diagonal Matrix
   mcp__sequential-thinking__sequentialthinking(T7a_FRAME)
 
-  # Fork phase (ii): Parallel branches (logically parallel, sequential execution)
-  mcp__sequential-thinking__sequentialthinking(T7b_BRANCH_MINIMAL)
-  mcp__sequential-thinking__sequentialthinking(T7c_BRANCH_CLEAN)
-  mcp__sequential-thinking__sequentialthinking(T7d_BRANCH_PRAGMATIC)
+  # Fork phase (ii): Diagonal branches (logically parallel, sequential execution)
+  mcp__sequential-thinking__sequentialthinking(T7b_BRANCH_GROUNDING)     # Inside-Out × Structure
+  mcp__sequential-thinking__sequentialthinking(T7c_BRANCH_IDEALITY)      # Outside-In × Data
+  mcp__sequential-thinking__sequentialthinking(T7d_BRANCH_RESILIENCE)    # Failure-First × Behavior
 
-  # Fork phase (iii): Join and synthesize
-  mcp__sequential-thinking__sequentialthinking(T8_SYNTHESIS)
+  # Fork phase (iii): Two-pass join
+  mcp__sequential-thinking__sequentialthinking(T8a_RECONCILE)  # Pass 1: Tension map
+  # T-CHECKPOINT here (between thought 5 and 6)
+  mcp__sequential-thinking__sequentialthinking(T8b_COMPOSE)    # Pass 2: Merge with resolution
 
-  # Fork phase (iv): Continue with selected approach
+  # Fork phase (iv): Continue with composed architecture
   mcp__sequential-thinking__sequentialthinking(T9: Component Design)
   mcp__sequential-thinking__sequentialthinking(T10: Acceptance Criteria Mapping)
 
@@ -298,39 +317,45 @@ ELSE:
   mcp__sequential-thinking__sequentialthinking(T10: Acceptance Criteria Mapping)
 ```
 
-**Fork-Join Architecture Pattern:**
+**Diagonal Matrix Fork-Join Pattern:**
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     FORK-JOIN ARCHITECTURE                       │
+│                 DIAGONAL MATRIX FORK-JOIN                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  ┌─────────────┐                                                 │
-│  │  T7a_FRAME  │  ← Frame decision, spawn branches              │
-│  └──────┬──────┘                                                 │
+│  ┌──────────────┐                                                │
+│  │  T7a_FRAME   │  ← Frame decision, define Perspective×Concern │
+│  └──────┬───────┘    matrix and diagonal coverage                │
 │         │                                                        │
-│    ┌────┴────┬────────────┐                                     │
-│    ↓         ↓            ↓                                     │
-│ ┌──────┐ ┌──────┐ ┌──────────┐                                  │
-│ │T7b   │ │T7c   │ │T7d       │  ← Parallel exploration         │
-│ │MINIMAL│ │CLEAN │ │PRAGMATIC │    (branchId per path)         │
-│ └──┬───┘ └──┬───┘ └────┬─────┘                                  │
-│    │        │          │                                        │
-│    └────────┴──────────┘                                        │
+│    ┌────┴────┬──────────────┐                                   │
+│    ↓         ↓              ↓                                   │
+│ ┌────────┐ ┌────────┐ ┌──────────┐                               │
+│ │T7b     │ │T7c     │ │T7d       │  ← Diagonal exploration     │
+│ │GROUNDING│ │IDEALITY│ │RESILIENCE│   (1 primary + 2 secondary) │
+│ │Inside-Out│ │Outside │ │Failure-  │                              │
+│ │×Structure│ │In×Data │ │First     │                              │
+│ └──┬──────┘ └──┬─────┘ │×Behavior │                              │
+│    │           │       └────┬─────┘                              │
+│    └───────────┴────────────┘                                    │
 │              ↓                                                   │
-│      ┌────────────┐                                              │
-│      │T8_SYNTHESIS│  ← Join and synthesize                      │
-│      └──────┬─────┘                                              │
+│      ┌─────────────┐                                             │
+│      │T8a_RECONCILE│  ← Pass 1: Build 9-cell tension map        │
+│      └──────┬──────┘                                             │
 │             ↓                                                    │
-│    Continue with T9, T10 using selected approach                 │
+│      ┌────────────┐                                              │
+│      │T8b_COMPOSE │  ← Pass 2: Merge primaries + resolve        │
+│      └──────┬─────┘    tensions                                  │
+│             ↓                                                    │
+│    Continue with T9, T10 using composed architecture             │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Fork-Join Benefits:**
-- Explicit branch exploration prevents premature convergence
-- Each branch explored in isolation before synthesis
-- Synthesis step forces explicit comparison and rationale
-- Branch IDs provide traceability
+**Diagonal Matrix Benefits:**
+- Orthogonal dimensions prevent exploring the same spectrum (avoids "Pragmatic always wins")
+- Each branch covers unique territory (3 primary + 6 secondary = 9 cells)
+- Two-pass join uses 100% of agent output (composition, not selection)
+- Tension map surfaces real architectural trade-offs for user decision
 
 ## Step 4.3c: Risk Assessment for Selected Architecture (Advanced/Complete)
 
@@ -345,7 +370,7 @@ IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentia
 
   # RISK-C1: Frame risk assessment across all options
   mcp__sequential-thinking__sequentialthinking({
-    thought: "RISK ASSESSMENT FRAME for all architecture options. OPTIONS: [minimal, clean, pragmatic]. RISK CATEGORIES: Technical (complexity, unknowns), Integration (API, migration, external), Schedule (dependencies, learning curve), Security (attack surfaces, compliance). Analyzing each option against all categories.",
+    thought: "RISK ASSESSMENT FRAME for all architecture perspectives. PERSPECTIVES: [grounding, ideality, resilience]. RISK CATEGORIES: Technical (complexity, unknowns), Integration (API, migration, external), Schedule (dependencies, learning curve), Security (attack surfaces, compliance). Analyzing each perspective against all categories.",
     thoughtNumber: 1,
     totalThoughts: 5,
     nextThoughtNeeded: true
@@ -353,7 +378,7 @@ IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentia
 
   # RISK-C2: Risk Identification per option
   mcp__sequential-thinking__sequentialthinking({
-    thought: "RISK IDENTIFICATION across all options. MINIMAL: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. CLEAN: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. PRAGMATIC: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. TOTAL RISKS: minimal={N}, clean={M}, pragmatic={P}. HYPOTHESIS: {option} has highest risk count due to {reason}. CONFIDENCE: medium.",
+    thought: "RISK IDENTIFICATION across all perspectives. GROUNDING: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. IDEALITY: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. RESILIENCE: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. TOTAL RISKS: grounding={N}, ideality={M}, resilience={P}. HYPOTHESIS: {perspective} has highest risk count due to {reason}. CONFIDENCE: medium.",
     thoughtNumber: 2,
     totalThoughts: 5,
     nextThoughtNeeded: true
@@ -361,7 +386,7 @@ IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentia
 
   # RISK-C3: Risk Prioritization per option
   mcp__sequential-thinking__sequentialthinking({
-    thought: "RISK PRIORITIZATION using probability x impact. MINIMAL: Critical=[list], Monitor=[list], Accept=[list], SCORE={X}/10. CLEAN: Critical=[list], Monitor=[list], Accept=[list], SCORE={Y}/10. PRAGMATIC: Critical=[list], Monitor=[list], Accept=[list], SCORE={Z}/10. HYPOTHESIS: {option} has lowest risk score, critical risks concentrated in {area}. CONFIDENCE: high.",
+    thought: "RISK PRIORITIZATION using probability x impact. GROUNDING: Critical=[list], Monitor=[list], Accept=[list], SCORE={X}/10. IDEALITY: Critical=[list], Monitor=[list], Accept=[list], SCORE={Y}/10. RESILIENCE: Critical=[list], Monitor=[list], Accept=[list], SCORE={Z}/10. HYPOTHESIS: {perspective} has lowest risk score, critical risks concentrated in {area}. CONFIDENCE: high.",
     thoughtNumber: 3,
     totalThoughts: 5,
     nextThoughtNeeded: true
@@ -369,7 +394,7 @@ IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentia
 
   # RISK-C4: Mitigation strategies for critical risks
   mcp__sequential-thinking__sequentialthinking({
-    thought: "MITIGATION STRATEGIES for critical risks across options. MINIMAL: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. CLEAN: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. PRAGMATIC: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. HYPOTHESIS: Mitigations reduce critical count by {N}, {option} has lowest residual risk. CONFIDENCE: high.",
+    thought: "MITIGATION STRATEGIES for critical risks across perspectives. GROUNDING: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. IDEALITY: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. RESILIENCE: [risk → mitigation pairs], effort={low|med|high}, residual={low|med|high}. HYPOTHESIS: Mitigations reduce critical count by {N}, {perspective} has lowest residual risk. CONFIDENCE: high.",
     thoughtNumber: 4,
     totalThoughts: 5,
     nextThoughtNeeded: true
@@ -377,7 +402,7 @@ IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentia
 
   # RISK-C5: Cross-option comparison and recommendation
   mcp__sequential-thinking__sequentialthinking({
-    thought: "RISK COMPARISON COMPLETE. RANKINGS: 1. {lowest_risk_option} (score: X/10, critical: N), 2. {middle_option} (score: Y/10, critical: M), 3. {highest_risk_option} (score: Z/10, critical: P). RECOMMENDATION ADJUSTMENT: {if risk changes recommendation from trade-off analysis}. HYPOTHESIS: Risk analysis informs architecture recommendation.",
+    thought: "RISK COMPARISON COMPLETE. RANKINGS: 1. {lowest_risk_perspective} (score: X/10, critical: N), 2. {middle_perspective} (score: Y/10, critical: M), 3. {highest_risk_perspective} (score: Z/10, critical: P). RECOMMENDATION ADJUSTMENT: {if risk changes recommendation from tension analysis}. HYPOTHESIS: Risk analysis informs composition strategy.",
     thoughtNumber: 5,
     totalThoughts: 5,
     nextThoughtNeeded: false
@@ -399,11 +424,11 @@ ELSE IF analysis_mode == standard:
 
 **Risk Assessment Output:** Adds these columns to architecture comparison:
 
-| Option | Risk Score | Critical Risks | Mitigation Effort |
-|--------|------------|----------------|-------------------|
-| Minimal | X/10 | N | Low/Med/High |
-| Clean | Y/10 | M | Low/Med/High |
-| Pragmatic | Z/10 | P | Low/Med/High |
+| Perspective | Risk Score | Critical Risks | Mitigation Effort | Tension Level |
+|-------------|------------|----------------|-------------------|---------------|
+| Grounding (Inside-Out × Structure) | X/10 | N | Low/Med/High | Low/Med/High |
+| Ideality (Outside-In × Data) | Y/10 | M | Low/Med/High | Low/Med/High |
+| Resilience (Failure-First × Behavior) | Z/10 | P | Low/Med/High | Low/Med/High |
 
 ## Step 4.4: Present Options
 
@@ -423,14 +448,15 @@ Include **Recommendation** with reasoning that considers:
 
 ## Step 4.5: Record Architecture Decision
 
-**USER INTERACTION:** The user must select an architecture option.
+**USER INTERACTION:** The user must review the tension map and confirm the composition strategy.
 
 Set `status: needs-user-input` in your summary with:
-- `block_reason`: The comparison table and recommendation, asking user to select an option
-- Include all option names and key differentiators
-- Provide a clear default recommendation
+- `block_reason`: The comparison table, tension map, and composition strategy recommendation
+- For **DIRECT_COMPOSITION**: Ask user to confirm the winning perspective as composition anchor
+- For **NEGOTIATED_COMPOSITION**: Present high-tension cells and ask user to resolve specific trade-offs
+- For **REFRAME**: No user interaction needed (automatic re-dispatch)
 
-On re-dispatch after user input, read `{FEATURE_DIR}/.phase-summaries/phase-4-user-input.md` for the selection.
+On re-dispatch after user input, read `{FEATURE_DIR}/.phase-summaries/phase-4-user-input.md` for the resolutions.
 
 Save `architecture_choice` to decisions (IMMUTABLE).
 
@@ -444,23 +470,24 @@ IF feature_flags.s4_adaptive_strategy.enabled AND analysis_mode in {advanced, co
   1. COLLECT architecture option scores from evaluation
   2. APPLY strategy selection logic from adaptive-strategy-logic.md:
 
-     sorted_scores = sort(option_scores, descending)
+     sorted_scores = sort(perspective_scores, descending)
      score_gap = sorted_scores[0] - sorted_scores[1]
-     all_above_threshold = all(score >= 3.0 for score in option_scores)
+     all_above_threshold = all(score >= 3.0 for score in perspective_scores)
 
      IF score_gap >= 0.5 AND sorted_scores[0] >= 3.0:
-       strategy = SELECT_AND_POLISH
-       selected_option = option with highest score
-       actions = polish based on judge feedback
+       strategy = DIRECT_COMPOSITION
+       winning_perspective = perspective with highest score
+       actions = compose from winner, enrich with secondary insights
 
      ELSE IF NOT all_above_threshold:
-       strategy = REDESIGN
-       constraints = extract from failure feedback
-       → Return to Step 4.1 with constraints (max 1 retry)
+       strategy = REFRAME
+       weak_perspective = perspective(s) below threshold
+       → Re-dispatch specific agent with constraints (max 1 retry)
 
      ELSE:
-       strategy = FULL_SYNTHESIS
-       synthesis_plan = best elements from each option
+       strategy = NEGOTIATED_COMPOSITION
+       tension_map = build from T8a_RECONCILE output
+       → Present high-tension cells to user for resolution
 
   3. EXECUTE strategy and generate design.md
   4. LOG: "Strategy: {strategy} - {rationale}"

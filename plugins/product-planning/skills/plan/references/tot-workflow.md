@@ -13,9 +13,9 @@ The Hybrid ToT-MPA approach combines systematic exploration (Tree of Thoughts) w
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Phase 4a: SEEDED EXPLORATION (8 approaches)                    │
-│  ├── Minimal perspective: 2 approaches                          │
-│  ├── Clean perspective: 2 approaches                            │
-│  ├── Pragmatic perspective: 2 approaches                        │
+│  ├── Inside-Out perspective: 2 approaches (Structural Grounding)│
+│  ├── Outside-In perspective: 2 approaches (Contract Ideality)   │
+│  ├── Failure-First perspective: 2 approaches (Resilience Arch.) │
 │  └── Wildcard agent: 2 approaches (unconstrained)               │
 │       ↓                                                          │
 │  Phase 4b: MULTI-CRITERIA PRUNING                                │
@@ -47,47 +47,53 @@ The Hybrid ToT-MPA approach combines systematic exploration (Tree of Thoughts) w
 ```yaml
 exploration:
   seeded_agents:
-    - perspective: minimal
+    - perspective: inside_out
       agent: software-architect
       prompt_prefix: |
-        Generate 2 architecture approaches prioritizing MINIMAL CHANGE.
+        Generate 2 architecture approaches from the INSIDE-OUT perspective (Structural Grounding).
+        PRIMARY concern: Structure — module boundaries, dependency graph, abstraction layers.
+        SECONDARY concerns: Data flow through existing structure, behavioral patterns from structural choices.
         Focus on:
-        - Smallest footprint modification
-        - Reusing existing patterns exactly
-        - Lowest risk path
-        - Quick time-to-implement
+        - Existing codebase internals as starting point
+        - Structural integrity and proven patterns
+        - Leveraging existing module boundaries
+        - Low structural risk
 
         Generate:
-        - Approach M1: High probability (>0.8) - safest minimal change
-        - Approach M2: Moderate probability (0.5-0.8) - slightly bolder minimal
+        - Approach G1: High probability (>0.8) - safest structural grounding
+        - Approach G2: Moderate probability (0.5-0.8) - bolder structural evolution
 
-    - perspective: clean
+    - perspective: outside_in
       agent: software-architect
       prompt_prefix: |
-        Generate 2 architecture approaches prioritizing CLEAN ARCHITECTURE.
+        Generate 2 architecture approaches from the OUTSIDE-IN perspective (Contract Ideality).
+        PRIMARY concern: Data — API contracts, validation schemas, data transformation boundaries.
+        SECONDARY concerns: Structural implications of ideal contracts, behavioral guarantees contracts enforce.
         Focus on:
-        - Proper separation of concerns
-        - Dependency inversion
-        - Testability
-        - Long-term maintainability
+        - Consumer/external perspective as starting point
+        - Ideal data contracts and API shapes
+        - Clean interface boundaries
+        - Long-term contract stability
 
         Generate:
-        - Approach C1: High probability (>0.8) - standard clean approach
-        - Approach C2: Moderate probability (0.5-0.8) - stricter clean principles
+        - Approach I1: High probability (>0.8) - standard contract-driven design
+        - Approach I2: Moderate probability (0.5-0.8) - stricter contract ideality
 
-    - perspective: pragmatic
+    - perspective: failure_first
       agent: software-architect
       prompt_prefix: |
-        Generate 2 architecture approaches prioritizing PRAGMATIC BALANCE.
+        Generate 2 architecture approaches from the FAILURE-FIRST perspective (Resilience Architecture).
+        PRIMARY concern: Behavior — error propagation, recovery paths, degraded operation modes.
+        SECONDARY concerns: Structural patterns for failure isolation, data integrity under failure.
         Focus on:
-        - Balance of cleanliness and speed
-        - Technical debt management
-        - Team capabilities
-        - Business timeline
+        - Failure scenarios as starting point
+        - Production robustness from day one
+        - Graceful degradation paths
+        - Observable and recoverable behavior
 
         Generate:
-        - Approach P1: High probability (>0.8) - balanced pragmatic
-        - Approach P2: Moderate probability (0.5-0.8) - slightly more ambitious
+        - Approach R1: High probability (>0.8) - balanced resilience
+        - Approach R2: Moderate probability (0.5-0.8) - more comprehensive resilience
 
   wildcard_agent:
     agent: wildcard-architect
@@ -112,9 +118,10 @@ Each approach must include:
 
 ```yaml
 approach:
-  id: "M1|M2|C1|C2|P1|P2|W1|W2"
+  id: "G1|G2|I1|I2|R1|R2|W1|W2"
   name: "{descriptive name}"
-  category: "minimal|clean|pragmatic|wildcard"
+  perspective: "inside_out|outside_in|failure_first|wildcard"
+  primary_concern: "structure|data|behavior|unconstrained"
   probability: 0.XX
   description: |
     {2-3 sentence description}
@@ -167,28 +174,29 @@ pruning_judges:
 ```yaml
 pruning_result:
   ranked_options:
-    - id: "P1"
+    - id: "R1"
       total_score: 4.2
       rank: 1
       verdict: ADVANCE
-    - id: "C1"
+    - id: "I1"
       total_score: 3.9
       rank: 2
       verdict: ADVANCE
     # ... continue for all 8
 
-  advancing: ["P1", "C1", "W1", "M2"]
-  eliminated: ["M1", "C2", "P2", "W2"]
+  advancing: ["R1", "I1", "W1", "G2"]
+  eliminated: ["G1", "I2", "R2", "W2"]
 
   diversity_check:
-    categories_represented: ["pragmatic", "clean", "wildcard", "minimal"]
+    perspectives_represented: ["failure_first", "outside_in", "wildcard", "inside_out"]
+    concerns_represented: ["behavior", "data", "unconstrained", "structure"]
     diversity_satisfied: true
 
   feedback_for_expansion:
-    P1: "Strengthen error handling section"
-    C1: "Add performance considerations"
+    R1: "Strengthen error handling section"
+    I1: "Add performance considerations"
     W1: "Ground in existing patterns more"
-    M2: "Expand on integration points"
+    G2: "Expand on integration points"
 ```
 
 ## Phase 4c: Competitive Expansion
@@ -199,13 +207,13 @@ For each advancing approach, launch full design agent:
 
 ```yaml
 expansion_agents:
-  - approach_id: "P1"
+  - approach_id: "R1"
     agent: software-architect
     prompt: |
-      Develop complete architecture design for approach P1.
+      Develop complete architecture design for approach R1.
 
-      Original brief: {P1_description}
-      Pruning feedback: {P1_feedback}
+      Original brief: {R1_description}
+      Pruning feedback: {R1_feedback}
 
       Requirements:
       - Full component design with file paths
@@ -215,7 +223,7 @@ expansion_agents:
       - Error handling strategy
       - Self-critique verification
 
-  # ... repeat for C1, W1, M2
+  # ... repeat for I1, W1, G2
 ```
 
 ### Expansion Output
@@ -252,17 +260,17 @@ evaluation_judges:
 After evaluation, apply S4 logic:
 
 ```python
-scores = [P1_score, C1_score, W1_score, M2_score]
+scores = [R1_score, I1_score, W1_score, G2_score]
 
 if max(scores) - second_max(scores) >= 0.5 and max(scores) >= 3.0:
-    strategy = SELECT_AND_POLISH
-    # Polish winner with feedback
+    strategy = DIRECT_COMPOSITION
+    # Compose from winning perspective with enrichment
 elif any(score < 3.0 for score in scores):
-    strategy = REDESIGN
-    # Return to Phase 4a with constraints
+    strategy = REFRAME
+    # Re-dispatch specific conflicting agent
 else:
-    strategy = FULL_SYNTHESIS
-    # Combine best elements from top 2
+    strategy = NEGOTIATED_COMPOSITION
+    # User resolves tensions from tension map
 ```
 
 ### Final Output
@@ -277,8 +285,8 @@ tot_result:
     approaches_advanced: 4
 
   selection:
-    strategy: "SELECT_AND_POLISH|REDESIGN|FULL_SYNTHESIS"
-    final_design: "P1"  # or synthesized
+    strategy: "DIRECT_COMPOSITION|REFRAME|NEGOTIATED_COMPOSITION"
+    final_design: "R1"  # or composed
 
   design_file: "{FEATURE_DIR}/design.md"
 
@@ -309,7 +317,7 @@ If MCP tools unavailable or S5 disabled:
 ```yaml
 fallback:
   condition: "feature_flags.s5_tot_architecture.enabled == false"
-  behavior: "Use standard MPA (3 predetermined perspectives)"
+  behavior: "Use standard Diagonal Matrix MPA (3 diagonal perspectives)"
   cost_savings: "$0.16"
 ```
 
@@ -323,19 +331,19 @@ tot_workflow:
   phases_completed: ["4a", "4b", "4c", "4d"]
 
   exploration:
-    approaches: ["M1", "M2", "C1", "C2", "P1", "P2", "W1", "W2"]
+    approaches: ["G1", "G2", "I1", "I2", "R1", "R2", "W1", "W2"]
 
   pruning:
-    advanced: ["P1", "C1", "W1", "M2"]
-    eliminated: ["M1", "C2", "P2", "W2"]
+    advanced: ["R1", "I1", "W1", "G2"]
+    eliminated: ["G1", "I2", "R2", "W2"]
     diversity_satisfied: true
 
   expansion:
     designs_completed: 4
 
   selection:
-    strategy: "SELECT_AND_POLISH"
-    winner: "P1"
+    strategy: "DIRECT_COMPOSITION"
+    winner: "R1"
     final_score: 4.2
 
   metrics:
