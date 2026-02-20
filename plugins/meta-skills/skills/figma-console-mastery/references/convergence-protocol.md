@@ -58,18 +58,23 @@ One JSON object per line. Every entry MUST include these fields:
 |-----------|-------------|-------------------|
 | `rename` | After renaming any node | `from`, `to` |
 | `create_component` | After creating a component | `name`, `parent` |
-| `create_instance` | After instantiating a component | `component_name`, `parent` |
-| `clone_screen` | After cloning a screen | `source`, `name`, `handoff_id` |
+| `create_instance` | After instantiating a component in a screen | `component_name`, `screen`, `replaced` (original node ID) |
+| `clone_screen` | After cloning a screen | `source`, `name`, `handoff_id`, `childCount` |
+| `clone_failure` | After clone produces 0 children | `source`, `expected_children`, `actual_children` |
+| `clone_partial` | After clone produces <50% expected children | `source`, `expected`, `actual` |
+| `screen_complete` | After full per-screen pipeline finishes | `screen`, `source`, `childCount`, `instance_count`, `diff_score`, `status` |
 | `set_layout` | After setting auto-layout | `mode`, `padding`, `gap` |
 | `set_fill` | After changing fill | `color` or `variable` |
 | `set_props` | After setting instance properties | `props` (key-value map) |
 | `replace_instance` | After swapping component instances | `old_component`, `new_component` |
 | `delete_node` | After deleting a node | `name`, `reason` |
-| `wire_prototype` | After setting prototype reactions | `source_name`, `target_name` |
+| `wire_prototype` | After setting prototype reactions | `wired`, `group_unsupported`, `failed`, `total_attempted` |
 | `annotate` | After adding annotation text | `screen_name`, `content_summary` |
 | `batch_rename` | After batch rename script | `count`, `nodes` (sample) |
 | `batch_move` | After batch move script | `count` |
 | `batch_set_fill` | After batch fill script | `count`, `color` |
+| `no_instances` | When screen has 0 component instances but should have some | `screen`, `expected_components` |
+| `preflight_content_decision` | After user decides about existing target page content | `choice` (A/B/C), `existing_nodes` |
 | `phase_complete` | At phase boundary | phase-specific summary |
 | `validation_pass` | After diff/lint passes | `screen_name`, `score` |
 | `validation_fail` | After diff/lint fails | `screen_name`, `score`, `issues` |
@@ -84,6 +89,7 @@ One JSON object per line. Every entry MUST include these fields:
 6. **Survive compact** — the journal is on disk, immune to context compaction
 7. **Human-readable** — JSONL format allows `grep` and `tail` inspection by the user
 8. **Log rollbacks** — after any rollback, append `{"op":"rollback","target":"session","detail":{"deleted_ids":["id1","id2"],"reason":"..."}}` so convergence checks know those operations were undone
+9. **Real timestamps only** — the `ts` field MUST contain a real wall-clock timestamp, never a hardcoded placeholder. Inside `figma_execute` scripts, use `new Date().toISOString()`. For subagents, the orchestrator injects current time in the prompt: `"Current time: 2026-02-20T15:42:33Z"` and the subagent uses it as reference. Fabricated timestamps (e.g., incrementing by 1 hour per batch) destroy the audit trail's value for performance analysis and debugging
 
 ### Journal Lifecycle (Between Sessions)
 
@@ -128,7 +134,7 @@ BEFORE mutating operation:
 | C3 | **Check before every mutating operation** — no exception; even "obviously needed" operations might have been done pre-compact | The 50ms cost of a check is negligible vs the cost of regression |
 | C4 | **Node ID is the primary key** — convergence checks match on node ID + operation type, not node name (names can be ambiguous) | Prevents false negatives from renamed nodes |
 | C5 | **Phase boundaries are logged** — `phase_complete` entries allow skipping entire phases on resume | Prevents re-executing completed phases |
-| C6 | **Treat journal as append-only truth** — if the journal says X was done, do not redo X even if you "think" it needs redoing | Breaks the regression loop |
+| C6 | **Treat journal as append-only truth** — if the journal says X was done, do not redo X even if it appears to need redoing | Breaks the regression loop |
 | C7 | **When in doubt, verify via Figma** — if a journal entry seems stale or wrong, use `figma_node_get` or `figma_node_children` to check the actual Figma state, then decide whether to proceed or add a correction entry | Safety valve for journal integrity |
 
 ### Quick Convergence Patterns
@@ -152,8 +158,8 @@ BEFORE mutating operation:
 **Pattern: Batch operation with partial completion**
 ```
 1. Grep journal for batch operation on target set
-2. If batch_rename logged with count=12 and you need 12 renames → skip
-3. If batch_rename logged with count=8 and you need 12 → rename only the 4 missing nodes
+2. If batch_rename logged with count=12 and 12 renames are needed → skip
+3. If batch_rename logged with count=8 and 12 are needed → rename only the 4 missing nodes
 4. Log the completion of remaining operations
 ```
 
@@ -301,62 +307,118 @@ Orchestrator (SKILL.md / main session)
 │   └── writes: session-state.json, operation-journal.jsonl
 │
 ├── Phase 1: Task(general-purpose) → "Component Builder"
+│   ├── loads: figma-console-mastery skill references
 │   ├── reads: session-state.json, operation-journal.jsonl
 │   ├── reads: workflow-draft-to-handoff.md (Phase 1 section)
 │   ├── creates components, logs to journal
 │   └── writes: session-state.json (phase 1 complete)
 │
-├── Phase 2: Task(general-purpose) × N batches → "Screen Transfer Agent"
-│   ├── reads: session-state.json, operation-journal.jsonl
-│   ├── reads: workflow-draft-to-handoff.md (Phase 2 section)
-│   ├── clones/restructures batch of 4-6 screens
-│   ├── runs visual fidelity gate per batch
-│   └── writes: journal entries + session-state updates
+├── Phase 2: SEQUENTIAL per screen → "Screen Pipeline Agent" (one at a time)
+│   │
+│   ├── Screen 1: Task(general-purpose) → "Screen Pipeline: ONB-01"
+│   │   ├── loads: figma-console-mastery skill references
+│   │   ├── reads: session-state.json, operation-journal.jsonl
+│   │   ├── executes Steps 2.1–2.7 (clone → validate → restructure → components → diff)
+│   │   └── writes: journal entries + session-state (screen complete)
+│   │
+│   ├── Orchestrator: validates screen result, then dispatches next
+│   │
+│   ├── Screen 2: Task(general-purpose) → "Screen Pipeline: ONB-02"
+│   │   └── ... same pipeline ...
+│   │
+│   └── ... one subagent per screen, strictly sequential ...
 │
 ├── Phase 3: Task(general-purpose) → "Prototype Wiring Agent"
+│   ├── loads: figma-console-mastery skill references
 │   ├── reads: session-state.json (all screen IDs)
-│   └── wires prototype connections in batch scripts
+│   └── wires prototype connections with GROUP verification
 │
 ├── Phase 4: Task(general-purpose) → "Annotation Agent"
+│   ├── loads: figma-console-mastery skill references
 │   ├── reads: session-state.json, supplementary text docs
 │   └── adds annotations to all screens
 │
 └── Phase 5: Task(general-purpose) → "Validation Agent"
+    ├── loads: figma-console-mastery skill references
     ├── reads: session-state.json, operation-journal.jsonl
-    ├── runs diff, lint, audit
+    ├── runs diff, lint, instance audit
     └── writes: final validation report
 ```
 
+**Phase 2 is strictly sequential**: the orchestrator dispatches one screen subagent, waits for it to complete, validates the result (childCount, instance_count, diff_score), then dispatches the next. This catches failures immediately — a WK-01 empty-clone failure halts after 1 screen, not after 4-6.
+
 ### Subagent Prompt Template
 
-Each subagent receives a standardized prompt structure:
+Every subagent receives a standardized prompt structure. The **skill loading block** is MANDATORY — it ensures subagents inherit the full figma-console-mastery knowledge (clone-first rules, journal protocol, visual fidelity gates, anti-patterns, tool selection).
 
 ```
 ## Context
 - Project: {project_name}
 - Figma file: {file_name}
 - Current phase: {phase_number} — {phase_name}
+- Current time: {ISO_8601_timestamp}  ← orchestrator injects real wall-clock time
 - State file: specs/figma/session-state.json
 - Journal: specs/figma/operation-journal.jsonl
 
-## Instructions
-Read the phase instructions from:
-  $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-draft-to-handoff.md
-  (Phase {N} section)
+## Skill Loading (MANDATORY)
+Load the figma-console-mastery skill references BEFORE starting any work:
 
-Read the convergence protocol from:
-  $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-protocol.md
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-draft-to-handoff.md
+  (Phase {N} section — your specific instructions)
+
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-protocol.md
+  (Journal protocol, convergence checks, batch scripting)
+
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-foundation.md
+  (Required for ANY figma_execute code — IIFE wrapper, font preloading)
+
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md
+  (Error catalog, debugging, hard constraints)
+
+{Additional references by phase:}
+  Phase 1 (components): + recipes-components.md, design-rules.md
+  Phase 2 (screens):    + tool-playbook.md, figma-use-overview.md
+  Phase 3 (wiring):     + (none additional)
+  Phase 4 (annotations): + (none additional)
+  Phase 5 (validation):  + figma-use-diffing.md
 
 ## Mandatory Rules
 1. Read the journal FIRST — build a set of completed operations
 2. SKIP any operation already in the journal
 3. Log EVERY mutating operation to the journal immediately after completion
-4. Use batch scripts for 3+ homogeneous operations
-5. Write updated session-state.json at phase completion
-6. If blocked, write status: "needs-user-input" in session-state.json and STOP
+4. Use REAL timestamps: new Date().toISOString() in figma_execute, or reference the Current time above
+5. Use batch scripts for 3+ homogeneous operations WITHIN a single screen
+6. Write updated session-state.json after completing each screen (Phase 2) or at phase completion
+7. Validate childCount after every clone — 0 children on a non-empty source is a clone failure
+8. Replace recurring elements with component instances — 0 instances = incomplete screen
+9. Run figma_diff_visual after every screen (Phase 2) — not just at the end
+10. If blocked, write status: "needs-user-input" in session-state.json and STOP
 
 ## Scope
 {phase-specific scope: which screens, which components, which operations}
+```
+
+### Phase 2 Screen-Specific Prompt Extension
+
+For Phase 2 per-screen subagents, append to the base template:
+
+```
+## Screen Assignment
+- Screen name: {screen_name}
+- Draft source ID: {draft_id}
+- Draft childCount: {expected_child_count}  ← from Phase 0 inventory
+- Target section ID: {handoff_section_id}
+- Component library: {component_names_and_ids}  ← from Phase 1 results
+- Component-to-screen mapping: {which_components_apply_to_this_screen}
+
+## Pipeline Steps (execute in order)
+1. Clone draft screen → validate childCount (HALT if 0)
+2. Move clone to handoff section
+3. Restructure (auto-layout, rename layers, clean hierarchy)
+4. Integrate components (replace raw elements with instances)
+5. Screenshot for structural check
+6. figma_diff_visual against draft → record score
+7. Log screen_complete to journal + update session state
 ```
 
 ### Delegation Rules
@@ -364,23 +426,24 @@ Read the convergence protocol from:
 | # | Rule | Rationale |
 |---|------|-----------|
 | D1 | **Phase 0 always inline** | Lightweight inventory doesn't justify dispatch overhead |
-| D2 | **Phase 2 splits by screen batches** (4-6 screens per subagent) | Keeps each agent's context focused; allows parallel dispatch |
+| D2 | **Phase 2: one subagent per screen, strictly sequential** | Each screen goes through the full pipeline (clone → validate → restructure → components → diff) before the next starts. The orchestrator validates each result before dispatching the next screen. This catches failures immediately — an empty-clone halts after 1 screen, not 4-6 |
 | D3 | **Journal is the coordination bus** | Subagents don't need to communicate directly; they read/write the same journal |
-| D4 | **Orchestrator checks journal between dispatches** | Ensures phase N truly completed before dispatching phase N+1 |
-| D5 | **Failed subagent = retry once, then escalate** | Orchestrator reads journal to determine what was completed, dispatches a new agent for remaining work |
-| D6 | **Screen batches are independent** | Batch A's screens don't depend on Batch B; safe for parallel dispatch |
+| D4 | **Orchestrator validates between screen dispatches** | After each Phase 2 subagent completes, the orchestrator checks: childCount > 0, instance_count > 0 (when applicable), diff_score within threshold. Only then dispatch next screen |
+| D5 | **Failed subagent = retry once, then escalate to user** | Orchestrator reads journal to determine what was completed, dispatches a new agent for remaining work. If retry also fails, present failure details to user |
+| D6 | **Screens are independent but sequential** | Screen A's completion doesn't affect Screen B's content, but the orchestrator processes them in order for predictable progress tracking |
 | D7 | **Subagents NEVER interact with users** | If user input is needed, subagent writes `needs-user-input` to session state and stops; orchestrator mediates |
-| D8 | **Sequential journal writes** | Even when batches are dispatched "in parallel," journal appends must not interleave. In practice, Claude Code `Task` agents run sequentially (each completes before the next starts), so this is satisfied automatically. If the execution model changes to true parallelism, introduce a file lock or per-batch journal files merged by the orchestrator |
+| D8 | **Sequential journal writes** | Phase 2 subagents run one at a time, so journal interleaving is impossible. For Phases 3-5 (single subagent each), this is also automatic |
+| D9 | **Subagents MUST load figma-console-mastery skill references** | Every subagent must read the Skill Loading block from the prompt template. Without it, subagents miss critical rules (clone-first, journal protocol, visual fidelity gates, component integration, anti-patterns) and produce the same failures documented in the v2 retrospective |
 
 ### When to Use Subagent Delegation
 
 | Workflow Size | Strategy |
 |---------------|----------|
-| 1-4 screens, 0-3 components | **Inline** — run everything in main session with journal |
-| 5-15 screens, 3-6 components | **Phased delegation** — subagent per phase |
-| 16+ screens, 6+ components | **Batch delegation** — subagent per phase + screen batches in Phase 2 |
+| 1-4 screens, 0-3 components | **Inline** — run everything in main session with journal; per-screen pipeline still applies |
+| 5-15 screens, 3-6 components | **Per-screen delegation** — subagent per phase; Phase 2 dispatches one subagent per screen sequentially |
+| 16+ screens, 6+ components | **Per-screen delegation** — same as above; more screens = more subagents but still sequential in Phase 2. Consider splitting Phase 1 components across multiple subagents if >10 components |
 
-For small workflows (1-4 screens), the overhead of dispatching subagents exceeds the benefit. Use the journal and batch scripting patterns inline.
+For small workflows (1-4 screens), the overhead of dispatching subagents exceeds the benefit. Use the journal and batch scripting patterns inline. The per-screen pipeline (clone → validate → restructure → components → diff → next) applies regardless of whether subagents are used.
 
 ---
 
@@ -398,26 +461,35 @@ specs/figma/session-state.json
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "phase": 2,
   "timestamp": "2026-02-20T15:00:00Z",
   "file_name": "My Design File",
   "source_page": { "name": "Draft", "id": "24:2" },
   "target_page": { "name": "Handoff", "id": "24:500" },
+  "preflight_decision": "A",
   "journal_entries": 47,
   "screens": {
-    "ONB-01": { "draft_id": "24:100", "handoff_id": "24:4300", "status": "complete", "diff_score": 98 },
-    "ONB-02": { "draft_id": "24:200", "handoff_id": "24:4400", "status": "complete", "diff_score": 95 },
-    "ONB-03": { "draft_id": "24:300", "handoff_id": null, "status": "pending" }
+    "ONB-01": { "draft_id": "24:100", "handoff_id": "24:4300", "status": "complete", "childCount": 12, "instance_count": 3, "diff_score": 98 },
+    "ONB-02": { "draft_id": "24:200", "handoff_id": "24:4400", "status": "complete", "childCount": 8, "instance_count": 2, "diff_score": 95 },
+    "ONB-03": { "draft_id": "24:300", "handoff_id": null, "status": "pending", "childCount": null, "instance_count": null, "diff_score": null }
   },
   "components": {
     "StatusBar": { "id": "24:4271", "status": "complete" },
     "TopBar": { "id": "24:4274", "status": "complete" }
   },
-  "connections": {},
+  "connections": { "wired": 0, "group_unsupported": 0, "failed": 0 },
   "notes": "Phase 2 — transferred 2/3 screens, resuming ONB-03"
 }
 ```
+
+**Schema version 3 changes** (from v2):
+- `screens[].childCount` — clone validation baseline (compared against Phase 0 inventory)
+- `screens[].instance_count` — component instances placed in this screen (0 = incomplete)
+- `connections` — broken down into `wired`, `group_unsupported`, `failed` (not just a flat count)
+- `preflight_decision` — user's choice for existing target page content (A/B/C)
+
+**Migration from v2**: If `session-state.json` has `"version": 2`, add missing fields with `null` defaults (`childCount`, `instance_count` per screen; `preflight_decision`; `connections` object with `wired/group_unsupported/failed`), then set `"version": 3`. Existing screen status and IDs are preserved.
 
 ### Snapshot Update Cadence
 
@@ -425,7 +497,7 @@ specs/figma/session-state.json
 |-------|--------|
 | Session start | Read existing snapshot or create new |
 | Phase boundary | Write full snapshot |
-| Every 3-4 screens in Phase 2 | Write snapshot |
+| **After every screen in Phase 2** | Write snapshot (each screen is a completion unit) |
 | Every 5 components in Phase 1 | Write snapshot |
 | Before and after batch script | Write snapshot |
 | Subagent completion | Orchestrator writes snapshot |
@@ -467,7 +539,7 @@ Read: specs/figma/operation-journal.jsonl → completed operations
 
 ### Step 5 — Log recovery
 ```jsonl
-{"ts":"...","op":"compact_recovery","target":"session","detail":{"phase":2,"journal_entries":47,"resumed_from":"ONB-03"},"phase":2}
+{"v":1,"ts":"...","op":"compact_recovery","target":"session","detail":{"phase":2,"journal_entries":47,"resumed_from":"ONB-03"},"phase":2}
 ```
 
 ---

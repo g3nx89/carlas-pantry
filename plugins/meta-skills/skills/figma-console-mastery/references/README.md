@@ -21,8 +21,8 @@
 | `st-integration.md` | 537 | Sequential Thinking thought chain templates (Phase 1 Analysis, Path A/B Fork-Join, Visual Fidelity Loop, Naming Audit Reasoning, Iterative Refinement, Design System Bootstrap Checkpoint), activation protocol, suppress conditions, session protocol mapping | ST server available and workflow complexity warrants structured reasoning (Tier 3 — by need) |
 | `workflow-restructuring.md` | 112 | Design Restructuring Workflow: 5-phase process (Analyze, Socratic Plan, Path A in-place / Path B reconstruction, Polish), visual fidelity gates, ST triggers, before/after metrics | Restructuring freehand designs (Tier 2 — by task) |
 | `workflow-code-handoff.md` | 57 | Code Handoff Protocol: naming audit, PascalCase enforcement, token alignment, exception descriptions, multi-platform notes, UI kit preference | Preparing designs for code implementation (Tier 2 — by task) |
-| `workflow-draft-to-handoff.md` | 453 | Draft-to-Handoff workflow: 6 critical principles (incl. convergence + batch), simplified entry point, 15 operational rules, progress reporting, rollback protocol, dual-layer state persistence (cross-refs convergence-protocol.md), 6-phase workflow with convergence gates and batch scripting per phase, error prevention, source access failure protocol | Converting hand-designed drafts into structured handoff pages (Tier 2 — by task) |
-| `convergence-protocol.md` | 455 | Operation Journal spec (append-only JSONL, 8 rules), anti-regression Convergence Check rules (7 rules), Batch Scripting Protocol (templates for rename/move/fill, when-to-batch decision matrix, token savings), Subagent Delegation Model (architecture, prompt template, delegation rules), Session Snapshot schema, Compact Recovery Protocol | Any multi-step workflow — anti-regression, batch efficiency, subagent delegation (Tier 1 — always) |
+| `workflow-draft-to-handoff.md` | 634 | Draft-to-Handoff workflow: 7 critical principles (one-screen-at-a-time, components-in-every-screen), simplified entry point, 22 operational rules, per-screen progress reporting, per-screen rollback protocol, dual-layer state persistence v3, 6-phase workflow with per-screen pipeline (clone → childCount gate → restructure → component integration → visual diff → next), preflight existing content declaration, GROUP prototype verification, error prevention (27 entries), source access failure protocol | Converting hand-designed drafts into structured handoff pages (Tier 2 — by task) |
+| `convergence-protocol.md` | 552 | Operation Journal spec (append-only JSONL, 9 rules incl. real timestamps), anti-regression Convergence Check rules (7 rules), Batch Scripting Protocol (templates for rename/move/fill, when-to-batch decision matrix, token savings), Subagent Delegation Model (per-screen sequential architecture, skill-inheriting prompt template, 9 delegation rules), Session Snapshot schema v3 (childCount, instance_count, connections breakdown), Compact Recovery Protocol | Any multi-step workflow — anti-regression, batch efficiency, subagent delegation (Tier 1 — always) |
 
 ## Cross-References
 
@@ -77,6 +77,9 @@ Each topic lives in exactly one canonical file:
 | Code-readiness SHOULD rules (#11-14) | `design-rules.md` |
 | ST thought chain templates for Figma workflows | `st-integration.md` |
 | Draft-to-Handoff workflow, operational rules, session state persistence | `workflow-draft-to-handoff.md` |
+| Per-screen pipeline (clone → validate → restructure → components → diff) | `workflow-draft-to-handoff.md` |
+| childCount validation gate, component integration per screen | `workflow-draft-to-handoff.md` |
+| Preflight existing content declaration, GROUP prototype verification | `workflow-draft-to-handoff.md` |
 | IMAGE fill limitation (design transfer) | `anti-patterns.md` (Hard Constraints), cross-referenced in `plugin-api.md` and `workflow-draft-to-handoff.md` |
 | Clone-first architecture, visual fidelity gates | `workflow-draft-to-handoff.md` |
 | Design Restructuring Workflow (5-phase, Path A/B) | `workflow-restructuring.md` |
@@ -84,6 +87,7 @@ Each topic lives in exactly one canonical file:
 | Operation Journal spec, JSONL format, entry types | `convergence-protocol.md` |
 | Anti-regression Convergence Check rules (C1-C7) | `convergence-protocol.md` |
 | Batch Scripting Protocol, script templates, when-to-batch | `convergence-protocol.md` |
-| Subagent Delegation Model, prompt template, delegation rules | `convergence-protocol.md` |
+| Subagent Delegation Model, skill-inheriting prompt template, per-screen delegation rules | `convergence-protocol.md` |
+| Real timestamp requirement for journal entries | `convergence-protocol.md` |
 | Compact Recovery Protocol | `convergence-protocol.md` |
 | Regression anti-patterns | `anti-patterns.md` |

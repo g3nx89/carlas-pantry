@@ -1,6 +1,6 @@
 ---
 name: figma-console-mastery
-version: 0.5.0
+version: 0.6.0
 description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "render JSX in Figma", "use figma_render", "use figma-use MCP", "analyze Figma design", "diff Figma designs", "query Figma nodes with XPath", "convert draft to handoff", "transfer Figma designs to handoff", "prepare Figma for code handoff", "create handoff page from draft", or when developing skills/commands that use the Figma Console or figma-use MCP servers. Provides tool selection, Plugin API patterns, JSX rendering, design analysis, visual diffing, design rules, Draft-to-Handoff workflow with clone-first architecture, and selective reference loading for both MCP servers.
 ---
 
@@ -18,10 +18,11 @@ Two MCP servers work together: **figma-console** (Southleft, 56+ tools) for Plug
 1. **figma-use-first** — use declarative tools for all atomic operations (create, modify, query); reserve `figma_execute` for complex conditional logic or batch scripts only
 2. **Discover before creating** — check existing components/tokens before building from scratch
 3. **Converge, never regress** — log every operation to the journal; check journal before every mutation; never redo completed work (see `convergence-protocol.md`)
-4. **Persist aggressively** — write to operation journal after EVERY operation, snapshot after each batch; assume context compaction can happen at any time
-5. **Batch homogeneous operations** — use `figma_execute` batch scripts for 3+ same-type operations to reduce tokens by 70% (see `convergence-protocol.md`)
-6. **Validate visually** — screenshot after every creation step (max 3 fix cycles)
-7. **Delegate phases for large workflows** — dispatch subagents per phase for 5+ screens; each agent reads journal at start (see `convergence-protocol.md`)
+4. **Persist aggressively** — write to operation journal after EVERY operation, snapshot after each screen; assume context compaction can happen at any time
+5. **One screen at a time** — in Draft-to-Handoff workflows, process each screen through the full pipeline (clone, validate, restructure, integrate components, visual diff) before starting the next; batch homogeneous operations *within* a screen (see `convergence-protocol.md`)
+6. **Validate visually** — screenshot and `figma_diff_visual` after every screen (max 3 fix cycles per screen)
+7. **Components in every screen** — every Handoff screen must contain component instances from the library; a library with 0 instances is a workflow failure
+8. **Subagents inherit skill context** — all subagents dispatched for Figma workflows must load figma-console-mastery skill references (see `convergence-protocol.md` Subagent Prompt Template)
 
 ## Prerequisites
 
@@ -265,7 +266,12 @@ Need to analyze or diff? (figma-use, CDP required)
 10. **Respect tool constraints** — use `figma_node_children` instead of `figma_node_tree` on large files (>500 nodes); test unfamiliar figma-use tools with a single call before batch usage
 11. **Verify source design access before building** — before constructing ANY screen on a Handoff page, successfully read the source Draft screen's node tree via `figma_node_children(id: draftScreenId)`. If the call fails or returns no meaningful children, STOP and inform the user. NEVER fall back to building from text documents, PRDs, or reconstruction guides — text cannot capture images, fonts, layer ordering, or visual properties
 12. **Clone-first for existing designs** — when a Draft page contains finalized designs, ALWAYS use `figma_node_clone` to transfer screens to the Handoff page, then restructure. Only build from scratch for screens that do not exist in the Draft. Cloning is the only way to preserve IMAGE fills, exact fonts, and visual fidelity
-13. **Delegate phases for large workflows** — for 5+ screens, dispatch each phase as a subagent via `Task(general-purpose)` with journal/state files as the coordination bus; each subagent reads journal at start to avoid regression (see `convergence-protocol.md`)
+13. **One screen at a time in Draft-to-Handoff** — process each screen through the full pipeline (clone → validate childCount → restructure → integrate components → visual diff) and confirm correctness before starting the next. Never batch-process screens — batch processing hides silent failures
+14. **Validate childCount after clone** — after every `figma_node_clone`, compare clone's childCount against the source's childCount from Phase 0 inventory. If clone has 0 children but source has >0, this is a clone failure — retry once, halt if still 0. NEVER mark a 0-child clone as complete
+15. **Component instances mandatory** — every screen on the Handoff page must contain component instances replacing recurring elements (buttons, top bars, nav bars, cards). A screen with 0 instances when components are available is incomplete
+16. **Subagents inherit figma-console-mastery** — all subagents dispatched for Figma workflows must load the skill references (workflow, convergence protocol, recipes-foundation, anti-patterns) before starting work. See `convergence-protocol.md` Subagent Prompt Template
+17. **Real timestamps only** — journal `ts` fields must come from `new Date().toISOString()` inside `figma_execute` or from the orchestrator's real clock. Never use hardcoded placeholder timestamps
+18. **Verify prototype reactions after wiring** — after `setReactionsAsync`, re-read `node.reactions`. If reactions.length is 0 but wiring was attempted, log as `group_unsupported` — GROUP nodes silently drop reactions
 
 ### AVOID
 
@@ -400,8 +406,12 @@ When a Figma workflow involves multi-step diagnostic chains, branching decisions
 | Node IDs lost after context compaction | Re-read `operation-journal.jsonl` and `session-state.json` — see `convergence-protocol.md` Compact Recovery Protocol |
 | System redoing already-completed work (regression) | Read `operation-journal.jsonl`, skip any operation already logged — see `convergence-protocol.md` Convergence Check |
 | Console log buffer missing earlier results | Buffer holds ~100 entries; call `figma_clear_console` before each `figma_execute` batch |
-| Components not appearing in screen instances | Components must be created (Phase 1) before screens (Phase 2) — see `workflow-draft-to-handoff.md` |
+| Components not appearing in screen instances | Components must be created (Phase 1) before screens (Phase 2); component integration is part of per-screen pipeline (Step 2.4) — see `workflow-draft-to-handoff.md` |
 | Context compaction mid-workflow | Follow Compact Recovery Protocol: re-read journal + state files, rebuild completed-ops set, resume from first uncompleted operation — see `convergence-protocol.md` |
+| Clone produces empty frame (0 children) | childCount validation gate: compare against Phase 0 inventory, retry once, halt if still 0 — see `workflow-draft-to-handoff.md` Step 2.2 |
+| Prototype connections silently lost | GROUP nodes drop reactions silently; verify with `node.reactions` re-read after `setReactionsAsync` — see `workflow-draft-to-handoff.md` Phase 3 |
+| Journal timestamps show impossible durations | Use `new Date().toISOString()` inside `figma_execute`; orchestrator injects real time for subagents — see `convergence-protocol.md` Journal Rule #9 |
+| Component library exists but 0 instances in screens | Component integration (Step 2.4) is mandatory per screen; audit at Phase 5 — see `workflow-draft-to-handoff.md` |
 
 **Full reference**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md`
 
