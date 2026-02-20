@@ -179,6 +179,11 @@ flags:
     unit: "{implemented}/{planned} ({pct}%)"
     integration: "{implemented}/{planned} ({pct}%)"
     e2e: "{implemented}/{planned} ({pct}%)"
+  cli_circuit_state: null     # Propagated (updated if Option C CLI runs)
+  context_contributions: null # When context_protocol enabled, populate with:
+    # key_decisions: validation pass/fail rationale, spec alignment findings
+    # open_issues: partial coverage areas, checks deferred by policy
+    # risk_signals: test quality concerns, coverage below thresholds
 ---
 ## Context for Next Stage
 

@@ -221,6 +221,8 @@ Used in Stage 4. Launched 3 times in parallel with different `{focus_area}` valu
 ```markdown
 **Goal**: Review the code implemented for {FEATURE_NAME}. Your assigned focus: {focus_area}.
 
+{reviewer_stance}
+
 ## Review Instructions
 
 1. Read TASKS_FILE to identify all files modified during implementation
@@ -275,8 +277,9 @@ When research context is provided: use it for documentation-backed review — ve
 - `{TASKS_FILE}` — Path to tasks.md
 - `{skill_references}` — Domain-specific skill references resolved by the coordinator (see `stage-4-quality-review.md` Section 4.1a). **Fallback:** `"No domain-specific skills available — review against codebase conventions only."`
 - `{research_context}` — Documentation excerpts for documentation-backed review, assembled by the coordinator from accumulated research URLs (see `stage-4-quality-review.md` Section 4.1b). **Fallback:** `"No research context available — review against codebase conventions only."`
+- `{reviewer_stance}` — Reviewer stance instruction, assigned by the Stage 4 coordinator (see `stage-4-quality-review.md` Section 4.2). Contains stance-specific guidance (advocate, challenger, or neutral). **Fallback if stances disabled:** `"No specific stance assigned — review objectively using your best judgment."`
 
-**Agent behavior:** The developer agent reads the changed files (extracted from tasks.md file paths), reviews code through its assigned lens, and produces a structured list of findings using the specified output format. When skill references are provided, the agent consults them for domain-specific anti-patterns and best practices relevant to its focus area. When research context is provided, the agent uses it for documentation-backed review: verifying API correctness, flagging deprecated calls, and checking pattern compliance.
+**Agent behavior:** The developer agent reads the changed files (extracted from tasks.md file paths), reviews code through its assigned lens, and produces a structured list of findings using the specified output format. When skill references are provided, the agent consults them for domain-specific anti-patterns and best practices relevant to its focus area. When research context is provided, the agent uses it for documentation-backed review: verifying API correctness, flagging deprecated calls, and checking pattern compliance. When a reviewer stance is provided, the agent adopts it: an advocate emphasizes strengths, a challenger stress-tests and scores conservatively, a neutral reviewer applies balanced judgment. Stances calibrate severity assessment — they do not change review scope or output format.
 
 ---
 

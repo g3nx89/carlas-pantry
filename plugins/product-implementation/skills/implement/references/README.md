@@ -6,18 +6,18 @@ Quick guide to when to read each reference file during skill development or debu
 
 | File | Read When... |
 |------|--------------|
-| `orchestrator-loop.md` | Understanding dispatch loop, crash recovery, state migration, or delegation ADR |
+| `orchestrator-loop.md` | Understanding dispatch loop, crash recovery, state migration, delegation ADR, or context pack protocol |
 | `stage-1-setup.md` | Debugging setup, branch parsing, lock acquisition, or state initialization |
 | `stage-2-execution.md` | Debugging phase-by-phase execution, task parsing, or TDD enforcement |
 | `stage-3-validation.md` | Debugging completion validation, spec alignment, or test coverage checks |
-| `stage-4-quality-review.md` | Debugging quality review, three-tier architecture, finding consolidation, or confidence scoring |
+| `stage-4-quality-review.md` | Debugging quality review, three-tier architecture, finding consolidation, confidence scoring, stances, convergence detection, or CoVe |
 | `stage-4-plugin-review.md` | Understanding Tier B plugin-based review (code-review skill integration) |
 | `stage-4-cli-review.md` | Understanding Tier C CLI multi-model review (Phase 1/2 dispatch, pattern search) |
 | `stage-5-documentation.md` | Debugging documentation generation, tech-writer dispatch, or lock release |
 | `agent-prompts.md` | Modifying agent prompt templates or adding new prompt types |
 | `auto-commit-dispatch.md` | Understanding shared auto-commit procedure, exclude pattern matching, or batch strategy |
 | `skill-resolution.md` | Understanding domain-specific skill resolution algorithm used by Stages 2, 4, 5 |
-| `cli-dispatch-procedure.md` | Understanding shared CLI dispatch, timeout, parsing, fallback algorithm |
+| `cli-dispatch-procedure.md` | Understanding shared CLI dispatch, timeout, parsing, fallback algorithm, or circuit breaker gate |
 | `stage-6-retrospective.md` | Debugging retrospective generation, KPI compilation, transcript extraction, or tech-writer dispatch |
 
 ## By Task
@@ -46,19 +46,19 @@ Quick guide to when to read each reference file during skill development or debu
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `orchestrator-loop.md` | 228 | Dispatch loop, crash recovery, lock release, state migration, late notification handling, autonomy policy infrastructure checks |
-| `stage-1-setup.md` | 559 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), plugin availability check (1.6f), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), summary template |
-| `stage-2-execution.md` | 612 | Skill resolution, research context resolution (2.0a), phase loop, CLI test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7) with non-skippable gate check, CLI test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, cli_dispatch_metrics, autonomy policy checks |
-| `stage-3-validation.md` | 196 | Validation checks, CLI spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, autonomy policy check (3.4) |
-| `stage-4-quality-review.md` | 352 | Three-tier review architecture (Tier A native, Tier B plugin, Tier C CLI), Tier A native multi-agent review, confidence scoring with outcome logging, severity reclassification (with intentional bypass note), finding consolidation, auto-decision matrix with autonomy policy extension (4.4), CLI fix engineer (Option F), auto-commit on fix |
+| `orchestrator-loop.md` | 258 | Dispatch loop, crash recovery, lock release, state migration, late notification handling, autonomy policy infrastructure checks, context pack protocol |
+| `stage-1-setup.md` | 591 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), plugin availability check (1.6f), CLI circuit breaker initialization (1.7b), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), context contributions initialization, summary template |
+| `stage-2-execution.md` | 617 | Skill resolution, research context resolution (2.0a), phase loop, CLI test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7) with non-skippable gate check, CLI test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, cli_dispatch_metrics, circuit state propagation, context contributions, autonomy policy checks |
+| `stage-3-validation.md` | 201 | Validation checks, CLI spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, circuit state propagation, context contributions, autonomy policy check (3.4) |
+| `stage-4-quality-review.md` | 467 | Three-tier review architecture (Tier A native, Tier B plugin, Tier C CLI), Tier A native multi-agent review, stance assignment (4.2), convergence detection (4.3a), confidence scoring with outcome logging, severity reclassification (with intentional bypass note), stance divergence analysis (4.3), CoVe post-synthesis (4.3b), finding consolidation, auto-decision matrix with autonomy policy extension (4.4), CLI fix engineer (Option F), auto-commit on fix |
 | `stage-4-plugin-review.md` | 69 | Tier B: Plugin-based review via code-review skill, config-driven CEK confidence normalization, max findings cap, graceful degradation |
 | `stage-4-cli-review.md` | 112 | Tier C: CLI multi-model review, Phase 1 parallel dispatch (correctness, security, android domain), Phase 2 sequential pattern search (Gemini 1M context), consolidation checkpoint |
-| `stage-5-documentation.md` | 258 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release, autonomy policy check for incomplete tasks (5.1) |
-| `agent-prompts.md` | 538 | All 9 agent prompt templates (8 agent + 1 auto-commit) with `{skill_references}` and `{research_context}` variables, verified test count, severity escalation, R-REV-01 pattern propagation, build verification, API verification, test quality, animation testing, code simplification, retrospective composition |
+| `stage-5-documentation.md` | 259 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release, context contributions, autonomy policy check for incomplete tasks (5.1) |
+| `agent-prompts.md` | 541 | All 9 agent prompt templates (8 agent + 1 auto-commit) with `{skill_references}`, `{research_context}`, and `{reviewer_stance}` variables, verified test count, severity escalation, R-REV-01 pattern propagation, build verification, API verification, test quality, animation testing, code simplification, retrospective composition |
 | `auto-commit-dispatch.md` | 62 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
-| `cli-dispatch-procedure.md` | 173 | Shared parameterized CLI dispatch via Bash process-group dispatch, 4-tier output parsing, expected-fields validation, metrics sidecar, exit codes 0-4, UUID output filenames, variable injection convention, fallback procedure |
-| `stage-6-retrospective.md` | 346 | KPI Report Card compilation (10 Phase 1 KPIs), cli_dispatch_metrics aggregation, sidecar cleanup, session transcript extraction (conditional), retrospective composition via tech-writer, auto-commit, state update |
+| `cli-dispatch-procedure.md` | 207 | Shared parameterized CLI dispatch via Bash process-group dispatch, 4-tier output parsing, expected-fields validation, metrics sidecar, exit codes 0-4, UUID output filenames, variable injection convention, circuit breaker pre/post-step, fallback procedure |
+| `stage-6-retrospective.md` | 350 | KPI Report Card compilation (10 Phase 1 KPIs), Phase 2 KPI placeholders (CoVe effectiveness, reviewer convergence, circuit breaker trips), cli_dispatch_metrics aggregation, sidecar cleanup, session transcript extraction (conditional), retrospective composition via tech-writer, auto-commit, context contributions, state update |
 
 ## Cross-References
 
@@ -125,3 +125,11 @@ Quick guide to when to read each reference file during skill development or debu
 - `config/implementation-config.yaml` `auto_commit.exclude_patterns` includes `.implementation-report-card` and `transcript-extract.json` for Stage 6 local artifacts
 - Stage 6 runs post-lock-release: lock was released in Stage 5, Stage 6 is read-only analysis
 - Stage 6 produces `.implementation-report-card.local.md` (KPI Report Card) and `retrospective.md` (narrative); transcript-extract.json is intermediate
+- `config/implementation-config.yaml` `quality_review.cove` → referenced by `stage-4-quality-review.md` Section 4.3b (CoVe post-synthesis)
+- `config/implementation-config.yaml` `quality_review.stances` → referenced by `stage-4-quality-review.md` Section 4.2 (stance assignment), `agent-prompts.md` Quality Review Prompt (`{reviewer_stance}` variable)
+- `config/implementation-config.yaml` `quality_review.convergence` → referenced by `stage-4-quality-review.md` Section 4.3a (convergence detection)
+- `config/implementation-config.yaml` `cli_dispatch.circuit_breaker` → referenced by `stage-1-setup.md` Section 1.7b (initialization), `cli-dispatch-procedure.md` Pre-Step/Post-Step (gate + update)
+- `config/implementation-config.yaml` `context_protocol` → referenced by `orchestrator-loop.md` DISPATCH_COORDINATOR (context pack builder)
+- `stage-1-setup.md` writes `cli_circuit_state` to Stage 1 summary (Section 1.7b); propagated through Stages 2, 3, 4 via summary flags, updated by CLI dispatches
+- `stage-1-setup.md` writes initial `context_contributions` to Stage 1 summary; accumulated across all stages via `orchestrator-loop.md` context pack builder
+- `agent-prompts.md` `{reviewer_stance}` variable in Quality Review Prompt with explicit fallback default

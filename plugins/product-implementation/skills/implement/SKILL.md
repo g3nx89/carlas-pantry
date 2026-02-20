@@ -101,7 +101,7 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 | 1 | Inline | `stage-1-setup.md` | — | — | Policy question (1.9a) | SETUP |
 | 2 | Coordinator | `stage-2-execution.md` | `developer`, `code-simplifier`, `uat-tester (CLI/gemini)` | stage-1 | Policy-gated | EXECUTION |
 | 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 | Policy-gated | VALIDATION |
-| 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3+ (Tier A), plugin (Tier B), CLI (Tier C) | stage-2, stage-3 | Policy-gated | QUALITY_REVIEW |
+| 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3+ (Tier A, with optional stances/convergence/CoVe), plugin (Tier B), CLI (Tier C) | stage-2, stage-3 | Policy-gated | QUALITY_REVIEW |
 | 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer` | stage-3, stage-4 | Policy-gated | DOCUMENTATION |
 | 6 | Coordinator | `stage-6-retrospective.md` | `tech-writer` | stage-1 through stage-5 | None | RETROSPECTIVE |
 
@@ -268,18 +268,18 @@ Configuration: `config/implementation-config.yaml` under `autonomy_policy`.
 
 | File | When to Read | Content |
 |------|-------------|---------|
-| `references/orchestrator-loop.md` | Workflow start (always) | Dispatch loop, crash recovery, state migration, late notification handling |
+| `references/orchestrator-loop.md` | Workflow start (always) | Dispatch loop, crash recovery, state migration, late notification handling, context pack protocol |
 | `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, lock, state init, domain detection |
 | `references/stage-2-execution.md` | Stage 2 (coordinator) | Skill resolution, phase loop, task parsing, error handling |
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |
-| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Three-tier review architecture, Tier A native review, confidence scoring, finding consolidation, auto-decision matrix |
+| `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Three-tier review architecture, Tier A native review (with optional stances), convergence detection, confidence scoring, finding consolidation, CoVe post-synthesis, auto-decision matrix |
 | `references/stage-4-plugin-review.md` | Stage 4 (coordinator reads) | Tier B: Plugin-based review via code-review skill, finding normalization |
 | `references/stage-4-cli-review.md` | Stage 4 (coordinator reads) | Tier C: CLI multi-model review, Phase 1/2 dispatch, pattern search |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
 | `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | All 9 agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, code simplification, auto-commit, retrospective composition |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5, 6 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
-| `references/cli-dispatch-procedure.md` | Stages 2, 3, 4 (coordinator reads) | Shared parameterized CLI dispatch, timeout, parsing, fallback procedure |
+| `references/cli-dispatch-procedure.md` | Stages 2, 3, 4 (coordinator reads) | Shared parameterized CLI dispatch, timeout, parsing, circuit breaker gate, fallback procedure |
 | `references/stage-6-retrospective.md` | Stage 6 (coordinator) | KPI Report Card, transcript extraction, retrospective composition |
 
 ## Error Handling

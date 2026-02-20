@@ -579,6 +579,11 @@ flags:
     # dispatches_fallback: {N}     — Dispatches that fell back to native agents
     # tier_distribution: {1: N, 2: N, 3: N, 4: N}  — Count of dispatches by output extraction tier
     # total_timeout_ms: {N}        — Sum of dispatch durations
+  cli_circuit_state: null     # Updated by CLI dispatches in this stage
+  context_contributions: null # When context_protocol enabled, populate with:
+    # key_decisions: phase completion decisions, build/test strategy choices
+    # open_issues: unresolved build warnings, deferred test failures
+    # risk_signals: flaky tests, high-complexity files touched, coverage gaps
   uat_results: null              # null if UAT mobile testing disabled or not applicable for any phase.
     # When enabled and run on at least one phase, replace null with an object containing these keys:
     # phases_tested: {N}           — Phases where UAT ran successfully

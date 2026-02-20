@@ -76,6 +76,32 @@ FUNCTION DISPATCH_COORDINATOR(stage):
   prior_summaries = dispatch_table[stage].prior_summaries
   checkpoint = dispatch_table[stage].checkpoint
 
+  # Context Pack (if enabled)
+  context_pack = ""
+  IF config.context_protocol.enabled:
+    decisions = []
+    open_issues = []
+    risk_signals = []
+
+    FOR EACH summary_path IN prior_summaries:
+      summary = READ("{FEATURE_DIR}/.stage-summaries/{summary_path}")
+      contributions = summary.flags.context_contributions
+      IF contributions IS NOT NULL:
+        decisions += contributions.key_decisions OR []
+        open_issues += contributions.open_issues OR []
+        risk_signals += contributions.risk_signals OR []
+
+    # Sort by priority using config-driven strategies, truncate to budget
+    FOR EACH category IN [decisions, open_issues, risk_signals]:
+      strategy = config.context_protocol.truncation_strategies[category]
+      budget = config.context_protocol.category_budgets[category]
+      items[category] = APPLY_STRATEGY(items[category], strategy, budget)
+      # Strategies: "keep_high_confidence_first" → SORT by confidence DESC
+      #             "keep_highest_severity_first" → SORT by severity DESC
+
+    IF any non-empty:
+      context_pack = FORMAT as "## Accumulated Context Pack" with 3 subsections
+
   prompt = """
     You are coordinating Stage {stage}: {stage_name} of the feature implementation workflow.
 
@@ -91,11 +117,15 @@ FUNCTION DISPATCH_COORDINATOR(stage):
     ## Prior Stage Summaries (read these first)
     {for each summary in prior_summaries: {FEATURE_DIR}/.stage-summaries/{summary}}
 
+    {context_pack}
+
     ## Output Contract
     1. Write artifacts to {FEATURE_DIR}/ as specified in your instructions
     2. Write stage summary to: {FEATURE_DIR}/.stage-summaries/stage-{stage}-summary.md
     3. Use summary template: $CLAUDE_PLUGIN_ROOT/templates/stage-summary-template.md
     4. Do NOT interact with the user. If input needed, set status: needs-user-input.
+    5. IF context_protocol enabled, include `context_contributions` in summary flags
+       with any new key_decisions, open_issues, or risk_signals from this stage.
   """
 
   # Coordinator health: if Task() exceeds max_turns or context limit,

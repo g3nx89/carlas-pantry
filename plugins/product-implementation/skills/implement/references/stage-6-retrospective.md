@@ -152,6 +152,9 @@ kpis:
     traffic_light: "{green|yellow|red|N/A}"
 # --- Phase 2 KPIs (future — null placeholders for forward-compatibility) ---
 phase2:
+  cove_effectiveness: null         # KPI 2.1: cove_stats.findings_removed / cove_stats.findings_before (null if CoVe didn't run)
+  reviewer_convergence: null       # KPI 2.2: convergence_stats.avg_similarity (null if convergence detection didn't run)
+  circuit_breaker_trips: null      # KPI 2.3: count of status: "open" in final cli_circuit_state (null if disabled)
   stage_duration_seconds: null
   finding_counts_by_severity: null
   spec_coverage_ratio: null
@@ -324,6 +327,7 @@ flags:
   kpis_computed: 10          # Number of Phase 1 KPIs successfully computed
   kpis_null: {N}             # Number of KPIs set to null (feature disabled)
   commit_sha: null            # Auto-commit SHA (null if disabled, skipped, or failed)
+  context_contributions: null
 ---
 ## Context for Next Stage
 

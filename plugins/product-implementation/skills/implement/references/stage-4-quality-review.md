@@ -129,6 +129,26 @@ Example conditional reviewers:
 
 All conditional reviewers run in parallel with the base 3.
 
+### Stance Assignment (Optional)
+
+> Conditional: Only when `quality_review.stances.enabled` is `true` in config.
+> If disabled, set `{reviewer_stance}` to `"No specific stance assigned — review objectively using your best judgment."` for all reviewers.
+
+Read `quality_review.stances.assignments` from config. Assign stances to the 3 base reviewers:
+
+| Reviewer | Focus | Stance | Prompt Extension |
+|----------|-------|--------|-----------------|
+| 1 | Simplicity/DRY | assignments[0].stance | assignments[0].prompt_extension |
+| 2 | Bugs/Correctness | assignments[1].stance | assignments[1].prompt_extension |
+| 3 | Conventions/Patterns | assignments[2].stance | assignments[2].prompt_extension |
+
+Format `{reviewer_stance}` for each reviewer:
+```
+Your review stance: **{stance_name}**. {prompt_extension}
+```
+
+Conditional reviewers (from Section 4.1a) and Tier B/C reviewers always receive empty `{reviewer_stance}` (neutral behavior).
+
 ### Review Scope
 
 Each reviewer agent should:
@@ -153,6 +173,39 @@ When `cli_dispatch.stage4.multi_model_review.enabled` is `true`, Tier C dispatch
 ### Dev-Skills Conditional Reviewers
 
 Conditional reviewers from `dev_skills.conditional_review` (Section 4.1a) launch alongside all tiers. They are always dispatched as native `developer` agents.
+
+## 4.3a Convergence Detection (Optional)
+
+> Conditional: Only when `quality_review.convergence.enabled` is `true` AND >= 2 reviewers completed.
+> If disabled or single reviewer, skip to Section 4.3 with default strategy `"standard_merge_deduplicate"`.
+
+After all reviewers complete (Tiers A + optionally B + C), measure inter-reviewer agreement:
+
+### Procedure
+
+1. Collect all reviewer outputs as `{reviewer_id, findings_text}` pairs
+2. Extract top N technical keywords from each (N from `convergence.keyword_count`, default 20):
+   - Tokenize, filter stop words and generic review terms ("issue", "finding", "code", "file")
+   - Keep technical terms (class names, method names, patterns, framework terms)
+   - Select top N by frequency
+3. Compute pairwise Jaccard similarity: `|A intersect B| / |A union B|`
+4. Average all pairwise scores
+5. Classify:
+   - `avg >= high_threshold (0.70)`: HIGH — use `strategies.high`
+   - `avg >= medium_threshold (0.40)`: MEDIUM — use `strategies.medium`
+   - `avg < medium_threshold`: LOW — use `strategies.low`
+6. Pass strategy to Section 4.3 to adapt consolidation behavior:
+   - `standard_merge_deduplicate`: normal merge (current behavior)
+   - `weighted_merge_flag_divergence`: on severity conflicts, keep higher severity + note "[Divergent]"
+   - `present_all_flag_for_user`: skip dedup, present all, add header "Low reviewer agreement — manual review recommended"
+
+### Limitations
+
+> **NOTE:** Jaccard similarity measures vocabulary overlap, not semantic agreement. Reviewers sharing domain vocabulary may score HIGH even with different conclusions. Conversely, cross-tier reviewers (Tier A native vs Tier C CLI) may use different vocabulary for the same findings, depressing scores. When `quality_review.stances.enabled` is also `true`, stance-biased reviewers (advocate vs challenger) may naturally diverge in vocabulary framing, which can systematically lower convergence scores. Interpret convergence levels as a heuristic signal, not a definitive measure of agreement.
+
+### Output
+
+Store `convergence_stats` in summary flags (Section 4.5).
 
 ## 4.3 Finding Consolidation
 
@@ -200,6 +253,20 @@ This pass runs AFTER deduplication so that consensus-boosted findings are also c
 
 > **Note:** Findings promoted by escalation triggers intentionally bypass the confidence threshold for their new severity level. A Medium finding at score 75 promoted to High (threshold 65) is retained without re-filtering. This is by design — escalation triggers represent domain knowledge that overrides statistical confidence.
 
+### Stance Divergence Analysis (Optional)
+
+> Conditional: Only when `quality_review.stances.enabled` is `true` AND all 3 base reviewers completed.
+
+For each finding assessed by multiple base reviewers (from deduplication), compare severity across stances:
+
+1. Compute `severity_spread = max_ordinal - min_ordinal` (low=0, medium=1, high=2, critical=3)
+2. Classify using `stances.divergence` thresholds:
+   - spread <= `low_threshold` (0): accept majority severity
+   - spread <= `moderate_threshold` (1): accept majority, append note
+   - spread >= `high_threshold` (2): flag "[DIVERGENCE]" with per-stance breakdown, recommend manual review
+
+Track `high_divergence_count` and `stance_adjustments` for summary.
+
 ### Consolidation Output
 
 ```text
@@ -224,6 +291,49 @@ Total findings: {count}
 ### Recommendation
 {count} issues recommended for immediate fix (Critical + High)
 ```
+
+## 4.3b CoVe Post-Synthesis (Optional)
+
+> Conditional: Only when ALL of:
+>   1. `quality_review.cove.enabled` is `true`
+>   2. Multi-tier review was used (>= 2 of Tiers A, B, C ran)
+>   3. Critical + High findings after confidence scoring >= `cove.min_findings_trigger`
+> If any condition fails, skip to Section 4.4.
+
+Run Chain-of-Verification to validate Critical/High findings against actual code.
+
+### Procedure
+
+1. Collect all Critical + High findings from Section 4.3 output
+2. Dispatch throwaway `Task(subagent_type="general-purpose")` with CoVe prompt:
+
+> You are a code verification agent. Verify review findings by reading source code.
+>
+> ## Findings to Verify
+> {findings_list}
+>
+> ## Instructions
+> For EACH finding:
+> 1. Generate {min}-{max} verification questions targeting the claim
+> 2. Answer each by reading the actual code (use Read/Glob/Grep — do NOT guess)
+> 3. Determine VERIFIED (code has the issue) or REJECTED (false positive)
+> 4. For REJECTED: explain why (e.g., "validated at helper.ts:45 before use")
+>
+> ## Output
+> Per finding: finding_id, verified (true/false), questions_asked, reason
+> Summary: findings_verified, findings_rejected, total_questions
+
+Variables:
+- `{findings_list}` — Critical+High findings with IDs, descriptions, file:line, severity
+- `{min}` / `{max}` — from `cove.verification_questions.min/max`
+
+3. Parse output: remove findings where `verified: false`
+4. Log each removal: "CoVe removed [{id}]: {reason}"
+5. Update consolidated list
+
+### Output
+
+Store `cove_stats` in summary flags (Section 4.5).
 
 ## 4.4 User Decision
 
@@ -331,6 +441,11 @@ flags:
   review_outcome: "fixed"  # fixed | deferred | accepted
   test_count_post_fix: {N}  # Verified test count after fix agent (only present when review_outcome is "fixed")
   commit_sha: null  # Auto-commit SHA after review fixes (null if disabled, skipped, or failed)
+  convergence_stats: null    # Section 4.3a: {avg_similarity, level, strategy_used, pairwise_scores}
+  stance_stats: null         # Section 4.2/4.3: {high_divergence_count, stance_adjustments, stances_used}
+  cove_stats: null           # Section 4.3b: {findings_before, findings_after, questions_generated, findings_removed}
+  cli_circuit_state: null    # Propagated from Stage 2/3, updated by Tier C dispatches
+  context_contributions: null
   confidence_scoring_stats: null  # null if confidence scoring disabled or single-tier only. When multi-tier:
     # findings_before_scoring: {N}   — Raw finding count before confidence filtering
     # findings_after_scoring: {N}    — Finding count after progressive threshold filtering

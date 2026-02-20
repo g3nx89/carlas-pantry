@@ -54,6 +54,44 @@ quality_review:
     - "bugs, functional correctness, and edge case handling"
     - "project conventions, abstractions, and pattern adherence"
 
+  # CoVe (Chain-of-Verification) post-synthesis (Stage 4)
+  # Dispatches throwaway subagent to verify Critical/High findings against actual code.
+  # Referenced by: stage-4-quality-review.md Section 4.3b
+  cove:
+    enabled: false
+    min_findings_trigger: 2           # Min Critical+High findings to trigger CoVe
+    verification_questions:
+      min: 3
+      max: 5
+
+  # Reviewer stance assignment for calibrated scoring (Stage 4)
+  # Referenced by: stage-4-quality-review.md Section 4.2, agent-prompts.md
+  stances:
+    enabled: false
+    assignments:
+      - stance: "advocate"
+        prompt_extension: "Highlight code strengths, acknowledge good patterns, give benefit of doubt on ambiguous choices. Your role is to ensure genuine quality is recognized, not to inflate scores."
+      - stance: "challenger"
+        prompt_extension: "Actively find gaps, risks, overlooked failure modes, and edge cases. Score conservatively. Your role is to stress-test the implementation, not to be unfair."
+      - stance: "neutral"
+        prompt_extension: ""
+    divergence:
+      low_threshold: 0               # Same severity: accept majority
+      moderate_threshold: 1           # 1 level diff: accept and note
+      high_threshold: 2               # 2+ levels: flag for user
+
+  # Convergence detection for reviewer agreement (Stage 4)
+  # Referenced by: stage-4-quality-review.md Section 4.3a
+  convergence:
+    enabled: false
+    high_threshold: 0.70
+    medium_threshold: 0.40
+    keyword_count: 20
+    strategies:
+      high: "standard_merge_deduplicate"
+      medium: "weighted_merge_flag_divergence"
+      low: "present_all_flag_for_user"
+
 # Severity classification (canonical definitions)
 severity:
   critical:
@@ -326,6 +364,12 @@ cli_dispatch:
   non_skippable_gates:
     - "stage2.uat_mobile_tester"    # UAT behavioral testing cannot be auto-skipped even under full_auto policy
 
+  # Cross-stage circuit breaker for CLI dispatch failures
+  # Referenced by: stage-1-setup.md Section 1.7b, cli-dispatch-procedure.md
+  circuit_breaker:
+    enabled: false
+    consecutive_failure_threshold: 3
+
   # MCP tool budgets per CLI dispatch (advisory limits on MCP usage by CLI agents).
   # Injected into CLI agent prompts by coordinators. These are prompt-based guidance,
   # not programmatic hard caps — CLI agents receive the budget as text instructions.
@@ -537,3 +581,16 @@ timestamps:
   format: "ISO_8601"
   precision: "seconds"
   command: "date -u +%Y-%m-%dT%H:%M:%SZ"
+
+# Context Pack Protocol — accumulated context propagation across stages
+# Referenced by: orchestrator-loop.md DISPATCH_COORDINATOR
+context_protocol:
+  enabled: false
+  category_budgets:
+    decisions: 250
+    open_issues: 200
+    risk_signals: 150
+  truncation_strategies:
+    decisions: "keep_high_confidence_first"
+    open_issues: "keep_highest_severity_first"
+    risk_signals: "keep_highest_severity_first"

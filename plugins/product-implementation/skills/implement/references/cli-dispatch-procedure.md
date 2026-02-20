@@ -1,6 +1,7 @@
 ---
 purpose: "Shared parameterized CLI dispatch, timeout, parsing, and fallback procedure"
 referenced_by:
+  - "stage-1-setup.md (Section 1.7b)"
   - "stage-2-execution.md (Options H, I, J)"
   - "stage-3-validation.md (Option C)"
   - "stage-4-cli-review.md (Tier C dispatches)"
@@ -28,6 +29,19 @@ config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (cli_dispa
 | `expected_fields` | string[] | Fields to extract from `<SUMMARY>` block |
 
 ## Procedure
+
+### Pre-Step: Circuit Breaker Gate (Optional)
+
+> Conditional: Only when `cli_dispatch.circuit_breaker.enabled` is `true`.
+
+Before Step 1, check whether the circuit for this CLI is open:
+
+1. Read `cli_circuit_state` from the most recent prior summary that contains it
+   (coordinator provides this from its prior_summaries reading)
+2. If `cli_circuit_state.{cli_name}.status == "open"`:
+   - LOG: "Circuit OPEN for {cli_name} — skipping dispatch"
+   - Skip directly to Step 5 (Fallback) with reason `"circuit_open"`
+3. If status is `"closed"`: proceed to Step 1
 
 ### Step 1: Dispatch
 
@@ -67,6 +81,26 @@ Check the script's exit code:
 If `exit_code != 0`:
 1. LOG warning: `"CLI dispatch failed: {cli_name}/{role} -- exit code {exit_code}"`
 2. GOTO **Fallback** (Step 5)
+
+### Post-Step: Circuit Breaker Update (Optional)
+
+> Conditional: Only when `cli_dispatch.circuit_breaker.enabled` is `true`.
+
+After Step 2 (Error Check), update circuit state:
+
+1. Determine `success`: exit_code == 0 AND output parsed (Tier 1-3)
+2. If `success`:
+   - Reset: `cli_circuit_state.{cli_name}.consecutive_failures = 0`
+   - Ensure: `cli_circuit_state.{cli_name}.status = "closed"`
+3. If NOT `success`:
+   - Increment: `cli_circuit_state.{cli_name}.consecutive_failures += 1`
+   - Read threshold from `cli_dispatch.circuit_breaker.consecutive_failure_threshold`
+   - If `consecutive_failures >= threshold`:
+     - Set: `cli_circuit_state.{cli_name}.status = "open"`
+     - LOG: "Circuit OPENED for {cli_name} — {threshold} consecutive failures"
+4. Return updated `cli_circuit_state` to coordinator for summary propagation
+
+> **Future enhancement:** The current implementation uses a two-state model (closed/open). A classic circuit breaker includes a third `half_open` state that allows a single probe dispatch after N stages to test recovery. For v1, the two-state model is sufficient — once a circuit opens, it remains open for the rest of the session. If CLI recovery detection becomes valuable, add a `half_open` state with a configurable cooldown period.
 
 ### Step 3: Parse Output
 

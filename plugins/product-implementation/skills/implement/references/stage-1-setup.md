@@ -343,6 +343,21 @@ dispatch_infrastructure:
 
 1 dispatch script smoke test per unique enabled CLI (~3-5s total). Skipped entirely when no CLI options are enabled.
 
+## 1.7b CLI Circuit Breaker Initialization
+
+> Conditional: Only when `cli_dispatch.circuit_breaker.enabled` is `true` in config.
+> If disabled, set `cli_circuit_state: null` in the summary and skip.
+
+Initialize the circuit breaker state for all detected CLIs:
+
+```yaml
+cli_circuit_state:
+  codex: {consecutive_failures: 0, status: "closed"}
+  gemini: {consecutive_failures: 0, status: "closed"}
+```
+
+Only include CLIs where `cli_availability.{cli_name}` is `true`. Omit unavailable CLIs.
+
 ## 1.7 Lock Acquisition
 
 Before initializing or resuming state, acquire the execution lock:
@@ -475,6 +490,19 @@ mobile_device_name: "{name or null}"  # from Section 1.6e (first available emula
 plugin_availability:             # from Section 1.6f
   code_review: {true/false}
 autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user-selected or config default)
+cli_circuit_state: null   # from Section 1.7b (null if disabled)
+# IF context_protocol.enabled:
+context_contributions:
+  key_decisions:
+    - text: "Autonomy policy: {selected_level}"
+      confidence: "HIGH"
+    - text: "Planning artifacts: {count} loaded ({list})"
+      confidence: "HIGH"
+  open_issues: []
+  risk_signals:
+    # Populate from expected-file warnings (e.g., "design.md missing")
+# ELSE:
+# context_contributions: null
 ---
 ## Context for Next Stage
 
@@ -495,6 +523,8 @@ autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user
 - Mobile MCP: {available with device "{name}" / not available} (or "UAT disabled")
 - Plugin availability: code-review={true/false}
 - Autonomy policy: {full_auto/balanced/critical_only} ({user selected / from config default})
+- CLI circuit breaker: {initialized for N CLIs / disabled}
+- Context protocol: {enabled with initial contributions / disabled}
 
 ## Planning Artifacts Summary
 
@@ -554,6 +584,8 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] Mobile MCP probe: {available with device "{name}" / not available / UAT disabled}
 - [{timestamp}] Plugin availability: code-review={true/false}
 - [{timestamp}] Autonomy policy: {level_key} ({source: user selected / config default})
+- [{timestamp}] Circuit breaker: {initialized for N CLIs / disabled}
+- [{timestamp}] Context protocol: {enabled / disabled}
 - [{timestamp}] Lock acquired
 - [{timestamp}] State initialized / resumed from Stage {S}
 ```

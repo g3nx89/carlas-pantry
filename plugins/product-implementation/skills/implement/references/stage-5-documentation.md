@@ -236,6 +236,7 @@ flags:
   block_reason: null
   documentation_outcome: "completed"
   commit_sha: null  # Auto-commit SHA after documentation (null if disabled, skipped, or failed)
+  context_contributions: null
 ---
 ## Context for Next Stage
 
