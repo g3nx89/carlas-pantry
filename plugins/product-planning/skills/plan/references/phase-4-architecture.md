@@ -34,6 +34,9 @@ feature_flags:
   - "st_tao_loops"
   - "dev_skills_integration"
   - "deep_reasoning_escalation"  # algorithm awareness: flag difficulty for orchestrator
+  - "s7_mpa_deliberation"
+  - "s8_convergence_detection"
+  - "s10_team_presets"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/tot-workflow.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/adaptive-strategy-logic.md"
@@ -60,6 +63,12 @@ additional_references:
 > 6. Write your phase summary to `{FEATURE_DIR}/.phase-summaries/phase-4-summary.md` using the template at `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`.
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
+
+## Decision Protocol
+When `a6_context_protocol` is enabled (check feature flags):
+1. **RESPECT** all prior key decisions — do not contradict HIGH-confidence decisions without explicit justification.
+2. **CHECK** open questions — if your analysis resolves any, include the resolution in your `key_decisions`.
+3. **CONTRIBUTE** your findings as `key_decisions`, `open_questions`, and `risks_identified` in your phase summary YAML.
 
 ## Step 4.0a: Dev-Skills Context Loading (Subagent)
 
@@ -165,6 +174,16 @@ ELSE:
 
 ## Step 4.1: Standard MPA Architecture
 
+```
+# S5: Team Preset filtering (s10_team_presets)
+IF feature_flags.s10_team_presets.enabled AND state.team_preset == "rapid_prototype":
+  # Only dispatch software-architect (skip wildcard, pruning judge)
+  AGENT_LIST = ["product-planning:software-architect"]
+  LOG: "Team preset rapid_prototype: dispatching software-architect only"
+ELSE:
+  AGENT_LIST = default agents per mode
+```
+
 **Standard/Advanced modes (when S5 ToT disabled):** Launch 3 architecture agents (MPA) in parallel:
 
 ```
@@ -196,6 +215,28 @@ Output to:
 
 Reference: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/tot-workflow.md`
 Reference: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/adaptive-strategy-logic.md`
+
+## Step 4.1b: MPA Deliberation — Structured Synthesis (S1)
+
+Follow the **MPA Deliberation** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/mpa-synthesis-pattern.md` with these parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| `AGENT_OUTPUTS` | `[minimal, clean, pragmatic]` |
+| `AGENT_LIST` | Architecture agents from Step 4.1 |
+| `PHASE_ID` | `"4"` |
+| `INSIGHT_FOCUS` | Key insights, unique patterns, novel approaches |
+| `RESOLUTION_STRATEGY` | User decision for architectural conflicts |
+
+## Step 4.1c: Convergence Detection (S2)
+
+Follow the **Convergence Detection** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/mpa-synthesis-pattern.md` with these parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| `AGENT_OUTPUTS` | `[minimal, clean, pragmatic]` |
+| `PHASE_ID` | `"4"` |
+| `LOW_CONVERGENCE_STRATEGY` | `"present_all_options"` |
 
 ## Step 4.2: TAO Loop Analysis (After MPA Agents)
 
@@ -234,18 +275,18 @@ IF mode == Complete AND ST available:
 # Check feature flag for Fork-Join
 IF feature_flags.st_fork_join_architecture.enabled:
 
-  # Phase 4.3a: Frame the decision point
+  # Fork phase (i): Frame the decision point
   mcp__sequential-thinking__sequentialthinking(T7a_FRAME)
 
-  # Phase 4.3b: Parallel branches (logically parallel, sequential execution)
+  # Fork phase (ii): Parallel branches (logically parallel, sequential execution)
   mcp__sequential-thinking__sequentialthinking(T7b_BRANCH_MINIMAL)
   mcp__sequential-thinking__sequentialthinking(T7c_BRANCH_CLEAN)
   mcp__sequential-thinking__sequentialthinking(T7d_BRANCH_PRAGMATIC)
 
-  # Phase 4.3c: Join and synthesize
+  # Fork phase (iii): Join and synthesize
   mcp__sequential-thinking__sequentialthinking(T8_SYNTHESIS)
 
-  # Phase 4.3d: Continue with selected approach
+  # Fork phase (iv): Continue with selected approach
   mcp__sequential-thinking__sequentialthinking(T9: Component Design)
   mcp__sequential-thinking__sequentialthinking(T10: Acceptance Criteria Mapping)
 

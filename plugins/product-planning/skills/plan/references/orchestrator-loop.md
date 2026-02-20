@@ -182,6 +182,51 @@ FUNCTION DISPATCH_COORDINATOR(phase):
   prior_summaries = dispatch_table[phase].prior_summaries
   checkpoint = dispatch_table[phase].checkpoint
 
+  # --- S6: Context Pack Builder (a6_context_protocol) ---
+  IF config.feature_flags.a6_context_protocol.enabled:
+    accumulated_decisions = []
+    accumulated_questions = []
+    accumulated_risks = []
+
+    FOR EACH summary_path IN prior_summaries:
+      summary = READ(summary_path)
+      IF summary.key_decisions:
+        accumulated_decisions += summary.key_decisions
+      IF summary.open_questions:
+        accumulated_questions += summary.open_questions
+      IF summary.risks_identified:
+        accumulated_risks += summary.risks_identified
+
+    # Truncate per category to stay within budget
+    budgets = config.state.context_protocol.context_pack.category_budgets
+    #   decisions: 200 tokens, questions: 150 tokens, risks: 150 tokens
+    context_pack = TRUNCATE_PER_CATEGORY(
+      decisions=accumulated_decisions,
+      questions=accumulated_questions,
+      risks=accumulated_risks,
+      decision_budget=budgets.decisions,     # 200
+      question_budget=budgets.questions,     # 150
+      risk_budget=budgets.risks,             # 150
+      decision_strategy="keep_high_confidence_first",
+      question_strategy="keep_high_priority_first",
+      risk_strategy="keep_high_severity_first"
+    )
+
+    context_section = """
+    ## Accumulated Context (from prior phases)
+
+    ### Key Decisions (do not contradict HIGH-confidence without justification)
+    {for each d in context_pack.decisions: "- [{d.id}] {d.decision} (confidence: {d.confidence})"}
+
+    ### Open Questions (resolve if your analysis provides answers)
+    {for each q in context_pack.questions: "- [{q.id}] {q.question} (priority: {q.priority})"}
+
+    ### Risks Identified (consider in your analysis)
+    {for each r in context_pack.risks: "- [{r.id}] {r.risk} (severity: {r.severity})"}
+    """
+  ELSE:
+    context_section = ""
+
   prompt = """
     You are coordinating Phase {phase}: {phase_name} of the feature planning workflow.
 
@@ -196,11 +241,14 @@ FUNCTION DISPATCH_COORDINATOR(phase):
     ## Prior Phase Summaries (read these first)
     {for each summary in prior_summaries: {FEATURE_DIR}/.phase-summaries/{summary}}
 
+    {context_section}
+
     ## Output Contract
     1. Write artifacts to {FEATURE_DIR}/ as specified in your instructions
     2. Write phase summary to: {FEATURE_DIR}/.phase-summaries/phase-{phase}-summary.md
     3. Use summary template: $CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md
     4. Do NOT interact with the user. If input needed, set status: needs-user-input.
+    5. Include key_decisions, open_questions, and risks_identified in your summary YAML frontmatter.
   """
 
   # Coordinator health: if Task() exceeds max_turns or context limit,
@@ -232,6 +280,47 @@ Coordinators NEVER interact with users directly. All user interaction flows thro
 2. Orchestrator reads summary, presents question to user via `AskUserQuestion`
 3. Orchestrator writes user's answer to `{FEATURE_DIR}/.phase-summaries/phase-{N}-user-input.md`
 4. Orchestrator re-dispatches same coordinator (coordinator reads the user-input file and continues)
+
+## Circuit Breaker Pattern
+
+Provides a generic retry-with-escalation mechanism used by multiple strategies (S8, S9, S13).
+
+```
+FUNCTION CIRCUIT_BREAKER(context_name, action, max_failures, escalation_action):
+  """
+  Generic circuit breaker for iterative improvement loops.
+
+  Parameters:
+    context_name: Identifier for this circuit breaker instance (e.g., "specify_gate", "expert_review")
+    action: The callable action to attempt (e.g., re-score, re-dispatch)
+    max_failures: Maximum attempts before escalating (from config.circuit_breaker)
+    escalation_action: What to do when max_failures exceeded
+  """
+
+  failure_count = 0
+
+  WHILE failure_count < max_failures:
+    result = EXECUTE(action)
+
+    IF result.success:
+      RETURN result
+
+    failure_count += 1
+    LOG: "Circuit breaker '{context_name}': attempt {failure_count}/{max_failures} failed"
+
+  # Max failures reached — escalate
+  LOG: "Circuit breaker '{context_name}': max failures ({max_failures}) reached — escalating"
+  RETURN EXECUTE(escalation_action)
+```
+
+**Application Table:**
+
+| Context | Strategy | Max Failures | Escalation Action |
+|---------|----------|-------------|-------------------|
+| `specify_gate` | S8 (Phase 3) | `config.circuit_breaker.specify_gate.max_iterations` (3) | Set `flags.low_specify_score: true`, proceed |
+| `expert_review` | S9 (Phase 6b) | `config.circuit_breaker.expert_review.max_iterations` (2) | Present findings to user with override option |
+| `mpa_convergence` | S2 (Phase 4/7) | `config.circuit_breaker.convergence.max_rounds` (2) | Accept low convergence, flag for user |
+| `gate_retry` | Existing | 2 (hardcoded) | Deep reasoning escalation or user choice |
 
 ## v1-to-v2 State Migration
 

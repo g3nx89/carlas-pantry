@@ -150,7 +150,15 @@ All phase files are in `$CLAUDE_PLUGIN_ROOT/skills/plan/references/`.
 
 Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/orchestrator-loop.md`
 
-The loop reads state → dispatches phases in order → reads summaries → handles user interaction → updates state. It includes crash recovery, summary validation, and v1-to-v2 state migration.
+The loop reads state → dispatches phases in order → reads summaries → handles user interaction → updates state. It includes crash recovery, summary validation, v1-to-v2 state migration, and the Context Pack builder (S6).
+
+**Multi-Agent Collaboration Flags** (all disabled by default — enable in `config/planning-config.yaml`):
+- `a6_context_protocol` — Accumulated decision/question/risk propagation via Context Pack
+- `s7_mpa_deliberation` — Structured Round 2 cross-review for MPA agents
+- `s8_convergence_detection` — Jaccard similarity convergence measurement
+- `s10_team_presets` — User-selectable agent team configurations (balanced/rapid_prototype)
+- `s12_specify_gate` — 5-dimension specification quality scoring in Phase 3
+- `s13_confidence_gated_review` — Confidence-scored expert review with tri-state outcome
 
 ## Phase 1 (Inline)
 
@@ -243,6 +251,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 - `references/cli-dispatch-pattern.md` — Canonical CLI dual-CLI dispatch pattern (retry, synthesis, self-critique)
 - `references/skill-loader-pattern.md` — Canonical dev-skills context loading via subagent delegation (Phases 2, 4, 6b, 7, 9)
 - `references/deep-reasoning-dispatch-pattern.md` — Deep reasoning escalation workflow (gate failures, security deep dive, algorithm escalation)
+- `references/mpa-synthesis-pattern.md` — Shared MPA Deliberation (S1) + Convergence Detection (S2) algorithms (used by Phase 4 and Phase 7)
 
 ### Sequential Thinking Reference
 - `$CLAUDE_PLUGIN_ROOT/templates/sequential-thinking-templates.md`

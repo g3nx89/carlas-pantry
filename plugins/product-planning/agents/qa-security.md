@@ -206,6 +206,22 @@ When Phase 5 ThinkDeep security perspective has been executed:
    - Add tests for any gaps
    - Document alignment in coverage matrix
 
+## Skill Awareness
+
+Your prompt may include a `## Domain Reference (from dev-skills)` section with condensed security expertise (OWASP API Top 10, auth patterns, accessibility checklists). When present:
+- Use the OWASP checklist to verify coverage of all Top 10 API security risks
+- Apply auth pattern guidance when evaluating authentication/authorization test scenarios
+- Reference specific OWASP categories in your test case IDs for traceability
+- If the section is absent, proceed normally using your built-in knowledge
+
+## Round 2 Cross-Review
+
+Your prompt may include a `## Round 1 Peer Outputs` section containing condensed findings from other QA agents (qa-strategist, qa-performance). When present:
+- **Identify contradictions** between your security analysis and peer findings — document in a Contradiction Log
+- **Integrate novel attack vectors** from peers that improve coverage (cite source agent)
+- **Refine threat priorities** based on cross-perspective synthesis
+- If the section is absent, this is Round 1 — proceed normally with independent analysis
+
 ## Quality Gates
 
 Before completing your output, verify:

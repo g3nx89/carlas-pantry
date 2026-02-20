@@ -13,7 +13,8 @@ artifacts_written: []
 agents: []
 mcp_tools:
   - "mcp__sequential-thinking__sequentialthinking"
-feature_flags: []
+feature_flags:
+  - "s12_specify_gate"
 additional_references: []
 ---
 
@@ -30,6 +31,12 @@ additional_references: []
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
 
+## Decision Protocol
+When `a6_context_protocol` is enabled (check feature flags):
+1. **RESPECT** all prior key decisions — do not contradict HIGH-confidence decisions without explicit justification.
+2. **CHECK** open questions — if your analysis resolves any, include the resolution in your `key_decisions`.
+3. **CONTRIBUTE** your findings as `key_decisions`, `open_questions`, and `risks_identified` in your phase summary YAML.
+
 ## Delegation Decision
 
 - **Standard/Rapid modes:** Orchestrator executes this phase inline (small logic footprint, overhead of coordinator dispatch not justified)
@@ -45,14 +52,50 @@ mcp__sequential-thinking__sequentialthinking(T2: Scope Boundaries)
 mcp__sequential-thinking__sequentialthinking(T3: Decomposition Strategy)
 ```
 
+## Step 3.1b: Specify Gate — Initial Scoring (S8)
+
+```
+IF feature_flags.s12_specify_gate.enabled:
+
+  1. SCORE the spec across 5 dimensions (0 = missing, 1 = partial, 2 = clear):
+
+     | Dimension | 0 (Missing) | 1 (Partial) | 2 (Clear) |
+     |-----------|-------------|-------------|-----------|
+     | **Value** | No user/business value stated | Vague value | Explicit value + success metric |
+     | **Scope** | No boundaries defined | Some boundaries | Clear in/out of scope |
+     | **Acceptance** | No acceptance criteria | Generic criteria | Measurable, testable ACs |
+     | **Constraints** | No constraints/deps | Some mentioned | Full list with priorities |
+     | **Risk** | No risks identified | Surface risks only | Risks with mitigations |
+
+  2. COMPUTE specify_score = sum of all 5 dimensions (0-10)
+
+  3. IF specify_score >= config.specify_gate.pass_threshold (default 7):
+       LOG: "Specify gate PASSED ({specify_score}/10)"
+       SKIP targeted question generation (use standard Step 3.2)
+     ELSE:
+       LOG: "Specify gate score: {specify_score}/10 — generating targeted questions"
+       PROCEED to targeted question generation in Step 3.2
+
+  4. STORE specify_dimensions = { value, scope, acceptance, constraints, risk }
+```
+
 ## Step 3.2: Generate Questions
 
-Identify gaps across categories:
-- Scope boundaries
-- Edge cases
-- Error handling
-- Integration details
-- Design preferences
+IF specify gate is enabled AND score < threshold:
+  Generate TARGETED questions per low-scoring dimension:
+  - **Value (score 0-1):** "What specific user/business problem does this solve?" "How will success be measured?"
+  - **Scope (score 0-1):** "What is explicitly out of scope?" "What adjacent features should NOT be affected?"
+  - **Acceptance (score 0-1):** "What are the testable acceptance criteria?" "How will the Product Owner verify completion?"
+  - **Constraints (score 0-1):** "What technical/timeline constraints exist?" "What dependencies must be resolved first?"
+  - **Risk (score 0-1):** "What could go wrong?" "What are the biggest unknowns?"
+
+ELSE (gate disabled or score >= threshold):
+  Identify gaps across standard categories:
+  - Scope boundaries
+  - Edge cases
+  - Error handling
+  - Integration details
+  - Design preferences
 
 ## Step 3.3: Collect User Responses
 
@@ -63,8 +106,47 @@ Identify gaps across categories:
 
 For "whatever you think is best" responses, use BA recommendation and mark as ASSUMED.
 
+## Step 3.3b: Specify Gate — Iteration Loop (S8)
+
+```
+IF feature_flags.s12_specify_gate.enabled AND specify_score < config.specify_gate.pass_threshold:
+
+  iteration = 1
+  max_iterations = config.circuit_breaker.specify_gate.max_iterations  # 3
+
+  WHILE specify_score < config.specify_gate.pass_threshold AND iteration <= max_iterations:
+
+    1. RE-SCORE spec + user responses across same 5 dimensions
+    2. DISPLAY progress:
+
+       ┌──────────────────────────────────────────┐
+       │ SPECIFY GATE — Iteration {iteration}/{max_iterations}  │
+       │ Score: {specify_score}/10 (threshold: {threshold})     │
+       │ Value: {v}/2  Scope: {s}/2  Acceptance: {a}/2          │
+       │ Constraints: {c}/2  Risk: {r}/2                        │
+       └──────────────────────────────────────────┘
+
+    3. IF specify_score >= threshold:
+         LOG: "Specify gate PASSED after {iteration} iteration(s)"
+         BREAK
+
+    4. IDENTIFY remaining low dimensions (score 0-1)
+    5. GENERATE follow-up questions for low dimensions ONLY
+    6. SET status: needs-user-input with targeted follow-up questions
+    7. ON re-dispatch: READ user-input, increment iteration
+
+  IF iteration > max_iterations AND specify_score < config.specify_gate.min_acceptable (default 6):
+    SET flags.low_specify_score = true
+    LOG: "Specify gate exhausted iterations — score {specify_score}/10, proceeding with advisory flag"
+```
+
 ## Step 3.4: Update State
 
 Save all decisions to `user_decisions` (IMMUTABLE).
+
+Include in phase summary YAML:
+- `specify_score: {score}` (0-10, null if gate disabled)
+- `specify_dimensions: { value, scope, acceptance, constraints, risk }` (null if gate disabled)
+- `flags.low_specify_score: true` (if applicable)
 
 **Checkpoint: CLARIFICATION**

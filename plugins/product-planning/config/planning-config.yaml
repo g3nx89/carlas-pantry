@@ -179,6 +179,49 @@ feature_flags:
     rollback: "Set false to skip learnings search"
     modes: [complete, advanced, standard]
 
+  # Multi-Agent Collaboration Improvements (Phases A + B)
+  s7_mpa_deliberation:
+    enabled: false
+    description: "Structured MPA synthesis with Round 2 cross-review and contradiction logging"
+    rollback: "Set false to use standard one-shot MPA synthesis"
+    modes: [complete, advanced]
+    cost_impact: "Complete: +3 agent re-dispatches; Advanced: inline synthesis only"
+
+  s8_convergence_detection:
+    enabled: false
+    description: "Jaccard similarity-based convergence measurement for MPA agent outputs"
+    rollback: "Set false to use default merge strategy regardless of agreement level"
+    modes: [complete, advanced]
+    cost_impact: "Negligible — keyword extraction + set comparison"
+
+  s10_team_presets:
+    enabled: false
+    description: "User-selectable agent team configurations (balanced, rapid_prototype)"
+    rollback: "Set false to always use default agent configuration per mode"
+    modes: [complete, advanced, standard]
+    cost_impact: "rapid_prototype reduces agent count; balanced is default behavior"
+
+  s12_specify_gate:
+    enabled: false
+    description: "5-dimension specification quality scoring gate in Phase 3"
+    rollback: "Set false to use standard question generation without scoring"
+    modes: [complete, advanced, standard, rapid]
+    cost_impact: "0-3 additional user interaction rounds"
+
+  s13_confidence_gated_review:
+    enabled: false
+    description: "Confidence-scored expert review with tri-state outcome and iteration"
+    rollback: "Set false to use binary blocking/advisory expert review"
+    modes: [complete, advanced]
+    cost_impact: "0-2 additional user interaction rounds"
+
+  a6_context_protocol:
+    enabled: false
+    description: "Accumulated decision/question/risk context propagation across phases"
+    rollback: "Set false to use summary-only context between phases"
+    modes: [complete, advanced, standard]
+    cost_impact: "~100-500 tokens additional context per coordinator dispatch"
+
 # =============================================================================
 # ADAPTIVE RESEARCH DEPTH (A3)
 # =============================================================================
@@ -654,6 +697,55 @@ mpa:
       complexity: 0.20
       dependencies: 0.15
 
+  # S1: MPA Deliberation — structured multi-round synthesis
+  deliberation:
+    enabled_via_flag: "s7_mpa_deliberation"
+    round_2_dispatch: true           # Re-dispatch agents with peer outputs (Complete only)
+    round_2_inline_synthesis: true   # Inline synthesis without re-dispatch (Advanced)
+    contradiction_log: true          # Generate contradiction log during synthesis
+    max_round_2_agents: 3            # Max agents to re-dispatch in Round 2
+
+  # S2: Convergence Detection — measure agent agreement
+  # NOTE: Jaccard similarity measures vocabulary overlap, not semantic agreement.
+  # Agents sharing domain vocabulary may score high even with different conclusions.
+  # Use convergence as a heuristic signal for synthesis strategy, not a definitive
+  # measure. See references/mpa-synthesis-pattern.md for known limitations.
+  convergence_detection:
+    enabled_via_flag: "s8_convergence_detection"
+    high_threshold: 0.70             # Jaccard similarity >= 0.70 = high convergence
+    medium_threshold: 0.40           # Jaccard similarity >= 0.40 = medium convergence
+    keyword_count: 20                # Top N keywords to extract per agent
+    strategies:
+      high: "merge_with_unique_highlights"
+      medium: "weighted_merge_flag_divergence"
+      low: "present_all_options"
+
+  # S5: Team Presets — user-selectable agent configurations
+  team_presets:
+    enabled_via_flag: "s10_team_presets"
+    presets:
+      balanced:
+        description: "All MPA agents active. Full convergence + deliberation."
+        phase_4_agents: [software-architect, wildcard-architect, architecture-pruning-judge]
+        phase_7_agents: [qa-strategist, qa-security, qa-performance]
+      rapid_prototype:
+        description: "Minimal agents for fast iteration."
+        phase_4_agents: [software-architect]
+        phase_7_agents: [qa-strategist]
+
+  # Preset auto-suggestion based on mode + spec characteristics
+  preset_suggestion:
+    enabled: true
+    rules:
+      - condition: "analysis_mode == rapid"
+        suggest: null               # No preset in rapid mode
+      - condition: "analysis_mode == standard"
+        suggest: "balanced"
+      - condition: "high_risk_count >= 2"
+        suggest: "balanced"
+      - condition: "spec_word_count < 500"
+        suggest: "rapid_prototype"
+
 # =============================================================================
 # STATE MANAGEMENT
 # =============================================================================
@@ -695,6 +787,27 @@ state:
     file: "{FEATURE_DIR}/.planning.lock"
     timeout_minutes: 60
 
+  # S6: Context Protocol — accumulated decision propagation
+  context_protocol:
+    enabled_via_flag: "a6_context_protocol"
+    decision_propagation:
+      accumulate_from: "all_prior_summaries"
+      respect_high_confidence: true   # HIGH-confidence decisions should not be contradicted
+      carry_forward_open_questions: true
+      carry_forward_risks: true
+    context_pack:
+      # Per-category budgets prevent any single category from crowding out others.
+      # Total budget ~500 tokens, split by purpose:
+      category_budgets:
+        decisions: 200                # HIGH-confidence first, then MEDIUM
+        questions: 150                # HIGH-priority first, then MEDIUM
+        risks: 150                    # HIGH-severity first, then MEDIUM
+      truncation_strategies:
+        decisions: "keep_high_confidence_first"
+        questions: "keep_high_priority_first"
+        risks: "keep_high_severity_first"
+      include_in_prompt: true         # Inject as "## Accumulated Context" section
+
 # =============================================================================
 # LIMITS AND GUARDS
 # =============================================================================
@@ -709,6 +822,72 @@ guards:
   require_spec_exists: true
   require_constitution_exists: true
   block_on_gate_failure: true
+
+# =============================================================================
+# SPECIFY GATE (S8 — Phase 3)
+# =============================================================================
+# 5-dimension specification quality scoring before question generation
+
+specify_gate:
+  enabled_via_flag: "s12_specify_gate"
+  pass_threshold: 7                  # Score >= 7/10: skip targeted questions
+  min_acceptable: 6                  # Score < 6 after max iterations: set low_specify_score flag
+  dimensions:
+    value:
+      weight: 1
+      description: "Value clarity — user/business problem and success metric"
+    scope:
+      weight: 1
+      description: "Scope definition — clear in/out of scope boundaries"
+    acceptance:
+      weight: 1
+      description: "Acceptance criteria quality — measurable, testable ACs"
+    constraints:
+      weight: 1
+      description: "Constraints & dependencies — full list with priorities"
+    risk:
+      weight: 1
+      description: "Risk identification — risks with mitigations"
+  scoring:
+    min: 0                           # Per dimension
+    max: 2                           # Per dimension
+    labels:
+      0: "Missing"
+      1: "Partial"
+      2: "Clear"
+
+# =============================================================================
+# EXPERT REVIEW (S9 — Phase 6b)
+# =============================================================================
+# Confidence-gated expert review with tri-state outcome
+
+expert_review:
+  enabled_via_flag: "s13_confidence_gated_review"
+  confidence_threshold: 80           # Findings below this are demoted to advisory
+  outcomes:
+    pass: "No high-confidence blocking findings"
+    pass_with_risk: "Blocking findings exist but all have mitigations"
+    fail: "Unmitigated blocking findings above confidence threshold"
+  user_options_on_fail:
+    - "Redesign — return to Phase 4 with security constraints"
+    - "Override — acknowledge risks and proceed (immutable)"
+    - "Provide context — re-evaluate with additional information"
+
+# =============================================================================
+# CIRCUIT BREAKER
+# =============================================================================
+# Generic retry-with-escalation limits for iterative improvement loops
+
+circuit_breaker:
+  specify_gate:
+    max_iterations: 3                # S8: Max question rounds in Phase 3
+    escalation: "set_low_specify_flag"
+  expert_review:
+    max_iterations: 2                # S9: Max re-evaluation rounds in Phase 6b
+    escalation: "force_user_choice"
+  convergence:
+    max_rounds: 2                    # S2: Max convergence improvement attempts
+    escalation: "accept_low_convergence"
 
 # =============================================================================
 # TEST PLANNING (V-MODEL)
@@ -978,7 +1157,13 @@ blessed_profiles:
       s2_cot_prefix: true
       a3_adaptive_depth: false
       a5_post_planning_menu: true
-      # All other flags: false (not applicable to rapid mode)
+      # Multi-agent collaboration flags (not applicable to rapid mode)
+      s7_mpa_deliberation: false
+      s8_convergence_detection: false
+      s10_team_presets: false
+      s12_specify_gate: false
+      s13_confidence_gated_review: false
+      a6_context_protocol: false
     expected_cost: "$0.05-0.12"
     use_case: "Small features, quick prototypes, low-risk changes"
 
@@ -996,7 +1181,13 @@ blessed_profiles:
       st_tao_loops: true
       st_checkpoint: true
       st_task_decomposition: true
-      # Advanced/Complete flags: false
+      # Multi-agent collaboration flags
+      s7_mpa_deliberation: false     # Not applicable in standard mode
+      s8_convergence_detection: false # Not applicable in standard mode
+      s10_team_presets: false
+      s12_specify_gate: false
+      s13_confidence_gated_review: false  # Not applicable in standard mode
+      a6_context_protocol: false
     expected_cost: "$0.20-0.40"  # Updated to reflect ST enhancements when MCP available
     use_case: "Normal features, moderate complexity, established patterns"
 
@@ -1018,7 +1209,13 @@ blessed_profiles:
       # CLI dispatch integration
       cli_context_isolation: true
       cli_custom_roles: true
-      # Complete-only flags: false
+      # Multi-agent collaboration flags (disabled by default)
+      s7_mpa_deliberation: false
+      s8_convergence_detection: false
+      s10_team_presets: false
+      s12_specify_gate: false
+      s13_confidence_gated_review: false
+      a6_context_protocol: false
     expected_cost: "$0.55-0.90"
     use_case: "Important features, risky changes, cross-cutting concerns"
 
@@ -1052,6 +1249,13 @@ blessed_profiles:
       # CLI dispatch integration
       cli_context_isolation: true
       cli_custom_roles: true
+      # Multi-agent collaboration flags (disabled by default)
+      s7_mpa_deliberation: false
+      s8_convergence_detection: false
+      s10_team_presets: false
+      s12_specify_gate: false
+      s13_confidence_gated_review: false
+      a6_context_protocol: false
     expected_cost: "$1.10-2.00"  # Updated to reflect ST + CLI enhancements
     use_case: "Critical features, security-sensitive, high business impact"
 
@@ -1083,8 +1287,56 @@ blessed_profiles:
       # Complete-only flags: false
       st_fork_join_architecture: false
       st_dynamic_extension: false
+      # Multi-agent collaboration flags (disabled by default)
+      s7_mpa_deliberation: false
+      s8_convergence_detection: false
+      s10_team_presets: false
+      s12_specify_gate: false
+      s13_confidence_gated_review: false
+      a6_context_protocol: false
     expected_cost: "$0.70-1.10"  # Updated to reflect ST + CLI enhancements
     use_case: "Important features requiring ST-enhanced analysis"
+
+  # Profile with all multi-agent collaboration flags enabled (for CI testing)
+  complete_with_collaboration:
+    description: "Complete mode with all collaboration improvements enabled"
+    mode: complete
+    flags:
+      # All universal flags: true
+      s1_self_critique: true
+      s2_cot_prefix: true
+      a3_adaptive_depth: true
+      a5_post_planning_menu: true
+      a1_flow_analysis: true
+      a2_learnings_researcher: true
+      # All advanced flags: true
+      s3_judge_gates: true
+      s4_adaptive_strategy: true
+      a4_expert_review: true
+      # All complete-only flags: true
+      s5_tot_architecture: true
+      s6_multi_judge_debate: true
+      # Sequential Thinking enhancements
+      st_fork_join_architecture: true
+      st_revision_reconciliation: true
+      st_redteam_analysis: true
+      st_tao_loops: true
+      st_dynamic_extension: true
+      st_agent_invocation: true
+      st_checkpoint: true
+      st_task_decomposition: true
+      # CLI dispatch integration
+      cli_context_isolation: true
+      cli_custom_roles: true
+      # Multi-agent collaboration flags: ALL ENABLED
+      s7_mpa_deliberation: true
+      s8_convergence_detection: true
+      s10_team_presets: true
+      s12_specify_gate: true
+      s13_confidence_gated_review: true
+      a6_context_protocol: true
+    expected_cost: "$1.30-2.50"  # Higher due to deliberation re-dispatch + iteration rounds
+    use_case: "Testing all collaboration improvements end-to-end"
 
   # Validation helper for CI
   validation:

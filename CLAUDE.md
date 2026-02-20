@@ -67,7 +67,7 @@ claude plugins enable plugin-name
 ### Multi-Perspective Analysis (MPA)
 - Launch 2-3 specialized agents in parallel for complex analysis
 - Define agent variants, mode availability, and output synthesis rules
-- Examples: architecture options (minimal/clean/pragmatic), QA perspectives (general/security/performance)
+- Examples: architecture analysis with multiple approaches, QA review with different focus areas
 
 ### Configuration Management
 - Single source of truth: all config values in `config/{plugin}-config.yaml`
@@ -115,21 +115,20 @@ When a command outgrows its single-file format or multiple coupled commands need
 
 ### Lean Orchestrator Delegation
 
-Proven pattern across product-planning and product-implementation for multi-stage workflows:
+Proven pattern for multi-stage plugin workflows (used in product-planning and product-implementation):
 - **SKILL.md as dispatch table** (<300 lines): stage list, critical rules, reference map — no procedural detail
 - **Coordinators dispatched** via `Task(subagent_type="general-purpose")` with prompt pointing to stage reference file
 - **Summary contract**: each coordinator writes a summary file with YAML frontmatter (`stage`, `status`, `artifacts_written`, `summary`, `flags`)
 - **User interaction protocol**: coordinators NEVER interact with users directly; they set `status: needs-user-input` + `flags.block_reason` in summary; orchestrator mediates ALL user prompts via `AskUserQuestion`
 - **Crash recovery**: if coordinator produces no summary, orchestrator reconstructs minimal summary from artifact state
 - **Inline exception**: Stage 1 (lightweight setup) runs inline to avoid dispatch overhead; subsequent stages are delegated
-- **Trade-off**: each coordinator dispatch adds 5-15s latency (~20-60s cumulative for 4 stages), accepted for context reduction and fault isolation
+- **Trade-off**: each coordinator dispatch adds latency overhead, accepted for significant context reduction and fault isolation
 
 ### Subagent-Delegated Context Injection
 
 When a coordinator needs external content (plugin skills, MCP responses, large files) but loading it directly would bloat coordinator context:
 - **Pattern**: Dispatch a throwaway `Task(general-purpose)` subagent to read/process the source material and write a condensed output file (<3K tokens). Coordinator reads only the small output file, never the raw source
-- **Evidence**: Used in 3 contexts — clink CoVe self-critique (isolates ST chain), dev-skills loading (isolates 5-15K skill files), and summary-as-context-bus (isolates multi-artifact discovery)
-- **Token savings**: ~70% reduction vs inline loading (measured: 5-15K raw → 1-3K condensed)
+- **Token savings**: Significant reduction vs inline loading (typically 70%+ — raw content condensed to key findings only)
 - **Rule**: Define max token budgets per source, per phase, and per agent in config — hardcoded limits in prose are not auditable
 - **Anti-pattern**: Loading raw external content directly into coordinator or orchestrator context — causes context pollution and reduces reasoning quality on the primary task
 
@@ -138,8 +137,7 @@ When a coordinator needs external content (plugin skills, MCP responses, large f
 When adding a capability that spans multiple plugins (e.g., dev-skills integration across product-planning and product-implementation):
 - **Design independently per plugin** — each plugin's implementation must respect its own architectural constraints (coordinator-delegated in planning vs orchestrator-transparent in implementation)
 - **Grep sibling plugins** for shared concepts before finalizing design — naming, config keys, and domain mappings should align even if implementation differs
-- **Config structure parity** — use similar YAML key names and structures across plugins for the same feature (e.g., `dev_skills_integration` vs `dev_skills`) to reduce cognitive load
-- **Evidence**: dev-skills integration required different detection timing (Phase 1 vs Stage 1), different loading mechanisms (subagent file vs inline prompt variable), and different budget constraints per plugin
+- **Config structure parity** — use similar YAML key names and structures across plugins for the same feature to reduce cognitive load
 
 ### Agent Awareness Hints
 
@@ -147,7 +145,6 @@ When adding external content injection (skill references, MCP context, cross-plu
 - **Pattern**: Add a lightweight 5-10 line "Skill Awareness" or "Context Awareness" section to affected agent files, telling agents what optional sections may appear in their prompt and how to use them
 - **Format**: "Your prompt may include a `## Domain Reference (from {source})` section. When present: [2-3 usage bullets]. If absent, proceed normally."
 - **Rule**: Never hard-depend on injected content — agents must function identically when the optional section is absent
-- **Evidence**: 6 agents in product-planning (software-architect, simplicity-reviewer, qa-strategist, security-analyst, flow-analyzer, tech-lead) use this pattern for dev-skills awareness
 
 ### Skill Optimization Patterns
 
@@ -192,3 +189,7 @@ Rules for phase/stage instruction files read by coordinator subagents:
 - **YAML range values**: Never use `3-5` for numeric ranges in YAML (parses as string) — use structured `min/max` instead
 - **Section renumbering cascade**: When inserting a new numbered section (e.g., Section 1.6), all subsequent section numbers shift. After any section insert, grep ALL reference files for the old section numbers (e.g., `Section 1.7`, `Section 1.8`) and update them — cross-file references break silently
 - **New reference file wiring**: When adding a new file to `references/`, register it in 3 places: (1) `references/README.md` file usage table + file sizes table + cross-references, (2) `SKILL.md` Reference Map table, (3) any stage files that should cross-reference the shared pattern. Missing wiring is the most common incomplete-task artifact when sessions exhaust context
+
+---
+
+*Last updated: 2026-02-19*

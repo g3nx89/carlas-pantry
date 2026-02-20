@@ -50,6 +50,12 @@ additional_references:
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
 
+## Decision Protocol
+When `a6_context_protocol` is enabled (check feature flags):
+1. **RESPECT** all prior key decisions — do not contradict HIGH-confidence decisions without explicit justification.
+2. **CHECK** open questions — if your analysis resolves any, include the resolution in your `key_decisions`.
+3. **CONTRIBUTE** your findings as `key_decisions`, `open_questions`, and `risks_identified` in your phase summary YAML.
+
 ## Step 2.1: Load Context
 
 ```

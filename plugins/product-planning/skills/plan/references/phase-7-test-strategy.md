@@ -40,6 +40,9 @@ feature_flags:
   - "cli_custom_roles"
   - "dev_skills_integration"
   - "deep_reasoning_escalation"  # algorithm awareness: flag test difficulty for orchestrator
+  - "s7_mpa_deliberation"
+  - "s8_convergence_detection"
+  - "s10_team_presets"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/research-mcp-patterns.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/v-model-methodology.md"
@@ -66,6 +69,12 @@ additional_references:
 > 6. Write your phase summary to `{FEATURE_DIR}/.phase-summaries/phase-7-summary.md` using the template at `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`.
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
+
+## Decision Protocol
+When `a6_context_protocol` is enabled (check feature flags):
+1. **RESPECT** all prior key decisions — do not contradict HIGH-confidence decisions without explicit justification.
+2. **CHECK** open questions — if your analysis resolves any, include the resolution in your `key_decisions`.
+3. **CONTRIBUTE** your findings as `key_decisions`, `open_questions`, and `risks_identified` in your phase summary YAML.
 
 ## Step 7.1: Load Test Planning Context
 
@@ -198,9 +207,19 @@ mcp__sequential-thinking__sequentialthinking(T-RISK-3: Risk to Test Mapping)
 
 ## Step 7.3: Launch QA Agents (MPA Pattern)
 
+```
+# S5: Team Preset filtering (s10_team_presets)
+IF feature_flags.s10_team_presets.enabled AND state.team_preset == "rapid_prototype":
+  # Only dispatch qa-strategist (skip qa-security, qa-performance)
+  QA_AGENT_LIST = ["product-planning:qa-strategist"]
+  LOG: "Team preset rapid_prototype: dispatching qa-strategist only"
+ELSE:
+  QA_AGENT_LIST = default agents per mode
+```
+
 Launch QA agents in parallel for multi-perspective test coverage:
 
-**Complete/Advanced modes:** All 3 agents
+**Complete/Advanced modes:** All 3 agents (unless rapid_prototype preset)
 **Standard mode:** qa-strategist only
 **Rapid mode:** qa-strategist only (minimal output)
 
@@ -404,6 +423,18 @@ ELSE:
 - Service disruption vectors
 - Injection vulnerabilities (SQL, XSS, command)
 
+## Step 7.3.2b: MPA Deliberation — Structured Synthesis for QA (S1)
+
+Follow the **MPA Deliberation** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/mpa-synthesis-pattern.md` with these parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| `AGENT_OUTPUTS` | `[general, security, performance]` |
+| `AGENT_LIST` | QA agents from Step 7.3 |
+| `PHASE_ID` | `"7"` |
+| `INSIGHT_FOCUS` | Key test cases, unique risk findings, novel coverage approaches |
+| `RESOLUTION_STRATEGY` | Higher severity for risk conflicts, broader coverage for scope conflicts |
+
 ## Step 7.3.3: TAO Loop for QA Synthesis
 
 ```
@@ -419,6 +450,16 @@ IF feature_flags.st_tao_loops.enabled:
     - Divergent → Present to user for decision OR use higher severity
     - Gaps → Document as known testing gaps
 ```
+
+## Step 7.3.3b: Convergence Detection for QA (S2)
+
+Follow the **Convergence Detection** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/mpa-synthesis-pattern.md` with these parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| `AGENT_OUTPUTS` | `[general, security, performance]` |
+| `PHASE_ID` | `"7"` |
+| `LOW_CONVERGENCE_STRATEGY` | `"include_all_flag_conflicts"` |
 
 ## Step 7.3.4: Synthesize QA Agent Outputs
 

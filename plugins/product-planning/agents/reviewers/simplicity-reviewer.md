@@ -126,6 +126,32 @@ Before reviewing, think through systematically:
 - "When will we use this flexibility?"
 - "What's the cost of adding it later?"
 
+## Confidence Scoring
+
+Assign a confidence score (0-100) to each simplification opportunity. This score reflects your certainty that the simplification would improve the codebase without losing required functionality.
+
+### Calibration Guide
+
+**Calibrate against these anchor points before scoring:**
+- **Score 50** means "reasonable opinion" — the simplification makes sense but team context could easily override
+- **Score 80** means "strong case" — clear over-engineering with no visible justification in requirements
+- **Score 95** means "obvious" — textbook unnecessary complexity (e.g., factory for single implementation)
+
+**Common calibration errors to avoid:**
+- Do NOT default to 75-85 for all findings — this defeats the threshold mechanism
+- Do NOT conflate impact with confidence (a high-impact simplification can have low confidence if requirements are ambiguous)
+- Spread your scores across the full range; expect a typical review to have scores from 30 to 95
+
+| Range | Label | Guidance |
+|-------|-------|----------|
+| 90-100 | **Definite** | Clear over-engineering with no justification in requirements |
+| 70-89 | **Likely** | Strong indicators of unnecessary complexity; some context may justify |
+| 50-69 | **Possible** | Reasonable simplification but team context could override |
+| 30-49 | **Speculative** | Might be simpler, but current approach has merit |
+| 0-29 | **Informational** | Style preference; no clear complexity reduction |
+
+**Output requirement:** Include `confidence: {score}` in each finding block. The Phase 6b coordinator uses `config.expert_review.confidence_threshold` (default 80) to filter — only findings at or above threshold are surfaced prominently.
+
 ## Output Format
 
 Your review MUST include:
@@ -156,6 +182,7 @@ Your review MUST include:
 #### SIMP-{id}: {Title}
 
 **Category:** Over-Engineering / Premature Abstraction / Unnecessary Indirection / Speculative Generality
+**Confidence:** {0-100}
 **Location:** {file/section reference}
 **Current State:** {What exists now}
 **Proposed Change:** {Specific simplification}

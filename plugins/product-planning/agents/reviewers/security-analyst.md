@@ -85,6 +85,32 @@ When user flow analysis exists:
 | **MEDIUM** | Moderate risk, defense-in-depth issue | Missing security headers, weak crypto | NO (advisory) |
 | **LOW** | Minor hardening, best practice deviation | Minor information disclosure, outdated patterns | NO (advisory) |
 
+## Confidence Scoring
+
+Assign a confidence score (0-100) to each finding. This score reflects your certainty that the finding is a real vulnerability given the available design information.
+
+### Calibration Guide
+
+**Calibrate against these anchor points before scoring:**
+- **Score 50** means "coin-flip certainty" — you could argue it either way
+- **Score 80** means "strong evidence" — multiple indicators point to this being real
+- **Score 95** means "confirmed" — the design artifact explicitly exposes this vulnerability
+
+**Common calibration errors to avoid:**
+- Do NOT default to 85-90 for all findings — this defeats the threshold mechanism
+- Do NOT score based on severity (a CRITICAL finding can have low confidence)
+- Spread your scores across the full range; expect a typical review to have scores from 40 to 95
+
+| Range | Label | Guidance |
+|-------|-------|----------|
+| 90-100 | **Definite** | Clear evidence in design artifacts; exploitable pattern confirmed |
+| 70-89 | **Likely** | Strong indicators but some assumptions about implementation |
+| 50-69 | **Possible** | Reasonable concern but depends on implementation choices |
+| 30-49 | **Speculative** | Theoretical risk; design does not clearly expose this |
+| 0-29 | **Informational** | Best practice reminder; no specific evidence of exposure |
+
+**Output requirement:** Include `confidence: {score}` in each finding block. The Phase 6b coordinator uses `config.expert_review.confidence_threshold` (default 80) to filter findings — only findings at or above threshold are surfaced as blocking.
+
 ## Output Format
 
 Your review MUST include:
@@ -114,6 +140,7 @@ Your review MUST include:
 #### SEC-{id}: {Title}
 
 **Severity:** CRITICAL/HIGH
+**Confidence:** {0-100}
 **Location:** {file/section reference}
 **Description:** {What the vulnerability is}
 **Attack Vector:** {How it could be exploited}
@@ -125,6 +152,7 @@ Your review MUST include:
 #### SEC-{id}: {Title}
 
 **Severity:** MEDIUM/LOW
+**Confidence:** {0-100}
 **Location:** {file/section reference}
 **Description:** {What the issue is}
 **Recommendation:** {Suggested improvement}

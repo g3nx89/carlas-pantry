@@ -17,6 +17,7 @@ Plugin for feature planning, task decomposition, and **integrated test strategy 
 - **UAT Script Generation** - User story-based acceptance testing with Given-When-Then format
 - **Asset Consolidation** - Identifies and catalogs all non-code assets needed for implementation
 - **Dev-Skills Integration** - Subagent-delegated domain expertise injection from dev-skills plugin
+- **Multi-Agent Collaboration** - Context protocol, MPA deliberation, convergence detection, specify gate, team presets, confidence-gated review (all flag-gated, disabled by default)
 
 ## Plugin Testing
 
@@ -95,7 +96,7 @@ The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includ
 | Standard | MPA only + Basic Test Plan | No |
 | Rapid | Single agent + Minimal Test Plan | No |
 
-See `config/planning-config.yaml` for cost estimates, `analysis_modes`, and `blessed_profiles`.
+See `config/planning-config.yaml` for cost estimates, `analysis_modes`, `blessed_profiles`, and collaboration feature flags (`s7_mpa_deliberation`, `s8_convergence_detection`, `s10_team_presets`, `s12_specify_gate`, `s13_confidence_gated_review`, `a6_context_protocol`).
 
 The plugin gracefully degrades when MCP tools are unavailable.
 
@@ -317,4 +318,4 @@ Used in Phases 2, 4, and 7 for authoritative documentation lookup.
 
 ---
 
-*Last updated: 2026-02-19 — CLAUDE.md audit: fixed Phase 6b omission, expanded agent inventory to 16, removed hardcoded thresholds, extracted contributor guidelines to `docs/contributor-guide.md`*
+*Last updated: 2026-02-20 — Multi-agent collaboration improvements (Phases A+B): S6 context protocol, S8 specify gate, CB circuit breaker, S7 risk hook, S2 convergence, S1 MPA deliberation, S9 confidence-gated review, S5 team presets*

@@ -35,6 +35,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `cli-dispatch-pattern.md` | Canonical CLI dual-CLI dispatch pattern (referenced by all CLI phase steps) |
 | `skill-loader-pattern.md` | Canonical dev-skills context loading via subagent delegation (referenced by Phases 2, 4, 6b, 7, 9) |
 | `deep-reasoning-dispatch-pattern.md` | Offering deep reasoning escalation after gate failures or security findings; understanding the manual user submission workflow |
+| `mpa-synthesis-pattern.md` | Adding or modifying MPA Deliberation (S1) or Convergence Detection (S2); understanding Jaccard similarity trade-offs |
 
 ## Working with CLI Integration
 
@@ -105,6 +106,7 @@ Each CLI role runs BOTH Gemini and Codex in parallel via `Bash(run_in_background
 | `skill-loader-pattern.md` | ~100 | Dev-skills context loading via subagent delegation |
 | `phase-8b-asset-consolidation.md` | ~170 | Asset consolidation coordinator instructions |
 | `deep-reasoning-dispatch-pattern.md` | ~180 | Deep reasoning escalation dispatch pattern |
+| `mpa-synthesis-pattern.md` | ~130 | Shared MPA Deliberation (S1) + Convergence Detection (S2) algorithms |
 | `$PLUGIN/templates/asset-manifest-template.md` | ~90 | Asset manifest structure template |
 | `$PLUGIN/templates/deep-reasoning-templates.md` | ~200 | CTCO prompt templates for deep reasoning models |
 | `$PLUGIN/templates/cli-roles/*.txt` | ~80-120 | CLI role prompts (10 files) |
@@ -156,4 +158,5 @@ External deep reasoning models (GPT-5 Pro, Google Deep Think) can be escalated t
 - `self-critique-template.md` used by all agents
 - `debate-protocol.md` used by `debate-judge` agent
 - `deep-reasoning-dispatch-pattern.md` used by `orchestrator-loop.md` gate failure handler and Phase 6b security check
+- `mpa-synthesis-pattern.md` used by Phase 4 (Steps 4.1b, 4.1c) and Phase 7 (Steps 7.3.2b, 7.3.3b) for shared MPA algorithms
 - `phase-8b-asset-consolidation.md` feeds `asset-manifest.md` into Phase 9 for Phase 0 task generation

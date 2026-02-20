@@ -22,7 +22,8 @@ feature_flags:
   - "cli_context_isolation"
   - "cli_custom_roles"
   - "dev_skills_integration"
-  - "deep_reasoning_escalation"  # orchestrator may offer security deep dive after this phase
+  - "deep_reasoning_escalation"
+  - "s13_confidence_gated_review"  # orchestrator may offer security deep dive after this phase
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
@@ -40,6 +41,12 @@ additional_references:
 > 6. Write your phase summary to `{FEATURE_DIR}/.phase-summaries/phase-6b-summary.md` using the template at `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`.
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
+
+## Decision Protocol
+When `a6_context_protocol` is enabled (check feature flags):
+1. **RESPECT** all prior key decisions — do not contradict HIGH-confidence decisions without explicit justification.
+2. **CHECK** open questions — if your analysis resolves any, include the resolution in your `key_decisions`.
+3. **CONTRIBUTE** your findings as `key_decisions`, `open_questions`, and `risks_identified` in your phase summary YAML.
 
 **Purpose:** Qualitative expert review of architecture and plan.
 
@@ -151,23 +158,91 @@ simplicity_findings = parse simplicity-reviewer output
 IF {FEATURE_DIR}/analysis/cli-security-report.md exists:
   cli_security = parse cli-security-report.md
   MERGE cli_security into security_findings (deduplicate by finding description)
+
+# S9: Confidence filtering (s13_confidence_gated_review)
+IF feature_flags.s13_confidence_gated_review.enabled:
+  threshold = config.expert_review.confidence_threshold  # default 80
+  high_confidence_findings = FILTER(security_findings, f => f.confidence >= threshold)
+  low_confidence_findings = FILTER(security_findings, f => f.confidence < threshold)
+  LOG: "{len(high_confidence_findings)} findings above confidence threshold, {len(low_confidence_findings)} below"
+
+  # Low-confidence findings become advisory regardless of severity
+  FOR EACH finding IN low_confidence_findings:
+    finding.original_severity = finding.severity
+    finding.severity = "LOW"  # Demoted to advisory
+    finding.note = "Confidence {finding.confidence} < threshold {threshold} — demoted to advisory"
 ```
 
-## Step 6b.3: Handle Blocking Findings
+## Step 6b.3: Handle Blocking Findings (Tri-State Outcome)
 
 ```
-IF any security_findings.severity in {CRITICAL, HIGH}:
-  SET status: needs-user-input
-  SET block_reason: """
-    BLOCKING SECURITY FINDINGS:
-    {list of CRITICAL/HIGH findings}
+# S9: Tri-state outcome with iteration (s13_confidence_gated_review)
+IF feature_flags.s13_confidence_gated_review.enabled:
 
-    User must acknowledge these security risks to proceed.
-    Options:
-    1. Acknowledge risks and proceed
-    2. Return to Phase 4 with security constraints
-    3. Abort planning
-  """
+  blocking_count = COUNT(security_findings WHERE severity IN {CRITICAL, HIGH} AND confidence >= threshold)
+
+  IF blocking_count == 0:
+    outcome = "pass"
+    LOG: "Expert review: PASS — no high-confidence blocking findings"
+
+  ELSE IF blocking_count > 0 AND all findings have mitigations:
+    outcome = "pass_with_risk"
+    LOG: "Expert review: PASS WITH RISK — {blocking_count} findings with mitigations documented"
+
+  ELSE:
+    outcome = "fail"
+    LOG: "Expert review: FAIL — {blocking_count} unmitigated blocking findings"
+
+    # Iteration protocol (max 2 rounds via circuit breaker)
+    iteration = 1
+    max_iterations = config.circuit_breaker.expert_review.max_iterations  # 2
+
+    WHILE outcome == "fail" AND iteration <= max_iterations:
+      SET status: needs-user-input
+      SET block_reason: """
+        BLOCKING SECURITY FINDINGS (iteration {iteration}/{max_iterations}):
+        {list of CRITICAL/HIGH findings with confidence scores}
+
+        Options:
+        1. Redesign — return to Phase 4 with security constraints
+        2. Override — acknowledge risks and proceed (recorded as immutable decision)
+        3. Provide context — supply additional information to re-evaluate findings
+      """
+
+      ON re-dispatch with user response:
+        IF user chose "Provide context":
+          RE-EVALUATE findings with new context
+          RE-SCORE confidence for affected findings
+          RECOMPUTE blocking_count
+          IF blocking_count == 0: outcome = "pass_with_risk"
+        ELIF user chose "Override":
+          outcome = "pass_with_risk"
+          RECORD override decision as immutable
+        ELIF user chose "Redesign":
+          outcome = "redesign"
+          # Orchestrator will loop back to Phase 4
+
+      iteration += 1
+
+    IF iteration > max_iterations AND outcome == "fail":
+      # Circuit breaker: present final findings to user with override option
+      LOG: "Expert review circuit breaker: max iterations reached"
+      SET status: needs-user-input with forced Override/Redesign choice
+
+ELSE:
+  # Legacy behavior (s13 disabled)
+  IF any security_findings.severity in {CRITICAL, HIGH}:
+    SET status: needs-user-input
+    SET block_reason: """
+      BLOCKING SECURITY FINDINGS:
+      {list of CRITICAL/HIGH findings}
+
+      User must acknowledge these security risks to proceed.
+      Options:
+      1. Acknowledge risks and proceed
+      2. Return to Phase 4 with security constraints
+      3. Abort planning
+    """
 ```
 
 ## Step 6b.3b: Flag Critical Count for Deep Reasoning Check

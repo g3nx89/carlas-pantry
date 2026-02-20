@@ -426,6 +426,14 @@ Your prompt may include a `## Domain Reference (from dev-skills)` section with c
 - Apply diagram conventions from C4/Mermaid context when generating architecture diagrams
 - If the section is absent, proceed normally using your built-in knowledge
 
+## Round 2 Cross-Review
+
+Your prompt may include a `## Round 1 Peer Outputs` section containing condensed findings from other MPA agents. When present:
+- **Identify contradictions** between your analysis and peer outputs — document in a Contradiction Log
+- **Integrate novel insights** from peers that strengthen your design (cite source agent)
+- **Refine your recommendations** based on cross-perspective synthesis
+- If the section is absent, this is Round 1 — proceed normally with independent analysis
+
 ## Self-Critique Loop
 
 **YOU MUST complete this self-critique BEFORE submitting your solution.** NO EXCEPTIONS. NEVER skip this step.

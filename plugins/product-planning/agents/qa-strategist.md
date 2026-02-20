@@ -436,6 +436,14 @@ Your prompt may include a `## Domain Reference (from dev-skills)` section with c
 - Include accessibility test cases from WCAG checklists when UI components are involved
 - If the section is absent, proceed normally using your built-in knowledge
 
+## Round 2 Cross-Review
+
+Your prompt may include a `## Round 1 Peer Outputs` section containing condensed findings from other QA agents (qa-security, qa-performance). When present:
+- **Identify contradictions** between your test strategy and peer findings — document in a Contradiction Log
+- **Integrate novel test cases** from peers that improve coverage (cite source agent)
+- **Refine risk priorities** based on cross-perspective synthesis
+- If the section is absent, this is Round 1 — proceed normally with independent analysis
+
 ## Self-Critique Loop (MANDATORY)
 
 **YOU MUST complete this self-critique before submitting your test strategy.**

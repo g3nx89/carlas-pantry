@@ -16,6 +16,7 @@ feature_flags:
   - "cli_custom_roles"
   - "dev_skills_integration"
   - "deep_reasoning_escalation"  # Step 1.5d: abstract algorithm detection
+  - "s10_team_presets"
 additional_references: []
 ---
 
@@ -296,7 +297,23 @@ IF config.mode_suggestion.enabled:
      # Count spec words
      word_count = COUNT words in spec.md
 
-  2. EVALUATE rules in order (first match wins):
+  2. OPTIONAL: Run EHRB risk hook for supplemental signal:
+
+     SCRIPT = "$CLAUDE_PLUGIN_ROOT/scripts/planning-hint.sh"
+     IF file exists at SCRIPT AND is executable:
+       hint_json = Bash("cat {FEATURE_DIR}/spec.md | {SCRIPT}")
+       IF hint_json parses successfully AND hint_json.error is absent:
+         hint_mode = hint_json.suggested_mode
+         hint_categories = hint_json.risk_categories
+         hint_keyword_count = hint_json.keyword_count
+         LOG: "EHRB risk hook: suggested={hint_mode}, categories={hint_categories}, keywords={hint_keyword_count}"
+       ELSE:
+         hint_mode = null
+         LOG: "EHRB risk hook: skipped (parse error or Bash <4)"
+     ELSE:
+       hint_mode = null
+
+  3. EVALUATE rules in order (first match wins):
 
      IF word_count >= 2000 OR high_risk_count >= 3:
        suggested_mode = "complete"
@@ -318,7 +335,15 @@ IF config.mode_suggestion.enabled:
        rationale = "Simple feature"
        cost_estimate = "$0.05-0.12"
 
-  3. DISPLAY suggestion:
+     # Reconcile with EHRB hint (upgrade only, never downgrade)
+     IF hint_mode is not null:
+       mode_rank = {rapid: 0, standard: 1, advanced: 2, complete: 3}
+       IF mode_rank[hint_mode] > mode_rank[suggested_mode]:
+         suggested_mode = hint_mode
+         rationale = rationale + " (upgraded by EHRB risk categories: {hint_categories})"
+         cost_estimate = LOOKUP cost for new mode
+
+  4. DISPLAY suggestion:
 
      ┌─────────────────────────────────────────────────────────────┐
      │ MODE SUGGESTION                                              │
@@ -332,9 +357,51 @@ IF config.mode_suggestion.enabled:
      │ Rationale: {rationale}                                       │
      └─────────────────────────────────────────────────────────────┘
 
-  4. ASK user to confirm or override:
+  5. ASK user to confirm or override:
      - Accept suggestion
      - Choose different mode
+```
+
+## Step 1.6b: Team Preset Selection (S5)
+
+```
+IF feature_flags.s10_team_presets.enabled:
+
+  1. DISPLAY preset options:
+
+     ┌─────────────────────────────────────────────────────────────┐
+     │ TEAM PRESET (optional)                                       │
+     ├─────────────────────────────────────────────────────────────┤
+     │                                                              │
+     │ 1. balanced (Recommended)                                    │
+     │    All MPA agents active. Full convergence + deliberation.   │
+     │    Best for: Most features, comprehensive analysis.          │
+     │                                                              │
+     │ 2. rapid_prototype                                           │
+     │    software-architect + qa-strategist only. Skip security    │
+     │    and performance specialists. Faster, lower cost.          │
+     │    Best for: Prototypes, internal tools, low-risk features.  │
+     │                                                              │
+     │ 3. Skip preset                                               │
+     │    Use default agent configuration for selected mode.        │
+     │                                                              │
+     └─────────────────────────────────────────────────────────────┘
+
+  2. ASK user via AskUserQuestion:
+     header: "Team Preset"
+     question: "Which agent team preset would you like?"
+     options:
+       - label: "balanced (Recommended)"
+         description: "All MPA agents, full analysis"
+       - label: "rapid_prototype"
+         description: "Minimal agents, faster execution"
+       - label: "Skip"
+         description: "Use default mode configuration"
+
+  3. SAVE to state:
+     team_preset: {selected_preset or null}
+
+  4. LOG: "Team preset: {selected_preset or 'default'}"
 ```
 
 ## Step 1.7: Workspace Preparation

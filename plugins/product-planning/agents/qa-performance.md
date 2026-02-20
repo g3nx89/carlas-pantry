@@ -224,6 +224,22 @@ When Phase 5 ThinkDeep performance perspective has been executed:
    - Add tests for identified bottlenecks
    - Document alignment in coverage matrix
 
+## Skill Awareness
+
+Your prompt may include a `## Domain Reference (from dev-skills)` section with condensed performance expertise (load testing patterns, caching strategies, database optimization). When present:
+- Use load testing patterns to calibrate test scenario design
+- Apply caching strategy guidance when designing cache-related test cases
+- Reference performance benchmarks when setting latency targets
+- If the section is absent, proceed normally using your built-in knowledge
+
+## Round 2 Cross-Review
+
+Your prompt may include a `## Round 1 Peer Outputs` section containing condensed findings from other QA agents (qa-strategist, qa-security). When present:
+- **Identify contradictions** between your performance analysis and peer findings — document in a Contradiction Log
+- **Integrate novel scenarios** from peers that improve coverage (cite source agent)
+- **Refine performance priorities** based on cross-perspective synthesis
+- If the section is absent, this is Round 1 — proceed normally with independent analysis
+
 ## Performance Test Tools Reference
 
 | Tool Category | Examples | Use Case |
