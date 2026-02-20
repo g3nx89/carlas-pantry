@@ -1,5 +1,6 @@
 ---
 name: figma-console-mastery
+version: 0.3.0
 description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "render JSX in Figma", "use figma_render", "use figma-use MCP", "analyze Figma design", "diff Figma designs", "query Figma nodes with XPath", or when developing skills/commands that use the Figma Console or figma-use MCP servers. Provides tool selection, Plugin API patterns, JSX rendering, design analysis, visual diffing, design rules, and selective reference loading for both MCP servers.
 ---
 
