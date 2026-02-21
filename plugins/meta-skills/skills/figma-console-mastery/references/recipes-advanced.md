@@ -22,6 +22,8 @@
 | | Design System Bootstrap Pattern | 771 |
 | | Handoff Preparation Pattern | 783 |
 | | Handoff Naming Audit | 798 |
+| **Variables** | Variable Alias Chain (Semantic Tokens) | 856 |
+| | Effect and LayoutGrid Variable Binding | 925 |
 
 ---
 
@@ -852,3 +854,120 @@ Prepares custom components for consumption by the coding agent via `get_design_c
 ---
 
 *Recipes are designed to be composed. A typical screen build chains Page Container + Top App Bar + content cards + bottom navigation, each as a separate `figma_execute` call connected by returned node IDs.*
+
+---
+
+### Recipe: Variable Alias Chain (Semantic Tokens)
+
+Creates a 3-tier token system: primitives → semantic aliases → component-level aliases.
+
+**Code**:
+
+```javascript
+(async () => {
+  try {
+    const col = figma.variables.createVariableCollection("design-tokens")
+    const lightId = col.modes[0].modeId
+    col.renameMode(lightId, "light")
+    const darkId = col.addMode("dark")
+
+    // Tier 1: Primitives
+    const blue500 = figma.variables.createVariable("blue-500", col, "COLOR")
+    blue500.setValueForMode(lightId, figma.util.rgb('#3B82F6'))
+    blue500.setValueForMode(darkId, figma.util.rgb('#60A5FA'))
+    blue500.scopes = ['ALL_FILLS']
+
+    const blue100 = figma.variables.createVariable("blue-100", col, "COLOR")
+    blue100.setValueForMode(lightId, figma.util.rgb('#DBEAFE'))
+    blue100.setValueForMode(darkId, figma.util.rgb('#1E3A5F'))
+
+    // Tier 2: Semantic aliases → point to primitives
+    const primary = figma.variables.createVariable("primary", col, "COLOR")
+    primary.setValueForMode(lightId, figma.variables.createVariableAlias(blue500))
+    primary.setValueForMode(darkId, figma.variables.createVariableAlias(blue500))
+    primary.scopes = ['ALL_FILLS', 'STROKE_COLOR']
+
+    const primaryContainer = figma.variables.createVariable("primary-container", col, "COLOR")
+    primaryContainer.setValueForMode(lightId, figma.variables.createVariableAlias(blue100))
+    primaryContainer.setValueForMode(darkId, figma.variables.createVariableAlias(blue100))
+
+    // Tier 3: Code syntax for handoff
+    primary.setVariableCodeSyntax("WEB", "--color-primary")
+    primary.setVariableCodeSyntax("iOS", "ColorPrimary")
+    primary.setVariableCodeSyntax("ANDROID", "colorPrimary")
+
+    // Bind to a node
+    const card = figma.createFrame()
+    card.name = "Token Demo Card"
+    card.resize(200, 120)
+    card.cornerRadius = 12
+    const boundFill = figma.variables.setBoundVariableForPaint(
+      figma.util.solidPaint('#000000'), 'color', primaryContainer
+    )
+    card.fills = [boundFill]
+    const radiusMd = figma.variables.createVariable("radius-md", col, "FLOAT")
+    radiusMd.setValueForMode(lightId, 12)
+    radiusMd.setValueForMode(darkId, 12)
+    card.setBoundVariable('topLeftRadius', radiusMd)
+
+    figma.currentPage.appendChild(card)
+    console.log(JSON.stringify({ success: true, variables: 5 }))
+  } catch(e) {
+    console.log(JSON.stringify({ error: e.message }))
+  }
+})()
+```
+
+**Key patterns**: `createVariableAlias(variable)` for semantic linking, `setVariableCodeSyntax(platform, name)` for code handoff, `setBoundVariableForPaint(paint, 'color', variable)` for color binding.
+
+---
+
+### Recipe: Effect and LayoutGrid Variable Binding
+
+Bind variables to shadow properties and layout grid properties.
+
+**Code**:
+
+```javascript
+(async () => {
+  try {
+    const col = (await figma.variables.getLocalVariableCollectionsAsync())[0]
+    const modeId = col.modes[0].modeId
+
+    // Create spacing/effect variables
+    const shadowRadius = figma.variables.createVariable("shadow-radius-md", col, "FLOAT")
+    shadowRadius.setValueForMode(modeId, 8)
+    const shadowColor = figma.variables.createVariable("shadow-color", col, "COLOR")
+    shadowColor.setValueForMode(modeId, { r: 0, g: 0, b: 0, a: 0.15 })
+    const gutterSize = figma.variables.createVariable("grid-gutter", col, "FLOAT")
+    gutterSize.setValueForMode(modeId, 16)
+
+    const card = figma.createFrame()
+    card.name = "Bound Effects Demo"
+    card.resize(200, 120)
+    card.cornerRadius = 12
+    card.fills = [figma.util.solidPaint('#FFFFFF')]
+
+    // Bind shadow properties to variables
+    let shadow = { type: 'DROP_SHADOW', color: { r: 0, g: 0, b: 0, a: 0.15 },
+      offset: { x: 0, y: 4 }, radius: 8, visible: true, blendMode: 'NORMAL' }
+    shadow = figma.variables.setBoundVariableForEffect(shadow, 'radius', shadowRadius)
+    shadow = figma.variables.setBoundVariableForEffect(shadow, 'color', shadowColor)
+    card.effects = [shadow]
+
+    // Bind layout grid gutter to variable
+    card.layoutGrids = [{ pattern: 'COLUMNS', alignment: 'STRETCH',
+      count: 4, sectionSize: 1, gutterSize: 16, offset: 0, visible: true }]
+    let grid = card.layoutGrids[0]
+    grid = figma.variables.setBoundVariableForLayoutGrid(grid, 'gutterSize', gutterSize)
+    card.layoutGrids = [grid]
+
+    figma.currentPage.appendChild(card)
+    console.log(JSON.stringify({ success: true }))
+  } catch(e) {
+    console.log(JSON.stringify({ error: e.message }))
+  }
+})()
+```
+
+**Key patterns**: `setBoundVariableForEffect(effect, field, variable)` returns a new Effect (must reassign). Same pattern for `setBoundVariableForLayoutGrid`.

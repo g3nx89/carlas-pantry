@@ -99,9 +99,13 @@
 | Page | `figma.createPage()` | Auto-appended to document |
 | Section | `figma.createSection()` | Canvas organizer |
 | Slice | `figma.createSlice()` | Export regions |
+| Text Path | `figma.createTextPath(vectorNode, startSeg, startPos)` | Text on a vector path. Returns TEXT_PATH node |
+| Transform Group | `figma.transformGroup(nodes, parent, index, modifiers)` | Wraps nodes with transform modifiers |
 | SVG Import | `figma.createNodeFromSvg(svgString)` | Returns FrameNode |
 
 `parent.appendChild(child)` works on Frame, Component, ComponentSet, Group, Instance, Page, Section, BooleanOperation nodes. `insertChild(index, child)` places at a specific z-index.
+
+> **Figma Draw APIs** (Update 123, January 2026): New node types `TEXT_PATH` and `TRANSFORM_GROUP` support text-on-a-path and transform groups. New properties: `complexStrokeProperties` (brush strokes), `variableWidthStrokeProperties` (variable-width profiles). Use `figma.loadBrushesAsync(brushType)` to load first-party brushes.
 
 **`width` and `height` are READ-ONLY.** Always use `resize(w, h)`. `resizeWithoutConstraints(w, h)` is faster (skips child constraint propagation).
 
@@ -245,7 +249,7 @@ For complex builds (full pages), use Outside-In with explicit sizing: create the
 
 | Property | Values | Default | Description |
 |----------|--------|---------|-------------|
-| `layoutMode` | `'NONE'`\|`'HORIZONTAL'`\|`'VERTICAL'` | `'NONE'` | **Set FIRST** |
+| `layoutMode` | `'NONE'`\|`'HORIZONTAL'`\|`'VERTICAL'`\|`'GRID'` | `'NONE'` | **Set FIRST**. `'GRID'` enables CSS Grid — see Grid Layout section |
 | `layoutWrap` | `'NO_WRAP'`\|`'WRAP'` | `'NO_WRAP'` | Flex-wrap |
 | `primaryAxisSizingMode` | `'FIXED'`\|`'AUTO'` | `'AUTO'` | AUTO = hug contents |
 | `counterAxisSizingMode` | `'FIXED'`\|`'AUTO'` | `'AUTO'` | AUTO = hug contents |
@@ -292,6 +296,88 @@ Prefer `layoutSizingHorizontal/Vertical` over lower-level properties to avoid ax
 - **resize() in auto-layout:** No-ops on AUTO (hug) dimensions
 - **Min/max before layoutMode:** Throws error. Always set `layoutMode` first
 - **Insertion order = flow order:** First `appendChild` = first in layout. `itemReverseZIndex` reverses z only, not flow
+- **Auto-layout frame collapse to h=1:** Frames with text children may collapse height. Fix: `resize()` to explicit height first, then re-set `primaryAxisSizingMode = 'AUTO'`
+
+### CSS Grid Layout
+
+> Added in Plugin API Update 115 (July 2025), extended in Update 120 (November 2025).
+
+CSS Grid is a 2D layout mode distinct from the 1D flex-based auto-layout (`HORIZONTAL`/`VERTICAL`). Enable it with `layoutMode = 'GRID'`. Grid and flex modes are **mutually exclusive** on a frame.
+
+> **Do not confuse** `layoutMode = 'GRID'` (actual 2D layout engine) with `layoutGrids` (visual overlay guides). They are independent features.
+
+#### Container Properties
+
+| Property | Type | Default | Notes |
+|----------|------|---------|-------|
+| `gridRowCount` | `number` | `1` | Min 1. Cannot reduce below occupied rows |
+| `gridColumnCount` | `number` | `1` | Min 1. Cannot reduce below occupied columns |
+| `gridRowGap` | `number` | `0` | Pixels, >= 0 |
+| `gridColumnGap` | `number` | `0` | Pixels, >= 0 |
+| `gridRowSizes` | `Array<GridTrackSize>` | `[{type:'FLEX',value:1}]` | Top-to-bottom order |
+| `gridColumnSizes` | `Array<GridTrackSize>` | `[{type:'FLEX',value:1}]` | Left-to-right order |
+
+**`GridTrackSize` interface:**
+
+```typescript
+interface GridTrackSize {
+  type: 'FIXED' | 'FLEX' | 'HUG'
+  value?: number  // px for FIXED, fr-weight for FLEX, unused for HUG
+}
+```
+
+- `FIXED` — static pixel size (CSS `100px`)
+- `FLEX` — fractional unit (CSS `1fr`, `2fr`). Update 120 added non-1 values
+- `HUG` — shrink to largest child (CSS `auto`). Added in Update 120
+
+#### Container Methods
+
+| Method | Signature | Notes |
+|--------|-----------|-------|
+| `appendChildAt` | `(node, rowIndex, columnIndex): void` | 0-based. Throws if out-of-bounds or cell occupied |
+
+`appendChild(child)` (without `At`) places child at the first available cell.
+
+#### Child Properties
+
+| Property | Type | Access | Notes |
+|----------|------|--------|-------|
+| `gridRowAnchorIndex` | `number` | readonly | 0-based row start |
+| `gridColumnAnchorIndex` | `number` | readonly | 0-based column start |
+| `gridRowSpan` | `number` | read/write | Positive int. Throws on overlap/overflow |
+| `gridColumnSpan` | `number` | read/write | Positive int. Throws on overlap/overflow |
+| `gridChildHorizontalAlign` | `'MIN'\|'CENTER'\|'MAX'\|'AUTO'` | read/write | Self-alignment horizontal |
+| `gridChildVerticalAlign` | `'MIN'\|'CENTER'\|'MAX'\|'AUTO'` | read/write | Self-alignment vertical |
+
+#### Child Methods
+
+| Method | Signature | Notes |
+|--------|-----------|-------|
+| `setGridChildPosition` | `(rowIndex, columnIndex): void` | 0-based. Throws if occupied or out-of-bounds |
+
+#### Operation Order — Grid
+
+```
+1. Set layoutMode = 'GRID'
+2. Set gridRowCount, gridColumnCount
+3. Set gridRowSizes, gridColumnSizes (track sizing)
+4. Set gridRowGap, gridColumnGap
+5. Set padding (paddingTop/Bottom/Left/Right)
+6. appendChildAt(child, row, col) for each child
+7. Set child gridRowSpan / gridColumnSpan (after placement)
+8. Set child gridChildHorizontalAlign / gridChildVerticalAlign
+```
+
+#### Grid Gotchas
+
+- **UI defaults HUG, API defaults FIXED** — tracks created via API default to `{type:'FIXED',value:10}`, not HUG. Explicitly set track sizes after creation
+- **FLEX tracks + HUG container = error** — a grid container with `layoutSizingHorizontal = 'HUG'` cannot have `FLEX` column tracks (contradiction: can't flex into indeterminate space)
+- **One child per cell** — `appendChildAt` throws if the target cell is already occupied. Use `layoutPositioning = 'ABSOLUTE'` as an escape hatch for overlapping
+- **No implicit auto-flow** — children are not auto-placed into the next available cell. Position must be explicit via `appendChildAt` or `setGridChildPosition`
+- **Cannot reduce below occupied** — setting `gridRowCount` lower than the last occupied row throws. Remove or relocate children first
+- **Padding/spacing** — `paddingTop/Bottom/Left/Right` work normally. `itemSpacing`/`counterAxisSpacing` are IGNORED on Grid containers — use `gridRowGap`/`gridColumnGap`
+- **`layoutSizingHorizontal = 'FILL'`** — children should use `'FILL'` for responsive behavior within cells
+- **Grid variable binding** — `gridRowGap` and `gridColumnGap` are bindable via `node.setBoundVariable('gridRowGap', variable)` (added as `VariableBindableNodeField`)
 
 ---
 
@@ -413,6 +499,18 @@ node.fills = [{ type: 'SOLID', color: { r: 1, g: 0, b: 0 } }]
 
 `node.opacity` affects entire node + children. `paint.opacity` affects one paint layer only.
 
+### Async Paint Setters
+
+For pattern fills/strokes (e.g., repeating image patterns), use the async setters instead of direct assignment:
+
+```javascript
+// Async setters — required for pattern fills/strokes
+await node.setFillsAsync(fills)
+await node.setStrokesAsync(strokes)
+```
+
+Direct assignment (`node.fills = [...]`) still works for `SOLID`, `GRADIENT_*`, and `IMAGE` paints. Use `setFillsAsync`/`setStrokesAsync` when working with pattern-based paints or when the paint type requires async resolution.
+
 ---
 
 ## Effects and Decorations
@@ -497,6 +595,99 @@ rect.fills = [{
 
 ---
 
+## Cross-Page Operations
+
+Cross-page operations are essential for Draft-to-Handoff workflows. The Plugin API supports cloning nodes between pages within the same file.
+
+### Cross-Page Clone (Primary Pattern)
+
+The **only** reliable way to transfer designs between pages while preserving image fills, fonts, exact positioning, and layer ordering:
+
+```javascript
+(async () => {
+  try {
+    await figma.loadAllPagesAsync();
+
+    const draftPage = figma.root.children.find(p => p.name === "Draft");
+    const handoffPage = figma.root.children.find(p => p.name === "Handoff");
+
+    const sourceNode = await figma.getNodeByIdAsync("24:2905");
+    if (!sourceNode) return;
+
+    const clone = sourceNode.clone();
+    handoffPage.appendChild(clone);
+    clone.x = 80;
+    clone.y = 80;
+    clone.name = "WK-01 — Episode Preview";
+
+    console.log(JSON.stringify({ success: true, cloneId: clone.id }));
+  } catch(e) {
+    console.log(JSON.stringify({ error: e.message }));
+  }
+})()
+```
+
+**Key rules:**
+- **`figma.loadAllPagesAsync()`** — required before accessing nodes on non-current pages in dynamic-page mode
+- **`figma.getNodeByIdAsync()`** — MUST use async version; sync `getNodeById()` throws `"Cannot call with documentAccess: dynamic-page"`
+- **`sourceNode.clone()`** — creates a deep copy preserving ALL visual properties including IMAGE fills, fonts, effects, and nested children
+- **`handoffPage.appendChild(clone)`** — moves the clone from its default parent (same page as source) to the target page
+- **Coordinates after reparenting** — `clone.x` / `clone.y` are relative to the new parent after `appendChild`
+
+### Why Clone Instead of Rebuild
+
+| Approach | Image fills | Fonts | Layer order | Visual fidelity |
+|----------|------------|-------|-------------|-----------------|
+| Clone (`node.clone()`) | Preserved | Preserved | Preserved | Pixel-perfect |
+| Rebuild from spec/text | Lost (black rectangles) | Approximated | Manual | Divergent |
+| `figma_render` JSX | Not supported | Limited | Correct | Partial |
+
+**NEVER reconstruct screens from text documents (PRDs, reconstruction guides, design specs).** Text cannot capture image fills, exact font weights, layer ordering, or visual properties. Always clone from the source design.
+
+### Cross-Page Node Access Patterns
+
+```javascript
+// Pattern 1: Sync page list + async node lookup (preferred)
+const draftPage = figma.root.children.find(p => p.name === "Draft");  // sync — works
+const node = await figma.getNodeByIdAsync("24:2905");  // async — required
+
+// Pattern 2: Sync page access + sync findOne (works without loadAllPagesAsync in some cases)
+const draftPage = figma.root.children.find(p => p.name === "Draft");
+const node = draftPage.findOne(n => n.id === "24:2905");  // sync — may work if page loaded
+
+// WRONG: sync getNodeById in dynamic-page mode
+const node = figma.getNodeById("24:2905");  // THROWS: "Cannot call with documentAccess: dynamic-page"
+```
+
+### Section Reparenting
+
+SECTION nodes accept children via `appendChild`. After reparenting, child coordinates become section-relative:
+
+```javascript
+const section = figma.createSection();
+section.name = "🧩 Components";
+section.resizeWithoutConstraints(1400, 900);
+section.x = 0;
+section.y = 1000;
+handoffPage.appendChild(section);
+
+// Move component into section
+const comp = handoffPage.children.find(n => n.name === "MyComponent");
+const prevX = comp.x, prevY = comp.y;
+section.appendChild(comp);
+comp.x = prevX - section.x;  // convert to section-relative
+comp.y = prevY - section.y;
+```
+
+### Gotchas
+
+- **`figma_node_clone` (figma-use MCP) is broken for cross-page operations** — use `figma_execute` with Plugin API `node.clone()` instead
+- **`page.findOne(n => n.name === X)`** may find the WRONG node if multiple nodes share a name — always prefer node IDs when possible
+- **External library COMPONENT_SETs**: `getNodeByIdAsync` returns the node but `.parent` is `undefined` — they cannot be moved, only referenced via instances
+- **Deleting a FRAME with COMPONENT/COMPONENT_SET children**: children may survive (reparented to page) or be deleted. Always verify critical components still exist after deleting container frames
+
+---
+
 ## Components and Instances
 
 ```javascript
@@ -542,6 +733,185 @@ instance.setProperties({
 })
 instance.swapComponent(otherComponent)     // preserves overrides
 const frame = instance.detachInstance()     // returns FrameNode
+```
+
+### Component Gotchas
+
+- **`componentPropertyDefinitions`** is only accessible on COMPONENT_SET nodes, NOT on individual variant COMPONENTs within the set
+- **`instance.swapComponent(node)`** requires a COMPONENT node, NOT a COMPONENT_SET. If the target is a COMPONENT_SET, get a specific child variant first: `const variant = componentSet.children[0]; instance.swapComponent(variant);`
+- **`node.mainComponent`** — in dynamic-page mode, use `await node.getMainComponentAsync()` instead (sync version throws)
+
+---
+
+## Prototype Reactions and Navigation
+
+Prototype connections are managed via the `reactions` property, available on nodes that implement `ReactionMixin`: FRAME, COMPONENT, INSTANCE, TEXT, RECTANGLE, ELLIPSE, VECTOR, POLYGON, STAR, LINE, and most shape nodes. GROUP nodes also expose `reactions` but **silently drop** them on write.
+
+### Setting Reactions (Async Required)
+
+```javascript
+await node.setReactionsAsync([
+  {
+    trigger: { type: 'ON_CLICK' },
+    actions: [{
+      type: 'NODE',
+      destinationId: '24:3025',
+      navigation: 'NAVIGATE',
+      transition: {
+        type: 'SMART_ANIMATE',
+        duration: 0.3,
+        easing: { type: 'EASE_IN_AND_OUT' }
+      },
+      resetScrollPosition: true,
+      resetInteractiveComponents: false
+    }]
+  }
+]);
+```
+
+### Reaction Format
+
+**`actions` array (plural) is required.** The singular `action` field is **deprecated**.
+
+```javascript
+// CORRECT — actions array (supports multi-action per trigger)
+{ trigger: { type: 'ON_CLICK' }, actions: [{ type: 'NODE', ... }, { type: 'SET_VARIABLE', ... }] }
+
+// WRONG — action singular (deprecated, will fail)
+{ trigger: { type: 'ON_CLICK' }, action: { type: 'NODE', ... } }
+```
+
+### Trigger Types
+
+| Trigger | Properties | Notes |
+|---------|-----------|-------|
+| `ON_CLICK` | — | Standard click/tap |
+| `ON_HOVER` | — | **Reverts** on hover-out |
+| `ON_PRESS` | — | **Reverts** on release |
+| `ON_DRAG` | — | Drag/swipe gesture |
+| `AFTER_TIMEOUT` | `timeout: number` (ms) | Auto-fire after delay |
+| `MOUSE_ENTER` | `delay: number` (ms) | One-way (no revert) |
+| `MOUSE_LEAVE` | `delay: number` (ms) | One-way (no revert) |
+| `MOUSE_UP` | `delay: number` (ms) | One-way |
+| `MOUSE_DOWN` | `delay: number` (ms) | One-way |
+| `ON_KEY_DOWN` | `device`, `keyCodes: number[]` | Hardware input. `device`: `'KEYBOARD'\|'XBOX_ONE'\|'PS4'\|'SWITCH_PRO'\|'UNKNOWN_CONTROLLER'` |
+| `ON_MEDIA_HIT` | `mediaHitTime: number` (seconds) | Video layers only |
+| `ON_MEDIA_END` | — | Video layers only |
+
+### Action Types
+
+| Action | Key Properties | Notes |
+|--------|---------------|-------|
+| `NODE` | `destinationId`, `navigation`, `transition`, `resetScrollPosition`, `resetVideoPosition`, `resetInteractiveComponents` | All navigation flows |
+| `BACK` | — | Go back in prototype history |
+| `CLOSE` | — | Dismiss topmost overlay |
+| `URL` | `url: string` | Open external link |
+| `SET_VARIABLE` | `variableId`, `variableValue: VariableData` | Set variable value in prototype |
+| `SET_VARIABLE_MODE` | `variableCollectionId`, `variableModeId` | Switch collection mode |
+| `CONDITIONAL` | `conditionalBlocks: ConditionalBlock[]` | IF/ELSE branching logic |
+| `UPDATE_MEDIA_RUNTIME` | `destinationId?`, `mediaAction` | Video control (`PLAY`, `PAUSE`, `TOGGLE_PLAY_PAUSE`, `MUTE`, `UNMUTE`, `TOGGLE_MUTE_UNMUTE`) |
+
+### Navigation Types (on NODE action)
+
+| Navigation | Behavior |
+|-----------|----------|
+| `NAVIGATE` | Replace current screen, closes overlays |
+| `OVERLAY` | Open destination as overlay layer |
+| `SWAP` | Replace current overlay (or navigate without history entry) |
+| `SCROLL_TO` | Scroll within current frame to target node |
+| `CHANGE_TO` | Switch nearest ancestor instance to destination variant (interactive components) |
+
+### Transitions and Easing
+
+| Category | Transition Types |
+|----------|-----------------|
+| Simple | `DISSOLVE`, `SMART_ANIMATE`, `SCROLL_ANIMATE` |
+| Directional | `MOVE_IN`, `MOVE_OUT`, `PUSH`, `SLIDE_IN`, `SLIDE_OUT` (+ `direction`: `'LEFT'\|'RIGHT'\|'TOP'\|'BOTTOM'`) |
+| Instant | `transition: null` |
+
+Transition properties: `duration` (seconds), `easing` (object).
+
+**Easing types:**
+
+| Category | Values |
+|----------|--------|
+| Preset bezier | `LINEAR`, `EASE_IN`, `EASE_OUT`, `EASE_IN_AND_OUT`, `EASE_IN_BACK`, `EASE_OUT_BACK`, `EASE_IN_AND_OUT_BACK` |
+| Spring presets | `GENTLE`, `QUICK`, `BOUNCY`, `SLOW` |
+| Custom bezier | `CUSTOM_CUBIC_BEZIER` — requires `easingFunctionCubicBezier: { x1, y1, x2, y2 }` |
+| Custom spring | `CUSTOM_SPRING` — requires `easingFunctionSpring: { mass, stiffness, damping, initialVelocity }` |
+
+### Overlay Properties
+
+Set on the **destination FrameNode** (readonly in Plugin API — set via Figma UI):
+
+| Property | Values |
+|----------|--------|
+| `overlayPositionType` | `CENTER`, `TOP_LEFT`, `TOP_CENTER`, `TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_CENTER`, `BOTTOM_RIGHT`, `MANUAL` |
+| `overlayBackground` | `{ type: 'NONE' }` or `{ type: 'SOLID_COLOR', color: RGBA }` |
+| `overlayBackgroundInteraction` | `NONE`, `CLOSE_ON_CLICK_OUTSIDE` |
+
+For `MANUAL` positioning, the NODE action includes `overlayRelativePosition: { x, y }`.
+
+### Conditional Prototyping (SET_VARIABLE + CONDITIONAL)
+
+```javascript
+// Multi-action: set a variable AND navigate conditionally
+await node.setReactionsAsync([{
+  trigger: { type: 'ON_CLICK' },
+  actions: [
+    // Action 1: Set a variable
+    {
+      type: 'SET_VARIABLE',
+      variableId: isLoggedIn.id,
+      variableValue: { type: 'BOOLEAN', resolvedType: 'BOOLEAN', value: true }
+    },
+    // Action 2: Conditional navigation
+    {
+      type: 'CONDITIONAL',
+      conditionalBlocks: [{
+        condition: { type: 'EXPRESSION', resolvedType: 'BOOLEAN',
+          value: { expressionFunction: 'EQUALS',
+            expressionArguments: [
+              { type: 'VARIABLE_ALIAS', resolvedType: 'BOOLEAN',
+                value: { type: 'VARIABLE_ALIAS', id: isLoggedIn.id } },
+              { type: 'BOOLEAN', resolvedType: 'BOOLEAN', value: true }
+            ]
+          }
+        },
+        actions: [{ type: 'NODE', destinationId: dashboardId, navigation: 'NAVIGATE',
+          transition: { type: 'SMART_ANIMATE', duration: 0.3, easing: { type: 'EASE_OUT' } } }]
+      }, {
+        // ELSE block (no condition)
+        actions: [{ type: 'NODE', destinationId: signupId, navigation: 'OVERLAY',
+          transition: { type: 'DISSOLVE', duration: 0.2, easing: { type: 'EASE_OUT' } } }]
+      }]
+    }
+  ]
+}]);
+```
+
+> **Caveat**: The exact `VariableData` nesting structure for CONDITIONAL actions is synthesized from multiple research sources. Verify against `@figma/plugin-typings` (`Reaction`, `Action`, `ConditionalBlock` types) before production use — field names or nesting depth may differ.
+
+**Expression functions** for conditions: `EQUALS`, `NOT_EQUAL`, `LESS_THAN`, `LESS_THAN_OR_EQUAL`, `GREATER_THAN`, `GREATER_THAN_OR_EQUAL`, `AND`, `OR`, `NOT`, `NEGATE`, `ADDITION`, `SUBTRACTION`, `MULTIPLICATION`, `DIVISION`, `VAR_MODE_LOOKUP`.
+
+### Node Type Support
+
+| Node Type | Supports reactions? | Notes |
+|-----------|-------------------|-------|
+| FRAME | Yes | Primary target |
+| COMPONENT | Yes | Works on component masters |
+| INSTANCE | Yes | Works on instances |
+| TEXT | Yes | Via `ReactionMixin` |
+| RECTANGLE, ELLIPSE, VECTOR, POLYGON, STAR, LINE | Yes | Via `ReactionMixin` |
+| GROUP | **Silently drops** | `reactions` property exists but `setReactionsAsync` silently discards. Verify after write |
+
+**Always verify after wiring:**
+```javascript
+await node.setReactionsAsync(reactions);
+const actual = node.reactions;
+if (actual.length === 0 && reactions.length > 0) {
+  console.log(JSON.stringify({ warning: "Reactions dropped", nodeType: node.type, nodeId: node.id }));
+}
 ```
 
 ---
@@ -591,6 +961,95 @@ const colorVars = await figma.variables.getLocalVariablesAsync('COLOR')
 const variable = await figma.variables.getVariableByIdAsync(id)
 ```
 
+### Variable Aliases
+
+Aliases create semantic tokens that reference other variables (similar to CSS custom property chains):
+
+```javascript
+// Create a primitive token
+const blue500 = figma.variables.createVariable("blue-500", collection, "COLOR")
+blue500.setValueForMode(lightModeId, figma.util.rgb('#3B82F6'))
+
+// Create a semantic alias pointing to the primitive
+const primaryColor = figma.variables.createVariable("primary", collection, "COLOR")
+primaryColor.setValueForMode(lightModeId, figma.variables.createVariableAlias(blue500))
+primaryColor.setValueForMode(darkModeId, figma.variables.createVariableAlias(blue300))
+
+// Async version (when you only have the variable ID)
+const alias = await figma.variables.createVariableAliasByIdAsync(variableId)
+```
+
+**Resolving aliases** — `resolveForConsumer` follows the alias chain:
+```javascript
+const resolved = primaryColor.resolveForConsumer(someNode)
+// { value: { r: 0.23, g: 0.51, b: 0.96 }, resolvedType: 'COLOR' }
+```
+
+### Code Syntax
+
+Map variable names to platform-specific code tokens:
+
+```javascript
+variable.codeSyntax  // readonly: { WEB?: string, ANDROID?: string, iOS?: string }
+variable.setVariableCodeSyntax("WEB", "--color-primary")
+variable.setVariableCodeSyntax("ANDROID", "colorPrimary")
+variable.setVariableCodeSyntax("iOS", "ColorPrimary")
+variable.removeVariableCodeSyntax("ANDROID")  // remove single platform
+```
+
+### Complete Binding Targets
+
+**Node-level** (`node.setBoundVariable(field, variable)`):
+
+`height`, `width`, `visible`, `opacity`, `topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius`, `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft`, `itemSpacing`, `counterAxisSpacing`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `strokeWeight`, `strokeTopWeight`, `strokeRightWeight`, `strokeBottomWeight`, `strokeLeftWeight`, `gridRowGap`, `gridColumnGap`, `characters`
+
+**Text-level** (`textNode.setBoundVariable(field, variable)` or `textNode.setRangeBoundVariable(start, end, field, variable)`):
+
+`fontFamily`, `fontSize`, `fontStyle`, `fontWeight`, `letterSpacing`, `lineHeight`, `paragraphSpacing`, `paragraphIndent`
+
+**Effect-level** (`figma.variables.setBoundVariableForEffect(effect, field, variable)`):
+
+`radius`, `color`, `spread`, `offsetX`, `offsetY` (shadow); `radius` (blur). Returns modified Effect — reassign to node.
+
+**LayoutGrid-level** (`figma.variables.setBoundVariableForLayoutGrid(grid, field, variable)`):
+
+`sectionSize`, `count`, `offset`, `gutterSize`. Returns modified LayoutGrid — reassign to node.
+
+```javascript
+// Effect variable binding example
+const shadow = node.effects[0]
+const boundShadow = figma.variables.setBoundVariableForEffect(shadow, 'radius', blurVar)
+node.effects = [boundShadow]
+
+// LayoutGrid variable binding example
+const grid = node.layoutGrids[0]
+const boundGrid = figma.variables.setBoundVariableForLayoutGrid(grid, 'gutterSize', spacingVar)
+node.layoutGrids = [boundGrid]
+```
+
+### Import from Library
+
+```javascript
+// Import a published library variable by key
+const importedVar = await figma.variables.importVariableByKeyAsync("abc123def456")
+// Bind to fills via paint helper (setBoundVariable does not work for fills directly)
+const boundPaint = figma.variables.setBoundVariableForPaint(
+  { type: 'SOLID', color: { r: 0, g: 0, b: 0 } }, 'color', importedVar
+)
+node.fills = [boundPaint]
+```
+
+### Plan-Based Limits
+
+| Plan | Modes per Collection | Extended Collections |
+|------|---------------------|---------------------|
+| Starter | 1 | No |
+| Professional | 10 | No |
+| Organization | 20 | No |
+| Enterprise | 40 | Yes (`extendLibraryCollectionByKeyAsync`) |
+
+Variables per collection: 5,000 (all plans).
+
 ---
 
 ## Coordinates, Sizing, and Styles
@@ -625,6 +1084,88 @@ shadow.effects = [{ type: 'DROP_SHADOW', color: { r: 0, g: 0, b: 0, a: 0.15 },
   offset: { x: 0, y: 4 }, radius: 8, visible: true, blendMode: 'NORMAL' }]
 await frame.setEffectStyleIdAsync(shadow.id)
 ```
+
+**Gotcha — `style.remove()`:** After calling `style.remove()`, do NOT access any properties on the removed style object. Cache `name` and `id` before deletion:
+
+```javascript
+// CORRECT — cache before remove
+const styleName = style.name;
+const styleId = style.id;
+style.remove();
+console.log(`Removed style: ${styleName} (${styleId})`);
+
+// WRONG — accessing after remove throws
+style.remove();
+console.log(style.name);  // throws: node has been removed
+```
+
+---
+
+## figma_execute Return Value Behavior
+
+Understanding how `figma_execute` handles return values is critical for reliable data retrieval.
+
+### Sync Return (Works)
+
+Top-level synchronous `return` statements are captured in the `result` field of the response:
+
+```javascript
+// This return value IS captured in response.result
+const hp = figma.root.children.find(p => p.name === "Handoff");
+const nodes = hp.children.map(n => ({ id: n.id, name: n.name, type: n.type }));
+return JSON.stringify({ count: hp.children.length, nodes });
+// Response: { "success": true, "result": "{\"count\":2,...}", "timestamp": ... }
+```
+
+**Use for:** Data retrieval, node queries, status checks — anything that doesn't require `await`.
+
+### Async IIFE Return (Does NOT Work)
+
+The return value of an `async` IIFE is a Promise. The Desktop Bridge does NOT await Promises, so it sees `undefined`:
+
+```javascript
+// This return value is LOST — bridge logs "Code returned undefined"
+(async () => {
+  await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+  const frame = figma.createFrame();
+  return JSON.stringify({ id: frame.id });  // ← Promise, NOT captured
+})()
+// Response: { "success": true, "timestamp": ... }  ← no "result" field
+```
+
+**Use async IIFE for:** Operations requiring `await` (font loading, `getNodeByIdAsync`, `setReactionsAsync`).
+
+### Recommended Pattern: Split Calls
+
+For operations that need both `await` and data retrieval, use two separate `figma_execute` calls:
+
+```javascript
+// Call 1 (async IIFE): Perform mutation
+(async () => {
+  try {
+    await figma.loadFontAsync({ family: "DM Sans", style: "Regular" });
+    const frame = figma.createFrame();
+    frame.name = "MyScreen";
+    // ... complex async operations
+    console.log(JSON.stringify({ success: true }));
+  } catch(e) {
+    console.log(JSON.stringify({ error: e.message }));
+  }
+})()
+
+// Call 2 (sync): Retrieve results
+const hp = figma.root.children.find(p => p.name === "Handoff");
+const nodes = hp.children.map(n => ({ id: n.id, name: n.name }));
+return JSON.stringify({ nodes });
+```
+
+### console.log Reliability
+
+`console.log()` inside `figma_execute` writes to the Figma console buffer, retrievable via `figma_get_console_logs`. However:
+
+- **Buffer holds ~100 entries** — call `figma_clear_console` before batch operations
+- **Buffer may stop updating** after context compaction or bridge reconnect — `figma_get_console_logs` may not show new entries
+- **Prefer sync return** over `console.log` for data retrieval whenever possible
 
 ---
 
@@ -682,14 +1223,35 @@ figma.viewport.scrollAndZoomIntoView(createdNodes)  // single call at end
 
 ### Dynamic Page Loading
 
+In dynamic-page mode (default for Console MCP), pages other than `currentPage` are lazily loaded. Many sync APIs throw or return stale data.
+
 ```javascript
-// Pages other than currentPage may not have children loaded
+// Load all pages upfront (preferred for cross-page workflows)
+await figma.loadAllPagesAsync();
+
+// Or load a specific page
 const otherPage = figma.root.children.find(p => p.name === "Components")
 if (otherPage) {
   await otherPage.loadAsync()  // load children before accessing
   const components = otherPage.findAllWithCriteria({ types: ['COMPONENT'] })
 }
 ```
+
+**Sync vs Async API in dynamic-page mode:**
+
+| Operation | Sync (throws) | Async (use this) |
+|-----------|--------------|-------------------|
+| Get node by ID | `figma.getNodeById("1:23")` | `await figma.getNodeByIdAsync("1:23")` |
+| Get main component | `instance.mainComponent` | `await instance.getMainComponentAsync()` |
+| Set reactions | `node.reactions = [...]` | `await node.setReactionsAsync([...])` |
+| Get local styles | `figma.getLocalTextStyles()` | `await figma.getLocalTextStylesAsync()` |
+| Get local variables | — | `await figma.variables.getLocalVariablesAsync()` |
+
+**Safe sync operations** (work without loading):
+- `figma.root.children` — page list is always available
+- `figma.root.children.find(p => p.name === "X")` — page metadata is available
+- `page.findOne(n => n.id === "X")` — works if the page is loaded or is currentPage
+- `node.clone()` — works on any accessible node
 
 ### Font Check Before Loading
 

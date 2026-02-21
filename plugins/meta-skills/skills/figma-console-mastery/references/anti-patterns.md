@@ -255,4 +255,28 @@ Console MCP itself imposes no artificial rate limits beyond what the Figma API e
 
 ---
 
+## Prototype Anti-Patterns
+
+> **Node type support for reactions**: Per ReactionMixin, TEXT, RECTANGLE, ELLIPSE, VECTOR, POLYGON, STAR, and LINE all support reactions. Only GROUP silently drops them. Do not assume that shape primitives like TEXT or RECTANGLE lack reaction support — they fully support it.
+
+| Anti-Pattern | Consequence | Correct Pattern |
+|-------------|-------------|-----------------|
+| Using `action` (singular) in Reaction | Deprecated format, may be silently ignored | Use `actions` array (plural) — supports multi-action per trigger |
+| `ON_MEDIA_HIT` timeout in milliseconds | Wrong unit — causes timing errors | `mediaHitTime` uses **seconds**, not milliseconds |
+| Overlay properties set via Plugin API | `overlayPositionType`, `overlayBackground`, `overlayBackgroundInteraction` are **readonly** in Plugin API | Set overlay properties via Figma UI before prototype wiring |
+| Not verifying reactions after SET_VARIABLE wiring | Silent failures go undetected | Re-read `node.reactions` after `setReactionsAsync` to confirm write succeeded |
+
+---
+
+## Grid Layout Anti-Patterns
+
+| Anti-Pattern | Consequence | Correct Pattern |
+|-------------|-------------|-----------------|
+| Using `itemSpacing` on Grid container | Silently ignored — Grid uses gaps, not spacing | Use `gridRowGap` and `gridColumnGap` instead |
+| HUG container + FLEX track sizes | Runtime error — FLEX requires determinate container size | Use FIXED or HUG track sizes with HUG container, or FIXED container with FLEX tracks |
+| Reducing `gridRowCount` below occupied rows | Throws error — cannot remove tracks with children | Relocate or remove children from outer rows first |
+| Assuming auto-placement into grid cells | Children placed at (0,0) by default, not auto-flowing | Explicitly position with `appendChildAt(node, row, col)` |
+
+---
+
 > **Cross-references**: For correct operation patterns and code templates, see `plugin-api.md`. For spacing, typography, and layout rules, see `design-rules.md`.

@@ -119,6 +119,9 @@ All JSX elements accept shorthand props that map to Figma node properties. The s
 | `rows` | gridTemplateRows | CSS-like string | `rows="auto auto"` |
 | `colGap` | columnGap | number | `colGap={16}` |
 | `rowGap` | rowGap | number | `rowGap={12}` |
+| `gridTemplateColumns` | `string` | Long form of `cols` — e.g. `"1fr 2fr 1fr"` |
+| `gridTemplateRows` | `string` | Long form of `rows` — e.g. `"auto auto auto"` |
+| `columnGap` | `number` | Long form of `colGap` |
 
 ---
 
@@ -183,6 +186,21 @@ CSS Grid is native in `figma_render` JSX. The equivalent in `figma_execute` requ
 ```
 
 Grid unit types: `px` (fixed), `fr` (fractional), `auto` (content-sized).
+
+**Grid child properties** (on direct children of a Grid frame):
+
+| Prop | Type | Maps to |
+|------|------|---------|
+| `gridColumnSpan` | `number` | `gridColumnSpan` on the child node |
+| `gridRowSpan` | `number` | `gridRowSpan` on the child node |
+
+```jsx
+<Frame display="grid" cols="1fr 1fr 1fr" gap={16}>
+  <Frame gridColumnSpan={2} fill="#E8DEF8">Featured</Frame>
+  <Frame fill="#F3EDF7">Card B</Frame>
+  <Frame fill="#F3EDF7">Card C</Frame>
+</Frame>
+```
 
 ### Pattern 2: Iconify Icon Integration
 
@@ -323,6 +341,8 @@ This pattern minimizes unnecessary node recreation and preserves any manual adju
 | Variable not bound | `$Variable/Name` treated as literal string | Variable must already exist in the file; check spelling and path |
 | Shadow syntax rejected | Incorrect CSS shadow format | Use exact format: `"Xpx Ypx Rpx rgba(R,G,B,A)"` |
 | Grid children misaligned | Missing `cols` or `rows` definition | Always specify at least `cols` when using `display="grid"` |
+| Grid `display="grid"` without `cols` | Creates grid with 1 column (default) — probably not intended | Always specify `cols` (or `gridTemplateColumns`) when using grid display |
+| Grid children missing `layoutSizingHorizontal="FILL"` | Children don't stretch to fill grid cells — look undersized | Add `layoutSizingHorizontal="FILL"` to grid children for responsive behavior |
 | `h="fill"` ignored | Parent frame has no defined height or is not auto-layout | Ensure parent has `flex` and explicit dimensions |
 | Instance not rendering | Wrong component ID | Use the full component ID from `figma_find` or node inspection |
 

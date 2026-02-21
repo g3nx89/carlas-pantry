@@ -17,6 +17,7 @@
 | | Horizontal Row with Fill Children | 147 |
 | | Wrap Layout (Tag Cloud / Chip Group) | 202 |
 | | Absolute Positioned Badge on Card | 266 |
+| | CSS Grid Card Layout | 300 |
 
 ---
 
@@ -296,3 +297,103 @@ return {
 **Returns**: `{ success: true, badgeId: "..." }`
 
 **Next**: Add a count label inside the badge (requires font loading and a text node centered within the ellipse).
+
+---
+
+### Recipe: CSS Grid Card Layout
+
+> Requires: Plugin API Update 115+ (July 2025). See `plugin-api.md` Grid Layout section.
+
+Creates a 3-column responsive grid with flexible tracks, gaps, and a featured card spanning 2 rows.
+
+**Code**:
+
+```javascript
+(async () => {
+  try {
+    await figma.loadFontAsync({ family: "Inter", style: "Regular" })
+    await figma.loadFontAsync({ family: "Inter", style: "Bold" })
+
+    const grid = figma.createFrame()
+    grid.name = "Card Grid"
+    grid.layoutMode = 'GRID'
+    grid.resize(960, 720)
+
+    // 3 columns x 3 rows
+    grid.gridColumnCount = 3
+    grid.gridRowCount = 3
+
+    // Flexible columns (1fr each)
+    grid.gridColumnSizes = [
+      { type: 'FLEX', value: 1 },
+      { type: 'FLEX', value: 1 },
+      { type: 'FLEX', value: 1 }
+    ]
+    // Rows hug content
+    grid.gridRowSizes = [
+      { type: 'HUG' },
+      { type: 'HUG' },
+      { type: 'HUG' }
+    ]
+
+    grid.gridRowGap = 16
+    grid.gridColumnGap = 16
+    grid.paddingTop = 24; grid.paddingBottom = 24
+    grid.paddingLeft = 24; grid.paddingRight = 24
+    grid.fills = [figma.util.solidPaint('#F9FAFB')]
+
+    // Helper: create a card
+    function makeCard(name, label) {
+      const card = figma.createFrame()
+      card.name = name
+      card.layoutMode = 'VERTICAL'
+      card.itemSpacing = 8
+      card.paddingTop = 16; card.paddingBottom = 16
+      card.paddingLeft = 16; card.paddingRight = 16
+      card.cornerRadius = 12
+      card.fills = [figma.util.solidPaint('#FFFFFF')]
+      card.strokes = [figma.util.solidPaint('#E5E7EB')]
+      card.strokeWeight = 1
+      card.layoutSizingHorizontal = 'FILL'
+      card.layoutSizingVertical = 'FILL'
+
+      const title = figma.createText()
+      title.fontName = { family: "Inter", style: "Bold" }
+      title.characters = label
+      title.fontSize = 16
+      card.appendChild(title)
+
+      return card
+    }
+
+    // Featured card spanning 2 rows
+    const featured = makeCard("Featured", "Featured Item")
+    grid.appendChildAt(featured, 0, 0)
+    featured.gridRowSpan = 2
+
+    // Regular cards
+    grid.appendChildAt(makeCard("Card-B", "Item B"), 0, 1)
+    grid.appendChildAt(makeCard("Card-C", "Item C"), 0, 2)
+    grid.appendChildAt(makeCard("Card-D", "Item D"), 1, 1)
+    grid.appendChildAt(makeCard("Card-E", "Item E"), 1, 2)
+    grid.appendChildAt(makeCard("Card-F", "Item F"), 2, 0)
+
+    figma.currentPage.appendChild(grid)
+    figma.viewport.scrollAndZoomIntoView([grid])
+    console.log(JSON.stringify({ success: true, id: grid.id }))
+  } catch (e) {
+    console.log(JSON.stringify({ error: e.message }))
+  }
+})()
+```
+
+**Key patterns**: `layoutMode = 'GRID'` + `gridColumnCount`/`gridRowCount` for structure, `GridTrackSize` objects for sizing, `appendChildAt(node, row, col)` for placement, `gridRowSpan` for spanning.
+
+**Variation — Fixed + Flex columns** (sidebar layout):
+```javascript
+grid.gridColumnSizes = [
+  { type: 'FIXED', value: 240 },  // sidebar
+  { type: 'FLEX', value: 1 }       // main content
+]
+grid.gridColumnCount = 2
+```
