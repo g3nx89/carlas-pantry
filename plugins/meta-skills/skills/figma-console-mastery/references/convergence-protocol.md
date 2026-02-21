@@ -396,6 +396,10 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.
 
 ## Scope
 {phase-specific scope: which screens, which components, which operations}
+
+## Compound Learnings (from prior sessions)  ← OPTIONAL, injected by orchestrator
+{Relevant entries if any. When present, apply these empirical findings proactively.
+If absent, proceed normally — all workflows function identically without learnings.}
 ```
 
 ### Phase 2 Screen-Specific Prompt Extension

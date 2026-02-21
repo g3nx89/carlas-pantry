@@ -22,7 +22,8 @@
 | `workflow-restructuring.md` | 112 | Design Restructuring Workflow: 5-phase process (Analyze, Socratic Plan, Path A in-place / Path B reconstruction, Polish), visual fidelity gates, ST triggers, before/after metrics | Restructuring freehand designs (Tier 2 — by task) |
 | `workflow-code-handoff.md` | 57 | Code Handoff Protocol: naming audit, PascalCase enforcement, token alignment, exception descriptions, multi-platform notes, UI kit preference | Preparing designs for code implementation (Tier 2 — by task) |
 | `workflow-draft-to-handoff.md` | 634 | Draft-to-Handoff workflow: 7 critical principles (one-screen-at-a-time, components-in-every-screen), simplified entry point, 22 operational rules, per-screen progress reporting, per-screen rollback protocol, dual-layer state persistence v3, 6-phase workflow with per-screen pipeline (clone → childCount gate → restructure → component integration → visual diff → next), preflight existing content declaration, GROUP prototype verification, error prevention (27 entries), source access failure protocol | Converting hand-designed drafts into structured handoff pages (Tier 2 — by task) |
-| `convergence-protocol.md` | 552 | Operation Journal spec (append-only JSONL, 9 rules incl. real timestamps), anti-regression Convergence Check rules (7 rules), Batch Scripting Protocol (templates for rename/move/fill, when-to-batch decision matrix, token savings), Subagent Delegation Model (per-screen sequential architecture, skill-inheriting prompt template, 9 delegation rules), Session Snapshot schema v3 (childCount, instance_count, connections breakdown), Compact Recovery Protocol | Any multi-step workflow — anti-regression, batch efficiency, subagent delegation (Tier 1 — always) |
+| `convergence-protocol.md` | 556 | Operation Journal spec (append-only JSONL, 9 rules incl. real timestamps), anti-regression Convergence Check rules (7 rules), Batch Scripting Protocol (templates for rename/move/fill, when-to-batch decision matrix, token savings), Subagent Delegation Model (per-screen sequential architecture, skill-inheriting prompt template, 9 delegation rules), Session Snapshot schema v3 (childCount, instance_count, connections breakdown), Compact Recovery Protocol | Any multi-step workflow — anti-regression, batch efficiency, subagent delegation (Tier 1 — always) |
+| `compound-learning.md` | 209 | Compound Learning Protocol: learnings file format (H2 categories → H3 entries), file lifecycle, save protocol (5 auto-detect triggers), load protocol (Tag-based relevance matching), deduplication procedure, subagent integration (orchestrator-only reads/writes, filtered injection), initial file template | Cross-session knowledge persistence — load at Preflight, save at Validation (Tier 3 — by need) |
 
 ## Cross-References
 
@@ -46,7 +47,8 @@
 | `workflow-restructuring.md` | `recipes-restructuring.md`, `recipes-foundation.md`, `design-rules.md`, `recipes-components.md`, `recipes-advanced.md`, `st-integration.md`, `convergence-protocol.md` |
 | `workflow-code-handoff.md` | `recipes-advanced.md`, `design-rules.md`, `st-integration.md`, `tool-playbook.md` |
 | `workflow-draft-to-handoff.md` | `anti-patterns.md` (bidirectional), `figma-use-overview.md`, `tool-playbook.md`, `plugin-api.md`, `convergence-protocol.md` (bidirectional) |
-| `convergence-protocol.md` | `workflow-draft-to-handoff.md` (bidirectional), `anti-patterns.md`, `figma-use-overview.md`, `recipes-foundation.md` |
+| `convergence-protocol.md` | `workflow-draft-to-handoff.md` (bidirectional), `anti-patterns.md`, `figma-use-overview.md`, `recipes-foundation.md`, `compound-learning.md` |
+| `compound-learning.md` | `convergence-protocol.md`, `anti-patterns.md`, `SKILL.md` |
 
 ## Content Ownership (Deduplication)
 
@@ -91,3 +93,4 @@ Each topic lives in exactly one canonical file:
 | Real timestamp requirement for journal entries | `convergence-protocol.md` |
 | Compact Recovery Protocol | `convergence-protocol.md` |
 | Regression anti-patterns | `anti-patterns.md` |
+| Compound Learning Protocol, learnings file format, save/load rules | `compound-learning.md` |

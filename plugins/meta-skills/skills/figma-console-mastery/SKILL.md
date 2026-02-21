@@ -84,6 +84,7 @@ Every design session follows four phases:
 1. `figma_get_status` → verify connection and mode
 2. `figma_list_open_files` → confirm correct file is active
 3. `figma_navigate` → open target page/file if needed
+4. **Load compound learnings** — if `~/.figma-console-mastery/learnings.md` exists, read it and note entries relevant to the current task type. Cross-session knowledge base — learnings apply across all projects. File is optional; sessions function identically without it
 
 ### Phase 2 — Discovery
 1. `figma_get_design_system_summary` → understand existing tokens, components, styles
@@ -105,6 +106,7 @@ Every design session follows four phases:
 2. Verify: alignment, spacing, proportions, visual hierarchy
 3. Fix issues found, re-screenshot
 4. `figma_generate_component_doc` → document created components
+5. **Save compound learnings** — review the session for learning-worthy discoveries and append 0-3 new entries to `~/.figma-console-mastery/learnings.md`. See Compound Learning Protocol below
 
 > **ST trigger**: When a screenshot-fix cycle in Phase 4 reveals unexpected misalignment, activate ST with the Iterative Refinement template from [`st-integration.md#template-iterative-refinement`]. TAO Loop: predict → screenshot → compare → revise if mismatch (max 3 cycles).
 
@@ -272,6 +274,8 @@ Need to analyze or diff? (figma-use, CDP required)
 16. **Subagents inherit figma-console-mastery** — all subagents dispatched for Figma workflows must load the skill references (workflow, convergence protocol, recipes-foundation, anti-patterns) before starting work. See `convergence-protocol.md` Subagent Prompt Template
 17. **Real timestamps only** — journal `ts` fields must come from `new Date().toISOString()` inside `figma_execute` or from the orchestrator's real clock. Never use hardcoded placeholder timestamps
 18. **Verify prototype reactions after wiring** — after `setReactionsAsync`, re-read `node.reactions`. If reactions.length is 0 but wiring was attempted, log as `group_unsupported` — GROUP nodes silently drop reactions
+19. **Load learnings at session start** — if `~/.figma-console-mastery/learnings.md` exists, read it during Phase 1. Apply relevant learnings proactively. Sessions function identically without it
+20. **Save discoveries at session end** — during Phase 4, review for compound learning triggers (>1 attempt, workaround discovered, non-obvious recovery). Deduplicate by H3 key match before appending
 
 ### AVOID
 
@@ -285,6 +289,7 @@ Need to analyze or diff? (figma-use, CDP required)
 8. **Never proceed silently when source Figma access fails** — if source designs cannot be read (connection issues, missing page, empty node tree), halt immediately and inform the user. Silent fallback to text-based construction produces 100% incorrect output
 9. **Never redo an operation already in the journal** — if `operation-journal.jsonl` records that a node was renamed/moved/created, do NOT perform that operation again; this is the #1 cause of regression and wasted tokens in long sessions
 10. **Never trust in-context memory after compaction** — after context compaction, the ONLY reliable record of completed work is the operation journal on disk; re-read it before resuming any work
+11. **Never save trivial or already-documented learnings** — only save insights NOT already covered by existing reference files. "Font needs loading before text" is in SKILL.md and anti-patterns.md — do not duplicate known rules
 
 ## Selective Reference Loading
 
@@ -348,13 +353,16 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-draft
 
 # Convergence protocol — operation journal, anti-regression, batch scripting, subagent delegation
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-protocol.md
+
+# Compound Learning Protocol — cross-session knowledge persistence, format spec, save/load rules
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/compound-learning.md
 ```
 
 ### Loading Tiers
 
 **Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code), `figma-use-overview.md` (tool inventory + decision matrix), `convergence-protocol.md` (operation journal + anti-regression — required for any multi-step workflow)
 **Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md` | `workflow-draft-to-handoff.md` | `workflow-restructuring.md` | `workflow-code-handoff.md`
-**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `figma-use-diffing.md` | `st-integration.md`
+**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `figma-use-diffing.md` | `st-integration.md` | `compound-learning.md`
 
 ## Sequential Thinking Integration (Optional)
 
@@ -390,6 +398,48 @@ When a Figma workflow involves multi-step diagnostic chains, branching decisions
 
 **Thought chain templates**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/st-integration.md`
 
+## Compound Learning Protocol (Optional)
+
+> **Location**: `~/.figma-console-mastery/learnings.md` (user-home, cross-project)
+> **Full spec**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/compound-learning.md`
+
+**Problem**: Effective strategies, API quirks, and workarounds discovered during Figma sessions are
+lost when the session ends. The same issues are re-discovered in future sessions.
+
+**Solution**: Persist field-discovered knowledge to a Markdown file at user-home, loaded at session
+start and updated at session end. Learnings apply across all projects.
+
+### When to Save (Triggers)
+
+| Trigger | Category |
+|---------|----------|
+| >1 attempt to solve (retry with different approach) | API Quirks & Workarounds |
+| Workaround discovered (standard approach failed) | API Quirks & Workarounds |
+| Non-obvious recovery (beyond anti-patterns.md) | Error Recovery |
+| Strategy significantly outperformed alternatives | Effective Strategies |
+| Unexpected performance savings or costs | Performance Patterns |
+
+### When NOT to Save
+
+- Solution already in anti-patterns.md, SKILL.md, or other reference files
+- Solution is trivial or covered by Essential Rules
+- Solution is project-specific (not generalizable)
+- Session had no retries, workarounds, or surprises
+
+### Deduplication
+
+Before appending, grep the learnings file for the proposed `### key`. If an exact match exists,
+skip. Save 0-3 entries per session maximum.
+
+### Session Integration
+
+- **Phase 1 (Preflight)**: Read `~/.figma-console-mastery/learnings.md` if it exists; note
+  entries relevant to the current task type by Tag matching
+- **Phase 4 (Validation)**: Review session for triggers; compose and append 0-3 new entries
+- **First session**: File does not exist — created when first learning is saved
+- **Subagents**: Orchestrator injects relevant excerpts (max 3 entries) into subagent prompts;
+  subagents never read/write the file directly
+
 ## Troubleshooting Quick Index
 
 | Symptom | Quick Fix |
@@ -412,6 +462,8 @@ When a Figma workflow involves multi-step diagnostic chains, branching decisions
 | Prototype connections silently lost | GROUP nodes drop reactions silently; verify with `node.reactions` re-read after `setReactionsAsync` — see `workflow-draft-to-handoff.md` Phase 3 |
 | Journal timestamps show impossible durations | Use `new Date().toISOString()` inside `figma_execute`; orchestrator injects real time for subagents — see `convergence-protocol.md` Journal Rule #9 |
 | Component library exists but 0 instances in screens | Component integration (Step 2.4) is mandatory per screen; audit at Phase 5 — see `workflow-draft-to-handoff.md` |
+| Same API error recurring across sessions | Load `~/.figma-console-mastery/learnings.md`; save workaround after resolving — see Compound Learning Protocol |
+| Learnings file missing or empty | Normal for first session; created when first learning is saved. All workflows function identically without it |
 
 **Full reference**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md`
 
