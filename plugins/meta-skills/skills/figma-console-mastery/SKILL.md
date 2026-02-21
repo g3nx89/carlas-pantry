@@ -1,6 +1,6 @@
 ---
 name: figma-console-mastery
-version: 0.6.0
+version: 0.7.0
 description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "render JSX in Figma", "use figma_render", "use figma-use MCP", "analyze Figma design", "diff Figma designs", "query Figma nodes with XPath", "convert draft to handoff", "transfer Figma designs to handoff", "prepare Figma for code handoff", "create handoff page from draft", or when developing skills/commands that use the Figma Console or figma-use MCP servers. Provides tool selection, Plugin API patterns, JSX rendering, design analysis, visual diffing, design rules, Draft-to-Handoff workflow with clone-first architecture, and selective reference loading for both MCP servers.
 ---
 
@@ -21,7 +21,7 @@ Two MCP servers work together: **figma-console** (Southleft, 56+ tools) for Plug
 4. **Persist aggressively** — write to operation journal after EVERY operation, snapshot after each screen; assume context compaction can happen at any time
 5. **One screen at a time** — in Draft-to-Handoff workflows, process each screen through the full pipeline (clone, validate, restructure, integrate components, visual diff) before starting the next; batch homogeneous operations *within* a screen (see `convergence-protocol.md`)
 6. **Validate visually** — screenshot and `figma_diff_visual` after every screen (max 3 fix cycles per screen)
-7. **Components in every screen** — every Handoff screen must contain component instances from the library; a library with 0 instances is a workflow failure
+7. **Smart componentization** — apply the TIER system: componentize only elements meeting all 3 criteria (recurrence 3+, behavioral variants, codebase match); see `workflow-code-handoff.md` for TIER definitions and Smart Componentization Criteria
 8. **Subagents inherit skill context** — all subagents dispatched for Figma workflows must load figma-console-mastery skill references (see `convergence-protocol.md` Subagent Prompt Template)
 
 ## Prerequisites
@@ -124,6 +124,8 @@ Before picking a tool, determine the execution path through these gates:
 
 **Always evaluate G0 first** — most operations can be expressed as a single figma-use call without writing any JavaScript. Then check G1 (library components). Only reach for `figma_execute` at G2 when the operation genuinely requires complex logic. G4 analysis/diff tools require figma-use CDP connection. Creating a button from scratch when one exists in the library wastes tokens, breaks design system consistency, and loses the instance-master link.
 
+> **Grid note**: CSS Grid layout creation can follow G0 (declarative `figma_set_layout` with `display="grid"`) for simple grids, or G2 (`figma_execute` with `layoutMode='GRID'`) for complex grid configurations requiring conditional logic or dynamic row/column definitions.
+
 ## Quick Audit Protocol (Alternative Session)
 
 When the goal is to spot-fix specific deviations in an existing design rather than create new elements:
@@ -151,7 +153,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-restr
 
 ## Code Handoff Protocol (Post-Session)
 
-Prepare completed Figma designs for downstream code implementation. Ensures component names, variant properties, and token names align with the target codebase so `get_design_context` (Official MCP) produces accurate framework-ready specs.
+Prepare completed Figma designs for downstream code implementation. Uses the **TIER system** to scale componentization effort: TIER 1 (naming + tokens — always), TIER 2 (smart components — recommended), TIER 3 (heavy — optional). Generates a **Handoff Manifest** (`specs/figma/handoff-manifest.md`) with screen inventory, component-to-code mapping, and token mapping for the coding agent. If a **UX-NARRATIVE** exists (produced BEFORE handoff by the `design-narration` skill), it feeds into the Smart Componentization Analysis (Gate 2 behavioral variants) and is referenced in the manifest.
 
 ```
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-code-handoff.md
@@ -184,6 +186,7 @@ Need to create design elements? (figma-use-first)
 ├── Create instance?   → figma_create_instance (figma-use)
 ├── Complex multi-node UI?  → figma_render (JSX, 1 call for N nodes)
 ├── Complex conditional logic? → figma_execute (figma-console — fallback for async/conditionals)
+├── CSS Grid layout?    → figma_set_layout (figma-use, display="grid") or figma_execute (Plugin API, layoutMode='GRID')
 └── Organize variants?        → figma_arrange_component_set (figma-console)
 
 Need to modify existing elements? (figma-use-first)
@@ -270,7 +273,7 @@ Need to analyze or diff? (figma-use, CDP required)
 12. **Clone-first for existing designs** — when a Draft page contains finalized designs, ALWAYS use `figma_node_clone` to transfer screens to the Handoff page, then restructure. Only build from scratch for screens that do not exist in the Draft. Cloning is the only way to preserve IMAGE fills, exact fonts, and visual fidelity
 13. **One screen at a time in Draft-to-Handoff** — process each screen through the full pipeline (clone → validate childCount → restructure → integrate components → visual diff) and confirm correctness before starting the next. Never batch-process screens — batch processing hides silent failures
 14. **Validate childCount after clone** — after every `figma_node_clone`, compare clone's childCount against the source's childCount from Phase 0 inventory. If clone has 0 children but source has >0, this is a clone failure — retry once, halt if still 0. NEVER mark a 0-child clone as complete
-15. **Component instances mandatory** — every screen on the Handoff page must contain component instances replacing recurring elements (buttons, top bars, nav bars, cards). A screen with 0 instances when components are available is incomplete
+15. **Smart componentization** — apply the TIER system from `workflow-code-handoff.md`: TIER 2 (default) componentizes only elements passing all 3 gates (recurrence 3+, behavioral variants, codebase match). TIER 1 skips component creation. 0 instances is expected for TIER 1, flagged for review only in TIER 2/3 when passing candidates exist
 16. **Subagents inherit figma-console-mastery** — all subagents dispatched for Figma workflows must load the skill references (workflow, convergence protocol, recipes-foundation, anti-patterns) before starting work. See `convergence-protocol.md` Subagent Prompt Template
 17. **Real timestamps only** — journal `ts` fields must come from `new Date().toISOString()` inside `figma_execute` or from the orchestrator's real clock. Never use hardcoded placeholder timestamps
 18. **Verify prototype reactions after wiring** — after `setReactionsAsync`, re-read `node.reactions`. If reactions.length is 0 but wiring was attempted, log as `group_unsupported` — GROUP nodes silently drop reactions
@@ -345,7 +348,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/st-integration
 # Design Restructuring workflow — 5-phase process (Analyze, Socratic Plan, Path A/B, Polish)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-restructuring.md
 
-# Code Handoff protocol — naming audit, token alignment, multi-platform prep
+# Code Handoff protocol — TIER system, Smart Componentization, Handoff Manifest, naming audit, token alignment
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-code-handoff.md
 
 # Draft-to-Handoff workflow — operational rules, 6-phase workflow, state persistence, error prevention
@@ -461,9 +464,11 @@ skip. Save 0-3 entries per session maximum.
 | Clone produces empty frame (0 children) | childCount validation gate: compare against Phase 0 inventory, retry once, halt if still 0 — see `workflow-draft-to-handoff.md` Step 2.2 |
 | Prototype connections silently lost | GROUP nodes drop reactions silently; verify with `node.reactions` re-read after `setReactionsAsync` — see `workflow-draft-to-handoff.md` Phase 3 |
 | Journal timestamps show impossible durations | Use `new Date().toISOString()` inside `figma_execute`; orchestrator injects real time for subagents — see `convergence-protocol.md` Journal Rule #9 |
-| Component library exists but 0 instances in screens | Component integration (Step 2.4) is mandatory per screen; audit at Phase 5 — see `workflow-draft-to-handoff.md` |
+| Component library exists but 0 instances in screens | Check TIER decision: for TIER 1, 0 instances is expected (no component creation). For TIER 2/3, component integration (Step 2.4) applies — audit at Phase 5. See `workflow-draft-to-handoff.md` and `workflow-code-handoff.md` TIER System |
 | Same API error recurring across sessions | Load `~/.figma-console-mastery/learnings.md`; save workaround after resolving — see Compound Learning Protocol |
 | Learnings file missing or empty | Normal for first session; created when first learning is saved. All workflows function identically without it |
+| Prototype conditional actions not working | Verify `actions` array (plural, not singular `action`). Use `CONDITIONAL` action type with `conditionalBlocks`. See `plugin-api.md` Conditional Prototyping section |
+| Grid children not filling cells | Set `layoutSizingHorizontal = 'FILL'` on children. Use `gridRowGap`/`gridColumnGap` (not `itemSpacing`) for gaps |
 
 **Full reference**: `$CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md`
 
@@ -483,6 +488,8 @@ After completing the Code Handoff Protocol, the coding agent uses Official Figma
 MCP Agent Skills to translate designs into code. For plan-specific rate limits and
 tool availability, see `tool-playbook.md` (Three-Server Comparison).
 
+- **Handoff Manifest** → `specs/figma/handoff-manifest.md` — generated during Code Handoff Protocol (Step 7). Contains screen inventory (node IDs), component-to-code mapping, token mapping. The coding agent reads this to locate screens and resolve component names without Code Connect
 - **Generate CLAUDE.md rules** → `figma:create-design-system-rules` (any paid plan, Dev/Full seat)
 - **Implement design as code** → `figma:implement-design` Agent Skill via `get_design_context` (any paid plan, Dev/Full seat)
-- **Code Connect mappings** → `figma:code-connect-components` — automatic for UI kit components (Professional+); custom components require Organization/Enterprise
+- **Code Connect mappings** → `figma:code-connect-components` — automatic for UI kit components (Professional+); custom components require Organization/Enterprise. Without Enterprise, the Handoff Manifest + Smart Componentization (TIER 2) provides best-effort alignment
+- **UX-NARRATIVE** → produced BEFORE handoff by `design-narration` skill (`product-definition` plugin). Pipeline: `refinement → design-narration → specification → handoff`. When available, feeds into Smart Componentization Gate 2 (behavioral variants) and is referenced in the Handoff Manifest for the coding agent. Recommended but not required — Gate 2 falls back to visual inspection without it

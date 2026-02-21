@@ -16,7 +16,7 @@ These seven principles override all other workflow guidance. They address system
 | 2 | **Figma is the source of truth, text is supplementary** | Text docs (PRDs, reconstruction guides) provide naming and annotation context but NEVER replace reading the actual Figma design nodes |
 | 3 | **Gate at every stage** | If any stage fails or source designs cannot be read, STOP and inform the user — never proceed silently |
 | 4 | **One screen at a time — validate before proceeding** | Process each screen through the full pipeline (clone, validate, restructure, integrate components, visual diff) and confirm correctness before starting the next screen. Never batch screens — batch processing hides silent failures (e.g., empty clones marked complete) and delays error detection |
-| 5 | **Components in every screen** | Every screen on the Handoff page MUST contain component instances from the Phase 1 library — not raw cloned frames. A library with 0 instances is decorative. Component integration is part of the per-screen pipeline, not a separate phase |
+| 5 | **Smart componentization** | Componentize elements meeting ALL 3 criteria: recurrence (3+ screens), behavioral variants, codebase match. TIER 1 (naming + tokens) is always applied; TIER 2 (smart components) is recommended; TIER 3 (heavy) is optional. See `workflow-code-handoff.md` TIER System |
 | 6 | **Converge, never regress** | Log every mutation to the operation journal; check journal before every operation; after context compaction, re-read journal — NEVER redo logged work. See `convergence-protocol.md` |
 | 7 | **Batch homogeneous ops within a screen** | Use `figma_execute` batch scripts for 3+ same-type operations (renames, fills) within a single screen to save tokens; see `convergence-protocol.md`. This applies to operations within a screen — screen-level processing is always sequential |
 
@@ -60,7 +60,7 @@ These 22 rules are derived from empirical analysis of 9 production sessions (~75
 | 14 | **Mandatory `figma_diff_visual` per screen** | Run visual comparison after EVERY screen transfer (not every 4). If fidelity score is below threshold, STOP and show the comparison before proceeding to the next screen |
 | 15 | **After context compaction, re-read journal** — rebuild completed-operations set from `operation-journal.jsonl` and resume from first uncompleted operation; NEVER restart a phase from scratch | See `convergence-protocol.md` Compact Recovery Protocol |
 | 16 | **childCount validation after clone** — after every clone operation, compare clone's childCount against source's childCount. If clone has 0 children but source has >0, this is a clone failure — retry once, then halt if still 0. NEVER mark a 0-child clone as complete | Prevents silent empty-frame failures (WK-01 incident) |
-| 17 | **Component instances mandatory** — every screen on the Handoff page must contain component instances replacing recurring elements (buttons, top bars, nav bars, cards, toggles). A screen with 0 instances is incomplete | Prevents decorative-only component library (0 instances across 32 screens in v2) |
+| 17 | **Smart componentization** — apply the TIER system from `workflow-code-handoff.md`. TIER 2 (default): componentize only elements passing all 3 gates (recurrence 3+, behavioral variants, codebase match). TIER 1: naming + tokens only (no component creation). TIER 3: componentize every recurring element | Prevents over-engineering without Enterprise plan; focuses effort on high-value components (typically 5-8) |
 | 18 | **Real timestamps via Plugin API** — journal timestamps MUST come from `new Date().toISOString()` inside `figma_execute`, or from the orchestrator's real clock injected into the subagent prompt. NEVER use hardcoded placeholder timestamps | Prevents fabricated audit trails (6.5-hour span for 40-minute session in v2) |
 | 19 | **Preflight existing content declaration** — before creating any content on the target page, check for existing nodes and present options to user (delete, continue, add alongside). Log decision in journal | Prevents silent overlap with content from previous sessions |
 | 20 | **GROUP prototype verification** — after `setReactionsAsync`, immediately re-read `node.reactions` via `figma_execute`. If reactions.length is 0 but wiring was attempted, log as `group_unsupported` (not as success). GROUP nodes silently drop reactions | Prevents false `wired: 34, failed: 0` reports (13 silently lost in v2) |
@@ -199,31 +199,58 @@ For EACH screen on the source page:
    - For screens being cloned: fonts are preserved automatically
    - For any manually created elements (annotations, labels): load required fonts explicitly
 
-### Step 0.5 — Component Candidates
+### Step 0.5 — Component Candidates + Smart Componentization Analysis
 
 1. `figma_find(query: "COMPONENT", scope: draftPageId)` — find existing components
 2. Identify recurring patterns across screens (shared headers, buttons, cards, toggles, nav bars)
 3. Cross-reference with existing library: `figma_search_components`
 4. For each candidate, note which screens contain instances → this drives the per-screen Component Integration step in Phase 2
 
+**Smart Componentization Analysis** (determines TIER decision):
+
+**Optional input**: If a `UX-NARRATIVE.md` exists (produced by the `design-narration` skill before this workflow), load it. The narrative's per-screen state/interaction descriptions directly inform Gate 2 — elements documented with state transitions are confirmed Gate 2 passes without manual inspection. If no UX-NARRATIVE exists, Gate 2 is evaluated by visual inspection of Figma nodes.
+
+For each candidate element, evaluate the 3 gates from `workflow-code-handoff.md`:
+
+```
+For each candidate:
+  Gate 1 — Recurrence:  count distinct screens containing this element
+  Gate 2 — Variants:    identify meaningful state/size/type variations
+                         (if UX-NARRATIVE available: check narrative for documented states)
+  Gate 3 — Code match:  confirm or plan a corresponding code component
+
+  Result: PASS (all 3 gates) or FAIL (any gate fails)
+```
+
+**TIER decision logic**:
+- If 0 candidates pass all 3 gates → **TIER 1** (naming + tokens only, skip Phase 1)
+- If 1+ candidates pass all 3 gates → **TIER 2** (smart componentization, default)
+- If user explicitly requests full componentization → **TIER 3** (heavy)
+
+Log the decision: `{"op":"tier_decision","target":"workflow","detail":{"tier":"TIER_2","passing_candidates":5,"total_candidates":12,"candidates":[{"name":"PrimaryButton","gates":[true,true,true]},...]}}`.
+
 **Output**: Local markdown file with:
 - List of screens (name, size, node ID, **childCount**, **image flag**, **fonts used**, **GROUP flag**)
 - Image inventory (screens requiring clone approach)
 - Font inventory (all unique fonts)
 - List of recurring patterns (candidates for componentization)
-- **Component-to-screen mapping** (which component candidates appear in which screens)
+- **Smart Componentization Scorecard** — per-candidate 3-gate evaluation with pass/fail
+- **TIER decision** — TIER 1, 2, or 3 with rationale
+- **Component-to-screen mapping** (which passing candidates appear in which screens)
 - List of existing library components and usage
 - Decision table: clone approach (default for all screens with images) vs build approach (only for screens with no source)
 
-**Quality gate**: Plan must be reviewed and approved before proceeding to Phase 1.
+**Quality gate**: Plan (including TIER decision) must be reviewed and approved before proceeding to Phase 1.
 
 ---
 
-## Phase 1 — Component Library
+## Phase 1 — Component Library (TIER 2/3 only)
 
-**Goal**: Create all components that screens will reference. Every component created here MUST be used as instances in Phase 2 screens.
+**TIER gate**: Check `tier_decision` from Step 0.5. If TIER 1 → skip Phase 1 entirely (no component creation); proceed directly to Phase 2 with TIER 1 treatment (naming + tokens only). Log: `{"op":"phase1_skipped","target":"tier_gate","detail":{"tier":"TIER_1","reason":"No components meet Smart Componentization Criteria"}}`.
 
-**Critical rule**: Components MUST exist before any screen is built on the Handoff page (Rule #4). Components with 0 instances at Phase 5 indicate a workflow failure.
+**Goal**: Create components that screens will reference. Only elements passing all 3 Smart Componentization Criteria (recurrence 3+, behavioral variants, codebase match) are componentized. Typically 5-8 components.
+
+**Critical rule**: Components MUST exist before any screen is built on the Handoff page (Rule #4). For TIER 2/3, components with 0 instances at Phase 5 indicate a workflow issue.
 
 **Delegation**: Dispatch as `Task(general-purpose)` for 3+ components. Subagent loads `figma-console-mastery` skill references (see `convergence-protocol.md` Subagent Prompt Template). See `convergence-protocol.md` Subagent Delegation Model.
 
@@ -335,9 +362,11 @@ c. Clean up layer hierarchy: flatten unnecessary nesting, remove empty groups
 d. Ensure proper constraints and responsive behavior
 ```
 
-#### Step 2.4 — Component Integration (Rule #17)
+#### Step 2.4 — Component Integration (TIER 2/3 — skip for TIER 1)
 
-This is the step that replaces raw cloned elements with component instances from the Phase 1 library. CRITICAL — without this step, the library is decorative.
+**TIER 1 gate**: If `tier_decision` is TIER 1 → skip this step entirely. Screens retain their cloned elements with proper naming and token binding from Steps 2.1-2.3.
+
+For TIER 2/3: this step replaces raw cloned elements with component instances from the Phase 1 library for elements that passed the Smart Componentization Criteria.
 
 ```
 For each component in the Phase 1 library:
@@ -356,11 +385,12 @@ For each component in the Phase 1 library:
      e. Delete or hide the original raw element
      f. → LOG: {"op":"create_instance","target":"<instanceId>","detail":{"component":"<name>","screen":"<screenName>","replaced":"<originalId>"}}
 
-Instance count check:
+Instance count check (TIER 2/3 only):
   — After processing all components for this screen, count instances created
-  — IF instance_count == 0 AND component candidates exist for this screen:
-    → LOG WARNING: {"op":"no_instances","target":"<screenId>","detail":{"screen":"<name>","expected_components":["TopBar","Button",...]}}
+  — IF instance_count == 0 AND component candidates exist for this screen (per Smart Componentization Scorecard):
+    → LOG WARNING: {"op":"no_instances","target":"<screenId>","detail":{"screen":"<name>","tier":"TIER_2","expected_components":["TopBar","Button",...]}}
     → Flag for user review (may indicate matching failure, not necessarily a workflow error)
+  — For TIER 1: instance_count is expected to be 0 — no warning needed
 ```
 
 #### Step 2.5 — Visual Comparison: Screenshot Overlay
@@ -544,17 +574,27 @@ For EACH screen:
      b. Flag for user review
 ```
 
-### Step 5.2 — Component Instance Audit
+### Step 5.2 — Component Instance Audit + Handoff Manifest
 
+**Component audit** (TIER 2/3 only — skip for TIER 1):
 ```
 For EACH screen:
   1. Count INSTANCE nodes via figma_execute:
      const instances = handoffScreen.findAll(n => n.type === "INSTANCE");
   2. Record instance_count in session state
-  3. IF any screen has 0 instances AND the component library is non-empty:
+  3. IF any screen has 0 instances AND the Smart Componentization Scorecard lists
+     passing candidates for this screen:
      → Flag as incomplete — component integration was skipped or failed
      → Present to user for decision: re-process this screen or accept as-is
 ```
+
+**Handoff Manifest generation** (all TIERs):
+Generate `specs/figma/handoff-manifest.md` using the template from `workflow-code-handoff.md` Step 7. Populate:
+- Screen Inventory from session state (all screens with node IDs, dimensions, routes)
+- Component-to-Code Mapping from Phase 1 library (TIER 2/3; empty table for TIER 1)
+- Token Mapping from Phase 0 token inventory + Step 4 token alignment
+- Naming Exceptions from Step 3 exception descriptions
+- Health Score from Step 5.3 audit results
 
 ### Step 5.3 — Design System Audit
 
@@ -568,15 +608,18 @@ For EACH screen:
 ### Step 5.5 — Summary Report
 
 Present to user (using Progress Reporting template):
+- **TIER**: TIER [1|2|3] (Smart Componentization / Naming+Tokens / Heavy)
 - Screens transferred: N/N (passed/total)
 - Visual fidelity: N screens passed `figma_diff_visual`
-- **Component instances**: N total instances across all screens (per-screen breakdown)
+- **Component instances**: N total instances across all screens (per-screen breakdown) — expected 0 for TIER 1
 - Images preserved: N/N (via cloning)
 - Font accuracy: all fonts match Draft
 - Prototype connections: N wired, G GROUP-unsupported, F failed
 - Health score: N/100
+- **Handoff Manifest**: `specs/figma/handoff-manifest.md` (generated)
+- **UX-NARRATIVE**: [consumed from path — informed Gate 2 analysis | not available — Gate 2 evaluated by visual inspection; recommend running `design-narration` skill before next handoff]
 
-If visual fidelity pass rate is below 80% OR total component instances is 0, offer the user the Rollback Protocol options before declaring completion.
+**Failure condition**: If visual fidelity pass rate is below 80%, offer the user the Rollback Protocol options before declaring completion. For TIER 2/3, also flag if total component instances is 0 when passing candidates existed.
 
 ---
 
@@ -608,7 +651,7 @@ Condensed prevention-only table. For full error details, causes, and recovery pr
 | 20 | **State lost after context compaction** | Re-read journal + snapshot; resume from first uncompleted operation (Rule #15) |
 | 21 | **Empty clone (childCount=0)** | Validate childCount after every clone; retry once; halt if still 0. NEVER mark complete (Rule #16) |
 | 22 | **Partial clone (childCount < 50% of source)** | Flag for extra visual scrutiny; likely GROUP shallow copy. Compare against Phase 0 inventory baseline (Rule #16) |
-| 23 | **Component library with 0 instances** | Per-screen component integration is mandatory (Step 2.4). Audit at Phase 5 (Step 5.2). 0 instances = workflow failure (Rule #17) |
+| 23 | **Component library with 0 instances (TIER 2/3)** | Per-screen component integration applies to TIER 2/3 only (Step 2.4). Audit at Phase 5 (Step 5.2). For TIER 1, 0 instances is expected. For TIER 2/3, 0 instances when passing candidates exist indicates a workflow issue (Rule #17) |
 | 24 | **GROUP prototype reactions silently dropped** | Re-read `node.reactions` after `setReactionsAsync`; log as `group_unsupported` not as `wired` (Rule #20) |
 | 25 | **Fabricated journal timestamps** | Use `new Date().toISOString()` inside `figma_execute` or orchestrator-injected real time (Rule #18) |
 | 26 | **Existing content on target page not acknowledged** | Preflight check at Step 0.1B; present options to user; log decision (Rule #19) |
