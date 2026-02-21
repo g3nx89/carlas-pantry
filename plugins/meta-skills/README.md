@@ -22,7 +22,7 @@ claude plugins enable meta-skills
 
 | Skill | Description |
 |-------|-------------|
-| `figma-console-mastery` | Design creation via figma-use-first strategy (115+ declarative tools) + Console MCP (56+ tools for complex logic), with Draft-to-Handoff workflow, Code Handoff Protocol, and optional Sequential Thinking integration |
+| `figma-console-mastery` | Design creation via figma-use-first strategy (115+ declarative tools) + Console MCP (56+ tools for complex logic), with per-screen Draft-to-Handoff pipeline (Screen Analysis, User Decision Gates, GROUP→FRAME conversion, constraint formulas, component integration), Code Handoff Protocol, and optional Sequential Thinking integration |
 | `sequential-thinking-mastery` | Structured reasoning via ST MCP — TAO Loop, Fork-Join, Revision, Checkpoint patterns |
 | `research-mcp-mastery` | Web research and documentation lookup via research MCP servers |
 | `mobile-mcp-mastery` | Mobile app automation and testing via mobile MCP servers |
