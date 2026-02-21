@@ -4,10 +4,10 @@
 # All limits, thresholds, and feature flags are defined here.
 #
 # Referenced by:
-# - $CLAUDE_PLUGIN_ROOT/skills/feature-specify/SKILL.md
+# - $CLAUDE_PLUGIN_ROOT/skills/specify/SKILL.md
 # - $CLAUDE_PLUGIN_ROOT/commands/specify.md (thin wrapper)
 # - $CLAUDE_PLUGIN_ROOT/agents/business-analyst.md
-# - $CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/clarification-protocol.md
+# - $CLAUDE_PLUGIN_ROOT/skills/specify/references/clarification-protocol.md
 
 ---
 
@@ -982,7 +982,7 @@ test_strategy:
 # =============================================================================
 # SKILL ORCHESTRATOR CONFIGURATION (v1.0)
 # =============================================================================
-# Configuration for the feature-specify skill orchestrator.
+# Configuration for the specify skill orchestrator.
 # Controls coordinator dispatch, iteration, and context management.
 
 skill_orchestrator:

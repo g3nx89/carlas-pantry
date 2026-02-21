@@ -42,7 +42,7 @@ ELSE:
 
 **If enabled:**
 
-Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/thinkdeep-patterns.md` -> Integration 2: Edge Cases
+Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/thinkdeep-patterns.md` -> Integration 2: Edge Cases
 
 Execute parallel ThinkDeep with 3 models:
 - pro: security & performance focus (thinking_mode: max)
@@ -68,7 +68,7 @@ Write report: `specs/{FEATURE_DIR}/analysis/mpa-edgecases-parallel.md`
 
 ## Step 4.1b: Auto-Resolve Gate
 
-Load and execute: `@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/auto-resolve-protocol.md`
+Load and execute: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/auto-resolve-protocol.md`
 
 For each pending question (from checklist gaps + edge cases + triangulation):
 1. Attempt auto-resolution against input documents, prior decisions, spec content
@@ -87,7 +87,7 @@ auto_resolve_stats:
 ## Step 4.2: Write Clarification Questions File
 
 Generate `specs/{FEATURE_DIR}/clarification-questions.md` following the format defined in:
-`@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/clarification-protocol.md`
+`@$CLAUDE_PLUGIN_ROOT/skills/specify/references/clarification-protocol.md`
 
 **Structure:**
 1. YAML frontmatter with counts and status
@@ -121,7 +121,7 @@ flags:
 Clarification questions written to specs/{FEATURE_DIR}/clarification-questions.md.
 {A} questions auto-resolved from input documents.
 {U} questions require user input.
-User should edit the file and re-run /feature-specify to continue.
+User should edit the file and re-run /specify to continue.
 ```
 
 **STOP HERE on first entry.** The orchestrator will pause the workflow and notify the user.
@@ -145,7 +145,7 @@ Read `specs/{FEATURE_DIR}/clarification-questions.md` and parse answers per the 
 
 **If enabled:**
 
-Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/thinkdeep-patterns.md` -> Integration 3: Triangulation
+Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/thinkdeep-patterns.md` -> Integration 3: Triangulation
 
 Execute dual+ model dispatch:
 - pro: technical perspective

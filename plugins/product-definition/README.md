@@ -106,7 +106,7 @@ Transforms Figma Desktop mockups into detailed UX/interaction narrative document
 | Skill | Purpose |
 |-------|---------|
 | `design-narration` | UX narrative generation from Figma mockups (v1.8.0) |
-| `feature-specify` | Technical specification generation (v1.1.0) |
+| `specify` | Technical specification generation (v1.1.0) |
 | `refinement` | PRD refinement orchestration |
 
 ## Directory Structures

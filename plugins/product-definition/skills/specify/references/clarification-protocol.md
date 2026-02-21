@@ -85,7 +85,7 @@ status: pending  # pending | answered
 # Clarification Questions: {FEATURE_NAME}
 
 > Fill in answers below. Leave blank to accept BA recommendation.
-> When done, re-run `/feature-specify` to continue.
+> When done, re-run `/specify` to continue.
 
 ---
 

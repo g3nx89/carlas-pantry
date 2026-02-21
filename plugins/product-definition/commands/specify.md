@@ -13,15 +13,15 @@ allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Ba
 # Specify Feature (Superseded)
 
 > **This command has been migrated to a skill.**
-> The canonical implementation is now at `$CLAUDE_PLUGIN_ROOT/skills/feature-specify/SKILL.md`.
+> The canonical implementation is now at `$CLAUDE_PLUGIN_ROOT/skills/specify/SKILL.md`.
 
-This command is a thin wrapper that invokes the feature-specify skill.
+This command is a thin wrapper that invokes the specify skill.
 
 ---
 
 ## Execution
 
-Read and execute the skill at: @$CLAUDE_PLUGIN_ROOT/skills/feature-specify/SKILL.md
+Read and execute the skill at: @$CLAUDE_PLUGIN_ROOT/skills/specify/SKILL.md
 
 Pass all arguments: `$ARGUMENTS`
 

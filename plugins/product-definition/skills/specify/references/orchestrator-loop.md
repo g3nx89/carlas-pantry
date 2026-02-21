@@ -56,7 +56,7 @@ Task(subagent_type="general-purpose", prompt="""
 You are a coordinator for the Feature Specify workflow.
 
 ## Your Stage
-Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/{STAGE_FILE}
+Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 
 ## Context
 - Feature directory: specs/{FEATURE_DIR}
@@ -70,13 +70,13 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/{STAGE_
 
 ## Shared References (load ONLY those listed for this stage)
 {IF stage needs checkpoint-protocol:}
-- Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/checkpoint-protocol.md
+- Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/checkpoint-protocol.md
 {IF stage needs error-handling:}
-- Error handling: @$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/error-handling.md
+- Error handling: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/error-handling.md
 {IF stage needs config YAML:}
 - Config: @$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml
 {IF stage has extra refs:}
-- {extra_ref}: @$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/{extra_ref}
+- {extra_ref}: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{extra_ref}
 
 ## Prior Stage Summaries
 {CONTENTS OF specs/{FEATURE_DIR}/.stage-summaries/stage-*-summary.md}
@@ -351,7 +351,7 @@ ON RE-ENTRY after user answers:
 
 **Load when:** A coordinator produces no summary file (crash) OR state file has `schema_version: 2` (migration).
 
-**Reference:** `@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/recovery-migration.md`
+**Reference:** `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/recovery-migration.md`
 
 ### Quick Summary
 

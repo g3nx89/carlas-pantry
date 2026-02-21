@@ -64,7 +64,7 @@ Extract from agent output:
 
 **If enabled AND PAL_AVAILABLE:**
 
-Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/thinkdeep-patterns.md` → Integration 1: Challenge
+Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/thinkdeep-patterns.md` → Integration 1: Challenge
 
 Execute parallel ThinkDeep with 3 models:
 - gpt5.2: root cause analysis focus

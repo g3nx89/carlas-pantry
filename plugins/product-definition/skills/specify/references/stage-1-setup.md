@@ -54,8 +54,8 @@ test -f "$CLAUDE_PLUGIN_ROOT/agents/design-brief-generator.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/gap-analyzer.md" || echo "MISSING"
 
 # Check required reference protocols
-test -f "$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/figma-capture-protocol.md" || echo "MISSING"
-test -f "$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/clarification-protocol.md" || echo "MISSING"
+test -f "$CLAUDE_PLUGIN_ROOT/skills/specify/references/figma-capture-protocol.md" || echo "MISSING"
+test -f "$CLAUDE_PLUGIN_ROOT/skills/specify/references/clarification-protocol.md" || echo "MISSING"
 
 # Check required templates
 TEMPLATE_COUNT=$(ls "$CLAUDE_PLUGIN_ROOT/templates/prompts/"*.md 2>/dev/null | wc -l)
@@ -210,7 +210,7 @@ Check for explicit flags in `$ARGUMENTS`:
 ```
 
 **If Figma enabled:**
-Read and execute `@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/figma-capture-protocol.md`.
+Read and execute `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/figma-capture-protocol.md`.
 
 Context available:
 - `FEATURE_DIR`

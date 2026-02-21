@@ -1,5 +1,5 @@
 ---
-name: feature-specify
+name: specify
 description: Create or update feature specifications through guided analysis with Figma integration, PAL validation, and V-Model test strategy
 version: 1.1.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
@@ -146,7 +146,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Orchestrator Loop
 
-**Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/orchestrator-loop.md`
+**Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/orchestrator-loop.md`
 
 The orchestrator manages dispatch, iteration (Stage 3 <-> Stage 4), user pauses, crash recovery, and state migration.
 
@@ -155,7 +155,7 @@ The orchestrator manages dispatch, iteration (Stage 3 <-> Stage 4), user pauses,
 ## Stage 1 — Inline Execution
 
 Execute Stage 1 directly (no coordinator dispatch). Read and follow:
-`@$CLAUDE_PLUGIN_ROOT/skills/feature-specify/references/stage-1-setup.md`
+`@$CLAUDE_PLUGIN_ROOT/skills/specify/references/stage-1-setup.md`
 
 Write summary to: `specs/{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`
 

@@ -9,7 +9,7 @@ artifacts_written:
 > Pre-presentation gate that filters clarification questions answerable from existing input
 > documents before presenting the remaining questions to the user in `clarification-questions.md`.
 > Adapted from `skills/design-narration/references/auto-resolve-protocol.md` for the
-> feature-specify workflow.
+> specify workflow.
 
 ## CRITICAL RULES (must follow)
 
