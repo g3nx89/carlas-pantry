@@ -360,24 +360,27 @@ Every subagent receives a standardized prompt structure. The **skill loading blo
 - State file: specs/figma/session-state.json
 - Journal: specs/figma/operation-journal.jsonl
 
-## Skill Loading (MANDATORY)
-Load the figma-console-mastery skill references BEFORE starting any work:
+## Skill Loading (MANDATORY — NON-NEGOTIABLE)
+Every subagent MUST load the figma-console-mastery skill references BEFORE starting any work.
+Without these references, subagents miss critical rules (GROUP→FRAME conversion, constraint formulas,
+COMPONENT_SET instantiation, clone-first architecture, journal protocol, visual fidelity gates)
+and reproduce the exact failures documented in v1/v2 retrospectives.
 
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-draft-to-handoff.md
-  (Phase {N} section — your specific instructions)
+  (Phase {N} section — your specific instructions, Handoff Screen Checklist, per-screen pipeline)
 
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-protocol.md
   (Journal protocol, convergence checks, batch scripting)
 
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-foundation.md
-  (Required for ANY figma_execute code — IIFE wrapper, font preloading)
+  (Required for ANY figma_execute code — IIFE wrapper, font preloading, constraint formulas, proportional resize)
 
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.md
-  (Error catalog, debugging, hard constraints)
+  (Error catalog, debugging, hard constraints, handoff-specific anti-patterns)
 
 {Additional references by phase:}
-  Phase 1 (components): + recipes-components.md, design-rules.md
-  Phase 2 (screens):    + tool-playbook.md, figma-use-overview.md
+  Phase 1 (components): + recipes-components.md (GROUP→FRAME, Componentize from Clone, COMPONENT_SET instantiation), design-rules.md
+  Phase 2 (screens):    + recipes-components.md (GROUP→FRAME recipe — CRITICAL for Step 2.4), tool-playbook.md, figma-use-overview.md
   Phase 3 (wiring):     + (none additional)
   Phase 4 (annotations): + (none additional)
   Phase 5 (validation):  + figma-use-diffing.md
@@ -393,6 +396,11 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.
 8. Replace recurring elements with component instances — 0 instances = incomplete screen
 9. Run figma_diff_visual after every screen (Phase 2) — not just at the end
 10. If blocked, write status: "needs-user-input" in session-state.json and STOP
+11. Convert ALL GROUP nodes to FRAMEs BEFORE setting constraints — GROUPs silently ignore constraints
+12. Use createInstance() on COMPONENT (variant child), NEVER on COMPONENT_SET
+13. Analyze screen BEFORE cloning — for MODERATE/COMPLEX, write analysis with needs-user-input and STOP
+14. Apply cornerRadius + clipsContent as FIRST post-clone step
+15. NEVER interact with users directly — write needs-user-input to session state; orchestrator mediates
 
 ## Scope
 {phase-specific scope: which screens, which components, which operations}
@@ -415,14 +423,21 @@ For Phase 2 per-screen subagents, append to the base template:
 - Component library: {component_names_and_ids}  ← from Phase 1 results
 - Component-to-screen mapping: {which_components_apply_to_this_screen}
 
-## Pipeline Steps (execute in order)
+## Pipeline Steps (execute in order — Steps 2.0-2.9)
+0. Analyze draft screen structure (count GROUPs, determine viewport/scrollable, assess complexity)
+0B. IF MODERATE/COMPLEX: write analysis to session state with status: needs-user-input, STOP
+    (orchestrator will mediate user questions and resume with decisions)
 1. Clone draft screen → validate childCount (HALT if 0)
 2. Move clone to handoff section
-3. Restructure (auto-layout, rename layers, clean hierarchy)
-4. Integrate components (replace raw elements with instances)
-5. Screenshot for structural check
-6. figma_diff_visual against draft → record score
-7. Log screen_complete to journal + update session state
+3. Frame setup: cornerRadius=32, clipsContent=true
+4. GROUP→FRAME conversion — convert ALL GROUP children to FRAMEs (CRITICAL)
+5. Constraint assignment — per-type formulas (viewport) or all MIN (scrollable)
+6. Component integration — replace raw elements with instances (TIER 2/3 only)
+   Use COMPONENT variant child for createInstance(), NOT COMPONENT_SET
+7. Visual validation: screenshot handoff + screenshot draft for comparison
+8. IF non-trivial: write comparison to session state with status: needs-user-input, STOP
+   (orchestrator mediates user approval)
+9. Log screen_complete to journal + update session state
 ```
 
 ### Delegation Rules
@@ -437,7 +452,7 @@ For Phase 2 per-screen subagents, append to the base template:
 | D6 | **Screens are independent but sequential** | Screen A's completion doesn't affect Screen B's content, but the orchestrator processes them in order for predictable progress tracking |
 | D7 | **Subagents NEVER interact with users** | If user input is needed, subagent writes `needs-user-input` to session state and stops; orchestrator mediates |
 | D8 | **Sequential journal writes** | Phase 2 subagents run one at a time, so journal interleaving is impossible. For Phases 3-5 (single subagent each), this is also automatic |
-| D9 | **Subagents MUST load figma-console-mastery skill references** | Every subagent must read the Skill Loading block from the prompt template. Without it, subagents miss critical rules (clone-first, journal protocol, visual fidelity gates, component integration, anti-patterns) and produce the same failures documented in the v2 retrospective |
+| D9 | **Subagents MUST load figma-console-mastery skill references** | Every subagent must read the Skill Loading block from the prompt template. Without it, subagents miss critical rules (GROUP→FRAME conversion, constraint formulas, COMPONENT_SET instantiation, clone-first architecture, journal protocol, visual fidelity gates, user consultation gates, handoff checklist) and produce the same failures documented in v1/v2/v3 retrospectives |
 
 ### When to Use Subagent Delegation
 

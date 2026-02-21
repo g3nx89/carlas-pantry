@@ -43,6 +43,11 @@ Full catalog of Plugin API errors encountered during `figma_execute` calls. Most
 | STRETCH + AUTO conflict | `layoutAlign='STRETCH'` with parent `counterAxisSizingMode='AUTO'` | Use `counterAxisSizingMode = 'FIXED'` when any child uses STRETCH |
 | `resize()` no-ops on one dimension | Frame has AUTO sizing on that axis | `resize()` only works on FIXED axes; AUTO dimensions are computed from children |
 | `in set_opacity: Expected number but got string` | Passing wrong type to property setter | Ensure correct types: opacity is 0-1 number, colors are 0-1 `{r,g,b}` |
+| `"object is not extensible"` on GROUP | Setting `constraints` on a GROUP node — GROUPs don't support constraints | Convert GROUP to FRAME first (see `recipes-components.md` GROUP→FRAME recipe), then set constraints on the FRAME |
+| `"The node with id X does not exist"` after GROUP child move | Calling `group.remove()` after all children were moved out — GROUP auto-deletes when empty | Never call `group.remove()` after moving children. The GROUP is already gone |
+| `createInstance()` returns undefined or throws on COMPONENT_SET | Calling `createInstance()` on a COMPONENT_SET instead of on a COMPONENT variant child | Get the COMPONENT_SET, find the variant child via `set.children.find(c => c.name.includes("State=Default"))`, call `createInstance()` on the child |
+| Async IIFE return value is `undefined` | `return JSON.stringify(...)` inside async IIFE produces a Promise that the bridge may not unwrap | Split into async mutation (IIFE, no return) + sync data retrieval (separate call), or use `console.log()` + `figma_get_console_logs()` |
+| Reactions array empty after `setReactionsAsync` on GROUP | GROUP nodes silently drop reactions — `setReactionsAsync` succeeds but reactions stay empty | Always re-read `node.reactions` after setting. If empty, node type is incompatible (GROUP). Convert to FRAME first |
 
 ---
 
@@ -106,6 +111,27 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 | **Silent fallback to text when Figma access fails** | When source design cannot be read, silently building from text produces entirely wrong output; the user discovers the failure only after hours of work | If `figma_node_children` fails on ANY source screen, STOP immediately and inform the user. NEVER fall back to text-based construction |
 | **No visual fidelity check during construction** | Deferring all `figma_diff_visual` checks to the final phase allows N screens of wrong output to accumulate before any comparison | Run `figma_diff_visual` after EVERY screen during Phase 2, not just at Phase 5 — see `workflow-draft-to-handoff.md` Rule #14 |
 | **Building from scratch when cloning is possible** | Using `figma_create_frame` + manual child creation instead of `figma_node_clone` loses all IMAGE fills, exact fonts, and visual properties from the source design | Default to clone + restructure for ALL screens that exist in the Draft. Only build from scratch for screens with no source — see `workflow-draft-to-handoff.md` Phase 2 |
+| **Batch-processing screens in Draft-to-Handoff** | Processing multiple screens simultaneously hides silent failures (empty clones, missing instances, broken constraints) and delays error detection by N screens | Process one screen at a time through the full pipeline. Validate each screen completely before proceeding to the next — see `workflow-draft-to-handoff.md` Principle #4 |
+| **Not involving user for complex screen conversions** | The agent wastes tokens making assumptions about ambiguous elements, constraint types, and component matching — then discovers issues only at visual validation (too late) | Analyze the screen FIRST (Step 2.0), present findings + questions to user for MODERATE/COMPLEX screens BEFORE cloning. Trivial screens proceed autonomously — see `workflow-draft-to-handoff.md` Step 2.0B |
+
+---
+
+## Handoff-Specific Anti-Patterns
+
+These patterns cause structural or visual failures specific to the Draft-to-Handoff workflow. Each was empirically discovered during production screen processing (WK-01, WK-02, WK-03).
+
+| Anti-Pattern | Problem | Solution |
+|-------------|---------|---------|
+| **Setting constraints on GROUP nodes** | GROUP nodes don't have the `constraints` property — assignment silently fails or throws `"object is not extensible"`. 30-60% of cloned screen children are GROUPs | Convert ALL GROUPs to transparent FRAMEs before setting constraints — see `recipes-components.md` GROUP→FRAME recipe. Run batch conversion on every cloned screen |
+| **Calling `group.remove()` after moving children** | After all children are moved out, the GROUP auto-deletes. Explicit `remove()` throws `"node does not exist"`, and code after it in the same try-block is silently skipped (including constraint assignment) | Never call `group.remove()`. The GROUP is already gone when its last child is moved |
+| **Uniform Y-shift for proportional resize** | Shifting all elements by `(newHeight - oldHeight) / 2` breaks proportional relationships between differently-anchored elements | Use per-constraint-type formulas: MIN keeps y, MAX pins to bottom, CENTER keeps proportional center, STRETCH resizes. See `recipes-foundation.md` Proportional Resize Calculator |
+| **Using MAX when STRETCH is needed** | MAX pins the bottom edge only — element shifts but keeps height. STRETCH pins both edges — element resizes. Using MAX for fill-areas leaves gaps | Use STRETCH for elements that fill remaining space (e.g., content area between header and footer). Use MAX for fixed-height elements anchored to bottom |
+| **`createInstance()` on COMPONENT_SET** | `createInstance()` works on COMPONENT (individual variant), NOT on COMPONENT_SET. Calling it on COMPONENT_SET fails silently or throws | Find the variant child first: `set.children.find(c => c.name.includes("Phase=Run"))`, then `variant.createInstance()` |
+| **Normalizing colors across component variants** | Different variants intentionally use different colors (e.g., Run=green, Walk=blue). Copying fills from one variant to another produces incorrect results | Inspect the specific Draft source for EACH variant independently. Only change properties that actually differ between variants |
+| **Modifying base component before cloning variants** | Modifying the first variant (e.g., adding "Run" label) then cloning it causes all clones to inherit that modification and say "Run" too | Clone N-1 times FIRST to create all variants, THEN modify each clone independently |
+| **Skipping cornerRadius on handoff frames** | Cloned screens arrive without design system cornerRadius. Screen looks like a raw rectangle instead of a polished device frame | Apply `frame.cornerRadius = 32` and `frame.clipsContent = true` as the FIRST post-clone step, before any other transformation |
+| **Building screens without analyzing first** | Jumping straight to cloning/transformation without analyzing the draft screen structure leads to wasted tokens when unexpected GROUPs, complex nesting, or ambiguities are discovered mid-process | Always run a Screen Analysis step BEFORE cloning: count GROUPs, determine viewport vs scrollable, identify component candidates, assess complexity. Ask user for non-trivial screens |
+| **Not verifying icon positions after clone/resize** | INSTANCE icons inside GROUP containers get displaced below their parent ellipses after cloning and resizing. Telltale: GROUP that should be 64px tall shows as 110px | After any resize/shift on cloned screens, check all INSTANCE nodes recursively. For 24px icons in 64px ellipses: `icon.y` should equal `ellipse.y + 20` |
 
 ---
 

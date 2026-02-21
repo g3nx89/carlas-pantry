@@ -1,6 +1,6 @@
 ---
 name: figma-console-mastery
-version: 0.7.0
+version: 0.8.0
 description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "render JSX in Figma", "use figma_render", "use figma-use MCP", "analyze Figma design", "diff Figma designs", "query Figma nodes with XPath", "convert draft to handoff", "transfer Figma designs to handoff", "prepare Figma for code handoff", "create handoff page from draft", or when developing skills/commands that use the Figma Console or figma-use MCP servers. Provides tool selection, Plugin API patterns, JSX rendering, design analysis, visual diffing, design rules, Draft-to-Handoff workflow with clone-first architecture, and selective reference loading for both MCP servers.
 ---
 
@@ -23,6 +23,8 @@ Two MCP servers work together: **figma-console** (Southleft, 56+ tools) for Plug
 6. **Validate visually** — screenshot and `figma_diff_visual` after every screen (max 3 fix cycles per screen)
 7. **Smart componentization** — apply the TIER system: componentize only elements meeting all 3 criteria (recurrence 3+, behavioral variants, codebase match); see `workflow-code-handoff.md` for TIER definitions and Smart Componentization Criteria
 8. **Subagents inherit skill context** — all subagents dispatched for Figma workflows must load figma-console-mastery skill references (see `convergence-protocol.md` Subagent Prompt Template)
+9. **Ask user when in doubt** — for non-trivial screen conversions (GROUP-heavy, complex components, ambiguous layouts), analyze first and present findings to user before proceeding. Trivial screens proceed autonomously. Early user involvement prevents token waste on wrong assumptions
+10. **GROUP→FRAME before constraints** — after cloning, convert ALL GROUP nodes to transparent FRAMEs before setting constraints. GROUPs don't support `constraints` — assignment silently fails. See `recipes-components.md` GROUP→FRAME recipe
 
 ## Prerequisites
 
@@ -279,6 +281,12 @@ Need to analyze or diff? (figma-use, CDP required)
 18. **Verify prototype reactions after wiring** — after `setReactionsAsync`, re-read `node.reactions`. If reactions.length is 0 but wiring was attempted, log as `group_unsupported` — GROUP nodes silently drop reactions
 19. **Load learnings at session start** — if `~/.figma-console-mastery/learnings.md` exists, read it during Phase 1. Apply relevant learnings proactively. Sessions function identically without it
 20. **Save discoveries at session end** — during Phase 4, review for compound learning triggers (>1 attempt, workaround discovered, non-obvious recovery). Deduplicate by H3 key match before appending
+21. **`createInstance()` on COMPONENT, not COMPONENT_SET** — to instantiate a variant: get the COMPONENT_SET → find variant child by name → `createInstance()` on the child. Calling it on COMPONENT_SET fails. Similarly, `swapComponent()` requires a COMPONENT node
+22. **Mandatory 9-step handoff post-processing** — every cloned screen requires: cornerRadius → clipsContent → GROUP→FRAME → semantic naming → constraints → proportional resize (viewport only) → component integration → instance count verify → visual validation. See `workflow-draft-to-handoff.md` Handoff Screen Checklist
+23. **Viewport vs Scrollable screen handling** — viewport screens (device-height) need proportional resize with per-constraint-type Y formulas. Scrollable screens keep draft positions unchanged with all MIN constraints. See `recipes-foundation.md` Constraint Reference
+24. **Never call `group.remove()` after moving children** — GROUP auto-deletes when all children are moved out. Explicit remove() throws and silently skips subsequent code in the same try-block
+25. **Per-variant source fidelity** — inspect Draft source for EACH variant independently. Never normalize fills across variants. Clone N-1 times FIRST, then modify each independently
+26. **Analyze before cloning in Draft-to-Handoff** — run Screen Analysis (Step 2.0) BEFORE cloning each screen. For MODERATE/COMPLEX screens, present analysis and ask user questions before proceeding. See `workflow-draft-to-handoff.md` Steps 2.0-2.0B
 
 ### AVOID
 
@@ -293,6 +301,10 @@ Need to analyze or diff? (figma-use, CDP required)
 9. **Never redo an operation already in the journal** — if `operation-journal.jsonl` records that a node was renamed/moved/created, do NOT perform that operation again; this is the #1 cause of regression and wasted tokens in long sessions
 10. **Never trust in-context memory after compaction** — after context compaction, the ONLY reliable record of completed work is the operation journal on disk; re-read it before resuming any work
 11. **Never save trivial or already-documented learnings** — only save insights NOT already covered by existing reference files. "Font needs loading before text" is in SKILL.md and anti-patterns.md — do not duplicate known rules
+12. **Never set constraints on GROUP nodes** — GROUP nodes don't support `constraints`. Convert to FRAME first (MUST rule #10). See `anti-patterns.md` Handoff-Specific Anti-Patterns
+13. **Never use uniform Y-shift for proportional resize** — each constraint type (MIN/MAX/CENTER/STRETCH) has its own formula. Shifting all elements equally breaks proportional relationships. See `recipes-foundation.md` Proportional Resize Calculator
+14. **Never normalize colors across component variants** — different variants intentionally differ. Inspect each variant's Draft source independently (MUST rule #25)
+15. **Never skip Screen Analysis for complex screens** — jumping to clone/transform without analyzing wastes tokens on wrong assumptions. Analyze first, ask user when in doubt (MUST rule #26)
 
 ## Selective Reference Loading
 
@@ -351,7 +363,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-restr
 # Code Handoff protocol — TIER system, Smart Componentization, Handoff Manifest, naming audit, token alignment
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-code-handoff.md
 
-# Draft-to-Handoff workflow — operational rules, 6-phase workflow, state persistence, error prevention
+# Draft-to-Handoff workflow — operational rules, user-involved per-screen pipeline (analyze → ask → clone → GROUP→FRAME → constraints → components → visual validate → approve), 6-phase workflow, state persistence, error prevention
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-draft-to-handoff.md
 
 # Convergence protocol — operation journal, anti-regression, batch scripting, subagent delegation
@@ -364,7 +376,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/compound-learn
 ### Loading Tiers
 
 **Tier 1 — Always:** `recipes-foundation.md` (required for any `figma_execute` code), `figma-use-overview.md` (tool inventory + decision matrix), `convergence-protocol.md` (operation journal + anti-regression — required for any multi-step workflow)
-**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md` | `workflow-draft-to-handoff.md` | `workflow-restructuring.md` | `workflow-code-handoff.md`
+**Tier 2 — By task:** `recipes-components.md` (includes GROUP→FRAME, Componentize from Clone, COMPONENT_SET instantiation) | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `figma-use-jsx-patterns.md` | `figma-use-analysis.md` | `workflow-draft-to-handoff.md` (user-involved per-screen pipeline, constraint formulas, Handoff Checklist) | `workflow-restructuring.md` | `workflow-code-handoff.md`
 **Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `figma-use-diffing.md` | `st-integration.md` | `compound-learning.md`
 
 ## Sequential Thinking Integration (Optional)
@@ -459,14 +471,21 @@ skip. Save 0-3 entries per session maximum.
 | Node IDs lost after context compaction | Re-read `operation-journal.jsonl` and `session-state.json` — see `convergence-protocol.md` Compact Recovery Protocol |
 | System redoing already-completed work (regression) | Read `operation-journal.jsonl`, skip any operation already logged — see `convergence-protocol.md` Convergence Check |
 | Console log buffer missing earlier results | Buffer holds ~100 entries; call `figma_clear_console` before each `figma_execute` batch |
-| Components not appearing in screen instances | Components must be created (Phase 1) before screens (Phase 2); component integration is part of per-screen pipeline (Step 2.4) — see `workflow-draft-to-handoff.md` |
+| Components not appearing in screen instances | Components must be created (Phase 1) before screens (Phase 2); component integration is part of per-screen pipeline (Step 2.6) — see `workflow-draft-to-handoff.md` |
 | Context compaction mid-workflow | Follow Compact Recovery Protocol: re-read journal + state files, rebuild completed-ops set, resume from first uncompleted operation — see `convergence-protocol.md` |
 | Clone produces empty frame (0 children) | childCount validation gate: compare against Phase 0 inventory, retry once, halt if still 0 — see `workflow-draft-to-handoff.md` Step 2.2 |
 | Prototype connections silently lost | GROUP nodes drop reactions silently; verify with `node.reactions` re-read after `setReactionsAsync` — see `workflow-draft-to-handoff.md` Phase 3 |
 | Journal timestamps show impossible durations | Use `new Date().toISOString()` inside `figma_execute`; orchestrator injects real time for subagents — see `convergence-protocol.md` Journal Rule #9 |
-| Component library exists but 0 instances in screens | Check TIER decision: for TIER 1, 0 instances is expected (no component creation). For TIER 2/3, component integration (Step 2.4) applies — audit at Phase 5. See `workflow-draft-to-handoff.md` and `workflow-code-handoff.md` TIER System |
+| Component library exists but 0 instances in screens | Check TIER decision: for TIER 1, 0 instances is expected (no component creation). For TIER 2/3, component integration (Step 2.6) applies — audit at Phase 5. See `workflow-draft-to-handoff.md` and `workflow-code-handoff.md` TIER System |
 | Same API error recurring across sessions | Load `~/.figma-console-mastery/learnings.md`; save workaround after resolving — see Compound Learning Protocol |
 | Learnings file missing or empty | Normal for first session; created when first learning is saved. All workflows function identically without it |
+| Constraints silently not applied after clone | 30-60% of cloned children are GROUP nodes — convert ALL to FRAMEs first. See `recipes-components.md` GROUP→FRAME recipe |
+| `"object is not extensible"` on GROUP | Cannot set `constraints` on GROUP. Convert to transparent FRAME, then set constraints |
+| `"node does not exist"` after moving GROUP children | GROUP auto-deletes when empty. Never call `group.remove()` — it's already gone |
+| `createInstance()` fails on COMPONENT_SET | Find variant child first: `set.children.find(c => c.name.includes("State=Default"))`, then `variant.createInstance()` |
+| Elements bunched at top/bottom after resize | Using uniform Y-shift instead of per-constraint formulas. See `recipes-foundation.md` Proportional Resize Calculator |
+| Icons displaced below parent ellipse after clone | INSTANCE icons in GROUPs get displaced during resize. Check all INSTANCE positions after clone/resize operations |
+| Screen looks like raw rectangle (no rounded corners) | Missing `cornerRadius = 32` + `clipsContent = true` — first step after clone. See Handoff Screen Checklist |
 | Prototype conditional actions not working | Verify `actions` array (plural, not singular `action`). Use `CONDITIONAL` action type with `conditionalBlocks`. See `plugin-api.md` Conditional Prototyping section |
 | Grid children not filling cells | Set `layoutSizingHorizontal = 'FILL'` on children. Use `gridRowGap`/`gridColumnGap` (not `itemSpacing`) for gaps |
 

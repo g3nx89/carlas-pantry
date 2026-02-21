@@ -9,15 +9,17 @@
 
 | Section | Recipe | Line |
 |---------|--------|-----:|
-| **Foundation** | Error-Handled IIFE Wrapper | 25 |
-| | Multi-Font Preloading | 51 |
-| | Node Reference Across Calls | 75 |
-| | Returning Structured Data | 92 |
-| **Layouts** | Page Container (Full-Width Vertical Stack) | 110 |
-| | Horizontal Row with Fill Children | 147 |
-| | Wrap Layout (Tag Cloud / Chip Group) | 202 |
-| | Absolute Positioned Badge on Card | 266 |
-| | CSS Grid Card Layout | 300 |
+| **Foundation** | Error-Handled IIFE Wrapper | 28 |
+| | Multi-Font Preloading | 59 |
+| | Node Reference Across Calls | 83 |
+| | Returning Structured Data | 100 |
+| **Layouts** | Page Container (Full-Width Vertical Stack) | 118 |
+| | Horizontal Row with Fill Children | 155 |
+| | Wrap Layout (Tag Cloud / Chip Group) | 210 |
+| | Absolute Positioned Badge on Card | 274 |
+| | CSS Grid Card Layout | 310 |
+| **Constraints** | Constraint Reference Table | 412 |
+| | Proportional Resize Calculator | 432 |
 
 ---
 
@@ -48,6 +50,11 @@ Every `figma_execute` call MUST use this async IIFE wrapper. Omitting it causes 
 ```
 
 **Returns**: `{ success: true, id: "1:23" }` or `{ success: false, error: "..." }`
+
+> **WARNING — Async IIFE Return Values**: The `return JSON.stringify(...)` inside an async IIFE is technically returning from the async function, which produces a Promise. The `figma_execute` bridge sees a Promise object and may return `undefined` instead of the actual data. **Workarounds**:
+> 1. **Split pattern**: Use async IIFE for mutations (font loading, node creation), then retrieve data with a separate SYNC `figma_execute` call
+> 2. **Console pattern**: Use `console.log(JSON.stringify(data))` inside the async IIFE, then read with `figma_get_console_logs`
+> 3. **In practice**: Many implementations DO return data successfully from async IIFEs — test your specific setup. If returns are empty, use the split or console pattern
 
 ### Pattern: Multi-Font Preloading
 
@@ -397,3 +404,128 @@ grid.gridColumnSizes = [
 ]
 grid.gridColumnCount = 2
 ```
+
+---
+
+## Constraint Patterns
+
+### Recipe: Constraint Reference Table
+
+**Goal**: Quick reference for which constraint type to use for each element role, and the Y-position formula when the parent frame is resized.
+
+**Constraint types and their behavior**:
+
+| Constraint | Behavior | Y Formula (resize h1 → h2) | Use For |
+|-----------|----------|-------------------------------|---------|
+| `MIN` | Pinned to top edge | `y2 = y1` (no change) | Headers, top bars, status bars |
+| `MAX` | Pinned to bottom edge | `y2 = h2 - elementHeight - (h1 - y1 - elementHeight)` | Bottom buttons, nav bars, footers |
+| `CENTER` | Center stays proportional | `y2 = ((y1 + h/2) / h1 * h2) - h/2` | Main content, central rings, hero areas |
+| `STRETCH` | Both edges pinned (resizes) | `height2 = h2 - topGap - bottomGap` | Backgrounds, fill sections, scroll areas |
+| `SCALE` | Proportional to parent | `y2 = y1 * (h2 / h1)` | Typically used for horizontal axis |
+
+**STRETCH vs MAX distinction**:
+- **MAX** pins the bottom edge only — element shifts down but keeps its height
+- **STRETCH** pins both top AND bottom edges — element grows/shrinks with the frame
+- Use STRETCH for elements that fill remaining space (e.g., episode info section between hero at y=400 and frame bottom)
+- Use MAX for elements with fixed size that should stay near the bottom
+
+### Recipe: Proportional Resize Calculator
+
+**Goal**: Recalculate Y positions of all children when resizing a viewport screen from draft height to handoff height. Each constraint type requires a different formula.
+
+**When to use**: Step 2.5 of the Draft-to-Handoff pipeline, for Viewport screens only. Scrollable screens keep draft positions unchanged.
+
+**Code**:
+
+```javascript
+// figma_execute — proportional resize calculator
+(async () => {
+  try {
+    const screen = await figma.getNodeByIdAsync("SCREEN_ID");
+    if (!screen) return JSON.stringify({ error: "Screen not found" });
+
+    const h1 = DRAFT_HEIGHT;   // e.g., 800 (original draft height)
+    const h2 = HANDOFF_HEIGHT; // e.g., 871 (target handoff height)
+
+    // Resize the screen frame first
+    screen.resize(screen.width, h2);
+
+    const results = [];
+    for (const child of screen.children) {
+      if (!('constraints' in child)) {
+        results.push({ name: child.name, status: "no_constraints" });
+        continue;
+      }
+
+      const vCon = child.constraints.vertical;
+      const oldY = child.y;
+      const elemH = child.height;
+
+      switch (vCon) {
+        case "MIN":
+          // Pinned to top — no change
+          results.push({ name: child.name, constraint: "MIN", y: oldY, changed: false });
+          break;
+
+        case "MAX": {
+          // Pinned to bottom — shift proportionally
+          const bottomGap = h1 - oldY - elemH;
+          const newY = h2 - elemH - bottomGap;
+          child.y = newY;
+          results.push({ name: child.name, constraint: "MAX", y: newY, changed: true });
+          break;
+        }
+
+        case "CENTER": {
+          // Center stays proportional
+          const center1 = oldY + elemH / 2;
+          const center2 = (center1 / h1) * h2;
+          const newY = center2 - elemH / 2;
+          child.y = Math.round(newY);
+          results.push({ name: child.name, constraint: "CENTER", y: Math.round(newY), changed: true });
+          break;
+        }
+
+        case "STRETCH": {
+          // Both edges pinned — resize height
+          const topGap = oldY;
+          const bottomGap = h1 - oldY - elemH;
+          const newH = h2 - topGap - bottomGap;
+          child.resize(child.width, newH);
+          results.push({ name: child.name, constraint: "STRETCH", height: newH, changed: true });
+          break;
+        }
+
+        default:
+          results.push({ name: child.name, constraint: vCon, status: "unknown" });
+      }
+    }
+
+    return JSON.stringify({
+      success: true,
+      from: h1,
+      to: h2,
+      results
+    });
+  } catch (e) {
+    return JSON.stringify({ error: e.message });
+  }
+})()
+```
+
+**Returns**: `{ success: true, from: 800, to: 871, results: [...] }`
+
+**Example** (WK-02 screen, 800 → 871):
+
+| Element | Draft y | Constraint | Handoff y | Calculation |
+|---------|---------|-----------|-----------|-------------|
+| TopProgressStrip | 125 | MIN | **125** | Keep draft y |
+| PhaseCountdownRing | 218 | CENTER | **263** | center=346/800x871=376 → y=376-128/2 |
+| PauseButton | 560 | MAX (gap=176) | **631** | 871-64-176 |
+| SlideToLock | 696 | MAX (gap=40) | **767** | 871-64-40 |
+| Background | 0 | STRETCH | **0** | height: 871-0-0 |
+
+**Key rules**:
+- Resize the screen FIRST, then recalculate child positions
+- NEVER use uniform y-shift for all elements — each constraint type has its own formula
+- For scrollable screens (height > viewport), skip this recipe entirely — use all MIN constraints

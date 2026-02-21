@@ -8,7 +8,7 @@
 
 ## Critical Principles
 
-These seven principles override all other workflow guidance. They address systemic failures documented in production session post-mortems (7 sessions, 3 retrospectives, 2 critical failures).
+These eight principles override all other workflow guidance. They address systemic failures documented in production session post-mortems (7 sessions, 3 retrospectives, 2 critical failures).
 
 | # | Principle | Rationale |
 |---|-----------|-----------|
@@ -19,6 +19,7 @@ These seven principles override all other workflow guidance. They address system
 | 5 | **Smart componentization** | Componentize elements meeting ALL 3 criteria: recurrence (3+ screens), behavioral variants, codebase match. TIER 1 (naming + tokens) is always applied; TIER 2 (smart components) is recommended; TIER 3 (heavy) is optional. See `workflow-code-handoff.md` TIER System |
 | 6 | **Converge, never regress** | Log every mutation to the operation journal; check journal before every operation; after context compaction, re-read journal — NEVER redo logged work. See `convergence-protocol.md` |
 | 7 | **Batch homogeneous ops within a screen** | Use `figma_execute` batch scripts for 3+ same-type operations (renames, fills) within a single screen to save tokens; see `convergence-protocol.md`. This applies to operations within a screen — screen-level processing is always sequential |
+| 8 | **Ask user when in doubt — never waste tokens on assumptions** | For non-trivial screens (GROUP-heavy, complex components, ambiguous layouts), analyze first and present findings to user before proceeding. Trivial screens (simple flat structure, no GROUPs, no ambiguity) proceed autonomously. Early user involvement prevents token waste on wrong assumptions |
 
 ---
 
@@ -40,7 +41,7 @@ The system executes the full workflow autonomously using the phased approach bel
 
 ## Operational Rules
 
-These 22 rules are derived from empirical analysis of 9 production sessions (~750 MCP calls, 14 context compactions, 2 critical quality failures, 1 empty clone, 13 silently dropped prototype connections). Violating any rule risks context overflow, orphaned components, silent data loss, or 100% incorrect output.
+These 28 rules are derived from empirical analysis of 9 production sessions (~750 MCP calls, 14 context compactions, 2 critical quality failures, 1 empty clone, 13 silently dropped prototype connections). Violating any rule risks context overflow, orphaned components, silent data loss, or 100% incorrect output.
 
 | # | Rule | Rationale |
 |---|------|-----------|
@@ -66,6 +67,12 @@ These 22 rules are derived from empirical analysis of 9 production sessions (~75
 | 20 | **GROUP prototype verification** — after `setReactionsAsync`, immediately re-read `node.reactions` via `figma_execute`. If reactions.length is 0 but wiring was attempted, log as `group_unsupported` (not as success). GROUP nodes silently drop reactions | Prevents false `wired: 34, failed: 0` reports (13 silently lost in v2) |
 | 21 | **One screen at a time** — process each screen through the full pipeline (clone → validate childCount → restructure → integrate components → visual diff) before starting the next. Never batch-process screens | Catches failures immediately; WK-01 empty clone would have been caught before processing 31 more screens |
 | 22 | **Subagents inherit skill context** — every subagent dispatched for this workflow must load the `figma-console-mastery` skill references. See `convergence-protocol.md` Subagent Prompt Template | Prevents subagents from missing critical rules (clone-first, journal protocol, visual fidelity gates) |
+| 23 | **GROUP→FRAME before constraints** — convert ALL GROUP nodes to transparent FRAMEs before setting any constraints. GROUP nodes do not support the `constraints` property — setting it silently fails or throws `"object is not extensible"`. See `recipes-components.md` GROUP→FRAME recipe | Retrospective Section 1: 30-60% of cloned screen children are GROUPs; constraints on them silently fail |
+| 24 | **Never call `group.remove()` after moving children** — when all children are moved out of a GROUP, Figma auto-deletes it. Explicit `remove()` throws `"node does not exist"`, and any code after it in the same try-block is silently skipped (including constraint assignment) | Retrospective Section 1.3 |
+| 25 | **`createInstance()` on COMPONENT, not COMPONENT_SET** — to instantiate a specific variant: get the COMPONENT_SET node → find the variant COMPONENT child by name → call `createInstance()` on that child. Calling `createInstance()` on the COMPONENT_SET itself does NOT work. Similarly, `swapComponent()` requires a COMPONENT, not a COMPONENT_SET | Retrospective Section 3.3 |
+| 26 | **Viewport vs Scrollable screen handling** — Viewport screens (device-height, e.g., 871px) need proportional resize with per-constraint-type Y formulas (MIN: keep y, MAX: pin to bottom, CENTER: proportional center, STRETCH: grow height). Scrollable screens (draft height, e.g., 1186px+) keep draft positions unchanged with all MIN constraints. See Constraint Reference in `recipes-foundation.md` | Retrospective Section 6.2 |
+| 27 | **Mandatory 9-step post-processing checklist** — every cloned screen requires: (1) cornerRadius, (2) clipsContent, (3) GROUP→FRAME, (4) semantic naming, (5) constraints on ALL children, (6) proportional resize (viewport only), (7) component integration, (8) instance count verify, (9) visual validation. Skipping any step produces structurally broken screens | Retrospective Section 6.1 |
+| 28 | **Per-variant source fidelity** — when creating component variants, inspect the specific Draft source for EACH variant independently. Never normalize fills/colors across variants (different variants intentionally differ). Clone N-1 times FIRST, then modify each clone independently — modifying the base before cloning causes modifications to propagate to all clones | Retrospective Section 7 |
 
 ---
 
@@ -79,8 +86,8 @@ At each phase boundary and per-screen, emit a brief status message to the user. 
 | Phase 0 preflight | "Target page has [N] existing nodes: [names]. How to proceed? (A) Delete and start fresh (B) Continue from existing (C) Add alongside" |
 | Phase 0 complete | "Inventory complete: [N] screens found, [M] with images (will clone), [K] unique fonts. Proceeding to component library." |
 | Phase 1 complete | "Component library ready: [N] components created ([V] as COMPONENT_SETs). Proceeding to screen transfer." |
-| Phase 2 per-screen | "Screen [N]/[T] — [name]: clone OK (children: [C]), restructured, [I] component instances placed, visual diff: [score]. Proceeding to next screen." |
-| Phase 2 screen fail | "Screen [N]/[T] — [name]: FAILED — [reason]. Options: (A) Retry (B) Skip (C) Halt workflow" |
+| Phase 2 per-screen | "Screen [N]/[T] — [name]: analyzed ([complexity]), [G] GROUPs found, [type] mode. clone OK (children: [C]), [G] GROUPs→FRAMEs, constraints set, [I] instances placed, visual diff: [score]. [User approved / Auto-approved]. Proceeding." |
+| Phase 2 screen fail | "Screen [N]/[T] — [name]: FAILED at Step [S] — [reason]. Options: (A) Retry (B) Skip (C) Halt workflow" |
 | Phase 2 complete | "All [T] screens transferred and validated. [I] total component instances. Proceeding to prototype wiring." |
 | Phase 3 complete | "Prototype wiring: [W] confirmed, [G] GROUP nodes skipped (unsupported), [F] failed. Proceeding to annotations." |
 | Phase 4 complete | "Annotations added to [N] screens. Proceeding to final validation." |
@@ -297,11 +304,11 @@ For variant sets (MANDATORY — all variants must be combined):
 
 ## Phase 2 — Screen-by-Screen Pipeline (Handoff Page)
 
-**Goal**: Transfer each screen from Draft to Handoff one at a time, ensuring each screen is visually faithful, built with component instances, and follows Figma best practices before proceeding to the next.
+**Goal**: Transfer each screen from Draft to Handoff one at a time, with deep analysis BEFORE cloning, user involvement for non-trivial conversions, and mandatory 9-step post-processing. Each screen must be visually faithful, structurally correct (no GROUPs, proper constraints), and component-integrated before proceeding to the next.
 
-**Architecture**: Sequential screen-by-screen pipeline. NEVER batch-process screens.
+**Architecture**: Sequential screen-by-screen pipeline with user decision gates. NEVER batch-process screens. For non-trivial screens, the agent MUST present analysis and ask questions before proceeding.
 
-**Delegation**: For 5+ screens, dispatch one `Task(general-purpose)` subagent per screen. Each subagent runs the full per-screen pipeline (Steps 2.1-2.7 below). The orchestrator waits for each subagent to complete and validates the result before dispatching the next. Subagents load `figma-console-mastery` skill references (see `convergence-protocol.md` Subagent Prompt Template).
+**Delegation**: For 5+ screens, dispatch one `Task(general-purpose)` subagent per screen. Each subagent runs the full per-screen pipeline (Steps 2.0-2.9 below). The orchestrator waits for each subagent to complete, validates the result, and mediates any user questions before dispatching the next. Subagents load `figma-console-mastery` skill references (see `convergence-protocol.md` Subagent Prompt Template). **Subagents MUST NOT interact with users directly** — when a subagent's Screen Analysis identifies ambiguities (Step 2.0B), it writes them to session state with `status: needs-user-input`; the orchestrator reads this and mediates the user interaction via `AskUserQuestion`.
 
 **Tools**: figma-use for cloning and modification, figma-console for screenshots, `figma_execute` for batch operations within a screen and component instance creation.
 
@@ -315,9 +322,65 @@ For variant sets (MANDATORY — all variants must be combined):
    - If NOT FOUND → proceed with full pipeline
 ```
 
-### Per-Screen Pipeline (Steps 2.1–2.7)
+### Per-Screen Pipeline (Steps 2.0–2.9)
 
 Process EACH screen through ALL steps before starting the next screen:
+
+#### Step 2.0 — Screen Analysis (BEFORE cloning)
+
+> **Purpose**: Deeply analyze the draft screen's structure to identify conversion challenges BEFORE spending tokens on cloning and transformation. This step catches issues early and enables informed user consultation.
+
+```
+For the target Draft screen:
+  1. figma_node_children(id: draftScreenId) — full layer tree
+  2. Analyze and catalog:
+     a. NODE TYPES: count FRAME, GROUP, TEXT, INSTANCE, COMPONENT, RECTANGLE, ELLIPSE
+        — GROUPs will need conversion; flag count
+     b. SCREEN TYPE: determine Viewport (height ≤ device viewport, e.g., 871)
+        vs Scrollable (height > viewport, e.g., 1186+)
+        — this determines resize behavior in Step 2.5
+     c. COMPONENT CANDIDATES: identify elements that match Phase 1 library components
+        — drives Step 2.6 (Component Integration)
+     d. COMPLEXITY ASSESSMENT:
+        — TRIVIAL: 0-2 GROUPs, no nested instances, flat structure, simple fills
+        — MODERATE: 3-10 GROUPs, some nested instances, gradient/image fills
+        — COMPLEX: 10+ GROUPs, deep nesting, unusual layouts, many images
+     e. AMBIGUITIES: elements where conversion approach is unclear
+        — e.g., overlapping layers, unusual constraint requirements,
+          elements that could be either viewport-pinned or scroll-relative
+  3. Write analysis to session state for this screen
+```
+
+#### Step 2.0B — User Decision Gate
+
+```
+IF complexity is MODERATE or COMPLEX:
+  Present analysis to user:
+  "Screen [name] analysis:
+   - [N] GROUP nodes (will convert to FRAMEs)
+   - Screen type: [Viewport/Scrollable] ([height]px)
+   - [M] component candidates identified
+   - Complexity: [MODERATE/COMPLEX]
+   - Ambiguities: [list any unclear elements]
+
+   Questions:
+   [list specific questions about ambiguous elements]
+
+   Proceed with conversion?"
+
+  Wait for user response before proceeding.
+  Record user decisions in session state.
+
+IF complexity is TRIVIAL:
+  Proceed autonomously — no user gate needed.
+  Log: "Screen [name]: TRIVIAL complexity, proceeding autonomously"
+```
+
+**Question examples** (ask ONLY when genuinely ambiguous):
+- "Element X appears to be a status bar — should it be pinned to top (MIN constraint) or scroll with content?"
+- "This GROUP contains both text and an icon — should I componentize it or keep as a frame?"
+- "The gradient on this background has 3 stops — should I preserve exact stops or simplify?"
+- "This element overlaps the one below it — is this intentional (absolute positioning) or a layout issue?"
 
 #### Step 2.1 — Clone
 
@@ -346,102 +409,223 @@ IF source is not "spec_only" AND clone_children == 0 AND source_children > 0:
 
 IF clone_children < source_children * 0.5:
   → LOG WARNING: {"op":"clone_partial","target":"<clonedId>","detail":{"expected":<source_children>,"actual":<clone_children>}}
-  → Flag for extra visual scrutiny in Step 2.6 (likely GROUP shallow copy)
+  → Flag for extra visual scrutiny in Step 2.7 (likely GROUP shallow copy)
 ```
 
-#### Step 2.3 — Restructure
-
-Apply Figma best practices to the cloned screen:
+#### Step 2.3 — Frame Setup (cornerRadius + clipsContent)
 
 ```
-a. Apply auto-layout where missing (VERTICAL/HORIZONTAL based on content flow)
-b. Rename layers with semantic names using batch figma_execute script:
-   — the batch script includes idempotency checks (skip if already named correctly)
-   → LOG: {"op":"batch_rename","target":"batch","detail":{"screen":"<name>","count":N}}
-c. Clean up layer hierarchy: flatten unnecessary nesting, remove empty groups
-d. Ensure proper constraints and responsive behavior
+figma_execute:
+  const screen = await figma.getNodeByIdAsync("<clonedId>");
+  screen.cornerRadius = 32;       // design system standard
+  screen.clipsContent = true;      // prevents overflow
+  return JSON.stringify({ id: screen.id, cornerRadius: 32, clipsContent: true });
+→ LOG: {"op":"frame_setup","target":"<clonedId>","detail":{"cornerRadius":32,"clipsContent":true}}
 ```
 
-#### Step 2.4 — Component Integration (TIER 2/3 — skip for TIER 1)
+#### Step 2.4 — GROUP→FRAME Conversion (CRITICAL — Rule #23)
 
-**TIER 1 gate**: If `tier_decision` is TIER 1 → skip this step entirely. Screens retain their cloned elements with proper naming and token binding from Steps 2.1-2.3.
+> **Why**: GROUP nodes don't support `constraints`, `reactions`, or responsive behavior. After cloning, 30-60% of direct children are typically GROUPs. All must be converted before any constraint work.
+
+```
+figma_execute — batch GROUP→FRAME conversion:
+  For each child of the cloned screen:
+    IF child.type === "GROUP":
+      1. Record position (x, y) and dimensions (width, height)
+      2. Record z-index (parent.children.indexOf)
+      3. Create transparent FRAME with same dimensions
+      4. Move all GROUP children to FRAME (convert absolute → relative coords)
+         — child coords are absolute; subtract GROUP's x,y to get relative
+      5. Insert FRAME at same z-index in parent
+      6. Set FRAME position to GROUP's position
+      7. Apply semantic name (infer from context, e.g., "Group 137337760" → "hero_text")
+      DO NOT call group.remove() — GROUP auto-deletes when empty (Rule #24)
+
+  Return: { converted: N, skipped: M, names: [...] }
+→ LOG: {"op":"group_to_frame","target":"batch","detail":{"screen":"<name>","converted":N,"names":[...]}}
+```
+
+See `recipes-components.md` GROUP→FRAME Conversion recipe for full code.
+
+#### Step 2.5 — Constraint Assignment + Proportional Resize (Rule #26)
+
+> **Viewport screens** (height ≤ device viewport): Apply mixed constraints and recalculate Y positions using per-type formulas.
+> **Scrollable screens** (height > viewport): All constraints = MIN, keep draft positions unchanged.
+
+```
+IF screen type is VIEWPORT:
+  For each direct child of the cloned screen:
+    1. Determine constraint type based on element role:
+       — Headers, top bars → horizontal: SCALE, vertical: MIN
+       — Bottom buttons, nav bars → horizontal: SCALE, vertical: MAX
+       — Central content, rings → horizontal: CENTER, vertical: CENTER
+       — Backgrounds, fill areas → horizontal: SCALE, vertical: STRETCH
+
+    2. Set constraints:
+       child.constraints = { horizontal: hType, vertical: vType }
+
+    3. Recalculate Y position (if screen was resized from draft to handoff):
+       — MIN:     y₂ = y₁ (no change)
+       — MAX:     y₂ = h₂ - elementHeight - (h₁ - y₁ - elementHeight)
+       — CENTER:  y₂ = ((y₁ + elementHeight/2) / h₁ × h₂) - elementHeight/2
+       — STRETCH: resize element height = h₂ - topGap - bottomGap
+
+    See `recipes-foundation.md` Proportional Resize Calculator for code.
+
+IF screen type is SCROLLABLE:
+  For each direct child:
+    child.constraints = { horizontal: "SCALE", vertical: "MIN" }
+    // Keep draft Y positions — no resize needed
+
+→ LOG: {"op":"set_constraints","target":"batch","detail":{"screen":"<name>","type":"viewport|scrollable","count":N}}
+```
+
+#### Step 2.6 — Component Integration (TIER 2/3 — skip for TIER 1)
+
+**TIER 1 gate**: If `tier_decision` is TIER 1 → skip this step entirely. Screens retain their cloned elements with proper naming and token binding from Steps 2.1-2.5.
 
 For TIER 2/3: this step replaces raw cloned elements with component instances from the Phase 1 library for elements that passed the Smart Componentization Criteria.
+
+> **CRITICAL**: `createInstance()` works on COMPONENT nodes (individual variants), NOT on COMPONENT_SET nodes. See Rule #25.
 
 ```
 For each component in the Phase 1 library:
   1. Identify matching elements in the cloned screen:
      — Match by visual similarity (size, position, layer name patterns)
      — Match by inventory data from Phase 0 (component-to-screen mapping)
+
   2. For each match:
-     a. Record the matching element's properties (position, size, any overrides)
-     b. Create a component instance:
-        figma_instantiate_component(component_key, variant_properties)
-        OR via figma_execute:
-        const comp = await figma.importComponentByKeyAsync(key);
+     a. Record the matching element's properties (position, size, constraints, any overrides)
+
+     b. Instantiate the component:
+        // For COMPONENT_SET (variants), find the specific variant child FIRST
+        const set = await figma.getNodeByIdAsync(componentSetId);
+        const variant = set.children.find(c => c.name.includes("State=Default"));
+        const instance = variant.createInstance();  // on VARIANT, not SET
+
+        // For simple COMPONENT (no variants)
+        const comp = await figma.getNodeByIdAsync(componentId);
         const instance = comp.createInstance();
-     c. Position the instance to match the original element
-     d. Apply property overrides (text content, colors from the original)
-     e. Delete or hide the original raw element
+
+     c. Position and constrain the instance to match the original:
+        screen.insertChild(originalIndex, instance);
+        instance.x = originalElement.x;
+        instance.y = originalElement.y;
+        instance.constraints = originalElement.constraints;
+
+     d. Set text/property overrides:
+        instance.setProperties({
+          "label#145:14": "Original Text",
+          "value#145:15": "Original Value"
+        });
+
+     e. Remove original raw element:
+        originalElement.remove();
+
      f. → LOG: {"op":"create_instance","target":"<instanceId>","detail":{"component":"<name>","screen":"<screenName>","replaced":"<originalId>"}}
+
+  // Componentize from Clone — for elements that SHOULD be components but aren't in library yet:
+  // See `recipes-components.md` Componentize from Clone recipe
 
 Instance count check (TIER 2/3 only):
   — After processing all components for this screen, count instances created
-  — IF instance_count == 0 AND component candidates exist for this screen (per Smart Componentization Scorecard):
-    → LOG WARNING: {"op":"no_instances","target":"<screenId>","detail":{"screen":"<name>","tier":"TIER_2","expected_components":["TopBar","Button",...]}}
-    → Flag for user review (may indicate matching failure, not necessarily a workflow error)
-  — For TIER 1: instance_count is expected to be 0 — no warning needed
+  — IF instance_count == 0 AND component candidates exist for this screen:
+    → LOG WARNING and flag for user review
+  — For TIER 1: instance_count is expected to be 0
 ```
 
-#### Step 2.5 — Visual Comparison: Screenshot Overlay
+#### Step 2.7 — Visual Validation: Side-by-Side Comparison (Rule #14)
 
-Take a screenshot of the cloned screen to visually verify structural integrity:
-
-```
-figma_take_screenshot — capture the current handoff screen
-Compare visually: does the structure look correct? Are components in the right place?
-IF obvious structural issues visible in screenshot:
-  → Fix issues (max 3 fix cycles)
-  → Re-screenshot after each fix
-```
-
-#### Step 2.6 — Visual Fidelity Gate: Diff Against Draft (Rule #14)
+> **Purpose**: Verify the handoff screen matches the draft visually. This is the primary quality gate.
 
 ```
-figma_diff_visual(from: draftScreenId, to: handoffScreenId)
-Record diff result in session state
+1. Screenshot the HANDOFF screen:
+   figma_take_screenshot  — capture handoff screen area
 
-IF visual deviation exceeds threshold:
-  → Take side-by-side screenshots: figma_take_screenshot of Draft area + Handoff area
-  → Present to user: "Screen [name] visual diff: [score]. Deviations: [summary]"
-  → Options:
-    (A) Fix — attempt repair (max 3 fix cycles), then re-diff
-    (B) Accept — mark as accepted with noted deviations
-    (C) Re-clone — delete this screen and re-clone from Draft
-    (D) Halt — stop the workflow for manual intervention
+2. Screenshot the DRAFT screen (for comparison):
+   figma_take_screenshot  — capture draft screen area
 
-IF deviation is within acceptable range (component swaps cause expected differences):
-  → Document expected deviations: "Component instances replace raw elements — expected visual delta"
-  → Proceed
+3. Run automated visual diff:
+   figma_diff_visual(from: draftScreenId, to: handoffScreenId)
+   Record diff result in session state
+
+4. Present comparison to user (ALWAYS, regardless of complexity):
+   "Screen [name] — visual comparison:
+    - Diff score: [score]
+    - Expected differences: [component swaps, cornerRadius addition]
+    - Unexpected differences: [if any]
+    - Instance count: [N] component instances placed
+    [screenshot of handoff screen]"
 ```
 
-**Expected deviations**: When raw elements are replaced with component instances (Step 2.4), minor visual differences are expected and acceptable. The diff should flag these as "component integration deltas" rather than errors. Structural changes (missing elements, wrong positions, lost images) are NOT acceptable.
+#### Step 2.8 — User Approval Gate
 
-#### Step 2.7 — Screen Completion
+```
+IF diff shows unexpected deviations OR complexity was MODERATE/COMPLEX:
+  Present to user:
+  "Screen [name] ready for review:
+   - [summary of changes made]
+   - [N] GROUPs converted to FRAMEs
+   - [M] component instances placed
+   - Constraints: [viewport/scrollable] mode
+
+   Is this screen correct? Options:
+   (A) Approve — proceed to next screen
+   (B) Fix — [describe specific issues to fix] (max 3 fix cycles)
+   (C) Re-clone — delete and start over for this screen
+   (D) Halt — stop workflow for manual intervention"
+
+  Wait for user response.
+  IF fix requested: apply fixes, re-screenshot, re-present (max 3 cycles)
+
+IF diff is within acceptable range AND complexity was TRIVIAL:
+  Auto-approve with notification:
+  "Screen [name]: visual diff OK (score: [S]), [I] instances. Proceeding to next screen."
+```
+
+#### Step 2.9 — Screen Completion
 
 ```
 → LOG: {"op":"screen_complete","target":"<handoffId>","detail":{
     "screen":"<name>",
     "source":"<draftId>",
     "childCount":<N>,
+    "groups_converted":<G>,
     "instance_count":<I>,
     "diff_score":<S>,
+    "screen_type":"viewport|scrollable",
+    "user_approved":<true|false>,
     "status":"complete"
   }}
-→ Update session-state.json with this screen's handoff_id, status, diff_score, instance_count
-→ Report to user: "Screen [N]/[T] — [name]: complete. [I] instances, diff: [S]."
+→ Update session-state.json with this screen's data
+→ Report to user: "Screen [N]/[T] — [name]: complete. [I] instances, [G] GROUPs converted, diff: [S]."
 → Proceed to next screen
 ```
+
+### Handoff Screen Mandatory Checklist (Rule #27)
+
+Every screen cloned to the Handoff page requires these 9 post-processing steps. Derived from errors across all screens processed in production (WK-01, WK-02, WK-03).
+
+| # | Step | What | Why | If Skipped |
+|---|------|------|-----|-----------|
+| 1 | **Corner radius** | `frame.cornerRadius = 32` | Design system standard | Screen looks like raw rectangle |
+| 2 | **Clip content** | `frame.clipsContent = true` | Prevents overflow | Elements visible outside frame |
+| 3 | **GROUP→FRAME** | Convert all GROUP children to FRAMEs | GROUPs can't have constraints | Constraints silently fail |
+| 4 | **Semantic naming** | Rename "Group 137337760" → "hero_text" | Developer readability | Layer panel illegible |
+| 5 | **Constraints** | Set h/v constraints on ALL children | Responsive behavior | Screen breaks on resize |
+| 6 | **Proportional resize** | Recalculate Y per constraint type (viewport only) | Correct spacing at target height | Elements bunched at top/bottom |
+| 7 | **Component integration** | Replace raw elements with instances (TIER 2/3) | Design system consistency | Library changes don't propagate |
+| 8 | **Instance count verify** | Check instance count > 0 (TIER 2/3) | Catch integration failures | Screen has 0 instances |
+| 9 | **Visual validation** | Screenshot + diff with Draft | Catch silent failures | Text shifted, elements displaced |
+
+### Viewport vs Scrollable Screens (Rule #26)
+
+| Screen Type | Height | Vertical Constraints | Resize Needed |
+|-------------|--------|---------------------|---------------|
+| Viewport | ≤ device viewport (e.g., 871px) | Mixed: MIN/MAX/CENTER/STRETCH per element role | Yes — recalculate Y per constraint formula |
+| Scrollable | > viewport (e.g., 1186px+) | All MIN | No — keep draft positions unchanged |
+
+**How to determine**: Compare draft screen height against the target device viewport height. If draft height matches or is less than viewport → Viewport mode. If draft height exceeds viewport → Scrollable mode.
 
 ### Fallback Approach: Build from Figma Node Data (ONLY when clone fails)
 
@@ -455,8 +639,8 @@ Use ONLY when `figma_node_clone` fails for a specific screen AND the screen has 
      - Same dimensions, spacing, padding
   3. For any child nodes with IMAGE fills: clone those individual nodes
      and reparent into the new screen
-  4. Apply Component Integration (Step 2.4) as normal
-  5. Run Visual Fidelity Gate (Step 2.6) as normal
+  4. Apply Component Integration (Step 2.6) as normal
+  5. Run Visual Validation (Step 2.7) as normal
 ```
 
 > **HARD CONSTRAINT**: If a screen contains IMAGE fills and cloning fails, STOP and inform the user. There is no way to recreate IMAGE fills programmatically. See `anti-patterns.md` Hard Constraints and `plugin-api.md` Image Handling.
@@ -644,18 +828,25 @@ Condensed prevention-only table. For full error details, causes, and recovery pr
 | 13 | Orphaned components | Enforce Phase 1 before Phase 2 |
 | 14 | Plan rejected for lacking concrete IDs | Phase 0 must produce verifiable plan with live-verified node IDs before proceeding |
 | 15 | **Screens built from text, not Figma** | NEVER use text docs as design source — always read Figma nodes via `figma_node_children` (Rule #12) |
-| 16 | **All images lost (black rectangles)** | Use `figma_node_clone` for screens with IMAGE fills — Plugin API cannot create IMAGE fills (Rule #14) |
+| 16 | **All images lost (black rectangles)** | Use `figma_node_clone` for screens with IMAGE fills — Plugin API cannot create IMAGE fills (Rule #13) |
 | 17 | **Wrong fonts (Inter instead of source)** | Read `fontName` from Draft text nodes; match exactly when building or verify after cloning |
 | 18 | **No visual fidelity check during construction** | Mandatory `figma_diff_visual` after EVERY screen (Rule #14) |
 | 19 | **Regression: redoing already-completed work** | Read `operation-journal.jsonl` before every mutation; skip logged operations (Rule #3) |
 | 20 | **State lost after context compaction** | Re-read journal + snapshot; resume from first uncompleted operation (Rule #15) |
 | 21 | **Empty clone (childCount=0)** | Validate childCount after every clone; retry once; halt if still 0. NEVER mark complete (Rule #16) |
 | 22 | **Partial clone (childCount < 50% of source)** | Flag for extra visual scrutiny; likely GROUP shallow copy. Compare against Phase 0 inventory baseline (Rule #16) |
-| 23 | **Component library with 0 instances (TIER 2/3)** | Per-screen component integration applies to TIER 2/3 only (Step 2.4). Audit at Phase 5 (Step 5.2). For TIER 1, 0 instances is expected. For TIER 2/3, 0 instances when passing candidates exist indicates a workflow issue (Rule #17) |
+| 23 | **Component library with 0 instances (TIER 2/3)** | Per-screen component integration applies to TIER 2/3 only (Step 2.6). Audit at Phase 5 (Step 5.2). For TIER 1, 0 instances is expected. For TIER 2/3, 0 instances when passing candidates exist indicates a workflow issue (Rule #17) |
 | 24 | **GROUP prototype reactions silently dropped** | Re-read `node.reactions` after `setReactionsAsync`; log as `group_unsupported` not as `wired` (Rule #20) |
 | 25 | **Fabricated journal timestamps** | Use `new Date().toISOString()` inside `figma_execute` or orchestrator-injected real time (Rule #18) |
 | 26 | **Existing content on target page not acknowledged** | Preflight check at Step 0.1B; present options to user; log decision (Rule #19) |
 | 27 | **Batch screen processing hides failures** | Process one screen at a time; validate each before proceeding (Rule #21) |
+| 28 | **Constraints on GROUP nodes silently fail** | Convert all GROUPs to FRAMEs FIRST (Step 2.4, Rule #23) — see `recipes-components.md` GROUP→FRAME recipe |
+| 29 | **`group.remove()` throws after children moved** | Never call remove() on GROUP — it auto-deletes when empty (Rule #24) |
+| 30 | **`createInstance()` on COMPONENT_SET fails** | Find variant COMPONENT child first, then createInstance() on it (Rule #25) |
+| 31 | **Uniform Y-shift breaks proportional resize** | Use per-constraint-type formulas: MIN keeps y, MAX pins bottom, CENTER proportional, STRETCH grows (Rule #26) |
+| 32 | **No user involvement for complex screens** | Present Screen Analysis + questions BEFORE cloning (Step 2.0B, Principle #8) |
+| 33 | **Colors normalized across component variants** | Inspect Draft source for EACH variant independently; never copy fills between variants (Rule #28) |
+| 34 | **Base modified before cloning variants** | Clone N-1 times FIRST, then modify each independently (Rule #28) |
 
 ---
 
