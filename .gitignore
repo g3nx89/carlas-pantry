@@ -8,6 +8,9 @@
 **/requirements/analysis/
 **/requirements/research/
 
+# Claude Code local settings (personal overrides)
+.claude/settings.local.json
+
 # Editor
 .idea/
 .vscode/

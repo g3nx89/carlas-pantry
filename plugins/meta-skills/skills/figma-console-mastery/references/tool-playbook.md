@@ -143,29 +143,30 @@ These tools work in all modes and form the visual feedback loop for autonomous d
 
 ---
 
-## figma-use-first vs figma_execute
+## Native Tools vs figma_execute
 
-**Default strategy**: Use figma-use declarative tools as the primary approach for all creation and modification operations. Reserve figma-console `figma_execute` as a fallback for complex conditional logic, multi-step async sequences, or operations that figma-use cannot handle.
+> **Note (2026-02-22)**: The figma-use MCP server has been removed from this skill due to reliability issues. The native-tools-first strategy below describes the figma-console-only approach.
 
-This strategy reduces token consumption by 60-85% compared to the fire-log-verify pattern (`figma_execute` + `figma_get_console_logs` pairs), and eliminates entire classes of recurring errors (page context, async mode, format mismatches). See `anti-patterns.md` — Recurring API Pattern Errors.
+**Default strategy**: Use figma-console native tools (atomic tools like `figma_rename_node`, `figma_set_fills`, `figma_move_node`, `figma_instantiate_component`) as the primary approach for single-property operations. Reserve `figma_execute` for complex conditional logic, multi-step async sequences, or operations that native tools cannot compose atomically.
 
-**Use figma-use declarative tools when:**
-- Creating nodes (frames, text, shapes, components, instances, sections)
-- Setting individual properties (fill, stroke, radius, font, layout, opacity)
-- Moving, cloning, reparenting, resizing, renaming, deleting nodes
-- Combining variants into component sets
-- Binding variables to node properties
-- Querying or finding nodes by name, type, or XPath
-- Rendering complex multi-node compositions (JSX via `figma_render`)
+This strategy reduces token consumption by 40-70% compared to the fire-log-verify pattern (`figma_execute` + `figma_get_console_logs` pairs) for simple operations, and avoids async error surface. See `anti-patterns.md` — Recurring API Pattern Errors.
 
-**Use figma-console `figma_execute` when:**
+**Use figma-console native tools when:**
+- Renaming a node (`figma_rename_node`)
+- Setting fills or strokes (`figma_set_fills`, `figma_set_strokes`)
+- Moving, resizing, or deleting nodes (`figma_move_node`, `figma_resize_node`, `figma_delete_node`)
+- Instantiating or configuring component instances (`figma_instantiate_component`, `figma_set_instance_properties`)
+- Reading metadata, styles, or variables (`figma_get_styles`, `figma_get_variables`)
+
+**Use `figma_execute` (Plugin API) when:**
 - Complex conditional logic is involved (if/else chains, loops with branching)
 - Multiple async operations must happen in sequence (font loading + text creation + layout setup)
-- Prototype wiring with `setReactionsAsync` (no reliable figma-use equivalent)
-- Batch operations within a single transaction that figma-use tools cannot compose
-- Operations requiring direct Plugin API access not covered by figma-use tools
+- Prototype wiring with `setReactionsAsync`
+- Batch operations across many nodes in a single atomic transaction
+- Operations not covered by native tools (GROUP→FRAME conversion, variant combination, etc.)
+- `getNodeByIdAsync` node lookup followed by immediate mutation
 
-**Rule of thumb**: If the operation can be expressed as a single figma-use tool call, use that tool. Only reach for `figma_execute` when the operation requires multi-step logic or async sequencing.
+**Rule of thumb**: If a native tool does exactly the operation needed with one call, use it. Reach for `figma_execute` when the operation requires multi-step logic, async sequencing, or direct Plugin API access.
 
 ---
 
@@ -308,7 +309,9 @@ These tools control the MCP App interfaces programmatically:
 
 ## Three-Server Comparison
 
-Three Figma MCP servers serve complementary roles. For full figma-use tool inventory and decision matrix, see `figma-use-overview.md`.
+> **⚠️ figma-use removed (2026-02-22)**: This skill no longer includes the figma-use MCP server due to reliability issues (CDP port 9222 dependency, pre-1.0 stability). The comparison below is preserved as historical reference. For active workflows, treat figma-use rows as unavailable — use Console MCP + Official MCP only.
+>
+> Cross-reference: SKILL.md `## figma-use Was Removed` note.
 
 ### At a Glance
 
@@ -359,13 +362,13 @@ Three Figma MCP servers serve complementary roles. For full figma-use tool inven
 - `create_design_system_rules` — rules file for AI agents
 - Agent Skills — packaged workflow plugins for Claude Code, Cursor
 
-### Complementary Workflow
+### Complementary Workflow (Console + Official — figma-use removed)
 
-All three servers work together across six phases:
+Active two-server workflow across six phases:
 
-1. **Analysis phase** — figma-use (`figma_analyze_*` for clusters, colors, spacing; `figma_query` for XPath discovery)
-2. **Design creation phase** — figma-use PRIMARY (`figma_create_*`, `figma_set_*`, `figma_node_*` for atomic operations; `figma_render` for complex multi-node compositions) + Console MCP (`figma_execute` ONLY for complex conditional logic, `figma_instantiate_component` for library components, variable batch CRUD)
-3. **Validation phase** — figma-use (`figma_diff_visual` for pixel comparison, `figma_diff_create` for property diffs) + Console MCP (`figma_check_design_parity`, screenshots, debugging)
+1. **Analysis phase** — Official MCP (`get_metadata`, `get_design_context` for structure/layout reading) + Console MCP (`figma_audit_design_system`, `figma_get_variables`, `figma_get_styles` for design system analysis)
+2. **Design creation phase** — Console MCP native tools PRIMARY (`figma_rename_node`, `figma_set_fills`, `figma_move_node`, etc. for atomic ops) + `figma_execute` for complex conditional logic, component instantiation, variable CRUD, batch operations
+3. **Validation phase** — Console MCP (`figma_capture_screenshot` for live-state visual comparison, `figma_check_design_parity`, `figma_get_console_logs` for debugging)
 4. **Handoff phase** — Console MCP (naming audit, `figma_set_description` for exceptions, `figma_generate_component_doc`) — see SKILL.md Code Handoff Protocol
 5. **Code generation phase** — Official MCP (`get_design_context` for framework-ready code, `get_variable_defs` for token references, `create_design_system_rules` for CLAUDE.md rules)
 6. **Documentation phase** — Console MCP (`figma_generate_component_doc`, `figma_set_description`)
@@ -373,4 +376,4 @@ All three servers work together across six phases:
 > **Plan-aware notes**:
 > - Official MCP `get_design_context` is available on all paid plans with Dev/Full seat (Professional: 15/min, 200/day).
 > - Code Connect is automatic for UI kit components (M3, Apple, SDS) on Professional+. Custom component Code Connect requires Organization/Enterprise.
-> - Console MCP and figma-use have no plan restrictions (local execution).
+> - Console MCP has no plan restrictions (local execution).

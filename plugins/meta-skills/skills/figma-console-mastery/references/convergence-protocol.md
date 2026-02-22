@@ -1,8 +1,8 @@
 # Convergence Protocol
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0, figma-use v0.11.3+ (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 >
-> **Scope**: Anti-regression rules, operation journaling, batch scripting, and subagent delegation for Figma design workflows. For the Draft-to-Handoff workflow that uses these patterns, see `workflow-draft-to-handoff.md`. For error recovery, see `anti-patterns.md`.
+> **Scope**: Anti-regression rules, operation journaling, batch scripting, and subagent delegation for Figma design workflows. For the Draft-to-Handoff workflow that uses these patterns, see the `design-handoff` skill (product-definition plugin). For error recovery, see `anti-patterns.md`.
 
 ---
 
@@ -135,7 +135,7 @@ BEFORE mutating operation:
 | C4 | **Node ID is the primary key** — convergence checks match on node ID + operation type, not node name (names can be ambiguous) | Prevents false negatives from renamed nodes |
 | C5 | **Phase boundaries are logged** — `phase_complete` entries allow skipping entire phases on resume | Prevents re-executing completed phases |
 | C6 | **Treat journal as append-only truth** — if the journal says X was done, do not redo X even if it appears to need redoing | Breaks the regression loop |
-| C7 | **When in doubt, verify via Figma** — if a journal entry seems stale or wrong, use `figma_node_get` or `figma_node_children` to check the actual Figma state, then decide whether to proceed or add a correction entry | Safety valve for journal integrity |
+| C7 | **When in doubt, verify via Figma** — if a journal entry seems stale or wrong, use `figma_execute` to read node properties (`getNodeByIdAsync`, `findOne`, `children.map(c => ({id,name,type}))`) to check the actual Figma state, then decide whether to proceed or add a correction entry | Safety valve for journal integrity |
 
 ### Quick Convergence Patterns
 
@@ -167,17 +167,17 @@ BEFORE mutating operation:
 
 ## 3. Batch Scripting Protocol
 
-When 3+ nodes need the same operation type (rename, move, set fill, set layout), use a **single `figma_execute` call** with a batch script instead of N individual figma-use calls. This reduces token consumption by 70-90% for homogeneous operations.
+When 3+ nodes need the same operation type (rename, move, set fill, set layout), use a **single `figma_execute` call** with a batch script instead of N individual `figma_execute` calls. This reduces token consumption by 70-90% for homogeneous operations.
 
 ### When to Batch
 
 | Condition | Action |
 |-----------|--------|
-| 3+ nodes, same operation type, independent | **BATCH** via `figma_execute` |
-| 1-2 nodes, any operation | **INDIVIDUAL** via figma-use |
-| Operations depend on each other's results | **SEQUENTIAL** via figma-use |
-| Debugging a failure | **INDIVIDUAL** via figma-use (easier to isolate) |
-| Operation needs figma-use-only features (diff, lint, analyze) | **INDIVIDUAL** via figma-use |
+| 3+ nodes, same operation type, independent | **BATCH** via single `figma_execute` script |
+| 1-2 nodes, any operation | **INDIVIDUAL** `figma_execute` call |
+| Operations depend on each other's results | **SEQUENTIAL** `figma_execute` calls |
+| Debugging a failure | **INDIVIDUAL** `figma_execute` (easier to isolate) |
+| Using native figma-console tools (search, instantiate, variables) | **NATIVE** tool call |
 
 ### Batch Script Templates
 
@@ -268,18 +268,18 @@ When 3+ nodes need the same operation type (rename, move, set fill, set layout),
 | B3 | **Return structured results** — JSON with per-node status (success/already_done/not_found/error) | Enables accurate journal logging |
 | B4 | **Log one journal entry per batch** — use `batch_rename`, `batch_move`, etc. with count and sample node IDs | Keeps journal concise for bulk operations |
 | B5 | **Clear console before batch** — `figma_clear_console` before `figma_execute` | Prevents buffer rotation data loss |
-| B6 | **Verify after batch** — screenshot or `figma_node_children` after each batch to confirm | Catches silent partial failures |
+| B6 | **Verify after batch** — `figma_capture_screenshot` or targeted `figma_execute` read after each batch to confirm | Catches silent partial failures |
 
 ### Token Savings Comparison
 
 | Operation | Individual (N calls) | Batched (1 call) | Savings |
 |-----------|---------------------|-------------------|---------|
-| Rename 20 nodes | ~2,000 tokens (20 figma-use calls) | ~600 tokens (1 figma_execute) | **70%** |
-| Move 15 nodes | ~1,500 tokens (15 figma-use calls) | ~500 tokens (1 figma_execute) | **67%** |
-| Set fill on 10 nodes | ~1,000 tokens (10 figma-use calls) | ~350 tokens (1 figma_execute) | **65%** |
+| Rename 20 nodes | ~2,000 tokens (20 individual calls) | ~600 tokens (1 figma_execute) | **70%** |
+| Move 15 nodes | ~1,500 tokens (15 individual calls) | ~500 tokens (1 figma_execute) | **67%** |
+| Set fill on 10 nodes | ~1,000 tokens (10 individual calls) | ~350 tokens (1 figma_execute) | **65%** |
 | Mixed: 20 renames + 15 moves + 10 fills | ~4,500 tokens (45 calls) | ~1,450 tokens (3 batches) | **68%** |
 
-> **Trade-off**: Batch scripts are harder to debug when they fail. If a batch returns errors, switch to individual figma-use calls for the failing nodes to isolate the issue. The batch + individual fallback combination is still far cheaper than all-individual.
+> **Trade-off**: Batch scripts are harder to debug when they fail. If a batch returns errors, switch to individual `figma_execute` calls for the failing nodes to isolate the issue. The batch + individual fallback combination is still far cheaper than all-individual.
 
 ---
 
@@ -309,7 +309,7 @@ Orchestrator (SKILL.md / main session)
 ├── Phase 1: Task(general-purpose) → "Component Builder"
 │   ├── loads: figma-console-mastery skill references
 │   ├── reads: session-state.json, operation-journal.jsonl
-│   ├── reads: workflow-draft-to-handoff.md (Phase 1 section)
+│   ├── reads: design-handoff skill stage reference files (product-definition plugin)
 │   ├── creates components, logs to journal
 │   └── writes: session-state.json (phase 1 complete)
 │
@@ -366,9 +366,6 @@ Without these references, subagents miss critical rules (GROUP→FRAME conversio
 COMPONENT_SET instantiation, clone-first architecture, journal protocol, visual fidelity gates)
 and reproduce the exact failures documented in v1/v2 retrospectives.
 
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-draft-to-handoff.md
-  (Phase {N} section — your specific instructions, Handoff Screen Checklist, per-screen pipeline)
-
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-protocol.md
   (Journal protocol, convergence checks, batch scripting)
 
@@ -380,10 +377,10 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.
 
 {Additional references by phase:}
   Phase 1 (components): + recipes-components.md (GROUP→FRAME, Componentize from Clone, COMPONENT_SET instantiation), design-rules.md
-  Phase 2 (screens):    + recipes-components.md (GROUP→FRAME recipe — CRITICAL for Step 2.4), tool-playbook.md, figma-use-overview.md
+  Phase 2 (screens):    + recipes-components.md (GROUP→FRAME recipe — CRITICAL for Step 2.4), tool-playbook.md
   Phase 3 (wiring):     + (none additional)
   Phase 4 (annotations): + (none additional)
-  Phase 5 (validation):  + figma-use-diffing.md
+  Phase 5 (validation):  + anti-patterns.md (screenshot validation: use figma_capture_screenshot for live state)
 
 ## Mandatory Rules
 1. Read the journal FIRST — build a set of completed operations
@@ -394,7 +391,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/anti-patterns.
 6. Write updated session-state.json after completing each screen (Phase 2) or at phase completion
 7. Validate childCount after every clone — 0 children on a non-empty source is a clone failure
 8. Replace recurring elements with component instances — 0 instances = incomplete screen
-9. Run figma_diff_visual after every screen (Phase 2) — not just at the end
+9. Run `figma_capture_screenshot` on each screen after Phase 2 processing and compare visually against source — not just at the end
 10. If blocked, write status: "needs-user-input" in session-state.json and STOP
 11. Convert ALL GROUP nodes to FRAMEs BEFORE setting constraints — GROUPs silently ignore constraints
 12. Use createInstance() on COMPONENT (variant child), NEVER on COMPONENT_SET
@@ -549,7 +546,7 @@ Read: specs/figma/operation-journal.jsonl → completed operations
 
 ### Step 3 — Verify Figma state
 - `figma_get_status` → confirm connection
-- `figma_node_children` on current working area → confirm nodes match journal
+- `figma_execute`: `figma.currentPage.children.map(c => ({id:c.id,name:c.name}))` → confirm nodes match journal
 
 ### Step 4 — Resume from first uncompleted operation
 - DO NOT restart the phase from the beginning
@@ -565,7 +562,6 @@ Read: specs/figma/operation-journal.jsonl → completed operations
 
 ## Cross-References
 
-- **Draft-to-Handoff workflow** (uses this protocol): `workflow-draft-to-handoff.md`
+- **Draft-to-Handoff workflow** (uses this protocol): `design-handoff` skill (product-definition plugin)
 - **Anti-patterns** (regression patterns to avoid): `anti-patterns.md`
-- **figma-use tool inventory**: `figma-use-overview.md`
-- **Foundation patterns** (IIFE wrapper, font preloading for `figma_execute` code): `recipes-foundation.md`
+- **Foundation patterns** (IIFE wrapper, outer-return requirement, font preloading for `figma_execute` code): `recipes-foundation.md`

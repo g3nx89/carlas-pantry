@@ -1,6 +1,6 @@
 {
   "name": "meta-skills",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Collection of meta-skills for mastering Claude Code, MCP servers, and agentic workflows",
   "author": {
     "name": "Alessandro Fato"

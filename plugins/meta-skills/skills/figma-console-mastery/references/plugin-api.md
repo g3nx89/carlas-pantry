@@ -554,7 +554,7 @@ node.dashPattern = [10, 5]  // [dash, gap]
 
 Images in Figma are a paint type (`ImagePaint`), not a standalone node. Apply them as fills on shapes or frames.
 
-> **CRITICAL CONSTRAINT for Draft-to-Handoff workflows**: While `createImageAsync(url)` and `createImage(bytes)` exist, they are NOT usable for transferring existing designs between pages. When moving designs from a Draft page to a Handoff page, the ONLY way to preserve IMAGE fills is to **clone the source node** via `figma_node_clone`. Any approach that creates screens from scratch instead of cloning will lose all images, replacing them with black rectangles. See `workflow-draft-to-handoff.md` Phase 2 and `anti-patterns.md` Hard Constraints for the full constraint.
+> **CRITICAL CONSTRAINT for Draft-to-Handoff workflows**: While `createImageAsync(url)` and `createImage(bytes)` exist, they are NOT usable for transferring existing designs between pages. When moving designs from a Draft page to a Handoff page, the ONLY way to preserve IMAGE fills is to **clone the source node** via `figma_node_clone`. Any approach that creates screens from scratch instead of cloning will lose all images, replacing them with black rectangles. See `anti-patterns.md` Hard Constraints and the `design-handoff` skill (product-definition plugin) for the full preparation workflow.
 
 ### From URL (async)
 

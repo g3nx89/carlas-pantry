@@ -51,10 +51,13 @@ Every `figma_execute` call MUST use this async IIFE wrapper. Omitting it causes 
 
 **Returns**: `{ success: true, id: "1:23" }` or `{ success: false, error: "..." }`
 
-> **WARNING — Async IIFE Return Values**: The `return JSON.stringify(...)` inside an async IIFE is technically returning from the async function, which produces a Promise. The `figma_execute` bridge sees a Promise object and may return `undefined` instead of the actual data. **Workarounds**:
-> 1. **Split pattern**: Use async IIFE for mutations (font loading, node creation), then retrieve data with a separate SYNC `figma_execute` call
-> 2. **Console pattern**: Use `console.log(JSON.stringify(data))` inside the async IIFE, then read with `figma_get_console_logs`
-> 3. **In practice**: Many implementations DO return data successfully from async IIFEs — test your specific setup. If returns are empty, use the split or console pattern
+> **Async IIFE Return Values — Outer `return` is Required**: The Desktop Bridge DOES await a returned Promise — but only when the outer `return` keyword is present. Two valid forms:
+> 1. **Data return form**: `return (async () => { ... return JSON.stringify(data); })()` — outer `return` makes the bridge await the Promise and capture the resolved value. ✅ Confirmed working
+> 2. **Side-effect form**: `(async () => { ... })()` (no outer `return`) — correct when you only need mutations and don't need data back
+>
+> **Common mistake**: Writing `(async () => { return data; })()` without the outer `return`. The IIFE evaluates to a Promise; the outer expression discards it silently and the bridge receives `undefined`.
+>
+> **Enum validation caveat**: Invalid enum values (e.g., `primaryAxisSizingMode = "FILL"`) throw validation errors inside async IIFEs that are NOT caught by try-catch, causing the entire script to fail silently with no output. Always use documented enum values.
 
 ### Pattern: Multi-Font Preloading
 
