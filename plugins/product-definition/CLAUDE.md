@@ -234,3 +234,37 @@ Three patterns introduced in the design-narration skill (v1.4.0) that are reusab
 **Solution**: Each MPA agent tags every finding with a confidence level (high/medium/low). The synthesis agent uses confidence for: (1) deduplication — merged findings take the higher confidence, (2) PAL elevation — PAL corroboration bumps confidence one tier, (3) intra-severity sorting — high-confidence findings surface first within each priority tier. Confidence never overrides severity — a low-confidence CRITICAL finding remains CRITICAL.
 
 **Applied to**: `narration-edge-case-auditor.md`, `narration-developer-implementability.md`, `narration-ux-completeness.md` (producers), and `narration-validation-synthesis.md` (consumer).
+
+### Design Handoff v2.3.0 Patterns
+
+Three patterns introduced in the design-handoff skill (v2.3.0) that evolved from design-narration lessons:
+
+#### Figma-as-Source-of-Truth with Supplement-Only Gaps
+
+**Problem**: design-narration produced ~4700-line UX-NARRATIVE files that described EVERYTHING including what's already visible in Figma (layouts, colors, spacing). This created unreadable output, SDD drift risk, and overhead for coding agents.
+
+**Solution**: Two-track approach — (A) prepare the Figma file itself for coding agent consumption (naming, structure, components, tokens), and (B) generate a compact supplement covering ONLY what Figma cannot express (behaviors, transitions, states, animations, data requirements, edge cases). The supplement uses tables over prose; every word must earn its place.
+
+**Key rule**: If there's a conflict between supplement and Figma, the Figma file wins (opposite of design-narration which said narrative takes precedence).
+
+**Applied to**: `skills/design-handoff/SKILL.md` (core philosophy), `references/gap-analysis.md` (6-category gap detection), `references/output-assembly.md` (assembly rules).
+
+#### LLM-as-Judge at Stage Boundaries (Replacing MPA+PAL)
+
+**Problem**: design-narration used 3 MPA specialist agents + PAL Consensus + validation synthesis (8 total agents) for quality verification. This was slow, context-heavy, and the synthesis step often produced biased results (first-read anchoring).
+
+**Solution**: Single reusable `handoff-judge` agent (opus) dispatched at 4 critical stage boundaries (2J, 3J, 3.5J, 5J), each with a checkpoint-specific rubric. The judge is a dedicated PHASE element, not an inline afterthought — dispatched between stages with its own verdict format (PASS/NEEDS_FIX/BLOCK).
+
+**Benefit**: Simpler quality gates with clearer pass/fail criteria. ~46% reduction in total reference file lines. No synthesis bias issues since there's a single evaluator per checkpoint.
+
+**Applied to**: `references/judge-protocol.md` (shared dispatch pattern + 4 rubrics), `agents/handoff-judge.md` (470 lines with per-checkpoint dimension scoring).
+
+#### One-Screen-Per-Dispatch for Context-Heavy MCP
+
+**Problem**: figma-console MCP returns large node trees, variable collections, and component metadata per call. Processing multiple screens in a single agent dispatch leads to context compaction, causing the agent to lose track of node IDs, skip checklist steps, or produce inaccurate visual diffs.
+
+**Solution**: Orchestrator dispatches `handoff-figma-preparer` once per screen, sequentially. State file tracks step-level progress within each screen for crash recovery. Between dispatches, orchestrator reads state to determine outcome (prepared/blocked/error).
+
+**Trade-off**: Higher dispatch latency (N dispatches instead of 1), accepted for dramatically better per-screen quality and reliable crash recovery.
+
+**Applied to**: `references/figma-preparation.md` (dispatch loop + crash recovery), `agents/handoff-figma-preparer.md` (9-step checklist per screen).

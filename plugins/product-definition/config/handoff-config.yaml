@@ -1,0 +1,208 @@
+# Design Handoff Configuration
+# Plugin: product-definition | Skill: design-handoff
+
+version: "1.0.0"
+last_updated: "2026-02-22"
+
+# =============================================================================
+# DIRECTORY STRUCTURE (User's working directory - NOT plugin directory)
+# =============================================================================
+
+directories:
+  root: "design-handoff"                    # All handoff artifacts live here
+  screenshots: "design-handoff/screenshots" # Before/after visual diffs per screen
+  working: "design-handoff/working"         # Intermediate artifacts (gap report drafts, judge verdicts)
+
+# =============================================================================
+# STATE MANAGEMENT
+# =============================================================================
+
+state:
+  file_name: ".handoff-state.local.md"      # YAML frontmatter + markdown; lives in directories.root
+  schema_version: 1
+  lock_file: ".handoff-lock"                # Prevents concurrent workflow runs
+  lock_stale_timeout_minutes: 60            # Lock older than this is force-released on resume
+
+# =============================================================================
+# FIGMA INTEGRATION
+# =============================================================================
+
+# Both figma-desktop AND figma-console MCP servers are REQUIRED.
+# figma-desktop: read-only analysis (get_metadata, get_screenshot, get_design_context)
+# figma-console: read + write operations (figma_execute, figma_rename_node, figma_take_screenshot, etc.)
+# Workflow STOPS at Stage 1 if either MCP server is unavailable.
+
+figma:
+  connection: "desktop+console"             # Both required; no graceful degradation
+
+# =============================================================================
+# TIER SYSTEM (Smart Componentization from figma-console-mastery)
+# =============================================================================
+
+tier:
+  default: 2                                # Default TIER if auto-detection inconclusive
+  levels:
+    1: "Pass-through — naming cleanup only, no component extraction"
+    2: "Standard — component library + token alignment"
+    3: "Full — component library + token alignment + prototype wiring"
+  smart_componentization:
+    recurrence_threshold: 3                 # Element must appear 3+ times across screens
+    require_behavioral_variants: true       # Must have distinct states (hover, disabled, etc.)
+    require_codebase_match: true            # Must map to a plausible code component
+
+# =============================================================================
+# READINESS SCORING (Stage 1 Figma quality assessment)
+# =============================================================================
+
+readiness:
+  naming_compliance_threshold: 90           # % of components using PascalCase naming
+  token_binding_threshold: 80               # % of fills/strokes bound to design variables
+  group_warning_threshold: 5                # Flag screen if > this many GROUP nodes (should be FRAMEs)
+  deep_nesting_warning_depth: 8             # Flag layers nested deeper than this level
+
+# =============================================================================
+# GAP ANALYSIS (Stage 3)
+# =============================================================================
+
+gap_analysis:
+  categories:                               # What Figma CANNOT express — the supplement's scope
+    - "behaviors"                            # Tap/swipe/long-press outcomes, conditional logic
+    - "states"                               # Loading, error, empty, disabled, offline states
+    - "animations"                           # Micro-interactions, gesture-driven, transition specs
+    - "data"                                 # API calls, payloads, response shapes, real-time updates
+    - "logic"                                # Business rules, permission gates, A/B variations
+    - "edge_cases"                           # Offline, timeout, rate limit, concurrent actions
+  severity_levels:
+    - id: "CRITICAL"
+      description: "Blocks implementation — coding agent cannot proceed without this"
+    - id: "IMPORTANT"
+      description: "Improves quality — coding agent can approximate but result will be incomplete"
+    - id: "NICE_TO_HAVE"
+      description: "Polish item — can be deferred to post-MVP iteration"
+  missing_screen_classifications:
+    - id: "MUST_CREATE"
+      description: "Blocks implementation — no visual reference exists for required screen"
+    - id: "SHOULD_CREATE"
+      description: "Improves quality — coding agent can approximate layout without reference"
+    - id: "OPTIONAL"
+      description: "Can be described in supplement text only — no Figma screen needed"
+
+# =============================================================================
+# DESIGNER DIALOG (Stage 4)
+# =============================================================================
+
+designer_dialog:
+  questions_per_batch: 4                    # Max questions shown per AskUserQuestion call
+  screen_ordering: "most_gaps_first"        # "most_gaps_first" | "figma_page_order"
+  accept_remaining_option: true             # Allow designer to say "accept remaining as-is"
+  cross_screen_confirmation: true           # Ask designer to confirm shared patterns work identically
+
+# =============================================================================
+# JUDGE PROTOCOL (LLM-as-Judge at stage boundaries)
+# =============================================================================
+
+# Shared dispatch pattern defined in references/judge-protocol.md.
+# Each checkpoint has its own rubric, pass criteria, and failure behavior.
+
+judge:
+  checkpoints:
+    stage_2j:                               # After Stage 2: Figma Preparation Quality
+      visual_diff_threshold: 0.95           # Advisory: qualitative visual comparison (no computed metric). Agent evaluates visual fidelity holistically.
+      naming_min_compliance: 90             # % PascalCase compliance required to pass
+      token_min_coverage: 80                # % token binding required to pass
+      group_max_residue: 0                  # Max GROUP nodes allowed as direct children of prepared screen
+      max_fix_cycles: 3                     # Max judge→fix→re-verify loops per screen
+      on_final_fail: "halt_screen"          # "halt_screen": mark blocked, continue | "halt_workflow": stop everything
+    stage_3j:                               # After Stage 3: Gap Completeness Check
+      max_review_cycles: 1                  # Lightweight check — one re-examine cycle max
+    stage_3_5j:                             # After Stage 3.5: Design Extension Quality
+      max_fix_cycles: 2                     # Max fix cycles for newly created screens
+    stage_5j:                               # After Stage 5: Supplement Quality Check
+      max_revision_cycles: 1               # Max revision cycles for supplement content
+
+# =============================================================================
+# WORKFLOW MODES
+# =============================================================================
+
+modes:
+  default: "guided"                         # Interactive per-screen dialog with designer
+  available:
+    - id: "guided"
+      description: "Batch discovery, then interactive per-screen gap discussion"
+      stages: [1, 2, "2j", 3, "3j", "3.5", "3.5j", 4, 5, "5j"]
+    - id: "quick"
+      description: "Single screen, no batch analysis or Figma preparation"
+      stages: [1, 3, 4, 5]
+    - id: "batch"
+      description: "File-based Q&A, no interactive dialog — gaps written to file for offline answers"
+      stages: [1, 2, "2j", 3, "3j", "3.5", "3.5j", 5, "5j"]
+
+# =============================================================================
+# FIGMA PREPARATION (Stage 2 dispatch control)
+# =============================================================================
+
+figma_preparation:
+  one_screen_per_dispatch: true             # CRITICAL: context-heavy MCP — never batch multiple screens
+  component_library_dispatch: "once"        # "once" for TIER 2/3 — separate dispatch before screen loop
+  prototype_wiring_dispatch: "final"        # "final" — single dispatch after all screens prepared
+  scenario_detection:
+    draft_naming_threshold: 50              # avg_naming < this → draft_to_handoff
+    draft_token_threshold: 30               # avg_tokens < this → draft_to_handoff
+    clean_threshold: 85                     # readiness composite >= this → already_clean (must also pass naming/token/group checks)
+    descriptions:
+      a_draft_to_handoff: "Full pipeline: clone, GROUP→FRAME, constraints, components, visual diff"
+      b_in_place_cleanup: "Naming audit, token alignment, GROUP→FRAME, component integration"
+      c_already_clean: "Naming verification only — skip to Stage 3"
+
+# =============================================================================
+# DESIGN EXTENSION (Stage 3.5 dispatch control)
+# =============================================================================
+
+design_extension:
+  one_screen_per_dispatch: true             # Same rationale as figma_preparation
+  designer_options:                         # Options presented per missing screen/state
+    - id: "A"
+      label: "Create in Figma now"
+      description: "Subagent creates placeholder screen/state using existing design patterns"
+    - id: "B"
+      label: "Designer will create manually"
+      description: "Pause workflow — resume on re-invocation after designer creates screen"
+    - id: "C"
+      label: "Document in supplement only"
+      description: "Describe in HANDOFF-SUPPLEMENT.md without visual reference"
+    - id: "D"
+      label: "Skip"
+      description: "Not needed for this handoff"
+
+# =============================================================================
+# MODEL ASSIGNMENTS
+# =============================================================================
+
+model_assignments:
+  haiku:
+    - "handoff-screen-scanner"              # Stage 1: Figma frame discovery, structural analysis, readiness scoring
+  sonnet:
+    - "handoff-figma-preparer"              # Stage 2, 3.5: Figma preparation + design extension (loads figma-console-mastery)
+    - "handoff-gap-analyzer"                # Stage 3: Gap detection + missing screen detection, dual MCP
+  opus:
+    - "handoff-judge"                       # Stages 2J, 3J, 3.5J, 5J: LLM-as-judge at critical boundaries
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+
+output:
+  supplement_file: "HANDOFF-SUPPLEMENT.md"  # Compact tables-first document — ONLY what Figma cannot express
+  manifest_file: "handoff-manifest.md"      # Structural inventory: screens, components, tokens, health
+  gap_report_file: "gap-report.md"          # Intermediate: per-screen gaps + missing screens (working artifact)
+  include_mermaid_navigation: true          # Screen-to-screen navigation graph in supplement
+  include_cross_screen_patterns: true       # Shared behaviors, common transitions section in supplement
+
+# =============================================================================
+# TEMPLATES (Plugin-relative paths)
+# =============================================================================
+
+templates:
+  supplement: "$CLAUDE_PLUGIN_ROOT/templates/handoff-supplement-template.md"
+  screen: "$CLAUDE_PLUGIN_ROOT/templates/handoff-screen-template.md"
+  manifest: "$CLAUDE_PLUGIN_ROOT/templates/handoff-manifest-template.md"

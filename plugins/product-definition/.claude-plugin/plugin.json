@@ -1,7 +1,7 @@
 {
   "name": "product-definition",
-  "version": "2.2.0",
-  "description": "Transform rough product drafts into finalized PRDs, create detailed technical specifications, and generate UX/interaction narratives from Figma mockups — with multi-perspective analysis, Figma integration, PAL consensus validation, and V-Model test strategy generation",
+  "version": "2.3.0",
+  "description": "Transform rough product drafts into finalized PRDs, create detailed technical specifications, prepare Figma designs for coding agent handoff, and generate UX/interaction narratives — with multi-perspective analysis, Figma integration, LLM-as-judge quality gates, and V-Model test strategy generation",
   "author": {
     "name": "Alessandro Fato",
     "email": "afato@example.com"
@@ -24,7 +24,10 @@
     "qa",
     "ux-narrative",
     "design-narration",
-    "figma-narrative"
+    "figma-narrative",
+    "design-handoff",
+    "figma-handoff",
+    "llm-as-judge"
   ],
   "license": "MIT"
 }
