@@ -9,7 +9,7 @@ description: >-
   (compact table-first document covering ONLY behaviors, transitions, and logic
   not expressible in Figma). Figma file is the visual source of truth.
 version: 1.0.0
-allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-console__figma_take_screenshot", "mcp__figma-console__figma_audit_design_system", "mcp__figma-console__figma_get_selection", "mcp__figma-console__figma_search_components", "mcp__figma-console__figma_get_variables", "mcp__figma-console__figma_get_styles", "mcp__figma-console__figma_get_status"]
+allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_design_context", "mcp__figma-console__figma_take_screenshot", "mcp__figma-console__figma_capture_screenshot", "mcp__figma-console__figma_audit_design_system", "mcp__figma-console__figma_get_selection", "mcp__figma-console__figma_search_components", "mcp__figma-console__figma_get_variables", "mcp__figma-console__figma_get_styles", "mcp__figma-console__figma_get_status"]
 ---
 
 # Design Handoff Skill — Lean Orchestrator
@@ -36,6 +36,7 @@ Prepare Figma designs for coding agent consumption via two tracks:
 5. **Judge checkpoints are dedicated phases**: The judge is dispatched as a SEPARATE agent at each checkpoint boundary. Never inline quality evaluation.
 6. **Coordinator never talks to users**: Agents write to files. Orchestrator mediates ALL user interaction via AskUserQuestion.
 7. **Config reference**: All thresholds and parameters from `@$CLAUDE_PLUGIN_ROOT/config/handoff-config.yaml`.
+8. **Screenshots ALWAYS via figma-console**: NEVER use `mcp__figma-desktop__get_screenshot`. Use `figma_take_screenshot` (figma-console) for baseline reads. Use `figma_capture_screenshot` (figma-console, Desktop Bridge) for any post-mutation visual diff — `figma_take_screenshot` returns a cloud-cached render and will appear unchanged after Plugin API mutations.
 
 ---
 

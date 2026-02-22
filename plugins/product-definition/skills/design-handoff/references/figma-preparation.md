@@ -92,11 +92,15 @@ This is a ONE-TIME operation before the per-screen preparation loop.
 {CANDIDATES_YAML}
 
 ## Instructions
-1. Load figma-console-mastery smart-componentization reference
+1. Load `@figma-console-mastery/references/workflow-code-handoff.md` for TIER system and Smart Componentization Criteria
 2. Create a "Components" page in the Figma file (or use existing if present)
 3. For EACH candidate that passed all 3 Smart Componentization gates:
    a. Create the base component with semantic PascalCase name
    b. Create variant properties for identified behavioral states
+      > **⚠️ `combineAsVariants` property completeness**: When using `combineAsVariants`, ALL
+      > variant node properties MUST be set BEFORE calling combine. Properties set after the
+      > combine call are silently dropped. Verify that every variant frame has its `name` set
+      > in `Property=Value` format and all required properties are populated before combining.
    c. Record component node_id, variant props, and target screens
 4. Update state file: component_library.status = "created"
 5. Update state file: component_library.components[] with all created entries

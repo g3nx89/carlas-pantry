@@ -12,8 +12,8 @@ tools:
   - Write
   - mcp__figma-desktop__get_metadata
   - mcp__figma-desktop__get_design_context
-  - mcp__figma-desktop__get_screenshot
   - mcp__figma-console__figma_take_screenshot
+  - mcp__figma-console__figma_capture_screenshot
   - mcp__figma-console__figma_get_component_details
   - mcp__figma-console__figma_search_components
   - mcp__figma-console__figma_get_styles
@@ -56,8 +56,8 @@ This agent uses BOTH Figma MCP servers for complementary analysis:
 
 | MCP Server | Tools | What It Reveals |
 |------------|-------|-----------------|
-| **figma-desktop** | `get_metadata`, `get_design_context`, `get_screenshot` | Layer structure, CSS specs, visual appearance, layout properties |
-| **figma-console** | `figma_take_screenshot`, `figma_get_component_details`, `figma_search_components`, `figma_get_styles`, `figma_get_variables` | Component variant coverage, instance spread patterns, style consistency, token/variable bindings, design system health |
+| **figma-desktop** | `get_metadata`, `get_design_context` | Layer structure, CSS specs, layout properties |
+| **figma-console** | `figma_take_screenshot`, `figma_get_component_details`, `figma_search_components`, `figma_get_styles`, `figma_get_variables` | Screenshots (ALWAYS figma-console — NEVER `figma-desktop::get_screenshot`), component variant coverage, instance spread patterns, style consistency, token/variable bindings, design system health |
 
 **Why both?** figma-desktop reveals what IS in the file. figma-console reveals design system patterns that IMPLY what should be there but is missing (e.g., a component with only 2 of 5 expected variants).
 
@@ -69,15 +69,26 @@ For EACH screen in the inventory:
 
 ### Step A1: Read What IS Expressed
 
+> **⚠️ False-positive risk — `get_design_context` text/fill values**: `get_design_context` returns
+> **master component property defaults**, not live overrides applied by the Plugin API (e.g., text
+> set via `figma_set_text`, fills set via `figma_set_fills` or variable bindings). If Stage 2
+> preparation used Plugin API calls to bind content or tokens, `get_design_context` will still
+> report the component's pre-preparation defaults. Before classifying a Stage-2-prepared screen
+> as having "hardcoded text" or "no token binding", cross-check against the operation journal in
+> the state file. A `figma_set_text` or token binding entry in the journal overrides what
+> `get_design_context` reports.
+
 ```
 CALL mcp__figma-desktop__get_metadata(nodeId={screen_node_id})
   → Layer tree, element names, types, positions
 
 CALL mcp__figma-desktop__get_design_context(nodeId={screen_node_id})
   → Colors, typography, spacing, constraints, auto-layout
+  ⚠️ Returns master component defaults — see warning above before classifying gaps
 
-CALL mcp__figma-desktop__get_screenshot(nodeId={screen_node_id})
+CALL mcp__figma-console__figma_take_screenshot(nodeId={screen_node_id})
   → Visual appearance (reference only — do NOT describe in output)
+  ⚠️ Always use figma-console for screenshots — NEVER mcp__figma-desktop__get_screenshot (cloud-cached, stale after mutations)
 
 CALL mcp__figma-console__figma_get_component_details() for each component instance
   → Variant definitions, available properties, current variant selections

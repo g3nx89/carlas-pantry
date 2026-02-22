@@ -75,8 +75,10 @@ The gap analyzer uses BOTH Figma MCP servers on each screen. This is not redunda
 
 | Pass | MCP Server | Tools Used | What It Reveals |
 |------|------------|------------|-----------------|
-| 1 | figma-desktop | `get_metadata`, `get_design_context`, `get_screenshot` | Layer tree (element names, types, hierarchy), CSS specs (colors, spacing, typography), visual appearance. This tells the analyzer what IS expressed. |
+| 1 | figma-desktop | `get_metadata`, `get_design_context` | Layer tree (element names, types, hierarchy), CSS specs (colors, spacing, typography). This tells the analyzer what IS expressed structurally. |
 | 2 | figma-console | `figma_get_component_details`, `figma_search_components`, `figma_get_styles`, `figma_get_variables` | Component variant definitions (revealing missing states), instance spread (revealing shared patterns), style consistency (revealing outliers), variable bindings (revealing theming gaps). This tells the analyzer what SHOULD be there but is not. |
+
+> **Screenshot rule**: NEVER use `figma-desktop::get_screenshot`. All screenshots MUST use figma-console (`figma_take_screenshot` for baseline reads; `figma_capture_screenshot` for post-mutation diffs — REST API is cloud-cached and returns stale renders after Plugin API changes).
 
 **Why Pass 2 matters:** figma-desktop shows that a Button instance exists on the Login screen. figma-console reveals that this Button component has only `default` and `hover` variants — meaning `disabled`, `loading`, and `error` variants are missing states that Figma does not express.
 

@@ -28,8 +28,8 @@ state:
 # =============================================================================
 
 # Both figma-desktop AND figma-console MCP servers are REQUIRED.
-# figma-desktop: read-only analysis (get_metadata, get_screenshot, get_design_context)
-# figma-console: read + write operations (figma_execute, figma_rename_node, figma_take_screenshot, etc.)
+# figma-desktop: read-only analysis (get_metadata, get_design_context) — NO screenshots (get_screenshot is cloud-cached/stale)
+# figma-console: screenshots + read + write (figma_take_screenshot, figma_capture_screenshot, figma_execute, figma_rename_node, etc.)
 # Workflow STOPS at Stage 1 if either MCP server is unavailable.
 
 figma:

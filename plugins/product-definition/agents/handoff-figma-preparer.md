@@ -14,7 +14,6 @@ tools:
   - Glob
   - Grep
   - mcp__figma-desktop__get_metadata
-  - mcp__figma-desktop__get_screenshot
   - mcp__figma-desktop__get_design_context
   - mcp__figma-console__figma_execute
   - mcp__figma-console__figma_create_child
@@ -41,6 +40,7 @@ tools:
   - mcp__figma-console__figma_audit_design_system
   - mcp__figma-console__figma_navigate
   - mcp__figma-console__figma_get_file_data
+  - mcp__figma-console__figma_get_status
 
 ---
 
@@ -62,9 +62,9 @@ Before starting any Figma operations, read these reference files for technique g
 
 | Reference | Purpose | Load When |
 |-----------|---------|-----------|
-| `@figma-console-mastery/references/smart-componentization.md` | TIER system, component creation recipes | Starting component library work |
-| `@figma-console-mastery/references/code-handoff-protocol.md` | Naming conventions, manifest format | Starting any screen preparation |
-| `@figma-console-mastery/references/advanced-recipes.md` | GROUP-to-FRAME conversion, constraint migration, variable binding | Executing checklist steps |
+| `@figma-console-mastery/references/workflow-code-handoff.md` | TIER system, Smart Componentization Criteria (3 gates), naming conventions, manifest format | Starting any screen preparation |
+| `@figma-console-mastery/references/recipes-foundation.md` | Async IIFE patterns, outer `return` requirement, node references, enum validation caveat | Writing any `figma_execute` code |
+| `@figma-console-mastery/references/recipes-advanced.md` | GROUP-to-FRAME conversion, constraint migration, variable binding | Executing checklist steps |
 
 **Rule:** This agent owns the WHAT (which screens to prepare, in what order, with what quality gates). figma-console-mastery owns the HOW (specific Figma operations, API patterns, error recovery). Always defer to figma-console-mastery recipes for Figma manipulation techniques.
 
@@ -77,6 +77,10 @@ Before starting any Figma operations, read these reference files for technique g
 3. **Write progress after EVERY step**: Update the state file after completing each checklist step. This enables crash recovery — a re-dispatch must resume from the last completed step, not restart from scratch.
 4. **Never skip the 9-step checklist**: Even if a screen appears clean, execute ALL 9 steps. Steps may be no-ops (e.g., "0 GROUPs found, nothing to convert") but must be explicitly verified.
 5. **Operation journal**: Log every Figma mutation (rename, reparent, create, delete) to the operation journal section of the state file. This is the audit trail for what changed.
+6. **Always use `figma.getNodeByIdAsync()`**: The sync `figma.getNodeById()` is disabled in `dynamic-page` manifest mode and **throws** — the API is entirely unavailable. Every node lookup inside `figma_execute` code MUST use the async variant — `await figma.getNodeByIdAsync(id)`. (The async variant returns `null` if the node doesn't exist; that null must be checked separately.)
+7. **Outer `return` in async IIFE is mandatory**: `figma_execute` code must use `return (async () => { ... return result; })()`. The outer `return` is required for the Desktop Bridge to await the Promise. Without it, the bridge resolves immediately to `undefined` and the operation appears to succeed while silently failing.
+8. **`rescale()` not `resize()` for component instances**: When resizing component instances, ALWAYS use `instance.rescale(factor)`. `instance.resize(w, h)` changes the bounding box without scaling content — child nodes distort or clip. `rescale(factor)` scales content proportionally.
+9. **Step 9 MUST use `figma_capture_screenshot`**: `figma_take_screenshot` uses the REST API (cloud-cached) and returns a stale render after Plugin API mutations. Step 9 visual diff MUST use `figma_capture_screenshot` (Desktop Bridge, live state) or it will always pass.
 
 ---
 
@@ -148,6 +152,8 @@ ELSE:
 
 After cloning, validate childCount of clone matches source. If mismatch, STOP and report error.
 
+**Page-context reversion warning:** `figma_clone_node` + move to Handoff page does NOT persist the active page between separate `figma_execute` calls. Each new `figma_execute` call runs in the context of whatever page Figma Desktop currently has open. If the user's active page is different from the Handoff page, subsequent `figma_execute` calls targeting the cloned node ID will fail or execute on the wrong page. To avoid this: include an explicit `await figma.setCurrentPageAsync(handoffPage)` at the start of each `figma_execute` IIFE that targets the clone, where `handoffPage = figma.root.children.find(p => p.name === 'Handoff')`.
+
 ### Step 3: Naming Audit & Fix
 
 ```
@@ -182,6 +188,8 @@ FOR EACH group node (bottom-up to avoid parent invalidation):
 
 **Bottom-up order is mandatory**: Convert deepest GROUPs first to prevent parent node invalidation.
 
+**GROUP child coordinate system**: Children inside a GROUP have `x`/`y` coordinates relative to the **nearest ancestor FRAME** (not relative to the GROUP itself, and not relative to the screen root). When reading `get_metadata` on a GROUP's children, their positions are already frame-relative. After GROUP→FRAME conversion, do NOT re-offset child positions — they are already correct relative to the ancestor frame.
+
 ### Step 5: Constraint & Auto-Layout Migration
 
 ```
@@ -209,6 +217,21 @@ FOR EACH node with hardcoded fill/stroke colors:
     RECORD as naming exception in manifest
 ```
 
+### ⚡ Bridge Health Check (Guard — Before Step 7)
+
+```
+CALL mcp__figma-console__figma_get_status()
+IF status != "connected":
+  WAIT 3 seconds
+  CALL mcp__figma-console__figma_get_status() again
+  IF still not connected:
+    MARK screen as "blocked"
+    SET block_reason = "Desktop Bridge dropout after Step 6 token binding"
+    STOP processing this screen
+```
+
+The Desktop Bridge WebSocket can drop silently after sustained mutation chains (Steps 3–6 involve many `figma_execute` calls). A disconnected bridge makes all subsequent calls return `undefined` without errors, causing the checklist to appear complete while producing no actual changes.
+
 ### Step 7: Component Integration (TIER 2/3 Only)
 
 ```
@@ -235,8 +258,13 @@ Image fills cannot be programmatically reproduced. They must be exported and ref
 
 ### Step 9: Post-Preparation Screenshot & Visual Diff
 
+> **CRITICAL**: Use `figma_capture_screenshot` (Desktop Bridge, live state), NOT `figma_take_screenshot`
+> (REST API, cloud-cached). After 8 steps of Plugin API mutations, the REST API still serves the
+> pre-mutation render. Using `figma_take_screenshot` makes the visual diff compare before vs before
+> — every screen passes even if preparation failed entirely.
+
 ```
-CALL mcp__figma-console__figma_take_screenshot(nodeId={working_target})
+CALL mcp__figma-console__figma_capture_screenshot(nodeId={working_target})
 SAVE as {WORKING_DIR}/screenshots/{SCREEN_NAME}-after.png
 
 COMPARE before and after screenshots:
@@ -348,8 +376,4 @@ screens:
 
 **CRITICAL RULES REMINDER (High Attention Zone - End)**
 
-1. ONE screen per invocation — never process multiple screens
-2. Visual diff is non-negotiable — HARD BLOCK on failure after 3 fix attempts
-3. Write progress after EVERY step — crash recovery depends on step-level state
-4. Never skip the 9-step checklist — even "clean" screens get all 9 steps
-5. Operation journal — log every Figma mutation with node ID and detail
+> Before marking this screen complete, verify all 9 CRITICAL RULES (defined at the top of this document) were followed — especially rules 6-9 which govern Plugin API correctness and visual diff validity.

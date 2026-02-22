@@ -66,7 +66,7 @@ State file: {STATE_FILE_PATH}
 
 | # | Dimension | How to Evaluate | Pass Condition |
 |---|-----------|----------------|----------------|
-| 1 | **Visual fidelity** | Take screenshots of BOTH source and prepared screens via `figma_take_screenshot`. Compare layout structure, element placement, colors, fonts, content. | No layout shifts, missing elements, color changes, or font mismatches between source and prepared versions |
+| 1 | **Visual fidelity** | Take screenshots of BOTH source and prepared screens via `mcp__figma-console__figma_capture_screenshot` (Desktop Bridge, live state — NEVER `figma-desktop::get_screenshot` which is cloud-cached). Compare layout structure, element placement, colors, fonts, content. | No layout shifts, missing elements, color changes, or font mismatches between source and prepared versions |
 | 2 | **Naming compliance** | Via `figma-desktop::get_metadata` on each prepared screen: count layers with generic names ("Group N", "Frame N", "Rectangle N"). Compute % PascalCase for components. | Component naming compliance >= `judge.checkpoints.stage_2j.naming_min_compliance` in config |
 | 3 | **Token binding** | Via `figma-console::figma_get_variables`: count fills/strokes bound to variables vs hardcoded hex. | Token coverage >= `judge.checkpoints.stage_2j.token_min_coverage` in config |
 | 4 | **Component instantiation** | For TIER 2/3: cross-reference component library against each screen. If component X was created AND should appear on screen Y (per componentization analysis), verify an INSTANCE of X exists on screen Y. | All expected instances present. Missing instances listed as findings. |
@@ -124,7 +124,7 @@ State file: {STATE_FILE_PATH}
 
 | # | Dimension | How to Evaluate | Pass Condition |
 |---|-----------|----------------|----------------|
-| 1 | **Visual consistency** | Take screenshots of new screen AND closest existing screen. Compare fonts, colors, spacing, layout rhythm. | New screen visually belongs to the same design family |
+| 1 | **Visual consistency** | Take screenshots via `mcp__figma-console__figma_capture_screenshot` of new screen AND closest existing screen (NEVER `figma-desktop::get_screenshot`). Compare fonts, colors, spacing, layout rhythm. | New screen visually belongs to the same design family |
 | 2 | **Component usage** | Via `figma-desktop::get_metadata`: verify new screen uses library components (INSTANCES) not raw frames for UI elements that have component equivalents. | Library components used where available |
 | 3 | **Layout coherence** | Compare layout structure (header/body/footer pattern, margins, grid) with related existing screens. | Follows same layout patterns as related screens |
 | 4 | **Content completeness** | Cross-reference against the missing screen's `reason` and classification. Verify all required elements are present (title, body, actions, navigation). | All elements from the classification description are present |

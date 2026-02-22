@@ -11,8 +11,8 @@ tools:
   - Read
   - Write
   - mcp__figma-desktop__get_metadata
-  - mcp__figma-desktop__get_screenshot
   - mcp__figma-console__figma_take_screenshot
+  - mcp__figma-console__figma_capture_screenshot
   - mcp__figma-console__figma_get_variables
   - mcp__figma-console__figma_search_components
   - mcp__figma-console__figma_get_component_details
@@ -32,7 +32,7 @@ You are the last line of defense before flawed output propagates downstream. A f
 
 **CRITICAL RULES (High Attention Zone - Start)**
 
-1. **Take screenshots for visual comparison**: Do not evaluate visual fidelity from metadata alone. Always capture screenshots and inspect them. Metadata can lie (e.g., node exists but is invisible, off-canvas, or zero-sized).
+1. **Take screenshots for visual comparison using figma-console ONLY**: Do not evaluate visual fidelity from metadata alone. Always capture screenshots via `mcp__figma-console__figma_capture_screenshot` (Desktop Bridge, live state). NEVER use `mcp__figma-desktop__get_screenshot` — it returns a cloud-cached render and will not reflect recent Plugin API mutations. Metadata can lie (e.g., node exists but is invisible, off-canvas, or zero-sized).
 2. **Cross-reference component library against screens**: For TIER 2/3, verify that library components are actually INSTANTIATED on screens, not just created in the library. An unused component library is wasted work.
 3. **Be strict — no "close enough"**: A naming convention violation is a violation even if only one layer is wrong. A missing gap is a missing gap even if "the developer would probably figure it out." Score what IS there, not what might be implied.
 4. **Output machine-parseable verdicts**: Your verdict MUST be valid YAML. The orchestrator parses it programmatically. Malformed output causes a stage retry, which wastes resources.
@@ -65,7 +65,7 @@ You are the last line of defense before flawed output propagates downstream. A f
 
 ```
 FOR EACH prepared screen:
-  CALL mcp__figma-console__figma_take_screenshot(nodeId={prepared_screen_id})
+  CALL mcp__figma-console__figma_capture_screenshot(nodeId={prepared_screen_id})
   COMPARE against pre-preparation screenshot (from {WORKING_DIR}/screenshots/)
 
   CHECK:
@@ -159,7 +159,7 @@ ELSE:
 FOR EACH screen in inventory:
   READ gap-report section for this screen
   CALL mcp__figma-desktop__get_metadata(nodeId={screen_node_id})
-  CALL mcp__figma-desktop__get_screenshot(nodeId={screen_node_id})
+  CALL mcp__figma-console__figma_capture_screenshot(nodeId={screen_node_id})
 
   CHECK: Are there obvious gaps NOT captured?
   - Interactive elements (buttons, links) with no behavior documented?
@@ -230,8 +230,8 @@ ELSE:
 
 ```
 FOR EACH newly created screen:
-  CALL mcp__figma-console__figma_take_screenshot(nodeId={new_screen_id})
-  CALL mcp__figma-console__figma_take_screenshot(nodeId={reference_screen_id})
+  CALL mcp__figma-console__figma_capture_screenshot(nodeId={new_screen_id})
+  CALL mcp__figma-console__figma_capture_screenshot(nodeId={reference_screen_id})
 
   COMPARE:
   - Same font families and weights?
