@@ -1,16 +1,17 @@
 # Product Definition Plugin
 
-A Claude Code plugin for the full product definition lifecycle: PRD generation, technical specification, and UX narrative creation from Figma mockups.
+A Claude Code plugin for the full product definition lifecycle: PRD generation, technical specification, design handoff preparation, and UX narrative creation from Figma mockups.
 
 ## Overview
 
-This plugin provides three interconnected workflows:
+This plugin provides four interconnected workflows:
 
 - **Requirements** (`/requirements`) - Transform rough product ideas into structured PRD documents through iterative file-based Q&A with multi-perspective analysis
 - **Specify** (`/specify`) - Create detailed technical specifications with acceptance criteria, design briefs, and V-Model test strategies
-- **Narrate** (`/narrate`) - Generate UX/interaction narratives from Figma Desktop mockups, producing developer-ready handoff documents
+- **Handoff** (`/handoff`) - Prepare Figma designs for coding agent consumption: structural cleanup, gap detection, and compact supplement generation with LLM-as-judge quality gates
+- **Narrate** (`/narrate`) *(superseded by `/handoff`)* - Generate UX/interaction narratives from Figma Desktop mockups
 
-**Pipeline:** `requirements (PRD.md) → specify (spec.md) → narrate (UX-NARRATIVE.md)`
+**Pipeline:** `requirements (PRD.md) → specify (spec.md) → handoff (manifest + supplement)`
 
 ## Quick Start
 
@@ -21,8 +22,8 @@ This plugin provides three interconnected workflows:
 # Specification: after PRD is ready:
 /product-definition:specify
 
-# Design Narration: with Figma Desktop open:
-/product-definition:narrate
+# Design Handoff: with Figma Desktop + Console open:
+/product-definition:handoff
 ```
 
 ## Installation
@@ -75,37 +76,50 @@ Creates detailed technical specifications from a completed PRD.
 - V-Model test strategy (inner/outer loop classification)
 - Specification completeness checklists (general + mobile)
 
-### `/product-definition:narrate`
+### `/product-definition:handoff`
 
-Transforms Figma Desktop mockups into detailed UX/interaction narrative documents.
+Prepares Figma designs for coding agent consumption. Two-track approach: **Track A** prepares the Figma file itself (naming, structure, components), **Track B** generates a compact supplement covering ONLY what Figma cannot express (behaviors, transitions, states, edge cases).
 
-**5-Stage Workflow:**
+**6-Stage Workflow:**
 
 | Stage | Name | Description |
 |-------|------|-------------|
-| 1 | Setup | Figma MCP check, optional context doc, state init/resume |
-| 2 | Screen Processing | Per-screen analysis with self-critique, Q&A, refinement loop |
-| 3 | Coherence Check | Cross-screen consistency, pattern extraction, mermaid diagrams |
-| 4 | Validation | MPA (3 agents) + PAL Consensus (multi-step with stance steering) + synthesis |
-| 5 | Output | Assemble UX-NARRATIVE.md from screens + patterns + validation |
+| 1 | Discovery & Inventory | Dual MCP check, page scan, readiness audit, TIER decision, designer approval |
+| 2 | Figma Preparation | Per-screen structural cleanup via figma-console-mastery (one screen per dispatch) |
+| 2J/3J/3.5J/5J | Judge Checkpoints | LLM-as-judge quality gates at critical boundaries |
+| 3 | Gap & Completeness | Gap detection + missing screen/state detection via dual MCP |
+| 3.5 | Design Extension | Create missing screens in Figma (conditional — only if gaps detected) |
+| 4 | Designer Dialog | Per-screen interactive Q&A about gaps only |
+| 5 | Output Assembly | HANDOFF-SUPPLEMENT.md + handoff-manifest.md generation |
 
 **Modes:**
-- **Interactive** (default) — One screen at a time, user-driven order
-- **Batch** (`/narrate --batch`) — All screens in consolidated Q&A cycles: analyze all → consolidate questions (dedup + conflict detection) → pause for user answers → refine → repeat until convergence
+- **Guided** (default) — Batch discovery, interactive per-screen dialog
+- **Quick** — Single screen, no Figma preparation (Stages 1→3→4→5)
+- **Batch** — File-based Q&A, no interactive dialog
 
 **Key features:**
-- Self-critique rubric with 5 dimensions scores each screen
-- Stall detection prevents infinite refinement loops
-- Mutable decisions with full audit trail
-- Batch mode: cross-screen question consolidation with semantic dedup and conflict detection
-- PAL Consensus with stance steering (for/against/neutral) for validation
-- Graceful degradation when PAL or Figma MCP unavailable
+- Figma is the visual source of truth — supplement NEVER describes what's already visible
+- Dual MCP: figma-desktop (read-only) + figma-console (read+write), both required
+- Smart Componentization with 3-gate TIER system (recurrence, variants, codebase match)
+- LLM-as-judge (opus) at 4 stage boundaries with checkpoint-specific rubrics
+- One-screen-per-dispatch pattern prevents context compaction
+- Missing screen detection with designer-approved creation in Figma
+- Confidence tagging on gaps (high/medium/low) for prioritization
+- N/A applicability assessment eliminates false positives on static screens
+- Step-level crash recovery via state file
+
+### `/product-definition:narrate`
+
+> **Superseded by `/handoff`.** Retained for backward compatibility.
+
+Transforms Figma Desktop mockups into detailed UX/interaction narrative documents. Produces comprehensive UX-NARRATIVE.md files describing all screen interactions, states, and behaviors.
 
 ## Skills
 
 | Skill | Purpose |
 |-------|---------|
-| `design-narration` | UX narrative generation from Figma mockups (v1.8.0) |
+| `design-handoff` | Figma preparation + compact gap supplement for coding agents (v1.0.0) |
+| `design-narration` | UX narrative generation from Figma mockups (v1.8.0) — superseded by `design-handoff` |
 | `specify` | Technical specification generation (v1.1.0) |
 | `refinement` | PRD refinement orchestration |
 
@@ -124,6 +138,24 @@ requirements/
 ├── PRD.md                    # Final output
 ├── decision-log.md           # Question → PRD traceability
 └── .requirements-state.local.md
+```
+
+### Design Handoff Workspace
+
+```
+design-handoff/
+├── working/                  # Intermediate artifacts
+│   ├── gap-report.md         # Gap & completeness analysis
+│   └── judge-verdicts/       # LLM-as-judge verdict files
+│       ├── 2J-verdict.md
+│       ├── 3J-verdict.md
+│       └── 5J-verdict.md
+├── screenshots/              # Figma screenshots for visual diff
+├── .screen-inventory.md      # Raw scanner output
+├── handoff-manifest.md       # Screen inventory, component mapping, tokens
+├── HANDOFF-SUPPLEMENT.md     # Final output — gaps only
+├── .handoff-state.local.md   # Workflow state (YAML + markdown)
+└── .handoff-lock             # Lock file
 ```
 
 ### Design Narration Workspace
@@ -150,18 +182,20 @@ design-narration/
 
 | MCP Server | Used By | Purpose | Fallback |
 |------------|---------|---------|----------|
-| `figma-desktop` | `/narrate` | Screen metadata, screenshots, design context | **Required** for narration |
+| `figma-desktop` | `/handoff`, `/narrate` | Screen metadata, screenshots, design context | **Required** for handoff/narration |
+| `figma-console` | `/handoff` | Figma file mutations, audit, screenshots, component search | **Required** for handoff |
 | `pal` | `/requirements`, `/narrate` | Multi-model consensus, ThinkDeep analysis | Single-model analysis |
 | `sequential-thinking` | `/requirements` | Deep structured analysis | Standard reasoning |
 
-If PAL tools are unavailable:
-- `/requirements`: Complete and Advanced modes degrade to Standard
+If MCP tools are unavailable:
+- `/handoff`: Both `figma-desktop` AND `figma-console` required — no graceful degradation
+- `/requirements`: Complete and Advanced modes degrade to Standard when PAL unavailable
 - `/narrate`: Stage 4 validation runs MPA-only (PAL consensus skipped)
-- User is notified of degraded capability in both cases
+- User is notified of degraded capability in all cases
 
 ## Plugin Components
 
-### Agents (23)
+### Agents (27)
 
 | Agent | Command/Skill | Purpose | Model |
 |-------|--------------|---------|-------|
@@ -180,6 +214,10 @@ If PAL tools are unavailable:
 | `gap-analyzer` | specify | Specification gap analysis | sonnet |
 | `gate-judge` | specify | Quality gate evaluation | sonnet |
 | `qa-strategist` | specify | V-Model test strategy | sonnet |
+| `handoff-screen-scanner` | handoff | Figma frame discovery, structural analysis, readiness scoring | haiku |
+| `handoff-figma-preparer` | handoff | Per-screen Figma preparation via figma-console-mastery | sonnet |
+| `handoff-gap-analyzer` | handoff | Gap detection + missing screen/state detection, dual MCP | sonnet |
+| `handoff-judge` | handoff | LLM-as-judge at 4 stage boundaries | opus |
 | `narration-figma-discovery` | narrate | Figma frame detection + batch page discovery with matching | haiku |
 | `narration-screen-analyzer` | narrate | Per-screen narrative + self-critique | sonnet |
 | `narration-question-consolidator` | narrate | Batch mode: cross-screen question dedup + conflict detection | sonnet |
@@ -189,7 +227,7 @@ If PAL tools are unavailable:
 | `narration-edge-case-auditor` | narrate | MPA: unusual conditions | sonnet |
 | `narration-validation-synthesis` | narrate | Merge MPA + PAL, prioritize fixes | opus |
 
-### Templates (19)
+### Templates (22)
 
 | Template | Purpose |
 |----------|---------|
@@ -207,6 +245,9 @@ If PAL tools are unavailable:
 | `design-supplement-template.md` | Design supplement format |
 | `figma_context-template.md` | Figma context capture |
 | `test-plan-template.md` | V-Model test plan |
+| `handoff-supplement-template.md` | Handoff supplement output structure |
+| `handoff-screen-template.md` | Per-screen supplement section |
+| `handoff-manifest-template.md` | Screen inventory + component-to-code mapping |
 | `screen-narrative-template.md` | Per-screen narrative structure |
 | `ux-narrative-template.md` | Final UX narrative document (single-file mode) |
 | `ux-narrative-index-template.md` | UX narrative index (multi-file mode) |
@@ -219,6 +260,7 @@ If PAL tools are unavailable:
 |-------------|--------------|
 | `config/requirements-config.yaml` | `/requirements` |
 | `config/specify-config.yaml` | `/specify` |
+| `config/handoff-config.yaml` | `/handoff`, design-handoff skill |
 | `config/narration-config.yaml` | `/narrate`, design-narration skill |
 
 Key configuration areas:
@@ -227,6 +269,7 @@ Key configuration areas:
 - Question generation rules and PRD validation thresholds
 - Self-critique thresholds and stall detection parameters
 - Token budgets for context management
+- Handoff: TIER thresholds, readiness scoring, scenario detection, judge rubrics, visual diff settings
 
 ## EXTEND Mode
 
@@ -245,6 +288,8 @@ When the workflow detects an existing `PRD.md`:
 ```bash
 # For requirements:
 rm requirements/.requirements-lock
+# For design handoff:
+rm design-handoff/.handoff-lock
 # For design narration:
 rm design-narration/.narration-lock
 ```
@@ -253,6 +298,8 @@ rm design-narration/.narration-lock
 ```bash
 # For requirements:
 rm requirements/.requirements-state.local.md
+# For design handoff:
+rm design-handoff/.handoff-state.local.md
 # For design narration:
 rm design-narration/.narration-state.local.md
 # Then re-run the command to reinitialize
@@ -263,14 +310,14 @@ rm design-narration/.narration-state.local.md
 - User is notified of degraded capability
 - No manual intervention required
 
-### Figma Desktop not detected
+### Figma not detected
 - Ensure Figma Desktop is open with the design file
-- The Figma MCP plugin must be installed and running
-- `/narrate` requires Figma Desktop MCP — it cannot run without it
+- `/handoff` requires BOTH `figma-desktop` AND `figma-console` MCP servers running
+- `/narrate` requires `figma-desktop` MCP only
 
 ## Version
 
-- **Plugin Version:** 2.2.0
+- **Plugin Version:** 2.3.0
 - **Schema Version:** 2
 
 ## License

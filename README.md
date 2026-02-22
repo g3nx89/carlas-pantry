@@ -6,7 +6,7 @@ A curated marketplace of Claude Code plugins for product development workflows.
 
 | Plugin | Version | Description | Category |
 |--------|---------|-------------|----------|
-| [product-definition](plugins/product-definition) | 2.2.0 | Transform drafts into PRDs, generate specifications, and create UX narratives from Figma mockups — with MPA, PAL consensus, V-Model test strategies, and batch multi-screen processing | product-development |
+| [product-definition](plugins/product-definition) | 2.3.0 | Transform drafts into PRDs, generate specifications, prepare Figma designs for coding agent handoff, and create UX narratives — with MPA, LLM-as-judge quality gates, V-Model test strategies, and dual-MCP Figma integration | product-development |
 | [product-planning](plugins/product-planning) | 1.2.0 | Transform specifications into implementation plans, tasks, and test strategies using SDD patterns with tri-CLI (Gemini + Codex + OpenCode) deep analysis and consensus scoring | product-development |
 | [product-implementation](plugins/product-implementation) | 3.0.0 | Execute implementation plans from product-planning, orchestrating TDD cycles, code generation, quality review, documentation, and implementation retrospective with KPI framework | product-development |
 | [meta-skills](plugins/meta-skills) | 0.8.0 | 8 skills for mastering Claude Code, MCP servers, and agentic workflows — Figma Console + figma-use (170+ tools, per-screen Draft-to-Handoff with user decision gates, GROUP→FRAME conversion, constraint formulas, 9-step handoff checklist, convergence protocol, subagent delegation), Sequential Thinking, research MCP, mobile MCP, PAL multi-model, deep reasoning escalation, skill analyzer | productivity |
