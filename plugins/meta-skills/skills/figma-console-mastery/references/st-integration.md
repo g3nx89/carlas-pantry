@@ -49,6 +49,7 @@ Templates below use `{braces}` placeholders. Fill them from actual tool outputs:
 | Naming Audit Reasoning | Code Handoff Protocol | TAO Loop | 5-7 | [Link](#template-naming-audit-reasoning) |
 | Iterative Refinement | Any screenshot-fix cycle | TAO Loop + Revision + Circuit Breaker | 3-6 per cycle | [Link](#template-iterative-refinement) |
 | Design System Bootstrap | recipes-advanced.md | Checkpoint | 5-7 | [Link](#template-design-system-bootstrap-checkpoint) |
+| Reflection Quality Assessment | Any phase/session reflection (R2+) | TAO Loop | 5-7 | [Link](#template-reflection-quality-assessment) |
 
 ---
 
@@ -493,6 +494,125 @@ Thought 5: Final assessment (cycle 2/3 if needed, circuit breaker at 3)
 
 ---
 
+## Template: Reflection Quality Assessment
+
+**When**: Standard Reflect (R2) activated at a phase boundary and evaluation requires cross-referencing 3+ data sources (node tree + journal + audit). Also used by R3 coordinator when synthesizing 3 judge reports.
+
+**Pattern**: TAO Loop — alternate `sequentialthinking` calls with Figma data gathering. Each thought evaluates one or two quality dimensions.
+
+**Thought chain** (5-7 thoughts interleaved with data gathering):
+
+```
+Thought 1: Frame reflection scope → Action: Read journal, count ops by type
+Thought 2: Evaluate D1 (Structural) + D4 (Naming) → Action: figma_get_file_for_plugin
+Thought 3: Evaluate D2 (Token Binding) + D3 (Component Reuse) → Action: figma_execute (boundVariables + instance scan)
+Thought 4: Evaluate D5 (Visual Fidelity) → Action: figma_audit_design_system
+Thought 5: Evaluate D6 (Operational Efficiency) — journal analysis (no tool call)
+Thought 6: CoV self-verification — 3-5 questions, adjust scores
+Thought 7: Compute composite, issue list, verdict → nextThoughtNeeded: false
+```
+
+### JSON Examples
+
+**Thought 1 — Frame reflection scope:**
+
+```json
+{
+  "thought": "REFLECTION (R2): Phase {phase_number} complete. Evaluating quality across 6 dimensions. Session stats from journal: {total_ops} operations, {screen_count} screens processed, {batch_count} batch scripts, {fix_cycles} fix cycles used. Gathering structural data for D1/D4 assessment.",
+  "thoughtNumber": 1,
+  "totalThoughts": 7,
+  "nextThoughtNeeded": true
+}
+```
+
+> **Action**: Read `operation-journal.jsonl`, compute operation statistics
+
+**Thought 2 — Structural + Naming assessment:**
+
+```json
+{
+  "thought": "D1 STRUCTURAL: {auto_layout_pct}% auto-layout coverage, {group_count} residual GROUPs, max nesting depth {max_depth}. D4 NAMING: {generic_count} generic names out of {total_nodes} nodes ({naming_pct}% semantic). Slash-convention compliance: {slash_pct}%. Scoring D1={d1_score}, D4={d4_score}.",
+  "thoughtNumber": 2,
+  "totalThoughts": 7,
+  "nextThoughtNeeded": true
+}
+```
+
+> **Action**: `figma_get_file_for_plugin` node tree analysis
+
+**Thought 3 — Token Binding + Component Reuse:**
+
+```json
+{
+  "thought": "D2 TOKEN BINDING: {bound_count}/{total_fills} fills bound ({binding_pct}%). {hardcoded_semantic} hardcoded semantic colors. D3 COMPONENT REUSE: {instance_count} library instances placed. {custom_duplicates} custom elements matching library patterns. {recurring_uncomponentized} recurring patterns (3+) not componentized. Scoring D2={d2_score}, D3={d3_score}.",
+  "thoughtNumber": 3,
+  "totalThoughts": 7,
+  "nextThoughtNeeded": true
+}
+```
+
+> **Action**: `figma_execute` — scan `boundVariables` and instance types
+
+**Thought 4 — Visual Fidelity:**
+
+```json
+{
+  "thought": "D5 VISUAL FIDELITY: Health score {health_score}/100 from figma_audit_design_system. Grid compliance: {grid_issues} non-4px values. Alignment: {alignment_issues} deviations. Fix cycles used: {fix_count} (avg {avg_per_screen}/screen). Scoring D5={d5_score}.",
+  "thoughtNumber": 4,
+  "totalThoughts": 7,
+  "nextThoughtNeeded": true
+}
+```
+
+> **Action**: `figma_audit_design_system`
+
+**Thought 5 — Operational Efficiency (journal-only):**
+
+```json
+{
+  "thought": "D6 OPERATIONAL EFFICIENCY: batch_ratio={batch_ratio} ({batch_ops} batched / {total_batchable} batchable). native_tools_first={native_ratio} ({native_uses} native / {total_native_eligible} eligible). convergence_compliance={conv_ratio}. redundant_ops={redundant_count}. Scoring D6={d6_score}.",
+  "thoughtNumber": 5,
+  "totalThoughts": 7,
+  "nextThoughtNeeded": true
+}
+```
+
+**Thought 6 — Chain of Verification:**
+
+```json
+{
+  "thought": "CoV SELF-VERIFICATION: Q1: Did I check all screens or only a sample for D1? A: {answer}. Q2: Is low D2 justified by absence of token system? A: {answer}. Q3: Are D6 individual calls justified debugging fallbacks? A: {answer}. Adjustments: {adjustments_or_none}.",
+  "thoughtNumber": 6,
+  "totalThoughts": 7,
+  "nextThoughtNeeded": true
+}
+```
+
+**Thought 7 — Verdict:**
+
+```json
+{
+  "thought": "REFLECTION VERDICT: Composite={composite} (D1:{d1}*0.25 + D2:{d2}*0.15 + D3:{d3}*0.15 + D4:{d4}*0.15 + D5:{d5}*0.15 + D6:{d6}*0.15). Verdict: {pass|conditional_pass|fail}. Issues: {issue_list}. {fix_plan_if_needed}. Logging to journal.",
+  "thoughtNumber": 7,
+  "totalThoughts": 7,
+  "nextThoughtNeeded": false
+}
+```
+
+**If conditional_pass/fail — extend with fix planning:**
+
+```json
+{
+  "thought": "FIX PLAN: Lowest dimensions: {dim_name}={score}. Targeted fixes: {fix_list}. Executing fix iteration 1/{max_iterations}.",
+  "thoughtNumber": 7,
+  "totalThoughts": 9,
+  "needsMoreThoughts": true,
+  "nextThoughtNeeded": true
+}
+```
+
+---
+
 ## Session Protocol Mapping
 
 The 4-phase Session Protocol maps to ST activation as follows:
@@ -502,7 +622,7 @@ The 4-phase Session Protocol maps to ST activation as follows:
 | **Phase 1 — Preflight** | No ST | Deterministic checks, <3 steps, no decisions |
 | **Phase 2 — Discovery** | ST if findings require cross-referencing across 3+ tools | Multiple discovery tools producing data that must be synthesized |
 | **Phase 3 — Creation** | ST for complex compositions (Shell Injection, multi-call recipes). Skip for single `figma_execute` | Multi-call chains benefit from hypothesis tracking between calls |
-| **Phase 4 — Validation** | ST TAO Loop for screenshot-fix cycles. Always use Revision when fix does not match expectation | Prevents reflexive responses to unexpected screenshot results |
+| **Phase 4 — Validation** | ST TAO Loop for screenshot-fix cycles. Always use Revision when fix does not match expectation. ST for R2+ reflection when cross-referencing 3+ data sources | Prevents reflexive responses to unexpected screenshot results. Reflection benefits from structured data gathering across node tree, journal, and audit |
 
 ### Alternative Session Protocols
 

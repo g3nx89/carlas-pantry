@@ -97,9 +97,15 @@ Every design session follows four phases:
 1. `figma_capture_screenshot` → visual check after Plugin API mutations (max 3 fix cycles)
 2. Verify: alignment, spacing, proportions, visual hierarchy
 3. `figma_generate_component_doc` → document created components
-4. **Save compound learnings** — review for learning-worthy discoveries; append 0-3 new entries to `~/.figma-console-mastery/learnings.md`
+4. **Reflection** — run per triage tier (R0 skip, R1 quick, R2 standard, R3 deep critique). Full tier definitions, token budgets, and suppress conditions in `reflection-protocol.md` Section 2. Common triggers:
+   - **R1** after each screen pipeline (3 dimensions: D1, D5, D6)
+   - **R2** at phase boundaries (all 6 dimensions + CoV)
+   - **R3** at session end (3 Figma-domain judges)
+   - If verdict is **fail** or **conditional_pass**: targeted fix cycle (max 2 iterations) before proceeding
 
-> **ST trigger**: When a screenshot-fix cycle reveals unexpected misalignment, activate ST with the Iterative Refinement template from `st-integration.md`.
+5. **Save compound learnings** — review for learning-worthy discoveries (triggers T1-T6); append 0-3 new entries to `~/.figma-console-mastery/learnings.md`
+
+> **ST trigger**: When a screenshot-fix cycle reveals unexpected misalignment, activate ST with the Iterative Refinement template from `st-integration.md`. When R2+ reflection requires cross-referencing 3+ data sources, activate ST with the Reflection Quality Assessment template.
 
 ## Decision Matrix — Which Path to Take
 
@@ -226,6 +232,8 @@ Need to validate or debug?
 17. **Save discoveries at session end** — during Phase 4, review for compound learning triggers. Deduplicate by H3 key before appending
 18. **`createInstance()` on COMPONENT, not COMPONENT_SET** — get COMPONENT_SET → find variant child → `createInstance()` on the child
 19. **Never call `group.remove()` after moving children** — GROUP auto-deletes when all children are moved out. Explicit `remove()` throws and silently skips subsequent code
+20. **Run reflection per triage** — R1 after each screen pipeline, R2 at phase boundaries, R3 at session end. Skip only when suppress conditions are met (see `reflection-protocol.md`)
+21. **Log reflection to journal** — append `op: "reflection"` entry with tier, scores, and verdict after every R1/R2/R3 evaluation
 
 ### AVOID
 
@@ -242,6 +250,7 @@ Need to validate or debug?
 11. **Never use `figma_take_screenshot` to validate recent Plugin API mutations** — it serves stale cloud-cached renders; use `figma_capture_screenshot` instead
 12. **Never split page-switch and data-read across calls** — `setCurrentPageAsync()` only affects the current async IIFE; subsequent calls revert to Figma Desktop active page. Always read in the same IIFE where you switched
 13. **Never use `primaryAxisSizingMode = "FILL"` on a frame** — invalid enum; use `"AUTO"` or `"FIXED"` on frames and set `child.layoutSizingHorizontal = "FILL"` on children instead
+14. **Never skip R2+ reflection at phase boundaries** — the per-phase quality gate catches structural and token-binding issues that screenshots alone miss; suppress only when explicit conditions are met (see `reflection-protocol.md`)
 
 ## Selective Reference Loading
 
@@ -292,6 +301,9 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-pr
 
 # Compound Learning Protocol — cross-session knowledge persistence
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/compound-learning.md
+
+# Reflection Protocol — quality self-assessment (R0-R3 tiers, 6 Figma dimensions, judge templates)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/reflection-protocol.md
 ```
 
 ### Loading Tiers
@@ -300,7 +312,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/compound-learn
 
 **Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `workflow-restructuring.md` | `workflow-code-handoff.md`
 
-**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `st-integration.md` | `compound-learning.md`
+**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `st-integration.md` | `compound-learning.md` | `reflection-protocol.md`
 
 ## Sequential Thinking Integration (Optional)
 

@@ -18,7 +18,8 @@
 | `workflow-restructuring.md` | 112 | Design Restructuring Workflow: 5-phase process (Analyze, Socratic Plan, Path A in-place / Path B reconstruction, Polish), visual fidelity gates, ST triggers, before/after metrics | Restructuring freehand designs (Tier 2 — by task) |
 | `workflow-code-handoff.md` | 146 | Code Handoff Protocol: TIER system (componentization depth), Smart Componentization Criteria (3 gates), Handoff Manifest template, naming audit, token alignment, multi-platform notes, UX-NARRATIVE preceding input reference | Preparing designs for code implementation (Tier 2 — by task) |
 | `convergence-protocol.md` | 571 | Operation Journal spec (append-only JSONL, 9 rules incl. real timestamps), anti-regression Convergence Check rules (7 rules), Batch Scripting Protocol (templates for rename/move/fill, when-to-batch decision matrix, token savings), Subagent Delegation Model (per-screen sequential architecture, skill-inheriting prompt template with 15 mandatory rules, 9 delegation rules), Session Snapshot schema v3, Compact Recovery Protocol | Any multi-step workflow — anti-regression, batch efficiency, subagent delegation (Tier 1 — always) |
-| `compound-learning.md` | 209 | Compound Learning Protocol: learnings file format (H2 categories → H3 entries), file lifecycle, save protocol (5 auto-detect triggers), load protocol (Tag-based relevance matching), deduplication procedure, subagent integration (orchestrator-only reads/writes, filtered injection), initial file template | Cross-session knowledge persistence — load at Preflight, save at Validation (Tier 3 — by need) |
+| `compound-learning.md` | 219 | Compound Learning Protocol: learnings file format (H2 categories → H3 entries), file lifecycle, save protocol (6 auto-detect triggers incl. T6 reflection), load protocol (Tag-based relevance matching), deduplication procedure, subagent integration (orchestrator-only reads/writes, filtered injection), initial file template | Cross-session knowledge persistence — load at Preflight, save at Validation (Tier 3 — by need) |
+| `reflection-protocol.md` | 623 | Reflection Protocol: 6 Figma quality dimensions (structural integrity, token binding, component reuse, naming, visual fidelity, operational efficiency), scoring rubrics (0-100 per dimension), weight rationale, tiered triage (R0 skip, R1 quick, R2 standard, R3 deep critique), R3 judge prompt templates with variable fallback table (Structure, Design System, Efficiency), fix cycle protocol with regression detection, journal integration (`op: "reflection"`), compound learning T6 pipeline, subagent integration, dimension addition checklist | Phase 4 quality self-assessment — R1 per screen, R2 per phase, R3 per session (Tier 3 — by need) |
 
 ## Cross-References
 
@@ -38,7 +39,8 @@
 | `workflow-restructuring.md` | `recipes-restructuring.md`, `recipes-foundation.md`, `design-rules.md`, `recipes-components.md`, `recipes-advanced.md`, `st-integration.md`, `convergence-protocol.md` |
 | `workflow-code-handoff.md` | `recipes-advanced.md`, `design-rules.md`, `st-integration.md`, `tool-playbook.md`, external: `design-narration` skill (product-definition plugin) |
 | `convergence-protocol.md` | `anti-patterns.md`, `recipes-foundation.md`, `compound-learning.md` |
-| `compound-learning.md` | `convergence-protocol.md`, `anti-patterns.md`, `SKILL.md` |
+| `compound-learning.md` | `convergence-protocol.md`, `anti-patterns.md`, `SKILL.md`, `reflection-protocol.md` |
+| `reflection-protocol.md` | `convergence-protocol.md`, `compound-learning.md`, `st-integration.md`, `anti-patterns.md`, `design-rules.md`, `recipes-foundation.md`, `recipes-advanced.md`, `workflow-code-handoff.md`, `SKILL.md` |
 
 ## Content Ownership (Deduplication)
 
@@ -86,3 +88,7 @@ Each topic lives in exactly one canonical file:
 | IMAGE fill limitation (design transfer) | `anti-patterns.md` (Hard Constraints) |
 | ST thought chain templates for Figma workflows | `st-integration.md` |
 | Three-server comparison (Console / figma-use / Official) | `tool-playbook.md` |
+| Reflection Protocol, quality dimensions (D1-D6), rubrics, triage tiers (R0-R3) | `reflection-protocol.md` |
+| R3 Deep Critique judge prompt templates (Structure, Design System, Efficiency) | `reflection-protocol.md` |
+| Reflection journal entry format (`op: "reflection"`) | `reflection-protocol.md` |
+| Reflection-to-Learning pipeline (T6 trigger) | `reflection-protocol.md` + `compound-learning.md` |

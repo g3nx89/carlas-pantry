@@ -95,12 +95,18 @@ During Phase 4 Validation, review the session for these triggers:
 | T3 | **Non-obvious recovery** — error recovery required investigation beyond anti-patterns.md | Error Recovery | CDP connection dropped mid-batch; re-launching with port reset resolved |
 | T4 | **Strategy significantly outperformed** — a chosen approach was measurably better | Effective Strategies | Processing component variants in dependency order eliminated rework |
 | T5 | **Performance surprise** — unexpected token/time savings or costs | Performance Patterns | `figma_render` JSX for 8+ nodes was 3x faster than individual `figma_create_*` |
+| T6 | **Reflection reveals systematic gap** — same quality dimension scored <70 across 2+ screens or 2+ sessions (see `reflection-protocol.md`) | Effective Strategies or Performance Patterns | Token binding consistently low — batch binding at phase boundary is more effective than per-screen |
 
 ### Save Procedure
 
 ```
-1. Identify 0-3 learning candidates from the session (apply triggers T1-T5)
-2. For each candidate:
+1. Identify 0-3 learning candidates from the session (apply triggers T1-T6)
+2. For T6 specifically (reflection-driven):
+   a. Read all op: "reflection" entries from the session journal
+   b. Identify any dimension scoring <70 in 2+ reflection entries (cross-screen or cross-phase)
+   c. If found: compose entry with H3 key: <dimension>-systematic-gap (e.g., "token-binding-batch-at-phase-boundary")
+   d. Include the corrective approach that improved scores when applied
+3. For each candidate:
    a. Compose entry per Entry Rules (H3 key, Discovered, Context, Problem, Solution, Tags)
    b. Deduplicate: grep learnings file for H3 key — if match found, skip
    c. Verify not already documented in existing reference files

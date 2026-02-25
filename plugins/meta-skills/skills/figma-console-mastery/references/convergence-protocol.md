@@ -78,6 +78,7 @@ One JSON object per line. Every entry MUST include these fields:
 | `phase_complete` | At phase boundary | phase-specific summary |
 | `validation_pass` | After diff/lint passes | `screen_name`, `score` |
 | `validation_fail` | After diff/lint fails | `screen_name`, `score`, `issues` |
+| `reflection` | After R1/R2/R3 reflection completes | `tier`, `composite_score` (R2/R3), `scores` (per-dimension), `verdict`, `issues`, `improvements_applied`, `judges` (R3), `consensus` (R3) |
 
 ### Journal Rules
 
