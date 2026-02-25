@@ -297,6 +297,7 @@ Prefer `layoutSizingHorizontal/Vertical` over lower-level properties to avoid ax
 - **Min/max before layoutMode:** Throws error. Always set `layoutMode` first
 - **Insertion order = flow order:** First `appendChild` = first in layout. `itemReverseZIndex` reverses z only, not flow
 - **Auto-layout frame collapse to h=1:** Frames with text children may collapse height. Fix: `resize()` to explicit height first, then re-set `primaryAxisSizingMode = 'AUTO'`
+- **SPACE_BETWEEN for 2-child rows:** For exactly-2-child HORIZONTAL rows where left and right elements should be at opposite edges, use `primaryAxisAlignItems = 'SPACE_BETWEEN'`. No spacer needed, no hardcoded widths. Does NOT work for 3+ children needing uniform spacing — use `itemSpacing` for those
 
 ### CSS Grid Layout
 
@@ -412,7 +413,7 @@ await Promise.all(
 | `fontName` | `{ family, style }` | e.g. `{ family: 'Inter', style: 'Bold' }` |
 | `textAlignHorizontal` | `'LEFT'`\|`'CENTER'`\|`'RIGHT'`\|`'JUSTIFIED'` | |
 | `textAlignVertical` | `'TOP'`\|`'CENTER'`\|`'BOTTOM'` | |
-| `textAutoResize` | `'NONE'`\|`'WIDTH_AND_HEIGHT'`\|`'HEIGHT'`\|`'TRUNCATE'` | |
+| `textAutoResize` | `'NONE'`\|`'WIDTH_AND_HEIGHT'`\|`'HEIGHT'`\|`'TRUNCATE'` | Use `'HEIGHT'` with `layoutSizingHorizontal='FILL'` in auto-layout; `'WIDTH_AND_HEIGHT'` for free-floating text only |
 | `lineHeight` | `{ unit: 'AUTO' }` or `{ value, unit: 'PIXELS'\|'PERCENT' }` | |
 | `letterSpacing` | `{ value, unit: 'PIXELS'\|'PERCENT' }` | |
 | `textDecoration` | `'NONE'`\|`'UNDERLINE'`\|`'STRIKETHROUGH'` | |
@@ -715,24 +716,41 @@ componentSet.name = "Button"
 
 **Component properties:**
 ```javascript
-comp.addComponentProperty('ShowIcon', 'BOOLEAN', true)
-comp.addComponentProperty('Label', 'TEXT', 'Submit')
-comp.addComponentProperty('Icon', 'INSTANCE_SWAP', defaultIconId)
+// addComponentProperty returns a DISAMBIGUATED key (e.g. "Label#0:1"), NOT the base name
+const showIconKey = comp.addComponentProperty('ShowIcon', 'BOOLEAN', true)
+const labelKey = comp.addComponentProperty('Label', 'TEXT', 'Submit')
+const iconKey = comp.addComponentProperty('Icon', 'INSTANCE_SWAP', defaultIconId)
 
-comp.children[0].componentPropertyReferences = { 'visible': 'ShowIcon#0:0' }
-comp.children[1].componentPropertyReferences = { 'characters': 'Label#0:1' }
+// BINDING: use the RETURNED key (inside component definition)
+comp.children[0].componentPropertyReferences = { 'visible': showIconKey }
+comp.children[1].componentPropertyReferences = { 'characters': labelKey }
 ```
 
 **Instantiating and overriding:**
 ```javascript
 const instance = comp.createInstance()
+// SETTING VALUES: use base name OR full key (both work on instances)
 instance.setProperties({
-  'Size': 'Large',          // variant property (no suffix)
-  'Label#0:1': 'Login',     // text property (with suffix)
-  'ShowIcon#0:0': false      // boolean property (with suffix)
+  'Size': 'Large',          // variant property (base name)
+  'Label': 'Login',         // text property (base name works for instances)
+  'ShowIcon': false          // boolean property (base name works for instances)
 })
-instance.swapComponent(otherComponent)     // preserves overrides
+instance.swapComponent(otherComponent)     // preserves overrides, node ID preserved
 const frame = instance.detachInstance()     // returns FrameNode
+```
+
+**Key distinction — binding vs overriding:**
+- **Binding** (inside component, once): use the RETURNED key from `addComponentProperty`
+- **Setting value** (on instances): use the PROPERTY NAME (first arg to `addComponentProperty`)
+
+**swapComponent — in-place hot-swap:**
+```javascript
+// Capture position before swap (may shift slightly)
+const x = inst.x, y = inst.y, w = inst.width, h = inst.height, c = inst.constraints;
+inst.swapComponent(newComp);
+// Restore position after swap
+inst.x = x; inst.y = y; inst.resize(w, h); inst.constraints = c;
+// Note: old component properties are gone — set new properties after swap
 ```
 
 ### Component Gotchas
@@ -975,7 +993,7 @@ const primaryColor = figma.variables.createVariable("primary", collection, "COLO
 primaryColor.setValueForMode(lightModeId, figma.variables.createVariableAlias(blue500))
 primaryColor.setValueForMode(darkModeId, figma.variables.createVariableAlias(blue300))
 
-// Async version (when you only have the variable ID)
+// Async version (when only the variable ID is available)
 const alias = await figma.variables.createVariableAliasByIdAsync(variableId)
 ```
 
@@ -1187,6 +1205,25 @@ const hero = figma.currentPage.findOne(n => n.name === "hero-section")
 figma.skipInvisibleInstanceChildren = true
 const frames = figma.currentPage.findAllWithCriteria({ types: ['FRAME'] })
 ```
+
+### globalThis for Cross-Call Data Persistence
+
+Use `globalThis.__key = value` inside async IIFEs to persist data across separate `figma_execute` calls. The async IIFE writes data to `globalThis`, then a subsequent sync call reads it back:
+
+```javascript
+// Call 1 (async IIFE): Create nodes, persist IDs via globalThis
+(async () => {
+  const comp = figma.createComponent();
+  comp.name = "MyComponent";
+  globalThis.__myResult = { componentId: comp.id };
+})()
+
+// Call 2 (sync): Read persisted data
+return JSON.stringify(globalThis.__myResult);
+// { "componentId": "24:5678" }
+```
+
+Use unique key names per operation to avoid collisions. This is the most reliable pattern for async-to-sync data handoff when the async IIFE return is not needed.
 
 ---
 

@@ -118,6 +118,21 @@ Every design session follows four phases:
 
 **Evaluate gates in order G0→G1→G2→G3.** Most atomic operations are G2. Reach for G3 batch scripts when operating on 3+ same-type nodes simultaneously — batch is ~70% cheaper.
 
+## Visual QA Protocol
+
+For screen-level quality validation (Draft vs Handoff comparison, deep 8-dimension audits, iterative fix cycles):
+
+```
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/visual-qa-protocol.md
+```
+
+Key patterns:
+- **Modification-Audit-Loop**: modifications delegated to subagents (never in main context), audits run separately, max 3 fix iterations
+- **Screen Diff**: side-by-side Draft vs Handoff comparison template
+- **Handoff Audit**: 8-dimension deep quality check (Visual Quality, Layer Structure, Semantic Naming, Auto-Layout with 6 automated checks, Component Compliance 3-layer, Constraints, Screen Properties, Instance Override Integrity)
+- **Positional Diff**: programmatic `absoluteBoundingBox` comparison catching +/-3-8px deltas that screenshots miss
+- **Model**: Sonnet for all QA subagents (sufficient vision, lower latency than Opus)
+
 ## Quick Audit Protocol
 
 When the goal is to spot-fix specific deviations in an existing design:
@@ -304,6 +319,12 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/compound-learn
 
 # Reflection Protocol — quality self-assessment (R0-R3 tiers, 6 Figma dimensions, judge templates)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/reflection-protocol.md
+
+# Visual QA Protocol — screen validation, 8-dimension audit, Modification-Audit-Loop pattern
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/visual-qa-protocol.md
+
+# Field Learnings — production strategies, componentization workflows, container patterns, coordinate systems
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/field-learnings.md
 ```
 
 ### Loading Tiers
@@ -312,7 +333,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/reflection-pro
 
 **Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `workflow-restructuring.md` | `workflow-code-handoff.md`
 
-**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `st-integration.md` | `compound-learning.md` | `reflection-protocol.md`
+**Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `st-integration.md` | `compound-learning.md` | `reflection-protocol.md` | `visual-qa-protocol.md` | `field-learnings.md`
 
 ## Sequential Thinking Integration (Optional)
 
@@ -371,8 +392,17 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/reflection-pro
 | Desktop Bridge drops mid-session | Gate each step with `figma_get_status`; on dropout, instruct user to reopen the plugin |
 | `get_design_context` reports wrong text values | Returns master component defaults, not live `.characters` overrides. Cross-check with `figma_execute` returning `node.characters` |
 | `page.findOne()` returns null after `setCurrentPageAsync` | Capture page object in the same IIFE: `const p = figma.root.children.find(...)` then `p.findOne()` |
+| `setProperties()` silently does nothing | Use base property name (e.g., `"day"`) not the disambiguated key (`"day#222:62"`) — binding uses returned key, overriding uses the name |
+| `addComponentProperty` key mismatch | `addComponentProperty` returns a disambiguated key like `"message#206:8"` — always use the RETURNED key for `componentPropertyReferences` binding |
+| Text wraps unexpectedly after instance override | Override sets `textAutoResize=HEIGHT` with component's narrow default width. Fix: `textAutoResize = 'WIDTH_AND_HEIGHT'` after loading font |
+| `textAutoResize = 'WIDTH_AND_HEIGHT'` ignored in auto-layout | Competing sizing: use `textAutoResize = 'HEIGHT'` when text has `layoutSizingHorizontal = 'FILL'` |
+| `swapComponent` loses position and properties | Capture x/y/w/h/constraints BEFORE swap, restore AFTER. Old component properties are gone — set new ones by name or find TEXT nodes directly |
+| M3 Button label text is null | `figma.skipInvisibleInstanceChildren = false` before `findOne(n => n.type === 'TEXT')`, restore to `true` after |
+| GROUP child position assignment offset | GROUP children report x/y relative to the CONTAINING FRAME, not the GROUP. Use `child.x = group.x + desiredLocalX` |
+| Container appears at wrong x after append | `layoutMode=NONE` parent assigns non-zero x on append. Always set `container.x = 0` explicitly AFTER appending |
+| Data lost between `figma_execute` calls | Use `globalThis.__key = value` in async IIFE, read back in subsequent sync call. Use unique key names per operation |
 
-**Full reference**: `references/anti-patterns.md`
+**Full reference**: `references/anti-patterns.md`, `references/field-learnings.md`
 
 ## When NOT to Use This Skill
 
