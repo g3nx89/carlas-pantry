@@ -16,7 +16,7 @@ Gates all subsequent stages by confirming Figma MCP connectivity, scanning the d
 
 ## CRITICAL RULES (must follow)
 
-1. **Both MCPs required** — If either `figma-desktop` or `figma-console` is unavailable, STOP. No graceful degradation.
+1. **figma-console required** — If `figma-console` is unavailable, STOP. No graceful degradation.
 2. **Lock before state** — Acquire lock before any state file read/write.
 3. **All thresholds from config** — Never hardcode readiness percentages or nesting limits.
 4. **Designer approval gates Stage 2** — Do NOT advance until the designer confirms inventory, TIER, and scenario.
@@ -29,7 +29,7 @@ Gates all subsequent stages by confirming Figma MCP connectivity, scanning the d
 READ @$CLAUDE_PLUGIN_ROOT/config/handoff-config.yaml
 
 VALIDATE required keys: directories.root, state.{file_name, lock_file, lock_stale_timeout_minutes,
-schema_version}, figma.connection (must be "desktop+console"), tier.{default (1-3),
+schema_version}, figma.connection (must be "console"), tier.{default (1-3),
 smart_componentization.recurrence_threshold (>=2), smart_componentization.require_behavioral_variants,
 smart_componentization.require_codebase_match}, readiness.{naming_compliance_threshold (1-100),
 token_binding_threshold (1-100), group_warning_threshold (>=1), deep_nesting_warning_depth (>=1)},
@@ -44,11 +44,10 @@ IF any key missing or invalid:
 ## Step 1.2: Figma MCP Check
 
 ```
-CALL mcp__figma-desktop__get_metadata → SET FIGMA_DESKTOP = true/false
 CALL mcp__figma-console__figma_get_status → SET FIGMA_CONSOLE = true/false
 
-IF either is false:
-    NOTIFY user: "Required Figma MCP unavailable. figma-desktop: {FIGMA_DESKTOP}, figma-console: {FIGMA_CONSOLE}. Both must be running."
+IF FIGMA_CONSOLE is false:
+    NOTIFY user: "Required Figma MCP unavailable. figma-console must be running."
     STOP workflow.
 ```
 
@@ -258,7 +257,7 @@ Artifacts on disk:
 
 ## CRITICAL RULES REMINDER
 
-1. Both MCPs required — STOP if either unavailable
+1. figma-console required — STOP if unavailable
 2. Lock before state — acquire lock before any state read/write
 3. All thresholds from config — never hardcode
 4. Designer approval gates Stage 2 — no advancement without confirmation

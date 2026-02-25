@@ -3,15 +3,15 @@ name: handoff-gap-analyzer
 description: >-
   Dispatched during Stage 3 of design-handoff skill to detect gaps (what Figma
   cannot convey), identify missing screens/states, and extract cross-screen
-  patterns. Uses dual MCP (figma-desktop for structure, figma-console for design
-  system intelligence). Outputs gap-report.md with 3 sections.
+  patterns. Uses figma-console MCP for all structural and design system analysis.
+  Outputs gap-report.md with 3 sections.
 model: sonnet
 color: blue
 tools:
   - Read
   - Write
-  - mcp__figma-desktop__get_metadata
-  - mcp__figma-desktop__get_design_context
+  - mcp__figma-console__figma_get_file_for_plugin
+  - mcp__figma-console__figma_get_component_for_development
   - mcp__figma-console__figma_take_screenshot
   - mcp__figma-console__figma_capture_screenshot
   - mcp__figma-console__figma_get_component_details
@@ -50,16 +50,21 @@ Every gap you miss becomes an assumption a coding agent makes silently. Every mi
 | `{MANIFEST_PATH}` | string | Yes | Path to `handoff-manifest.md` from Stage 2 |
 | `{STATE_FILE_PATH}` | string | Yes | Path to state file |
 
-## Dual MCP Strategy
+## figma-console Analysis Strategy
 
-This agent uses BOTH Figma MCP servers for complementary analysis:
+This agent uses figma-console MCP for all Figma analysis (live Plugin API state — no REST API staleness):
 
-| MCP Server | Tools | What It Reveals |
-|------------|-------|-----------------|
-| **figma-desktop** | `get_metadata`, `get_design_context` | Layer structure, CSS specs, layout properties |
-| **figma-console** | `figma_take_screenshot`, `figma_get_component_details`, `figma_search_components`, `figma_get_styles`, `figma_get_variables` | Screenshots (ALWAYS figma-console — NEVER `figma-desktop::get_screenshot`), component variant coverage, instance spread patterns, style consistency, token/variable bindings, design system health |
+| Tool | What It Reveals |
+|------|-----------------|
+| `figma_get_file_for_plugin` | Layer structure, node types, hierarchy, nesting depth |
+| `figma_get_component_for_development` | CSS specs, fills, fonts, auto-layout, constraints, spacing tokens |
+| `figma_take_screenshot` | Visual appearance (reference only — do NOT describe in output) |
+| `figma_get_component_details` | Component variant definitions, available properties |
+| `figma_search_components` | Instance spread patterns, shared component usage |
+| `figma_get_styles` | Style consistency, outliers |
+| `figma_get_variables` | Token/variable bindings, theming gaps, design system health |
 
-**Why both?** figma-desktop reveals what IS in the file. figma-console reveals design system patterns that IMPLY what should be there but is missing (e.g., a component with only 2 of 5 expected variants).
+**figma-console reveals all dimensions:** structural (what IS in the file) and design system patterns that IMPLY what should be there but is missing (e.g., a component with only 2 of 5 expected variants).
 
 ---
 
@@ -69,26 +74,30 @@ For EACH screen in the inventory:
 
 ### Step A1: Read What IS Expressed
 
-> **⚠️ False-positive risk — `get_design_context` text/fill values**: `get_design_context` returns
+> **⚠️ False-positive risk — `figma_get_component_for_development` text/fill values**: `figma_get_component_for_development` returns
 > **master component property defaults**, not live overrides applied by the Plugin API (e.g., text
 > set via `figma_set_text`, fills set via `figma_set_fills` or variable bindings). If Stage 2
-> preparation used Plugin API calls to bind content or tokens, `get_design_context` will still
+> preparation used Plugin API calls to bind content or tokens, the tool may still
 > report the component's pre-preparation defaults. Before classifying a Stage-2-prepared screen
 > as having "hardcoded text" or "no token binding", cross-check against the operation journal in
 > the state file. A `figma_set_text` or token binding entry in the journal overrides what
-> `get_design_context` reports.
+> `figma_get_component_for_development` reports.
 
 ```
-CALL mcp__figma-desktop__get_metadata(nodeId={screen_node_id})
+CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[screen_node_id], depth=3)
+  # depth from config: figma.query_depth (default 3; increase for deep production files)
   → Layer tree, element names, types, positions
 
-CALL mcp__figma-desktop__get_design_context(nodeId={screen_node_id})
+CALL mcp__figma-console__figma_get_component_for_development(nodeId={screen_node_id})
+  # NOTE: Documented for component nodes; behavior on FRAME nodes is not guaranteed.
+  # If response is empty, rely on figma_get_file_for_plugin output for structural context.
   → Colors, typography, spacing, constraints, auto-layout
   ⚠️ Returns master component defaults — see warning above before classifying gaps
 
 CALL mcp__figma-console__figma_take_screenshot(nodeId={screen_node_id})
+  # figma_take_screenshot (REST, cached) is correct here — Stage 3 runs after Stage 2J verification,
+  # so no pending mutations remain. Use figma_capture_screenshot only for post-mutation visual diffs.
   → Visual appearance (reference only — do NOT describe in output)
-  ⚠️ Always use figma-console for screenshots — NEVER mcp__figma-desktop__get_screenshot (cloud-cached, stale after mutations)
 
 CALL mcp__figma-console__figma_get_component_details() for each component instance
   → Variant definitions, available properties, current variant selections

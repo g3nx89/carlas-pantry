@@ -11,7 +11,7 @@
 |------|-------|-------|---------|-----------|
 | `setup-protocol.md` | 1 | 264 | Discovery, inventory, readiness audit, TIER decision | Stage 1 execution (inline) |
 | `figma-preparation.md` | 2 | 504 | Per-screen Figma prep dispatch, visual diff enforcement | Stage 2 orchestrator loop |
-| `gap-analysis.md` | 3 | 430 | Gap detection + missing screen detection, dual MCP | Stage 3 dispatch |
+| `gap-analysis.md` | 3 | 430 | Gap detection + missing screen detection, figma-console | Stage 3 dispatch |
 | `design-extension.md` | 3.5 | 291 | Missing screen creation, designer decision flow | Stage 3.5 (conditional) |
 | `designer-dialog.md` | 4 | 282 | Focused Q&A about gaps, cross-screen confirmation | Stage 4 orchestrator loop |
 | `output-assembly.md` | 5 | 171 | Supplement + manifest generation from templates | Stage 5 execution (inline) |

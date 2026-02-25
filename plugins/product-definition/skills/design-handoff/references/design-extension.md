@@ -105,14 +105,29 @@ For each item with `designer_decision = "create_in_figma"`, dispatch `handoff-fi
 | `{SCREEN_NAME}` | `missing_screens[i].name` | `ForgotPassword` |
 | `{SCREEN_NODE_ID}` | Not applicable — screen does not exist yet. Pass `null`. | `null` |
 | `{SCREEN_PURPOSE}` | `missing_screens[i].reason` | `"Login screen links to 'Forgot Password' — no screen exists"` |
-| `{REFERENCE_SCREEN_NODE_ID}` | Closest existing screen by navigation relationship. Determined by tracing the `implied_by` field back to the source screen's node ID in the state file. | `"42:1337"` |
-| `{REQUIRED_ELEMENTS}` | Derived from gap category and screen type. Include: structural elements (header, body, actions), content elements (title, description, inputs), and navigation elements (back, submit, cancel). | `["header", "emailInput", "submitButton", "backLink"]` |
+| `{FSB_NUMBER}` | Locate FSB file in `{WORKING_DIR}figma-screen-briefs/` where `id` matches `{SCREEN_NAME}` (case-insensitive, spaces→hyphens). **If found**: extract `NNN` from filename (`FSB-NNN-*.md`). **If not found**: count existing `FSB-*.md` files in directory and add 1 (zero-padded to 3 digits). | `"001"` |
+| `{FIGMA_BRIEF_PATH}` | Construct as `{WORKING_DIR}figma-screen-briefs/FSB-{FSB_NUMBER}-{SCREEN_NAME}.md` using derived `{FSB_NUMBER}`. If that file does not exist, pass `null` and use inline fallback fields. | `"design-handoff/figma-screen-briefs/FSB-001-ForgotPassword.md"` |
+| `{REFERENCE_SCREEN_NODE_ID}` | From FSB file `Context.Reference_screen` field (extract nodeId in parentheses). **Fallback when FSB absent**: use reference screen selection logic at bottom of this step. | `"42:1337"` |
+| `{REQUIRED_ELEMENTS}` | Derived from FSB file `Content` table (Element column) + `Behaviors` table (Interaction column). **Fallback when FSB absent**: derive from `missing_screens[i].reason` + screen type classification. | `["header", "emailInput", "submitButton", "backLink"]` |
 | `{SCENARIO}` | Literal — extend mode does not use preparation scenarios | `"extend"` |
 | `{TIER}` | From state file `tier_decision.tier` | `2` |
 | `{STATE_FILE_PATH}` | From state file path | `"design-handoff/.handoff-state.local.md"` |
 | `{WORKING_DIR}` | From working directory | `"design-handoff/"` |
 | `{COMPONENT_LIBRARY_NODE_ID}` | From state file `component_library` (TIER 2/3 only) | `"0:42"` |
 | `{INVENTORY_DATA}` | Not applicable for new screens — pass `null` | `null` |
+
+> **Brief-first rule:** When `{FIGMA_BRIEF_PATH}` resolves to an existing file, the agent MUST read it before
+> designing the screen. The brief is the authoritative spec for layout intent, content, states, and component
+> references.
+>
+> **Explicit fallback when FSB file absent** (`{FIGMA_BRIEF_PATH}` is null):
+> - Purpose → use `{SCREEN_PURPOSE}` (from `missing_screens[i].reason`)
+> - Layout → infer from screen classification (modal, full-screen, overlay) and navigation context
+> - States → infer from gap category (e.g., "empty state" → empty + content states minimum)
+> - Content → use `{REQUIRED_ELEMENTS}` list as element names; text is placeholder until designer updates
+> - Behaviors → derive from `missing_screens[i].reason` (navigation triggers, exit points)
+> - Figma Components → agent runs `figma_search_components` independently; no FSB hint available
+> - figma-console Notes → reference screen by `{REFERENCE_SCREEN_NODE_ID}` only
 
 **Reference screen selection logic:**
 
@@ -146,7 +161,9 @@ After ALL Option A dispatches complete, verify each created screen:
 ```
 FOR EACH missing_screen WHERE extension_status = "created":
   1. READ state file for created_node_id
-  2. CALL mcp__figma-desktop__get_metadata(nodeId={created_node_id})
+  2. CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[created_node_id], depth=1)
+     # depth=1 is intentional — existence check only, not structural analysis.
+     # Do NOT use figma.query_depth here; we only need to confirm children are present.
      → Verify node exists and has children
   3. IF node missing or empty:
        SET extension_status = "error"
@@ -214,6 +231,12 @@ On resume, the orchestrator detects `current_stage = "3.5"` and `extension_statu
 ## Step 3.5.6: Update State & Inventory
 
 After all Option A and Option B items are resolved:
+
+0. **Update figma-screen-brief files with created node IDs:**
+   For each item with `extension_status = "verified"`:
+   - Locate its FSB file in `{WORKING_DIR}figma-screen-briefs/`
+   - Update YAML frontmatter: `status: created`, `figma_node_id: "{created_node_id}"`
+   This keeps the brief as a complete audit trail of what was created and where.
 
 1. **Add new screens to inventory:**
    For each item with `extension_status = "verified"`:

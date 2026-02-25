@@ -13,8 +13,7 @@ tools:
   - Bash
   - Glob
   - Grep
-  - mcp__figma-desktop__get_metadata
-  - mcp__figma-desktop__get_design_context
+  - mcp__figma-console__figma_get_file_for_plugin
   - mcp__figma-console__figma_execute
   - mcp__figma-console__figma_create_child
   - mcp__figma-console__figma_rename_node
@@ -157,7 +156,8 @@ After cloning, validate childCount of clone matches source. If mismatch, STOP an
 ### Step 3: Naming Audit & Fix
 
 ```
-CALL mcp__figma-desktop__get_metadata(nodeId={working_target})
+CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[working_target], depth=3)
+# depth from config: figma.query_depth (default 3; increase in config for deep production files)
 FOR EACH descendant node:
   IF name matches generic pattern ("Group N", "Frame N", "Rectangle N", "Vector N"):
     INFER semantic name from: parent context, node content, position, visual role
@@ -177,7 +177,8 @@ FOR EACH descendant node:
 ### Step 4: GROUP to FRAME Conversion
 
 ```
-CALL mcp__figma-desktop__get_metadata(nodeId={working_target})
+CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[working_target], depth=3)
+# depth from config: figma.query_depth — same value as Step 3
 COLLECT all descendant nodes of type GROUP
 FOR EACH group node (bottom-up to avoid parent invalidation):
   RECORD group's children, position, size
@@ -188,7 +189,7 @@ FOR EACH group node (bottom-up to avoid parent invalidation):
 
 **Bottom-up order is mandatory**: Convert deepest GROUPs first to prevent parent node invalidation.
 
-**GROUP child coordinate system**: Children inside a GROUP have `x`/`y` coordinates relative to the **nearest ancestor FRAME** (not relative to the GROUP itself, and not relative to the screen root). When reading `get_metadata` on a GROUP's children, their positions are already frame-relative. After GROUP→FRAME conversion, do NOT re-offset child positions — they are already correct relative to the ancestor frame.
+**GROUP child coordinate system**: Children inside a GROUP have `x`/`y` coordinates relative to the **nearest ancestor FRAME** (not relative to the GROUP itself, and not relative to the screen root). When reading `figma_get_file_for_plugin` on a GROUP's children, their positions are already frame-relative. After GROUP→FRAME conversion, do NOT re-offset child positions — they are already correct relative to the ancestor frame.
 
 ### Step 5: Constraint & Auto-Layout Migration
 

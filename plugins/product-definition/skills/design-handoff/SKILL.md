@@ -5,11 +5,13 @@ description: >-
   "handoff designs to developers", "prepare designs for coding agents",
   "run design handoff", "create handoff supplement", "handoff",
   or wants to prepare a Figma file for downstream coding agent consumption.
-  Produces handoff-manifest.md (structural inventory) and HANDOFF-SUPPLEMENT.md
+  Produces handoff-manifest.md (structural inventory), HANDOFF-SUPPLEMENT.md
   (compact table-first document covering ONLY behaviors, transitions, and logic
-  not expressible in Figma). Figma file is the visual source of truth.
+  not expressible in Figma), and figma-screen-briefs/ (structured specs for
+  missing screens, ready for a figma-console agent to execute).
+  Figma file is the visual source of truth.
 version: 1.0.0
-allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-desktop__get_metadata", "mcp__figma-desktop__get_design_context", "mcp__figma-console__figma_take_screenshot", "mcp__figma-console__figma_capture_screenshot", "mcp__figma-console__figma_audit_design_system", "mcp__figma-console__figma_get_selection", "mcp__figma-console__figma_search_components", "mcp__figma-console__figma_get_variables", "mcp__figma-console__figma_get_styles", "mcp__figma-console__figma_get_status"]
+allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-console__figma_take_screenshot", "mcp__figma-console__figma_capture_screenshot", "mcp__figma-console__figma_audit_design_system", "mcp__figma-console__figma_get_selection", "mcp__figma-console__figma_search_components", "mcp__figma-console__figma_get_variables", "mcp__figma-console__figma_get_styles", "mcp__figma-console__figma_get_status", "mcp__figma-console__figma_get_file_for_plugin", "mcp__figma-console__figma_get_component_for_development"]
 ---
 
 # Design Handoff Skill — Lean Orchestrator
@@ -30,7 +32,7 @@ Prepare Figma designs for coding agent consumption via two tracks:
 
 ### Core Workflow Rules
 1. **Figma is source of truth**: The supplement NEVER duplicates Figma content. Zero layout descriptions, color specs, spacing values. Tables over prose — every word must earn its place.
-2. **Both MCP servers required**: Verify `mcp__figma-desktop__get_metadata` AND `mcp__figma-console__figma_take_screenshot` are available at startup. If either is unavailable, STOP and notify user.
+2. **figma-console MCP required**: Verify `mcp__figma-console__figma_get_status` is available at startup. If unavailable, STOP and notify user.
 3. **ONE screen per figma-preparer dispatch**: figma-console MCP is context-heavy. Never batch multiple screens in a single agent dispatch. Sequential processing with step-level state tracking.
 4. **Visual diff is non-negotiable**: Every prepared screen MUST pass visual diff. HARD BLOCK on failure after 3 fix attempts — screen is marked `blocked`, workflow continues with remaining screens.
 5. **Judge checkpoints are dedicated phases**: The judge is dispatched as a SEPARATE agent at each checkpoint boundary. Never inline quality evaluation.
@@ -74,7 +76,7 @@ $ARGUMENTS
                 |
 +---------------v---------------------------------------------------+
 |  Stage 3 (handoff-gap-analyzer): GAP & COMPLETENESS               |
-|  Per-screen gap detection (dual MCP). Missing screen detection.   |
+|  Per-screen gap detection (figma-console). Missing screen detection.|
 |  Cross-screen patterns.                                           |
 +---------------+---------------------------------------------------+
                 |
@@ -137,7 +139,7 @@ Establish prerequisites, scan the Figma file, and get designer approval before a
 Execute directly (no coordinator dispatch). Steps:
 
 1. **Config Validation** — Validate all required config keys exist
-2. **Figma MCP Check** — Verify BOTH `figma-desktop` AND `figma-console` MCP servers; STOP if either unavailable
+2. **Figma MCP Check** — Verify `figma-console` MCP server via `figma_get_status`; STOP if unavailable
 3. **Lock Acquisition** — Acquire `design-handoff/.handoff-lock`; handle stale locks
 4. **State Init or Resume** — Create new state (per `references/state-schema.md`) or resume with digest
 5. **Page Selection** — Designer selects Figma page
@@ -186,7 +188,7 @@ Identify what Figma cannot express and what's missing from the design.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/gap-analysis.md`
 
-Dispatch `handoff-gap-analyzer` (sonnet) with ALL prepared screens. The analyzer uses BOTH MCP servers:
+Dispatch `handoff-gap-analyzer` (sonnet) with ALL prepared screens. The analyzer uses figma-console for all queries:
 - **Part A**: Per-screen gap detection (behaviors, states, animations, data, logic, edge cases)
 - **Part B**: Missing screen/state detection (navigation dead-ends, implied states)
 - **Part C**: Cross-screen pattern extraction
@@ -295,10 +297,10 @@ Key principles:
 |-------|-------|-------|---------|
 | `handoff-screen-scanner` | 1 | haiku | Frame discovery, structural analysis, readiness scoring |
 | `handoff-figma-preparer` | 2, 3.5 | sonnet | Figma file preparation + design extension (loads figma-console-mastery) |
-| `handoff-gap-analyzer` | 3 | sonnet | Gap detection + missing screen detection, dual MCP |
+| `handoff-gap-analyzer` | 3 | sonnet | Gap detection + missing screen detection via figma-console |
 | `handoff-judge` | 2J, 3J, 3.5J, 5J | opus | LLM-as-judge at critical stage boundaries |
 
-**Key output artifacts:** `HANDOFF-SUPPLEMENT.md` (final), `handoff-manifest.md` (structural inventory), `gap-report.md` (working), `screenshots/` (visual diffs), `judge-verdicts/` (quality gate records).
+**Key output artifacts:** `HANDOFF-SUPPLEMENT.md` (final), `handoff-manifest.md` (structural inventory), `gap-report.md` (working), `figma-screen-briefs/FSB-*.md` (structured briefs for missing screens — give to figma-console agent to create them), `screenshots/` (visual diffs), `judge-verdicts/` (quality gate records).
 
 ---
 
@@ -315,6 +317,7 @@ Key principles:
 | `references/judge-protocol.md` | Shared judge dispatch, 4 checkpoint rubrics | Every judge checkpoint |
 | `references/state-schema.md` | YAML schema, init template, resume protocol | State creation, crash recovery |
 | `references/README.md` | File index, cross-references | Orientation |
+| `templates/figma-screen-brief-template.md` | Template for FSB files generated in Stage 3 for missing screens | Stage 3 brief generation |
 
 ---
 
@@ -322,7 +325,7 @@ Key principles:
 
 Rules 1-7 above MUST be followed. Key reminders:
 - Figma is source of truth — supplement NEVER duplicates Figma content
-- Both MCP servers required — stop if either unavailable
+- figma-console MCP required — stop if unavailable
 - ONE screen per figma-preparer dispatch — sequential with step-level state
 - Visual diff is non-negotiable — HARD BLOCK on failure after max retries
 - Judge checkpoints are dedicated phases — never inline

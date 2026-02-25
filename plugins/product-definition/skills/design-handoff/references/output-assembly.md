@@ -46,7 +46,16 @@ Skip entirely if `INCLUDE_CROSS` is `false`.
 **Shared Behaviors** — one row per `STATE.patterns.shared_behaviors[]`:
 `| {pattern} | {screens comma-joined} | {description} |`. Fallback: `| — | — | No shared behaviors detected |`.
 
-**Navigation Mermaid** (if `INCLUDE_MERMAID`) — Build `graph LR` with one node per non-blocked screen, one edge per cross-screen transition extracted from GAP_REPORT. Sanitize node labels (no spaces, max 20 chars).
+**Navigation Mermaid** (if `INCLUDE_MERMAID`) — Build `graph LR` with one node per non-blocked screen, one edge per cross-screen transition extracted from GAP_REPORT. Sanitize node labels (no spaces, max 20 chars). Missing screens appear as dashed-border nodes labeled `{Name}["⚠ {Name}"]`.
+
+After the Mermaid block, emit a **Screen Reference Table** for human navigation:
+```markdown
+| Screen | Node ID | Brief |
+|--------|---------|-------|
+| Login | `42:1337` | — |
+| ForgotPassword | — (not in Figma) | [FSB-001](figma-screen-briefs/FSB-001-ForgotPassword.md) |
+```
+This lets the reviewer jump directly to the right Figma frame or brief document.
 
 **Common Transitions** — one row per `STATE.patterns.common_transitions[]`:
 `| {name} | {screens} | {type} | {duration} |`. Fallback row if empty.
@@ -69,6 +78,8 @@ Iterate `STATE.screens` in Figma page order (matching manifest). Track `suppleme
 | data | Data Requirements | Endpoint / Method / Payload / Response |
 | edge_cases | Edge Cases | Bullet list: `- {description}` |
 
+**Element column rule:** When the gap's `element` field is a named Figma layer (e.g., `SubmitButton`, `PasswordInput`), include it verbatim — the coding agent can locate it via `figma_execute` using the exact layer name. This replaces the need for inline node-ID references in the supplement body.
+
 **Omit any subsection whose table/list would be empty.** `GAP_COUNT` = sum of all rows + bullets.
 
 ---
@@ -76,6 +87,32 @@ Iterate `STATE.screens` in Figma page order (matching manifest). Track `suppleme
 ## Step 5.4: Assemble Missing Screens Section
 
 Include only if `STATE.missing_screens` has entries with `designer_decision == "document_only"` (option C). For each: emit `### {name} (not in Figma)`, reason, classification, and `| Element | Behavior | Notes |` table from GAP_REPORT. Omit entire section if no option-C screens.
+
+---
+
+## Step 5.4b: Assemble Figma Screen Briefs Index
+
+Include only if `STATE.artifacts.figma_screen_briefs_dir` exists and contains at least one FSB file.
+
+Read all `FSB-*.md` files from `figma_screen_briefs/`. For each, extract YAML frontmatter fields.
+
+**Output format:**
+
+```markdown
+## Figma Screen Briefs
+
+Screens that were missing from Figma have been documented as briefs.
+Give these files to a figma-console agent to create the missing screens.
+
+| Brief | Screen | Classification | Status | Figma Node |
+|-------|--------|----------------|--------|------------|
+| [FSB-001](figma-screen-briefs/FSB-001-ForgotPassword.md) | ForgotPassword | MUST_CREATE | pending | — |
+| [FSB-002](figma-screen-briefs/FSB-002-SearchEmpty.md) | SearchEmpty | SHOULD_CREATE | created | `42:1899` |
+
+**To create pending screens:** run `/meta-skills:figma-console-mastery` and pass each brief file as input.
+```
+
+Omit entire section if no FSB files exist in the directory.
 
 ---
 
@@ -96,6 +133,7 @@ Populate `handoff-supplement-template.md`:
 | `{{COMMON_TRANSITIONS_TABLE}}` | Step 5.2 (omit section if `INCLUDE_CROSS` false) |
 | Per-Screen placeholder | Joined output from Step 5.3 |
 | `{{MISSING_SCREENS_SECTION}}` | Step 5.4 (omit if empty) |
+| `{{FIGMA_BRIEFS_INDEX}}` | Step 5.4b (omit section if no FSB files) |
 
 Write to `design-handoff/HANDOFF-SUPPLEMENT.md`. Update `STATE.artifacts.handoff_supplement`. Checkpoint.
 
@@ -128,6 +166,7 @@ Present to designer (direct output, not AskUserQuestion):
 | Screens skipped (blocked) | {blocked_count} |
 | Missing screens documented | {option_c_count} |
 | Missing screens created | {option_a_count} |
+| Figma screen briefs generated | {figma_briefs_count} |
 | Total gaps addressed | {total_gaps} |
 | CRITICAL gaps | {critical_count} |
 | TIER | {tier} |
@@ -138,11 +177,13 @@ Present to designer (direct output, not AskUserQuestion):
 | `HANDOFF-SUPPLEMENT.md` | Developer supplement — what Figma cannot express |
 | `handoff-manifest.md` | Structural inventory with routes and components |
 | `gap-report.md` | Working artifact — per-screen gap analysis |
+| `figma-screen-briefs/FSB-*.md` | Screen briefs for missing screens (if any) |
 
 ### Next Steps
 1. Review `HANDOFF-SUPPLEMENT.md` for accuracy
-2. Share supplement + manifest with development team
-3. Figma file remains the visual source of truth
+2. If briefs exist: give each `FSB-*.md` file to a figma-console agent to create missing screens
+3. Run `/product-definition:specify` to generate the feature specification
+4. Figma file remains the visual source of truth
 ```
 
 Update `STATE.current_stage: "5"`. Append to Progress Log. Checkpoint.

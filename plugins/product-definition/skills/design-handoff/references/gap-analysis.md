@@ -9,7 +9,7 @@ config_keys_used: ["gap_analysis.*"]
 # Stage 3 — Gap & Completeness Analysis (Coordinator)
 
 > Dispatches `handoff-gap-analyzer` agent with ALL prepared screens.
-> Agent uses dual MCP (figma-desktop + figma-console) for complementary analysis.
+> Agent uses figma-console MCP for all structural and design system analysis (live Plugin API state).
 > Produces `design-handoff/gap-report.md` consumed by Stage 3J (judge) and Stage 4 (designer dialog).
 
 ## Purpose
@@ -69,18 +69,22 @@ Instructions: Read @$CLAUDE_PLUGIN_ROOT/agents/handoff-gap-analyzer.md
 
 ## Part A: Gap Detection
 
-### Per-Screen Analysis via Dual MCP
+### Per-Screen Analysis via figma-console
 
 The gap analyzer uses BOTH Figma MCP servers on each screen. This is not redundant — they reveal different information:
 
-| Pass | MCP Server | Tools Used | What It Reveals |
-|------|------------|------------|-----------------|
-| 1 | figma-desktop | `get_metadata`, `get_design_context` | Layer tree (element names, types, hierarchy), CSS specs (colors, spacing, typography). This tells the analyzer what IS expressed structurally. |
-| 2 | figma-console | `figma_get_component_details`, `figma_search_components`, `figma_get_styles`, `figma_get_variables` | Component variant definitions (revealing missing states), instance spread (revealing shared patterns), style consistency (revealing outliers), variable bindings (revealing theming gaps). This tells the analyzer what SHOULD be there but is not. |
+| Tool | What It Reveals |
+|------|-----------------|
+| `figma_get_file_for_plugin(depth=figma.query_depth)` | Layer tree (element names, types, hierarchy). This tells the analyzer what IS expressed structurally — prototype connections, node types, nesting. |
+| `figma_get_component_for_development` | CSS specs (colors, spacing, typography, auto-layout, constraints). Design-to-code optimized response. |
+| `figma_get_component_details` | Component variant definitions (revealing missing states), available properties, current variant selections. |
+| `figma_search_components` | Instance spread patterns, shared component usage across screens. |
+| `figma_get_styles` | Style consistency (outliers), style definitions. |
+| `figma_get_variables` | Token/variable bindings (revealing theming gaps), design system health. |
 
-> **Screenshot rule**: NEVER use `figma-desktop::get_screenshot`. All screenshots MUST use figma-console (`figma_take_screenshot` for baseline reads; `figma_capture_screenshot` for post-mutation diffs — REST API is cloud-cached and returns stale renders after Plugin API changes).
+> **Screenshot rule**: All screenshots MUST use figma-console (`figma_take_screenshot` for baseline reads; `figma_capture_screenshot` for post-mutation diffs — REST API is cloud-cached and returns stale renders after Plugin API changes). NEVER use `figma-desktop::get_screenshot`.
 
-**Why Pass 2 matters:** figma-desktop shows that a Button instance exists on the Login screen. figma-console reveals that this Button component has only `default` and `hover` variants — meaning `disabled`, `loading`, and `error` variants are missing states that Figma does not express.
+**figma-console reveals all dimensions:** structural (what IS in the file) and design system patterns that IMPLY what should be there but is missing (e.g., a component with only `default` and `hover` variants — meaning `disabled`, `loading`, and `error` variants are missing states).
 
 ### Gap Categories
 
@@ -188,7 +192,7 @@ The analyzer traces EVERY interactive element on every screen to determine its i
 ```
 FOR EACH screen in inventory:
   FOR EACH interactive element (button, link, card, tab, nav item, icon):
-    1. Check prototype connections (figma-desktop get_metadata)
+    1. Check prototype connections (figma_get_file_for_plugin with depth=figma.query_depth)
        - Connection exists + destination in inventory → OK
        - Connection exists + destination NOT in inventory → MISSING SCREEN
     2. Check text content for implied navigation
@@ -264,7 +268,7 @@ The analyzer builds a complete navigation graph from prototype connections and i
 OUTPUT FORMAT: mermaid flowchart
 
 Sources:
-1. Prototype connections from figma-desktop get_metadata
+1. Prototype connections from figma_get_file_for_plugin (depth=figma.query_depth)
 2. Implied navigation from interactive element text/icons (Part B)
 3. Tab bar / bottom navigation structure
 4. Drawer / sidebar menu structure
@@ -421,9 +425,44 @@ After the gap analyzer writes `gap-report.md`, the orchestrator verifies the out
    - Set missing_screens[] from Section 2
    - Set patterns from Section 3
    - Set artifacts.gap_report path
-5. DISPATCH handoff-judge with checkpoint stage_3j
+5. GENERATE figma-screen-briefs/ for actionable missing items:
+   > FSB directory: read from `directories.figma_screen_briefs` in `@$CLAUDE_PLUGIN_ROOT/config/handoff-config.yaml`
+   > (default: `"design-handoff/figma-screen-briefs"`). Never hardcode this path.
+   ```
+   FOR EACH missing_screen in GAP_REPORT Section 2
+     WHERE classification IN ("MUST_CREATE", "SHOULD_CREATE"):
+
+     1. Determine FSB number: count existing FSB-*.md files in {FSB_DIR}/ + 1
+        where {FSB_DIR} = directories.figma_screen_briefs from config
+     2. Determine reference_screen_node_id:
+        - IF implied_by references a specific screen: use that screen's node_id from state
+        - ELSE: use the screen with the highest composite readiness score
+          formula: `(readiness_score.naming + readiness_score.tokens + readiness_score.structure) / 3`
+          ties broken by earliest position in state file `screens[]` inventory
+     3. Read template: @$CLAUDE_PLUGIN_ROOT/templates/figma-screen-brief-template.md
+     4. Populate and write: {FSB_DIR}/FSB-{NNN}-{ScreenName}.md
+        - id: FSB-{NNN}
+        - name: {missing_screen.name}
+        - status: pending
+        - trigger: "design-handoff"
+        - source: "Gap report Section 2 — {missing_screen.implied_by}"
+        - figma_node_id: null
+        - Context.Entry: derived from implied_by element and source screen
+        - Context.Exit: inferred from screen type (state variant stays on same screen; new screen navigates forward)
+        - Context.Classification: {missing_screen.classification}
+        - Context.Reference_screen: closest existing screen node_id
+        - Layout: inferred from screen type + classification reason (1-3 sentences, no colors/spacing)
+        - States: derived from gap_analysis.categories["states"] findings for this screen
+        - Behaviors: derived from gap_analysis.categories["behaviors"] findings for this screen
+        - Content: placeholder labels — orchestrator fills what's inferable from screen name/purpose
+        - Figma Components: leave as placeholder — handoff-figma-preparer fills via figma_search_components
+        - figma-console Notes: "Clone structure from reference screen: nodeId: {REF_NODE_ID}"
+   ```
+   Update state file: set `artifacts.figma_screen_briefs_dir: "{FSB_DIR}"` (value from config key)
+   and `figma_screen_briefs_count: {N}`.
+6. DISPATCH handoff-judge with checkpoint stage_3j
    - See references/judge-protocol.md > Stage 3J rubric
-6. ON judge verdict:
+7. ON judge verdict:
    - PASS → check if missing_screens contains MUST_CREATE or SHOULD_CREATE items
      - IF yes → advance to Stage 3.5 (Design Extension)
      - IF no → advance to Stage 4 (Designer Dialog)

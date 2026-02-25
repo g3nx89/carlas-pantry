@@ -12,6 +12,7 @@ directories:
   root: "design-handoff"                    # All handoff artifacts live here
   screenshots: "design-handoff/screenshots" # Before/after visual diffs per screen
   working: "design-handoff/working"         # Intermediate artifacts (gap report drafts, judge verdicts)
+  figma_screen_briefs: "design-handoff/figma-screen-briefs"  # FSB files — shared between design-handoff and specify
 
 # =============================================================================
 # STATE MANAGEMENT
@@ -27,13 +28,18 @@ state:
 # FIGMA INTEGRATION
 # =============================================================================
 
-# Both figma-desktop AND figma-console MCP servers are REQUIRED.
-# figma-desktop: read-only analysis (get_metadata, get_design_context) — NO screenshots (get_screenshot is cloud-cached/stale)
-# figma-console: screenshots + read + write (figma_take_screenshot, figma_capture_screenshot, figma_execute, figma_rename_node, etc.)
-# Workflow STOPS at Stage 1 if either MCP server is unavailable.
+# figma-console MCP server is REQUIRED (single dependency).
+# figma-console: read + write + screenshots (figma_get_file_for_plugin, figma_get_component_for_development,
+#   figma_execute, figma_rename_node, figma_take_screenshot, figma_capture_screenshot, etc.)
+# Uses live Plugin API state — no REST API staleness issues.
+# Workflow STOPS at Stage 1 if figma-console is unavailable.
 
 figma:
-  connection: "desktop+console"             # Both required; no graceful degradation
+  connection: "console"                     # figma-console only; no graceful degradation
+  query_depth: 3                            # Nesting depth for figma_get_file_for_plugin structural queries.
+                                            # Default 3 is correct for simple/shallow Figma files.
+                                            # Increase to 5-6 for production design systems with deep
+                                            # auto-layout nesting (e.g., Frame > stack > row > card > content > text).
 
 # =============================================================================
 # TIER SYSTEM (Smart Componentization from figma-console-mastery)
@@ -183,7 +189,7 @@ model_assignments:
     - "handoff-screen-scanner"              # Stage 1: Figma frame discovery, structural analysis, readiness scoring
   sonnet:
     - "handoff-figma-preparer"              # Stage 2, 3.5: Figma preparation + design extension (loads figma-console-mastery)
-    - "handoff-gap-analyzer"                # Stage 3: Gap detection + missing screen detection, dual MCP
+    - "handoff-gap-analyzer"                # Stage 3: Gap detection + missing screen detection, figma-console
   opus:
     - "handoff-judge"                       # Stages 2J, 3J, 3.5J, 5J: LLM-as-judge at critical boundaries
 

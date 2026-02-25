@@ -10,7 +10,8 @@ color: blue
 tools:
   - Read
   - Write
-  - mcp__figma-desktop__get_metadata
+  - mcp__figma-console__figma_get_file_for_plugin
+  - mcp__figma-console__figma_get_component_for_development
   - mcp__figma-console__figma_take_screenshot
   - mcp__figma-console__figma_capture_screenshot
   - mcp__figma-console__figma_get_variables
@@ -82,7 +83,8 @@ FOR EACH prepared screen:
 #### 2J-2: Naming Compliance
 
 ```
-CALL mcp__figma-desktop__get_metadata(nodeId={prepared_screen_id})
+CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[prepared_screen_id], depth=3)
+# depth from config: figma.query_depth (default 3; applies to all figma_get_file_for_plugin calls in this agent)
 SCAN all descendant layer names:
   - Components/Instances: Must be PascalCase
   - No generic names: "Group N", "Frame N", "Rectangle N", "Vector N"
@@ -96,7 +98,7 @@ SCAN all descendant layer names:
 
 ```
 CALL mcp__figma-console__figma_get_variables()
-CALL mcp__figma-desktop__get_design_context(nodeId={prepared_screen_id})
+CALL mcp__figma-console__figma_get_component_for_development(nodeId={prepared_screen_id})
 
 COUNT: nodes with hardcoded fill/stroke colors vs variable-bound colors
 CALCULATE: binding percentage = bound / (bound + hardcoded) * 100
@@ -125,7 +127,7 @@ IF TIER >= 2:
 
 ```
 FOR EACH prepared screen:
-  CALL mcp__figma-desktop__get_metadata(nodeId={prepared_screen_id})
+  CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[prepared_screen_id], depth=3)
   COUNT: descendant nodes of type GROUP
 ```
 
@@ -158,7 +160,7 @@ ELSE:
 ```
 FOR EACH screen in inventory:
   READ gap-report section for this screen
-  CALL mcp__figma-desktop__get_metadata(nodeId={screen_node_id})
+  CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[screen_node_id], depth=3)
   CALL mcp__figma-console__figma_capture_screenshot(nodeId={screen_node_id})
 
   CHECK: Are there obvious gaps NOT captured?
@@ -247,7 +249,7 @@ FOR EACH newly created screen:
 
 ```
 FOR EACH newly created screen:
-  CALL mcp__figma-desktop__get_metadata(nodeId={new_screen_id})
+  CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[new_screen_id], depth=3)
 
   CHECK: Does the new screen use library component INSTANCES
          where existing screens use them? (buttons, inputs, cards, etc.)

@@ -10,8 +10,8 @@ color: yellow
 tools:
   - Read
   - Write
-  - mcp__figma-desktop__get_metadata
-  - mcp__figma-desktop__get_design_context
+  - mcp__figma-console__figma_get_file_for_plugin
+  - mcp__figma-console__figma_get_component_for_development
   - mcp__figma-console__figma_audit_design_system
   - mcp__figma-console__figma_search_components
 ---
@@ -49,7 +49,7 @@ Every missed frame is a screen that silently drops out of the handoff. Every inc
 ### Step 1: Page Frame Discovery
 
 ```
-1. CALL mcp__figma-desktop__get_metadata() — detect selected page
+1. CALL mcp__figma-console__figma_get_file_for_plugin(depth=1) — detect selected page and top-level frames
 2. EXTRACT all direct children of type FRAME or COMPONENT
 3. ORDER by page position: Y ascending (top→bottom), X ascending (left→right)
 4. IF zero frames found: WRITE error output and STOP
@@ -60,10 +60,13 @@ Every missed frame is a screen that silently drops out of the handoff. Every inc
 For EACH discovered frame:
 
 ```
-1. CALL mcp__figma-desktop__get_metadata(nodeId={frame_node_id})
+1. CALL mcp__figma-console__figma_get_file_for_plugin(nodeIds=[frame_node_id], depth=3)
+   # depth from config: figma.query_depth (default 3; increase for deep production files)
    EXTRACT: childCount, node type distribution, nesting depth
 
-2. CALL mcp__figma-desktop__get_design_context(nodeId={frame_node_id})
+2. CALL mcp__figma-console__figma_get_component_for_development(nodeId={frame_node_id})
+   # NOTE: This tool is documented for component nodes; behavior on FRAME nodes is not guaranteed.
+   # If the response is empty or missing fills/fonts, fall back to inspecting figma_get_file_for_plugin output.
    EXTRACT: fills (image vs solid vs variable-bound), fonts, auto-layout usage,
             constraints, spacing tokens
 
