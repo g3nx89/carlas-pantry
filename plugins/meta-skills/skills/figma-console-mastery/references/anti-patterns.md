@@ -6,6 +6,47 @@ This reference catalogs the most common failures, anti-patterns, and hard constr
 
 ---
 
+## Quick Troubleshooting Index
+
+> Quick symptom → fix lookup. For detailed error analysis, see sections below.
+
+| Symptom | Quick Fix |
+|---------|-----------|
+| `figma_get_status` shows not connected | Guide user through plugin setup — see `gui-walkthroughs.md` |
+| `figma_execute` returns empty/error | Wrap in `return (async () => { try { ... } catch(e) { return JSON.stringify({error: e.message}) } })()` — outer `return` required |
+| Font loading error | Call `figma.loadFontAsync({family, style})` before setting `.characters` |
+| Layout properties silently ignored | Set `layoutMode = 'VERTICAL'` or `'HORIZONTAL'` BEFORE padding/spacing |
+| Fill/stroke mutation fails | Clone array, modify clone, reassign (immutable reference pattern) |
+| `figma_instantiate_component` silent fail | Verify variant property names match exactly (case-sensitive) |
+| Batch variable call fails | Verify `collectionId` is valid; max 100 per batch call |
+| Node IDs lost after context compaction | Re-read per-screen journal `specs/figma/journal/{screen-name}.jsonl` and `session-state.json` — see `convergence-protocol.md` Compact Recovery Protocol |
+| System redoing already-completed work | Read per-screen journal, skip any operation already logged |
+| Console log buffer missing earlier results | Buffer holds ~100 entries, each `console.log` emits 3 — call `figma_clear_console` before each batch |
+| `figma_take_screenshot` shows stale content | Use `figma_capture_screenshot` (Desktop Bridge, live state) for post-Plugin-API validation |
+| Context compaction mid-workflow | Re-read journal + state files, rebuild completed-ops set, resume from first uncompleted operation |
+| Prototype connections silently lost | GROUP nodes drop reactions silently; verify with `node.reactions` re-read after `setReactionsAsync` |
+| `createInstance()` fails on COMPONENT_SET | Find variant child first: `set.children.find(c => c.name.includes("State=Default"))`, then `variant.createInstance()` |
+| `"object is not extensible"` on GROUP | Cannot set `constraints` on GROUP. Convert to transparent FRAME first |
+| `"node does not exist"` after moving GROUP children | GROUP auto-deletes when empty. Never call `group.remove()` |
+| Auto-layout height stays at 1px | Toggle fix: set `counterAxisSizingMode = "FIXED"`, `resize(w, approxH)`, then `counterAxisSizingMode = "AUTO"` |
+| Child fill sizing throws validation error | `primaryAxisSizingMode = "FILL"` is invalid on frames — use `"AUTO"`. Set `child.layoutSizingHorizontal = "FILL"` on the child |
+| Instance looks distorted after resize | `resize()` changes bounding box only — use `inst.rescale(targetW / naturalW)` to scale content proportionally |
+| `combineAsVariants` throws "has existing errors" | All nodes must have EVERY property in `Prop1=Val1, Prop2=Val2` format before combining |
+| `figma.getNodeById(id)` throws in dynamic-page mode | Use `figma.getNodeByIdAsync(id)` — the sync API is disabled entirely; throws, does not return null |
+| Desktop Bridge drops mid-session | Gate each step with `figma_get_status`; on dropout, instruct user to reopen the plugin |
+| `page.findOne()` returns null after `setCurrentPageAsync` | Capture page object in the same IIFE: `const p = figma.root.children.find(...)` then `p.findOne()` |
+| `setProperties()` silently does nothing | Use base property name (e.g., `"day"`) not the disambiguated key (`"day#222:62"`) — binding uses returned key, overriding uses the name |
+| `addComponentProperty` key mismatch | `addComponentProperty` returns a disambiguated key like `"message#206:8"` — always use the RETURNED key for `componentPropertyReferences` binding |
+| Text wraps unexpectedly after instance override | Override sets `textAutoResize=HEIGHT` with component's narrow default width. Fix: `textAutoResize = 'WIDTH_AND_HEIGHT'` after loading font |
+| `textAutoResize = 'WIDTH_AND_HEIGHT'` ignored in auto-layout | Competing sizing: use `textAutoResize = 'HEIGHT'` when text has `layoutSizingHorizontal = 'FILL'` |
+| `swapComponent` loses position and properties | Capture x/y/w/h/constraints BEFORE swap, restore AFTER. Old component properties are gone — set new ones by name or find TEXT nodes directly |
+| M3 Button label text is null | `figma.skipInvisibleInstanceChildren = false` before `findOne(n => n.type === 'TEXT')`, restore to `true` after |
+| GROUP child position assignment offset | GROUP children report x/y relative to the CONTAINING FRAME, not the GROUP. Use `child.x = group.x + desiredLocalX` |
+| Container appears at wrong x after append | `layoutMode=NONE` parent assigns non-zero x on append. Always set `container.x = 0` explicitly AFTER appending |
+| Data lost between `figma_execute` calls | Use `globalThis.__key = value` in async IIFE, read back in subsequent sync call. Use unique key names per operation |
+
+---
+
 ## The Top 5 figma_execute Failures
 
 Ranked by frequency. These five errors account for the vast majority of `figma_execute` debugging time. All are preventable by following the correct operation order documented in `plugin-api.md`.
@@ -117,10 +158,10 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 | Not discovering before creating | Duplicate components or missed existing assets | Always `figma_search_components` before creating new components |
 | Non-idempotent creation scripts | Re-running a script creates duplicate nodes every time | Before creating a named node, check: `const existing = figma.currentPage.findOne(n => n.name === "Target"); if (existing) return { id: existing.id, reused: true }`. Only create if not found |
 | Overusing `figma_execute` for atomic operations | Each execute + console-logs pair costs ~2,000 tokens; accumulates to context overflow on large sessions | Use `return (async () => { ... return JSON.stringify(data); })()` form for operations that need data back; batch 3+ same-type operations into a single idempotent script (see `convergence-protocol.md` Batch Scripting Protocol); use native figma-console tools (`figma_search_components`, `figma_instantiate_component`, `figma_batch_create_variables`) instead of scripting those via `figma_execute` |
-| **Building screens from text descriptions** | Text files (PRDs, reconstruction guides) cannot capture IMAGE fills, exact fonts, layer ordering, opacity, gradients, or spacing — 100% of produced screens will be visually incorrect | ALWAYS read source Figma nodes via `figma_node_children` before constructing screens. Text documents are supplementary context for annotations only — see `design-handoff` skill (product-definition plugin) |
-| **Silent fallback to text when Figma access fails** | When source design cannot be read, silently building from text produces entirely wrong output; the user discovers the failure only after hours of work | If `figma_node_children` fails on ANY source screen, STOP immediately and inform the user. NEVER fall back to text-based construction |
+| **Building screens from text descriptions** | Text files (PRDs, reconstruction guides) cannot capture IMAGE fills, exact fonts, layer ordering, opacity, gradients, or spacing — 100% of produced screens will be visually incorrect | ALWAYS read source Figma nodes via `figma_execute` (Plugin API node traversal) before constructing screens. Text documents are supplementary context for annotations only — see `design-handoff` skill (product-definition plugin) |
+| **Silent fallback to text when Figma access fails** | When source design cannot be read, silently building from text produces entirely wrong output; the user discovers the failure only after hours of work | If source node reading via `figma_execute` fails on ANY source screen, STOP immediately and inform the user. NEVER fall back to text-based construction |
 | **No visual fidelity check during construction** | Deferring visual validation to the final phase allows N screens of wrong output to accumulate before any comparison | Run `figma_capture_screenshot` (Desktop Bridge, live state) after EVERY screen and compare against the before-screenshot. Do NOT defer to the final phase — see `design-handoff` skill (product-definition plugin) |
-| **Building from scratch when cloning is possible** | Using `figma_create_frame` + manual child creation instead of `figma_node_clone` loses all IMAGE fills, exact fonts, and visual properties from the source design | Default to clone + restructure for ALL screens that exist in the Draft. Only build from scratch for screens with no source — see `design-handoff` skill (product-definition plugin) |
+| **Building from scratch when cloning is possible** | Using `figma_execute` with `figma.createFrame()` + manual child creation instead of `figma_clone_node` loses all IMAGE fills, exact fonts, and visual properties from the source design | Default to clone + restructure for ALL screens that exist in the Draft. Only build from scratch for screens with no source — see `design-handoff` skill (product-definition plugin) |
 | **Batch-processing screens in Draft-to-Handoff** | Processing multiple screens simultaneously hides silent failures (empty clones, missing instances, broken constraints) and delays error detection by N screens | Process one screen at a time through the full pipeline. Validate each screen completely before proceeding to the next — see `design-handoff` skill (product-definition plugin) |
 | **Not involving user for complex screen conversions** | The agent wastes tokens making assumptions about ambiguous elements, constraint types, and component matching — then discovers issues only at visual validation (too late) | Analyze the screen FIRST, present findings + questions to user for MODERATE/COMPLEX screens BEFORE cloning. Trivial screens proceed autonomously — see `design-handoff` skill (product-definition plugin) |
 | **Using `figma_take_screenshot` to validate recent Plugin API mutations** | `figma_take_screenshot` uses the Figma REST API, which renders from the cloud-synced file state. Changes made via `figma_execute` are NOT reflected until the file is saved and synced. The REST API also caches renders — identical byte sizes across repeated calls confirm cache hits. There is no public API to force cache invalidation | Use `figma_capture_screenshot` (Desktop Bridge transport) which exports from the live plugin runtime state. `figma_take_screenshot` is only safe for validating already-saved designs |
@@ -150,7 +191,7 @@ These patterns cause structural or visual failures specific to the Draft-to-Hand
 | **`combineAsVariants` on incomplete variant sets** | If any node in the array has a different set of property keys in its name, `combineAsVariants` throws `"Component set has existing errors"` — the resulting set is unusable and cannot be repaired | Before calling `combineAsVariants`, ensure ALL nodes have names containing EVERY property: `Prop1=Val1, Prop2=Val2`. Verify with `nodes.every(n => n.name.includes("Progress="))`. If a bad set was created, delete it and regenerate |
 | **Fixing component instance height instead of master variant** | When a component variant is created with `resize(w, 1)` and `primaryAxisSizingMode=FIXED`, the height is frozen at 1px. All instances inherit this collapsed bounding box. Fixing individual instances has no effect | Fix the MASTER variant directly: `variant.primaryAxisSizingMode = 'AUTO'` (height/primary axis for VERTICAL layout). Height recalculates from children immediately and all instances automatically inherit the corrected intrinsic height |
 | **Creating instances via `getNodeByIdAsync` on cross-page components** | `getNodeByIdAsync('componentId')` syntactically works, but calling `.createInstance()` on the returned node and appending it may not persist reliably when the component lives on a different page context | Call `getMainComponentAsync()` on an **existing INSTANCE already on the current page**. The returned component reference is live: `const comp = await existingInst.getMainComponentAsync(); const newInst = comp.createInstance();` |
-| **Trusting `get_design_context` for text override validation** | `get_design_context` (and Figma REST API) returns a component's **property defaults** as defined in the master component, not live `.characters` overrides set via Plugin API. All instances may appear to have placeholder text even when correctly set | Cross-check with Plugin API: `figma_execute` returning `node.characters` as ground truth. False-positive "Critical" findings from design-context readers are expected for any `.characters`-based override until the file is cloud-synced |
+| **Trusting Figma REST API for text override validation** | The Figma REST API (used by `figma_get_file_data` and external design extraction tools) returns a component's **property defaults** as defined in the master component, not live `.characters` overrides set via Plugin API. All instances may appear to have placeholder text even when correctly set | Cross-check with Plugin API: `figma_execute` returning `node.characters` as ground truth. False-positive findings from REST-based design readers are expected for any `.characters`-based override until the file is cloud-synced |
 | **Wrapping only buttons in a container without associated text** | Creating a `buttons_container` that groups ONLY CTA buttons without their title and description text — produces broken layout where text floats outside, spacing breaks on resize | When grouping action elements, ALWAYS wrap the complete logical unit: `(title + description + button)` together. If text and button are visually grouped in Draft, they must be structurally grouped too |
 | **Wrapping remote components in local COMPONENT wrappers** | Creating a local COMPONENT that wraps a remote M3 component to add custom typography — causes double text content, extra indirection, hardcoded text width causing wrapping bugs, breaks on M3 library updates | Use remote M3 component directly. Override fills for theming, set text via `.characters` on internal TEXT node, use `setProperties` for BOOLEAN properties. Override `fontName` on TEXT node if custom typography needed |
 | **Adding auto-layout to frame with many loose children** | `layoutMode=VERTICAL` on a frame with manually-positioned children reflows them in document order from top, ignoring x/y positions — completely breaks visual layout. Destructive, no undo | Before adding AL: check children positions. If irregular, create a NEW empty AL container and move children preserving order. For too-complex content: build clean components, delete loose nodes, create fresh instances |
@@ -173,7 +214,7 @@ These patterns cause the system to **undo its own work** or **redo already-compl
 | Restructuring already-restructured screens | After compact, the AI applies auto-layout, renames, and instance replacements to screens that were already processed | Check journal for `clone_screen` and `batch_rename` entries for the target screen before restructuring |
 | Using in-context memory as truth after compact | The AI "remembers" partial state from before compact but that memory may be incomplete or wrong | ONLY trust the operation journal; in-context memory after compact is unreliable — see `convergence-protocol.md` Rule C6 |
 | No idempotency in batch scripts | A batch `figma_execute` script modifies nodes unconditionally; if re-run after compact, it re-applies all changes | Include `if (node.name === r.name) { status: "already_done"; continue; }` checks in all batch scripts — see `convergence-protocol.md` Batch Script Templates |
-| Using individual calls for 3+ same-type operations | 20 individual `figma_node_rename` calls consume ~2,000 tokens and 20 round-trips; a single batch script does the same in ~600 tokens and 1 round-trip | Batch homogeneous operations (renames, moves, fills) into `figma_execute` scripts — see `convergence-protocol.md` Batch Scripting Protocol |
+| Using individual calls for 3+ same-type operations | 20 individual `figma_rename_node` calls consume ~2,000 tokens and 20 round-trips; a single batch script does the same in ~600 tokens and 1 round-trip | Batch homogeneous operations (renames, moves, fills) into `figma_execute` scripts — see `convergence-protocol.md` Batch Scripting Protocol |
 
 ---
 
@@ -220,17 +261,17 @@ Remote mode connects via Cloudflare Workers and is restricted to read-only opera
 - **No variable management** -- all CRUD operations require local mode
 - **No Desktop Bridge Plugin** -- remote cannot connect to localhost
 - **Variables require Enterprise plan** -- REST API endpoint is Enterprise-gated (local mode bypasses this)
-- **Only ~21 read-only tools** available (~34% of the full 56+ tool set)
+- **Only ~21 read-only tools** available (~35% of the full 60 tool set)
 
 ### IMAGE Fill Limitation (CRITICAL for Draft-to-Handoff)
 
 **The Figma Plugin API cannot create IMAGE fills from external sources in practice during design transfer workflows.** While `figma.createImageAsync(url)` exists, it requires network access from the plugin context and public URLs — neither of which is available when transferring existing designs between pages.
 
-**The only reliable way to preserve IMAGE fills is to clone the source node** via `figma_node_clone`. Any workflow that creates screens from scratch instead of cloning will lose ALL image fills, replacing them with black rectangles or empty frames.
+**The only reliable way to preserve IMAGE fills is to clone the source node** via `figma_clone_node` (or `figma_execute` with Plugin API `node.clone()`). Any workflow that creates screens from scratch instead of cloning will lose ALL image fills, replacing them with black rectangles or empty frames.
 
 **Impact**: A Draft-to-Handoff workflow that builds screens from text descriptions or from scratch (instead of cloning) produces 100% incorrect output for any screen containing images — artwork, photos, backgrounds, illustrations are all lost.
 
-**Rule**: When transferring designs between pages, ALWAYS use `figma_node_clone` for screens containing IMAGE fills. See the `design-handoff` skill (product-definition plugin) for the full preparation workflow.
+**Rule**: When transferring designs between pages, ALWAYS use `figma_clone_node` (or `figma_execute` with `node.clone()`) for screens containing IMAGE fills. See the `design-handoff` skill (product-definition plugin) for the full preparation workflow.
 
 ### Any-Mode Limitations
 

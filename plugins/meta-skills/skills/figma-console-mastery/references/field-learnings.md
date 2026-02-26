@@ -333,6 +333,6 @@ For button labels inside nested component instances: navigate to the nested Cont
 
 - **Anti-patterns** (API errors, common failures): `anti-patterns.md`
 - **Plugin API** (property tables, operation order): `plugin-api.md`
-- **Visual QA protocol** (audit templates, scoring): `visual-qa-protocol.md`
+- **Quality model** (audit templates, scoring, 10 dimensions): `quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`
 - **Convergence protocol** (journal, anti-regression): `convergence-protocol.md`
 - **Component recipes** (GROUP->FRAME, component creation): `recipes-components.md`

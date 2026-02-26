@@ -1,19 +1,18 @@
 # Code Handoff Protocol
 
-> **Cross-references**: `recipes-advanced.md` (Handoff Preparation Pattern + naming audit recipe), `design-rules.md` (Code-readiness SHOULD rules #11-15), `st-integration.md` (Naming Audit Reasoning template), `tool-playbook.md` (Complementary Workflow — downstream Official MCP tools)
+> **Cross-references**: `recipes-advanced.md` (Handoff Preparation Pattern + naming audit recipe), `design-rules.md` (Code-readiness SHOULD rules #11-14), `st-integration.md` (Naming Audit Reasoning template)
 
 When the design session is complete and the design will be implemented as code,
-run this protocol to prepare the Figma artifact for downstream consumption by the
-coding agent. The coding agent uses `get_design_context` (Official MCP) to extract
-framework-ready specs (React, SwiftUI, Compose, etc.) and the `implement-design`
-Agent Skill to translate them into production code.
+run this protocol to prepare the Figma artifact for downstream consumption by a
+coding agent. The coding agent may use design extraction tools (e.g., external design-to-code
+tools, or direct Plugin API traversal via `figma_execute`) to read the design. This protocol
+ensures designs are structurally ready for extraction by any downstream tool.
 
 ### TIER System — Componentization Depth
 
-Without Code Connect (requires Organization/Enterprise), `get_design_context` returns
-component names, variant properties, and descriptions but cannot provide bidirectional
-design-code mappings. The TIER system scales componentization effort to match the
-plan's capabilities:
+Design extraction tools (whether via external design-to-code services or direct Plugin API reads)
+can read component names, variant properties, and descriptions. The TIER system scales
+componentization effort based on the design's downstream usage:
 
 | TIER | Name | What It Includes | When to Use |
 |------|------|-----------------|-------------|
@@ -58,15 +57,14 @@ Elements failing any gate remain as styled frames with proper naming and token b
    ```
 4. **Token alignment** — verify variable/token names correspond to the codebase
    token system (e.g., `color/primary/500` -> `--color-primary-500`)
-5. **UI kit preference** — where possible, compose with M3/Apple/SDS library
-   components that have automatic Code Connect on Professional+ plans
-6. **Health check** — `figma_audit_design_system` for final naming, token, and
+5. **Health check** — `figma_audit_design_system` for final naming, token, and
    consistency scores
 
 > **ST trigger**: When the naming audit (step 1) surfaces >5 issues with ambiguous false positives (CTA, 2XL, etc.), activate ST with a TAO Loop to reason through each flagged item: classify as true positive, false positive, or ambiguous. See [`st-integration.md#template-naming-audit-reasoning`].
 
-7. **Handoff Manifest** (TIER 2/3) — generate `specs/figma/handoff-manifest.md` with the
-   structured data the coding agent needs to bridge Figma → code. Template:
+6. **Handoff Manifest** (TIER 2/3) — generate `specs/figma/handoff-manifest.md` with the
+   structured data the coding agent needs to bridge Figma → code. The consuming workflow
+   (e.g., design-handoff skill) generates this manifest, not this skill. Template:
 
    ```markdown
    # Handoff Manifest
@@ -105,16 +103,14 @@ Elements failing any gate remain as styled frames with proper naming and token b
    ```
 
    The coding agent reads this manifest to locate screens by node ID, map components
-   to code, and resolve token names — without needing Code Connect.
+   to code, and resolve token names.
 
 ## Multi-Platform Notes
 
-The component name is the cross-platform contract. The coding
-agent for each platform searches its own codebase for a component matching the
-Figma name. `get_design_context` handles framework-specific translation. For
-components where platform names diverge (e.g., Figma `BottomNavigation` vs
-SwiftUI `TabView`), use step 3 exception descriptions with platform-specific
-code names.
+The component name is the cross-platform contract. The coding agent for each platform
+searches its own codebase for a component matching the Figma name. For components where
+platform names diverge (e.g., Figma `BottomNavigation` vs SwiftUI `TabView`), use step 3
+exception descriptions with platform-specific code names.
 
 ## Preceding Input: UX-NARRATIVE
 
@@ -140,7 +136,7 @@ The narrative adds precision and reduces manual variant discovery effort.
 
 ## Scope
 
-This protocol prepares the Figma artifact for downstream consumption.
-Actual code generation is performed by the `implement-design` Agent Skill via Official MCP.
-For plan-specific availability of downstream tools, see `tool-playbook.md`
-(Complementary Workflow).
+This protocol prepares the Figma artifact for downstream consumption by any coding workflow.
+Actual code generation is handled by the consuming workflow (e.g., design-handoff skill in
+the product-definition plugin, or custom implementation workflows using Official Figma MCP
+or direct Plugin API reads).

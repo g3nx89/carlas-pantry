@@ -25,10 +25,41 @@ The Operation Journal is an **append-only** JSONL file that records every mutati
 ### File Location
 
 ```
-specs/figma/operation-journal.jsonl
+specs/figma/journal/
+  {screen-name}.jsonl          # Per-screen operation journal
+  _session-summary.jsonl       # Cross-screen session events (start, end, mode selection)
 ```
 
-Create the file at session start if it does not exist. Never delete or truncate it during a session.
+Per-screen journals replace the previous monolithic `operation-journal.jsonl`. Each screen gets its own JSONL file named after the screen (slugified: lowercase, hyphens for spaces, no special characters).
+
+**Rules**:
+- Session-level events (session start, mode selection, session end) go to `_session-summary.jsonl`
+- Per-screen operations go to the screen's journal file
+- Convergence checks (C1-C7) apply per-screen journal
+- Crash recovery reads per-screen journal to determine completed operations
+- Subagents receive only the journal for their assigned screen (context reduction)
+
+Create journal directory and screen file at first operation on that screen if they don't exist.
+
+### Cross-Screen Operations Journal
+
+For operations that affect multiple screens simultaneously (batch token binding, global naming rules, cross-screen component extraction), use a dedicated cross-screen journal:
+
+```
+specs/figma/journal/_cross-screen.jsonl
+```
+
+**When to use**: Any operation that modifies nodes across 2+ screens in a single batch.
+
+**Entry format**:
+```json
+{"v":1,"ts":"...","op":"cross_screen_batch","target":"screens:ONB-01,ONB-02,ONB-03","detail":{"action":"batch_token_bind","variables_bound":12,"screens_affected":3},"phase":3}
+```
+
+**Rules**:
+- Cross-screen operations are logged to `_cross-screen.jsonl`, NOT to individual screen journals
+- After cross-screen operation completes, append a summary entry to each affected screen's journal: `{"op":"cross_screen_ref","ref":"_cross-screen.jsonl","entry_ts":"..."}`
+- Convergence checks for a screen must read BOTH the screen journal AND `_cross-screen.jsonl` entries referencing that screen
 
 ### Entry Format
 
@@ -78,7 +109,7 @@ One JSON object per line. Every entry MUST include these fields:
 | `phase_complete` | At phase boundary | phase-specific summary |
 | `validation_pass` | After diff/lint passes | `screen_name`, `score` |
 | `validation_fail` | After diff/lint fails | `screen_name`, `score`, `issues` |
-| `reflection` | After R1/R2/R3 reflection completes | `tier`, `composite_score` (R2/R3), `scores` (per-dimension), `verdict`, `issues`, `improvements_applied`, `judges` (R3), `consensus` (R3) |
+| `quality_audit` | After quality audit completes | `composite_score`, `scores` (per-dimension), `verdict`, `issues`, `improvements_applied` |
 
 ### Journal Rules
 
@@ -107,6 +138,39 @@ The journal is scoped to a **single workflow** on a single Figma file. Between-s
 
 **Never delete an active journal** — if in doubt whether a workflow is complete, keep the journal. An unnecessary journal is harmless; a prematurely deleted journal causes regression.
 
+### Journal Compaction
+
+For complex screens with heavy rework, journals can grow large. Compaction prevents context bloat when loading into subagents.
+
+**Trigger**: When a per-screen journal exceeds 100 entries or ~4K tokens, compact before the next subagent load.
+
+**Compaction procedure**:
+1. Read the full journal
+2. Identify completed operation sequences (create -> modify -> modify -> final state)
+3. Collapse sequences into a summary entry: `{ "op": "compacted", "original_count": N, "summary": "Created frame X, applied auto-layout, renamed to Y", "final_state": {...}, "timestamp": "..." }`
+4. Preserve: all `quality_audit` entries (score history), all `error` entries (learning), last entry per unique node ID (crash recovery)
+5. Write compacted journal to `{screen-name}.jsonl` (replace in-place)
+6. Archive original to `{screen-name}.pre-compact.jsonl` (safety net)
+
+**What survives compaction**: latest state of every modified node, all audit results, all errors, session boundary markers.
+**What gets collapsed**: intermediate modification steps for same node, redundant convergence checks, superseded retry sequences.
+
+### Session Summary Compaction
+
+For long-running projects with many rework sessions, `_session-summary.jsonl` can grow large.
+
+**Trigger**: When `_session-summary.jsonl` exceeds 50 entries.
+
+**Compaction procedure**:
+1. Read all entries
+2. Keep: latest `session_start` entry, all `mode_selection` entries (needed for history), latest `session_end` per session
+3. Collapse intermediate entries (screen dispatches, status checks) into a per-session summary: `{"op":"session_compacted","original_count":N,"sessions_preserved":M,"timestamp":"..."}`
+4. Write compacted file in-place
+5. Archive original to `_session-summary.pre-compact.jsonl`
+
+**What survives**: Session boundaries, mode selections, final outcomes
+**What gets collapsed**: Intermediate dispatch entries, status checks, redundant session metadata
+
 ---
 
 ## 2. Convergence Check (Anti-Regression)
@@ -117,7 +181,7 @@ The Convergence Check is the mandatory pre-operation verification that prevents 
 
 ```
 BEFORE mutating operation:
-  1. Read operation-journal.jsonl (or grep for target node ID)
+  1. Read per-screen journal for target screen (or grep for target node ID)
   2. Check: has this exact operation already been logged?
      - rename(nodeId, newName) → grep for {"op":"rename","target":"<nodeId>"}
      - create_component(name) → grep for {"op":"create_component",...,"name":"<name>"}
@@ -359,7 +423,7 @@ Every subagent receives a standardized prompt structure. The **skill loading blo
 - Current phase: {phase_number} — {phase_name}
 - Current time: {ISO_8601_timestamp}  ← orchestrator injects real wall-clock time
 - State file: specs/figma/session-state.json
-- Journal: specs/figma/operation-journal.jsonl
+- Journal: specs/figma/journal/{screen_name}.jsonl
 
 ## Skill Loading (MANDATORY — NON-NEGOTIABLE)
 Every subagent MUST load the figma-console-mastery skill references BEFORE starting any work.
@@ -478,13 +542,14 @@ specs/figma/session-state.json
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "phase": 2,
   "timestamp": "2026-02-20T15:00:00Z",
   "file_name": "My Design File",
   "source_page": { "name": "Draft", "id": "24:2" },
   "target_page": { "name": "Handoff", "id": "24:500" },
   "preflight_decision": "A",
+  "journal_dir": "specs/figma/journal/",
   "journal_entries": 47,
   "screens": {
     "ONB-01": { "draft_id": "24:100", "handoff_id": "24:4300", "status": "complete", "childCount": 12, "instance_count": 3, "diff_score": 98 },
@@ -500,13 +565,18 @@ specs/figma/session-state.json
 }
 ```
 
+**Schema version 4 changes** (from v3):
+- `journal_dir` — path to per-screen journal directory
+
 **Schema version 3 changes** (from v2):
 - `screens[].childCount` — clone validation baseline (compared against Phase 0 inventory)
 - `screens[].instance_count` — component instances placed in this screen (0 = incomplete)
 - `connections` — broken down into `wired`, `group_unsupported`, `failed` (not just a flat count)
 - `preflight_decision` — user's choice for existing target page content (A/B/C)
 
-**Migration from v2**: If `session-state.json` has `"version": 2`, add missing fields with `null` defaults (`childCount`, `instance_count` per screen; `preflight_decision`; `connections` object with `wired/group_unsupported/failed`), then set `"version": 3`. Existing screen status and IDs are preserved.
+**Migration from v3**: If `session-state.json` has `"version": 3`, add `journal_dir` field with value `"specs/figma/journal/"`, then set `"version": 4`. Existing screen status and IDs are preserved.
+
+**Migration from v2**: If `session-state.json` has `"version": 2`, add missing fields with `null` defaults (`childCount`, `instance_count` per screen; `preflight_decision`; `connections` object with `wired/group_unsupported/failed`; `journal_dir`), then set `"version": 4`. Existing screen status and IDs are preserved.
 
 ### Snapshot Update Cadence
 
@@ -564,5 +634,6 @@ Read: specs/figma/operation-journal.jsonl → completed operations
 ## Cross-References
 
 - **Draft-to-Handoff workflow** (uses this protocol): `design-handoff` skill (product-definition plugin)
+- **Quality Model** (unified quality dimensions, audit scripts, fix cycle protocol): `quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`
 - **Anti-patterns** (regression patterns to avoid): `anti-patterns.md`
 - **Foundation patterns** (IIFE wrapper, outer-return requirement, font preloading for `figma_execute` code): `recipes-foundation.md`

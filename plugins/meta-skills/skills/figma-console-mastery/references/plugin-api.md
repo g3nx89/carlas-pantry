@@ -555,7 +555,7 @@ node.dashPattern = [10, 5]  // [dash, gap]
 
 Images in Figma are a paint type (`ImagePaint`), not a standalone node. Apply them as fills on shapes or frames.
 
-> **CRITICAL CONSTRAINT for Draft-to-Handoff workflows**: While `createImageAsync(url)` and `createImage(bytes)` exist, they are NOT usable for transferring existing designs between pages. When moving designs from a Draft page to a Handoff page, the ONLY way to preserve IMAGE fills is to **clone the source node** via `figma_node_clone`. Any approach that creates screens from scratch instead of cloning will lose all images, replacing them with black rectangles. See `anti-patterns.md` Hard Constraints and the `design-handoff` skill (product-definition plugin) for the full preparation workflow.
+> **CRITICAL CONSTRAINT for Draft-to-Handoff workflows**: While `createImageAsync(url)` and `createImage(bytes)` exist, they are NOT usable for transferring existing designs between pages. When moving designs from a Draft page to a Handoff page, the ONLY way to preserve IMAGE fills is to **clone the source node** via `figma_clone_node` (or `figma_execute` with Plugin API `node.clone()`). Any approach that creates screens from scratch instead of cloning will lose all images, replacing them with black rectangles. See `anti-patterns.md` Hard Constraints and the `design-handoff` skill (product-definition plugin) for the full preparation workflow.
 
 ### From URL (async)
 
@@ -682,7 +682,7 @@ comp.y = prevY - section.y;
 
 ### Gotchas
 
-- **`figma_node_clone` (figma-use MCP) is broken for cross-page operations** — use `figma_execute` with Plugin API `node.clone()` instead
+- **`figma_clone_node` does not support cross-page cloning** — use `figma_execute` with Plugin API `node.clone()` for cross-page operations
 - **`page.findOne(n => n.name === X)`** may find the WRONG node if multiple nodes share a name — always prefer node IDs when possible
 - **External library COMPONENT_SETs**: `getNodeByIdAsync` returns the node but `.parent` is `undefined` — they cannot be moved, only referenced via instances
 - **Deleting a FRAME with COMPONENT/COMPONENT_SET children**: children may survive (reparented to page) or be deleted. Always verify critical components still exist after deleting container frames

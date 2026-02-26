@@ -49,7 +49,7 @@ Templates below use `{braces}` placeholders. Fill them from actual tool outputs:
 | Naming Audit Reasoning | Code Handoff Protocol | TAO Loop | 5-7 | [Link](#template-naming-audit-reasoning) |
 | Iterative Refinement | Any screenshot-fix cycle | TAO Loop + Revision + Circuit Breaker | 3-6 per cycle | [Link](#template-iterative-refinement) |
 | Design System Bootstrap | recipes-advanced.md | Checkpoint | 5-7 | [Link](#template-design-system-bootstrap-checkpoint) |
-| Reflection Quality Assessment | Any phase/session reflection (R2+) | TAO Loop | 5-7 | [Link](#template-reflection-quality-assessment) |
+| Reflection Quality Assessment | Any phase/session quality audit (Standard+) | TAO Loop | 5-7 | [Link](#template-reflection-quality-assessment) |
 
 ---
 
@@ -496,7 +496,7 @@ Thought 5: Final assessment (cycle 2/3 if needed, circuit breaker at 3)
 
 ## Template: Reflection Quality Assessment
 
-**When**: Standard Reflect (R2) activated at a phase boundary and evaluation requires cross-referencing 3+ data sources (node tree + journal + audit). Also used by R3 coordinator when synthesizing 3 judge reports.
+**When**: Standard Audit activated at a phase boundary and evaluation requires cross-referencing 3+ data sources (node tree + journal + audit). Also used by Deep Critique coordinator when synthesizing multi-judge reports.
 
 **Pattern**: TAO Loop — alternate `sequentialthinking` calls with Figma data gathering. Each thought evaluates one or two quality dimensions.
 
@@ -518,7 +518,7 @@ Thought 7: Compute composite, issue list, verdict → nextThoughtNeeded: false
 
 ```json
 {
-  "thought": "REFLECTION (R2): Phase {phase_number} complete. Evaluating quality across 6 dimensions. Session stats from journal: {total_ops} operations, {screen_count} screens processed, {batch_count} batch scripts, {fix_cycles} fix cycles used. Gathering structural data for D1/D4 assessment.",
+  "thought": "QUALITY AUDIT (Standard): Phase {phase_number} complete. Evaluating quality across 6 dimensions. Session stats from journal: {total_ops} operations, {screen_count} screens processed, {batch_count} batch scripts, {fix_cycles} fix cycles used. Gathering structural data for D1/D4 assessment.",
   "thoughtNumber": 1,
   "totalThoughts": 7,
   "nextThoughtNeeded": true
@@ -622,7 +622,7 @@ The 4-phase Session Protocol maps to ST activation as follows:
 | **Phase 1 — Preflight** | No ST | Deterministic checks, <3 steps, no decisions |
 | **Phase 2 — Discovery** | ST if findings require cross-referencing across 3+ tools | Multiple discovery tools producing data that must be synthesized |
 | **Phase 3 — Creation** | ST for complex compositions (Shell Injection, multi-call recipes). Skip for single `figma_execute` | Multi-call chains benefit from hypothesis tracking between calls |
-| **Phase 4 — Validation** | ST TAO Loop for screenshot-fix cycles. Always use Revision when fix does not match expectation. ST for R2+ reflection when cross-referencing 3+ data sources | Prevents reflexive responses to unexpected screenshot results. Reflection benefits from structured data gathering across node tree, journal, and audit |
+| **Phase 4 — Validation** | ST TAO Loop for screenshot-fix cycles. Always use Revision when fix does not match expectation. ST for Standard+ quality audit when cross-referencing 3+ data sources | Prevents reflexive responses to unexpected screenshot results. Quality audit benefits from structured data gathering across node tree, journal, and audit |
 
 ### Alternative Session Protocols
 

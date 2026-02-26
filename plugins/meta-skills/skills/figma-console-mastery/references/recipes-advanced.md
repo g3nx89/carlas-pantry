@@ -10,20 +10,20 @@
 
 | Section | Recipe | Line |
 |---------|--------|-----:|
-| **Composition** | Shell Injection (Multi-Region Pages) | 30 |
-| | Compose Library Components into Layout | 98 |
-| | Design System Bootstrap | 165 |
-| **Advanced** | Variable Binding to Nodes | 237 |
-| | SVG Import and Styling | 325 |
-| | Mixed-Style Rich Text | 362 |
-| **Full Page** | Settings Page (End-to-End Multi-Call) | 412 |
-| **Chaining** | Component Composition Pattern | 744 |
-| | Iterative Refinement Pattern | 756 |
-| | Design System Bootstrap Pattern | 771 |
-| | Handoff Preparation Pattern | 783 |
-| | Handoff Naming Audit | 798 |
-| **Variables** | Variable Alias Chain (Semantic Tokens) | 856 |
-| | Effect and LayoutGrid Variable Binding | 925 |
+| **Composition** | Shell Injection (Multi-Region Pages) | 32 |
+| | Compose Library Components into Layout | 100 |
+| | Design System Bootstrap | 167 |
+| **Advanced** | Variable Binding to Nodes | 239 |
+| | SVG Import and Styling | 327 |
+| | Mixed-Style Rich Text | 364 |
+| **Full Page** | Settings Page (End-to-End Multi-Call) | 414 |
+| **Chaining** | Component Composition Pattern | 746 |
+| | Iterative Refinement Pattern | 758 |
+| | Design System Bootstrap Pattern | 773 |
+| | Handoff Preparation Pattern | 785 |
+| | Handoff Naming Audit | 802 |
+| **Variables** | Variable Alias Chain (Semantic Tokens) | 862 |
+| | Effect and LayoutGrid Variable Binding | 927 |
 
 ---
 
@@ -786,20 +786,21 @@ Limit to a maximum of 3 refinement cycles. If the design is not correct after 3 
 
 **Flow**: naming audit → fix naming → exception descriptions → token alignment check → health check
 
-Prepares custom components for consumption by the coding agent via `get_design_context` (Official MCP). Implements the naming-convention-as-contract strategy: component names are the cross-platform mapping key, descriptions are used only for naming exceptions. See SKILL.md Code Handoff Protocol for the full workflow.
+Prepares custom components for consumption by downstream coding workflows. Implements the naming-convention-as-contract strategy: component names are the cross-platform mapping key, descriptions are used only for naming exceptions. See SKILL.md Code Handoff Protocol for the full workflow and `workflow-code-handoff.md` for detailed steps.
 
 | Step | Tool | Action |
 |------|------|--------|
 | 1 | `figma_execute` | Run the Handoff Naming Audit recipe — check for non-PascalCase names and uppercase variant property keys |
-| 2 | `figma_execute` | Rename components and variant property keys to match codebase conventions |
+| 2a | `figma_rename_node` | Rename component nodes to match codebase conventions (PascalCase per audit) |
+| 2b | `figma_edit_component_property` | Rename variant property keys (e.g., uppercase → lowercase) |
+| 2c | `figma_execute` | Fix variant **value** strings inside `COMPONENT_SET.name` that require regex logic (e.g., `State=default` → `State=Default`) |
 | 3 | `figma_set_description` | Add code-name exception notes only where Figma name must differ from code name |
 | 4 | `figma_execute` | Verify token names align with codebase token system |
-| 5 | `figma_search_components` | Prefer UI kit components (M3, Apple, SDS) for automatic Code Connect on Professional+ |
-| 6 | `figma_audit_design_system` | Final health check — naming, tokens, consistency scores |
+| 5 | `figma_audit_design_system` | Final health check — naming, tokens, consistency scores |
 
 ### Recipe: Handoff Naming Audit
 
-**Goal**: Scan all components on the current page and report naming issues that would hinder downstream code mapping via `get_design_context`. Checks PascalCase component names and lowercase variant property keys. This provides code-readiness-specific analysis beyond the general naming score in `figma_audit_design_system`.
+**Goal**: Scan all components on the current page and report naming issues that would hinder downstream code mapping. Checks PascalCase component names and lowercase variant property keys. This provides code-readiness-specific analysis beyond the general naming score in `figma_audit_design_system`.
 
 **Code**:
 
@@ -843,7 +844,7 @@ Prepares custom components for consumption by the coding agent via `get_design_c
 })()
 ```
 
-**Next**: Fix issues reported by this audit, then proceed with steps 3-6 of the Handoff Preparation Pattern.
+**Next**: Fix issues reported by this audit, then proceed with steps 3-5 of the Handoff Preparation Pattern.
 
 > **Note**: The PascalCase check requires segments to start with an uppercase
 > letter. Size tokens like `2XL` or all-caps abbreviations like `CTA` will be

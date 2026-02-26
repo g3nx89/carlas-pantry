@@ -2,7 +2,74 @@
 
 > **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 
-This reference covers tool selection decisions across the full 56+ tool surface area. For Plugin API code patterns used inside `figma_execute`, see `plugin-api.md`. For error recovery procedures, see `anti-patterns.md`.
+This reference covers tool selection decisions across the full 60 tool surface area. For Plugin API code patterns used inside `figma_execute`, see `plugin-api.md`. For error recovery procedures, see `anti-patterns.md`.
+
+---
+
+## Tool Selection Decision Tree
+
+```
+Need to check connection or navigate?
+├── Connection status? → figma_get_status ✓ ALWAYS FIRST
+├── Open file/page?    → figma_navigate
+└── List open files?   → figma_list_open_files
+
+Need to understand existing design system?
+├── Overview?          → figma_get_design_system_summary
+├── Variables/tokens?  → figma_get_variables (format="summary" first)
+├── Styles?            → figma_get_styles
+├── Component details? → figma_get_component / figma_get_component_for_development
+└── Full file tree?    → figma_get_file_for_plugin (prefer over figma_get_file_data)
+
+Need to create design elements?
+├── Component in library? → figma_search_components → figma_instantiate_component
+└── Everything else?      → figma_execute (Plugin API) — see recipes-foundation.md
+
+Need to modify existing elements?
+├── Rename node?                → figma_rename_node (single call)
+├── Solid fill/stroke?          → figma_set_fills / figma_set_strokes (SOLID only — gradients need figma_execute)
+├── Text content (+ fontSize)?  → figma_set_text (font family/weight changes need figma_execute)
+├── Reposition?                 → figma_move_node (position only — reparenting needs figma_execute)
+├── Resize?                     → figma_resize_node (withConstraints option available)
+├── Delete node?                → figma_delete_node
+├── Instance properties?        → figma_set_instance_properties
+├── Multi-property async?       → figma_execute (load fonts + set text + layout in sequence)
+├── Gradient/image fills, font? → figma_execute (operations beyond native tool scope)
+└── Batch 3+ same-type?         → figma_execute batch script (idempotency-guarded)
+
+Need to manage variables/tokens?
+├── Create token system?   → figma_setup_design_tokens (atomic, single call)
+├── Create many variables? → figma_batch_create_variables (up to 100)
+├── Update many values?    → figma_batch_update_variables (up to 100)
+├── Single variable CRUD?  → figma_create/update/rename/delete_variable
+└── Add/rename mode?       → figma_add_mode / figma_rename_mode
+
+Need to validate or debug?
+├── After Plugin API change?    → figma_capture_screenshot (Desktop Bridge — live state)
+├── After save / stable design? → figma_take_screenshot (REST API)
+├── Console errors?             → figma_get_console_logs / figma_watch_console
+├── Design-code parity?         → figma_check_design_parity
+└── Document component?         → figma_generate_component_doc
+```
+
+## Quick Reference — Core Tools
+
+| Tool | Purpose |
+|------|---------|
+| `figma_get_status` | Verify connection (always first) |
+| `figma_search_components` | Find library components before creating |
+| `figma_instantiate_component` | Place component with variant properties |
+| `figma_execute` | Run Plugin API code (creation, modification, complex logic) |
+| `figma_capture_screenshot` | Visual validation after Plugin API mutations |
+| `figma_take_screenshot` | Validation of already-saved designs (REST API) |
+| `figma_setup_design_tokens` | Create token system atomically |
+| `figma_batch_create_variables` | Bulk variable creation (up to 100) |
+| `figma_batch_update_variables` | Bulk variable updates (up to 100) |
+| `figma_get_design_system_summary` | Overview of tokens, components, styles |
+| `figma_audit_design_system` | 0-100 health scorecard |
+| `figma_generate_component_doc` | Document created components |
+
+**Full tool reference**: See Tool Categories at a Glance and detailed sections below (60 tools)
 
 ---
 
@@ -10,14 +77,17 @@ This reference covers tool selection decisions across the full 56+ tool surface 
 
 | Category | Tool Count | Mode Required | Key Tools |
 |----------|-----------|---------------|-----------|
-| Navigation / Status | 3 | All | `figma_get_status`, `figma_navigate`, `figma_list_open_files` |
+| Navigation / Status | 5 | All | `figma_get_status`, `figma_navigate`, `figma_list_open_files`, `figma_get_selection` |
 | Design System Extraction | 7 | All | `figma_get_variables`, `figma_get_design_system_summary`, `figma_get_component` |
 | Design Creation | 5 | Local | `figma_execute`, `figma_search_components`, `figma_instantiate_component` |
 | Variable Management | 11 | Local | `figma_batch_create_variables`, `figma_setup_design_tokens` |
-| Node Manipulation | 10+ | Local | `figma_move_node`, `figma_resize_node`, `figma_set_fills`, `figma_set_text` |
-| Visual Validation / Debugging | 6 | All | `figma_capture_screenshot`, `figma_take_screenshot`, `figma_get_console_logs` |
+| Node Manipulation | 10 | Local | `figma_move_node`, `figma_resize_node`, `figma_set_fills`, `figma_set_text` |
+| Visual Validation / Debugging | 8 | All | `figma_capture_screenshot`, `figma_take_screenshot`, `figma_get_console_logs`, `figma_get_design_changes` |
 | Comments | 3 | All | `figma_post_comment`, `figma_get_comments`, `figma_delete_comment` |
 | Design-Code Parity | 2 | All | `figma_check_design_parity`, `figma_generate_component_doc` |
+| Component Properties | 4 | Local | `figma_add_component_property`, `figma_edit_component_property`, `figma_get_component_details` |
+| Design System Audit | 2 | Local | `figma_audit_design_system`, `figma_get_token_values` |
+| MCP App Management | 3 | All | `figma_browse_tokens`, `token_browser_refresh`, `ds_dashboard_refresh` |
 
 ---
 
@@ -31,6 +101,7 @@ These tools work in all modes (Local and Remote SSE). Always call `figma_get_sta
 | `figma_navigate` | Open a specific Figma file or page by URL | `url` (string, required) | Opens file in Figma or returns connected file info | WebSocket-only mode cannot perform browser-level navigation; returns file info with guidance instead. CDP required for actual navigation |
 | `figma_list_open_files` | List all currently open Figma files to confirm target file is active | None | Array of open file identifiers with names and URLs | Use during Preflight to verify the correct file is connected before operations |
 | `figma_reconnect` | Re-establish connection to Figma Desktop when transport is lost | None | Reconnection status | Try this before restarting Figma. Faster recovery than full restart |
+| `figma_get_selection` | Returns currently selected nodes with optional verbose details | `verbose` (boolean, optional) | Selected node IDs, names, types (verbose adds full properties) | Returns empty array if nothing is selected |
 
 ---
 
@@ -58,7 +129,7 @@ All design creation tools require **Local mode** with the Desktop Bridge Plugin.
 |------|-------------|------------|--------|----------|
 | `figma_execute` | Run arbitrary Figma Plugin API code — fallback for complex conditional logic, multi-step async sequences, and operations not covered by declarative tools | `code` (string): JavaScript in Plugin API context | Execution result (created node info, return values) | Silent failures possible — always validate with screenshot. Wrap in try-catch. See figma_execute Deep Dive below |
 | `figma_search_components` | Find components in the library before instantiating | `query` (string), optional filters | Matching components with key, name, description, variants | May return many results for common terms; use specific queries |
-| `figma_instantiate_component` | Place a found component with correct variant and property settings | `component_key` (required), `variant_properties` (optional), `parent_node_id` (optional), `position` (optional `{x, y}`) | Created instance node ID | Variant property names must exactly match the component set definitions; mismatches fail silently |
+| `figma_instantiate_component` | Place a found component with correct variant and property settings | `componentKey` or `nodeId`, `variant` (object matching variant property names), `overrides` (instance property overrides), `parentId` (optional), `position` (optional `{x, y}`) | Created instance node ID | Variant property names must exactly match the component set definitions; mismatches fail silently |
 | `figma_arrange_component_set` | Organize variants into a professional component set with labels | Component set identifier or variant node IDs | Organized set with purple dashed border, labels, headers | Use after creating multiple variants via `figma_execute` |
 | `figma_set_description` | Add markdown documentation to components | `nodeId`, `description` | Confirmation | Descriptions appear in Dev Mode |
 
@@ -90,17 +161,18 @@ All node manipulation tools require **Local mode** (v1.5.0+). These provide dedi
 
 | Tool | When to Use | Key Params | Output | Pitfalls |
 |------|-------------|------------|--------|----------|
-| `figma_move_node` | Reposition or reparent a node | `nodeId`, `x`, `y`, `parent_node_id` (optional) | Updated position | -- |
-| `figma_resize_node` | Change node dimensions | `nodeId`, `width`, `height` | Updated dimensions | -- |
+| `figma_move_node` | Reposition a node (position only — reparenting requires `figma_execute` with `parent.appendChild()`) | `nodeId`, `x`, `y` | Updated position | -- |
+| `figma_resize_node` | Change node dimensions | `nodeId`, `width`, `height`, `withConstraints` (boolean, optional — respects parent constraints when true) | Updated dimensions | -- |
 | `figma_rename_node` | Rename a node in the layer panel | `nodeId`, `name` | Confirmation | -- |
 | `figma_delete_node` | Remove a node and its children | `nodeId` | Confirmation | Irreversible |
 | `figma_clone_node` | Duplicate a node | `nodeId` | Cloned node info | -- |
-| `figma_reorder_node` | Change z-order / layer order of a node | `nodeId` (string), `position` (`"front"`, `"back"`, or integer index) | Updated layer order | Affects visual stacking, not auto-layout flow order |
 | `figma_create_child` | Add a child node to a parent | Parent and child parameters | Created child info | -- |
-| `figma_set_fills` | Set fill colors on a node | `nodeId`, fill properties | Confirmation | -- |
-| `figma_set_strokes` | Set stroke properties on a node | `nodeId`, stroke properties | Confirmation | -- |
-| `figma_set_text` | Update text content | Node identifier, text content | Confirmation | -- |
+| `figma_set_fills` | Set **solid** fill colors on a node (SOLID type only — hex color, optional opacity). Gradient, image, and pattern fills require `figma_execute` | `nodeId`, `fills` (array of `{type: "SOLID", color: "#hex", opacity?}`) | Confirmation | Only SOLID fills supported; complex fills need `figma_execute` |
+| `figma_set_strokes` | Set **solid** strokes on a node (SOLID type only — hex color, optional opacity, optional strokeWeight). Gradient strokes require `figma_execute` | `nodeId`, `strokes` (array of `{type: "SOLID", color: "#hex", opacity?}`), `strokeWeight?` | Confirmation | Only SOLID strokes supported |
+| `figma_set_text` | Update text content and optionally font size (content + fontSize only — font family, weight, style, alignment, and other typography changes require `figma_execute` with `loadFontAsync`) | `nodeId`, `text` (string), `fontSize?` (number) | Confirmation | Font family/weight changes need `figma_execute` |
 | `figma_set_instance_properties` | Update component instance properties | Instance identifier, properties | Confirmation | Property names must match component definitions |
+
+> **Note**: Z-order / layer reordering has no dedicated native tool. Use `figma_execute` to manipulate `parent.insertChild(index, node)`.
 
 ---
 
@@ -140,12 +212,14 @@ These tools work in all modes and form the visual feedback loop for autonomous d
 | `figma_get_console_logs` | Retrieve plugin console logs for debugging | Filter options (type, count) | Array of log entries | Only captures logs from after monitoring begins (not historical). CDP captures page-level logs; WebSocket captures plugin-context logs only |
 | `figma_watch_console` | Stream logs in real-time during plugin execution | Duration (seconds) | Real-time log stream | Blocks for the specified duration |
 | `figma_clear_console` | Reset log buffer before a new debugging session | None | Confirmation | -- |
+| `figma_get_design_changes` | Returns buffered design changes since last check | `since` (timestamp, optional), `clear` (boolean, optional) | Array of change events with node IDs and change types | Useful for tracking what changed between operations |
+| `figma_reload_plugin` | Reload Figma plugin with optional console clear | `clearConsole` (boolean, default true) | Confirmation | Use when plugin state seems stale or after updates |
 
 ---
 
 ## Native Tools vs figma_execute
 
-> **Note (2026-02-22)**: The figma-use MCP server has been removed from this skill due to reliability issues. The native-tools-first strategy below describes the figma-console-only approach.
+> **Legacy note (2026-02-22)**: The figma-use MCP server has been removed from this skill due to reliability issues. The native-tools-first strategy below describes the figma-console-only approach.
 
 **Default strategy**: Use figma-console native tools (atomic tools like `figma_rename_node`, `figma_set_fills`, `figma_move_node`, `figma_instantiate_component`) as the primary approach for single-property operations. Reserve `figma_execute` for complex conditional logic, multi-step async sequences, or operations that native tools cannot compose atomically.
 
@@ -307,73 +381,23 @@ These tools control the MCP App interfaces programmatically:
 
 ---
 
-## Three-Server Comparison
+## figma-console Only
 
-> **⚠️ figma-use removed (2026-02-22)**: This skill no longer includes the figma-use MCP server due to reliability issues (CDP port 9222 dependency, pre-1.0 stability). The comparison below is preserved as historical reference. For active workflows, treat figma-use rows as unavailable — use Console MCP + Official MCP only.
->
-> Cross-reference: SKILL.md `## figma-use Was Removed` note.
+> **Legacy note (2026-02-26)**: This skill uses figma-console MCP exclusively. Previous versions included figma-use and referenced Official Figma MCP. Both have been removed from this skill:
+> - **figma-use**: Removed due to reliability issues (CDP port 9222 dependency, pre-1.0 stability)
+> - **Official Figma MCP**: Out of scope for this skill — design system extraction and code generation workflows belong in separate, domain-specific skills
 
-### At a Glance
+### What figma-console Offers
 
-| Dimension | Console MCP (Southleft) | figma-use | Official Figma MCP |
-|-----------|------------------------|-----------|-------------------|
-| **Tools** | 56+ | 115+ | 12 |
-| **Transport** | WebSocket Desktop Bridge (ports 9223-9232) | CDP (`--remote-debugging-port=9222`) | REST API (cloud) |
-| **Plugin install** | Required (Desktop Bridge) | None (CDP direct) | None (API key) |
-| **Modes** | Local + Remote SSE | Local only (CDP) | Cloud only |
-| **Rate limits** | None (local) | None (local) | Starter: 6/month; Dev: per-minute |
-| **Status** | Stable (v1.10.0) | Pre-1.0 (v0.11.3) | Stable |
-| **Complex UI efficiency** | N calls for N nodes | 1 call for N nodes (JSX) | Read-only |
+- **Full Plugin API access** via `figma_execute` — arbitrary JavaScript in the plugin sandbox
+- **60 specialized tools** spanning navigation, design system extraction, creation, variable management, node manipulation, visual validation, debugging, component properties, and auditing
+- **Dual transport modes**: WebSocket Desktop Bridge (local, ports 9223-9232) + Remote SSE (cloud/CI, read-only)
+- **Variable CRUD without Enterprise plan** — local mode bypasses REST API plan restrictions
+- **Interactive MCP Apps** (Token Browser, Design System Dashboard) — requires `ENABLE_MCP_APPS=true`
+- **Plugin debugging** — real-time console log capture via `figma_get_console_logs`
+- **Design-code parity checking** — scored diff reports via `figma_check_design_parity`
+- **Component documentation generation** via `figma_generate_component_doc`
+- **Batch operations** — `figma_batch_create_variables`, `figma_batch_update_variables` (10-50x faster than individual calls)
+- **No rate limits in local mode** — all operations are plugin-local
 
-### What Each Server Excels At
-
-- **Console MCP**: Full Plugin API access (`figma_execute`), variable CRUD, interactive MCP Apps, component documentation, design-code parity, plugin debugging, Remote SSE for cloud/CI
-- **figma-use**: JSX rendering (2-4x fewer tokens, 1 call for complex trees), dedicated analysis commands (clusters, colors, typography, spacing, snapshot), visual diffing (pixel + property + JSX), XPath 3.1 queries, boolean operations, 150K+ Iconify icons, CSS Grid, vector path manipulation
-- **Official MCP**: Design-to-code translation (`get_design_context`), Code Connect mappings, FigJam diagrams, design system rules generation, Agent Skills
-
-### What Only Console Offers
-
-- `figma_execute` — arbitrary Plugin API code execution
-- Variable CRUD (create, update, delete tokens without Enterprise plan)
-- Plugin debugging (real-time console log capture)
-- Interactive MCP Apps (Token Browser, Design System Dashboard)
-- Design-code parity checking (scored diff reports)
-- Component documentation generation
-- Remote SSE mode for cloud/CI environments
-
-### What Only figma-use Offers
-
-- JSX rendering via `figma_render` (entire node tree in single call)
-- Dedicated `figma_analyze_*` commands (clusters, colors, typography, spacing, snapshot)
-- Visual diffing (`figma_diff_visual`, `figma_diff_create`, `figma_diff_apply`, `figma_diff_jsx`)
-- XPath 3.1 queries (`figma_query` with fontoxpath)
-- Boolean operations (union, subtract, intersect, exclude)
-- Vector path manipulation (get, set, move, scale, flip SVG paths)
-- Arrange algorithms (grid, row, column, squarify, binary treemap)
-- 150K+ Iconify icons (standalone + JSX inline)
-- JSX round-trip editing (`figma_export_jsx` → edit → `figma_render`)
-- Comment-driven agent workflows (watch, resolve, target_node)
-
-### What Only Official Offers
-
-- `get_design_context` — structured code representation (React, Vue, HTML, iOS)
-- `get_code_connect_map` / `add_code_connect_map` — component-to-code mappings
-- `generate_diagram` — FigJam from Mermaid syntax
-- `create_design_system_rules` — rules file for AI agents
-- Agent Skills — packaged workflow plugins for Claude Code, Cursor
-
-### Complementary Workflow (Console + Official — figma-use removed)
-
-Active two-server workflow across six phases:
-
-1. **Analysis phase** — Official MCP (`get_metadata`, `get_design_context` for structure/layout reading) + Console MCP (`figma_audit_design_system`, `figma_get_variables`, `figma_get_styles` for design system analysis)
-2. **Design creation phase** — Console MCP native tools PRIMARY (`figma_rename_node`, `figma_set_fills`, `figma_move_node`, etc. for atomic ops) + `figma_execute` for complex conditional logic, component instantiation, variable CRUD, batch operations
-3. **Validation phase** — Console MCP (`figma_capture_screenshot` for live-state visual comparison, `figma_check_design_parity`, `figma_get_console_logs` for debugging)
-4. **Handoff phase** — Console MCP (naming audit, `figma_set_description` for exceptions, `figma_generate_component_doc`) — see SKILL.md Code Handoff Protocol
-5. **Code generation phase** — Official MCP (`get_design_context` for framework-ready code, `get_variable_defs` for token references, `create_design_system_rules` for CLAUDE.md rules)
-6. **Documentation phase** — Console MCP (`figma_generate_component_doc`, `figma_set_description`)
-
-> **Plan-aware notes**:
-> - Official MCP `get_design_context` is available on all paid plans with Dev/Full seat (Professional: 15/min, 200/day).
-> - Code Connect is automatic for UI kit components (M3, Apple, SDS) on Professional+. Custom component Code Connect requires Organization/Enterprise.
-> - Console MCP has no plan restrictions (local execution).
+For workflows requiring design-to-code translation or Code Connect mappings, use a separate skill that integrates Official Figma MCP.
