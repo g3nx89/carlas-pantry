@@ -7,9 +7,9 @@
 **Load when**: Any quality audit trigger (Spot inline, Standard/Deep subagent dispatch)
 
 **Related files**: This file is part of a 3-file split:
-- **quality-dimensions.md** — 10 dimensions, rubrics, composite scoring, depth tiers, contradiction resolutions
-- **quality-audit-scripts.md** — JavaScript audit scripts A-F, diff templates, positional analysis
-- **quality-procedures.md** (this file) — Spot/Standard/Deep audit procedures, fix cycles, judge templates
+- **quality-dimensions.md** — 11 dimensions, rubrics, composite scoring, depth tiers, contradiction resolutions
+- **quality-audit-scripts.md** — JavaScript audit scripts A-I, diff templates, positional analysis
+- **quality-procedures.md** (this file) — Spot/Standard/Deep audit procedures, fix cycles, 3+1 judge templates
 
 ---
 
@@ -45,7 +45,7 @@
 
 **When**: At phase boundaries or per-screen in Flow 2.
 
-**Dimensions**: All 10.
+**Dimensions**: All 11 (excluding N/A per `quality-dimensions.md` Section 3).
 
 **Dispatch**: `Task(subagent_type="general-purpose", model="sonnet")` with Handoff Audit Template (Section 4).
 
@@ -54,7 +54,7 @@
 ```
 1. Dispatch Audit Subagent (Sonnet) with Handoff Audit Template
    - Input: fileKey, nodeId, screen name, draft reference (if available), expected components
-   - Subagent runs all structural scripts, captures screenshots, scores all 10 dimensions
+   - Subagent runs all structural scripts, captures screenshots, scores all 11 dimensions (excl. N/A)
    - Returns: structured audit report with scores, issues, severity, node IDs
 
 2. Evaluate pass threshold:
@@ -68,7 +68,7 @@
 4. Log to journal (op: "quality_audit", tier: "standard", all 10 scores + composite)
 ```
 
-**Token budget**: ~4K per screen — includes structural scripts, screenshot, analysis.
+**Token budget**: ~5K per screen — includes structural scripts, accessibility check (Script G), copy quality check (Script H), screenshot, analysis.
 
 ---
 
@@ -119,7 +119,7 @@ After all 3 judges return:
 
 ---
 
-## 4. Handoff Audit Template (Single Screen, All 10 Dimensions)
+## 4. Handoff Audit Template (Single Screen, All 11 Dimensions)
 
 Use for Standard Audit (phase boundary, per-screen Flow 2). Dispatch as `Task(subagent_type="general-purpose", model="sonnet")`.
 
@@ -146,7 +146,7 @@ Replace `{{PLACEHOLDERS}}` before dispatching.
 
 ```
 You are a Figma design quality auditor. Perform a comprehensive audit of a single screen
-covering all 10 quality dimensions. For baseline screenshots of saved screens, use
+covering all 11 quality dimensions. For baseline screenshots of saved screens, use
 figma_take_screenshot. After any figma_execute mutations in this session, use
 figma_capture_screenshot (live state) instead. Use figma_execute for all structural and
 component inspection.
@@ -184,6 +184,10 @@ Run Script C from quality-audit-scripts.md to enumerate all components in Compon
 Run Script D from quality-audit-scripts.md to collect full node tree + resolve each INSTANCE to
 mainComponent. Verify every instance's mcId is in DS registry (skip if mcRemote=true).
 
+### Step 3.5 — UX Copy Quality Check
+Run Script H from quality-audit-scripts.md. Check CTA quality (H1), error message structure (H2),
+empty state structure (H3), and dialog button labels (H4). Include findings under D8: Instance Integrity.
+
 ### Step 4 — Check for Spurious Raw Frames
 Run Script E from quality-audit-scripts.md. Flag raw FRAMEs whose name/child structure matches DS components.
 
@@ -191,7 +195,12 @@ Run Script E from quality-audit-scripts.md. Flag raw FRAMEs whose name/child str
 Run Script F from quality-audit-scripts.md. Report ONLY issues from 6 automated checks A-F. Do NOT
 add manual findings. Screen root on fixed viewport exempt from auto-layout (it's a stage).
 
-### Step 6 — Audit All 10 Dimensions
+### Step 5.5 — Accessibility Compliance Check
+Run Script G from quality-audit-scripts.md. Check color contrast (G1), touch target size (G2),
+text size (G3), interactive spacing (G4), and missing descriptions (G5). Score per D11 rubric.
+If D11 is N/A (icon-only design, non-interactive wireframe), mark as N/A and exclude from composite.
+
+### Step 6 — Audit All 11 Dimensions
 
 **D1 — Visual Quality**: Screenshot comparison, positional diff (quality-dimensions.md Section 2, D1 rubric)
 **D2 — Layer Structure**: Parent context check, nesting depth, GROUP count (quality-dimensions.md Section 2, D2 rubric)
@@ -200,12 +209,13 @@ add manual findings. Screen root on fixed viewport exempt from auto-layout (it's
 **D5 — Component Compliance**: 3-layer check (instance-to-DS, expected components ID match, no spurious raw frames) (quality-dimensions.md Section 2, D5 rubric)
 **D6 — Constraints & Position**: Per-type constraint rules, per-element position analysis (quality-dimensions.md Section 2, D6 rubric)
 **D7 — Screen Properties**: Root type, cornerRadius, clipsContent, dimensions, scrollability structure (quality-dimensions.md Section 2, D7 rubric)
-**D8 — Instance Integrity**: Text override correctness via .characters, no placeholder text (quality-dimensions.md Section 2, D8 rubric)
+**D8 — Instance Integrity**: Text override correctness via .characters, no placeholder text, copy quality via Script H (quality-dimensions.md Section 2, D8 rubric)
 **D9 — Token Binding**: boundVariables inspection, % fills/strokes/effects bound (quality-dimensions.md Section 2, D9 rubric)
 **D10 — Operational Efficiency**: Not applicable for single-screen audit (score N/A)
+**D11 — Accessibility Compliance**: Script G findings (contrast, touch targets, text size, spacing, descriptions) (quality-dimensions.md Section 2, D11 rubric). N/A for icon-only or non-interactive wireframes
 
 ### Step 7 — Compute Composite Score
-Simple average of D1-D9 (exclude D10 for single-screen audits).
+Simple average of applicable dimensions (dynamic denominator). Exclude D10 for single-screen audits; exclude D11 if N/A.
 
 ## Output Format
 
@@ -238,6 +248,7 @@ Simple average of D1-D9 (exclude D10 for single-screen audits).
 | D8: Instance Integrity | X/10 | Pass / Issues / Fail |
 | D9: Token Binding | X/10 | Pass / Issues / Fail |
 | D10: Operational Efficiency | N/A | N/A |
+| D11: Accessibility Compliance | X/10 or N/A | Pass / Issues / Fail / N/A |
 | **Overall** | **X/10** | **PASS / NEEDS WORK** |
 
 ---
@@ -384,6 +395,7 @@ All templates use `{braces}` placeholders. Orchestrator fills from session state
 | `{start_ts}` | ISO 8601 | First journal entry timestamp | `"First entry in operation-journal.jsonl"` |
 | `{end_ts}` | ISO 8601 | Current time | `"Current timestamp"` |
 | `{components_section_id}` | string | Session state | `"Discover via figma_get_file_for_plugin"` |
+| `{accessibility_summary}` | string | Script G output (if pre-run) | `"Not pre-gathered — run Script G during audit"` |
 
 ---
 
@@ -400,7 +412,7 @@ screen-level properties of Figma designs created or modified in this session.
 
 ## Skill References (MANDATORY)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-dimensions.md (Section 2: D1, D6, D7 rubrics)
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-audit-scripts.md (Section 8: Per-element position analysis, Section 9: Scrollability check)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-audit-scripts.md (Section 10: Per-element position analysis, Section 11: Scrollability check)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md
 
 ## Context
@@ -419,14 +431,14 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.m
 
 2. Constraints & Position (D6):
    - figma_execute to inspect constraints on all direct children of each screen
-   - Per-element position analysis (quality-audit-scripts.md Section 8): verify appropriate positioning
+   - Per-element position analysis (quality-audit-scripts.md Section 10): verify appropriate positioning
    - Check: bottom-anchored elements on MAX vertical, full-width on STRETCH/LEFT_RIGHT horizontal
    - Score per D6 rubric (0-10)
 
 3. Screen Properties (D7):
    - figma_execute to inspect root node properties for each screen
    - Check: type=FRAME, cornerRadius=32, clipsContent=true, dimensions match target
-   - Scrollability check (quality-audit-scripts.md Section 9): structure consistent with scroll/non-scroll intent
+   - Scrollability check (quality-audit-scripts.md Section 11): structure consistent with scroll/non-scroll intent
    - Score per D7 rubric (0-10)
 
 4. Self-verification (answer before scoring):
@@ -454,19 +466,19 @@ Return JSON:
 
 ### Judge 2: Structural & Component Expert
 
-**Evaluates**: D2 (Layer Structure), D3 (Semantic Naming), D4 (Auto-Layout), D5 (Component Compliance), D8 (Instance Integrity)
+**Evaluates**: D2 (Layer Structure), D3 (Semantic Naming), D4 (Auto-Layout), D5 (Component Compliance), D8 (Instance Integrity), D11 (Accessibility Compliance)
 
 **Prompt template**:
 
 ```
 ## Role
 Figma Structural & Component Expert — evaluate the layer hierarchy, naming quality,
-auto-layout correctness, component compliance, and instance integrity of Figma designs
-in this session.
+auto-layout correctness, component compliance, instance integrity, and accessibility compliance
+of Figma designs in this session.
 
 ## Skill References (MANDATORY)
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-dimensions.md (Section 2: D2, D3, D4, D5, D8 rubrics)
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-audit-scripts.md (Sections 1-6: Scripts A-F)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-dimensions.md (Section 2: D2, D3, D4, D5, D8, D11 rubrics)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-audit-scripts.md (Sections 1-8: Scripts A-H)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md
 
 ## Context
@@ -508,13 +520,23 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.m
    - Never rely on screenshots alone — REST API screenshots show stale defaults
    - Score per D8 rubric (0-10)
 
-6. Self-verification:
+5b. UX Copy Quality (D8 sub-checks):
+   - figma_execute Script H (quality-audit-scripts.md Section 8): CTA quality (H1), error message structure (H2), empty state structure (H3), dialog button labels (H4)
+   - Include Script H findings in D8 score (copy violations lower the D8 score per rubric)
+
+6. Accessibility Compliance (D11):
+   - figma_execute Script G (quality-audit-scripts.md Section 7): contrast (G1), touch targets (G2), text size (G3), interactive spacing (G4), descriptions (G5)
+   - If design is icon-only or non-interactive wireframe: score N/A
+   - Score per D11 rubric (0-10)
+
+8. Self-verification:
    - "Are residual GROUPs intentional (e.g., boolean operations)?"
    - "Does the project use a non-standard naming convention?"
    - "Are 'missing' expected components due to stale session-state IDs?"
    - "Is auto-layout 'violation' justified (e.g., stage vs layout container)?"
+   - "Is D11 N/A because this is an icon-only or non-interactive design?"
 
-7. Score D2, D3, D4, D5, D8 per rubric. Provide specific node IDs for issues.
+9. Score D2, D3, D4, D5, D8, D11 per rubric. Provide specific node IDs for issues.
 
 ## Output Format
 Return JSON:
@@ -524,12 +546,14 @@ Return JSON:
   "d4_score": <0-10>,
   "d5_score": <0-10>,
   "d8_score": <0-10>,
+  "d11_score": <0-10 or "N/A">,
   "d2_issues": [{"screen": "...", "issue": "...", "severity": "Critical|Major|Minor", "node_id": "..."}],
   "d3_issues": [{"screen": "...", "node_id": "...", "issue": "...", "severity": "Critical|Major|Minor"}],
   "d4_issues": [{"screen": "...", "check": "A|B|C|D|E|F", "issue": "...", "severity": "Major|Minor", "node_id": "..."}],
   "d5_issues": [{"screen": "...", "layer": "A|B|C", "issue": "...", "severity": "Critical|Major|Minor", "node_id": "..."}],
   "d8_issues": [{"screen": "...", "instance": "...", "issue": "...", "severity": "Critical|Major|Minor", "node_id": "..."}],
-  "verification_answers": ["...", "...", "...", "..."],
+  "d11_issues": [{"screen": "...", "check": "G1|G2|G3|G4|G5", "issue": "...", "severity": "Critical|Major|Minor", "node_id": "..."}],
+  "verification_answers": ["...", "...", "...", "...", "..."],
   "summary": "1-2 sentence assessment"
 }
 ```
@@ -619,12 +643,12 @@ Add to the Operation Types table in `convergence-protocol.md`:
 
 **Standard (per-phase boundary)**:
 ```jsonl
-{"v":1,"ts":"2026-02-24T11:00:00Z","op":"quality_audit","target":"screen:ONB-03","detail":{"tier":"standard","composite_score":8.2,"scores":{"d1":9.0,"d2":8.0,"d3":8.0,"d4":7.0,"d5":9.0,"d6":8.0,"d7":9.0,"d8":9.0,"d9":7.0,"d10":8.0},"verdict":"pass","issues":["D4: Check C — spacer frame in auto-layout","D9: 2 hardcoded fills in secondary surfaces"],"improvements_applied":0},"phase":3}
+{"v":1,"ts":"2026-02-24T11:00:00Z","op":"quality_audit","target":"screen:ONB-03","detail":{"tier":"standard","composite_score":8.2,"scores":{"d1":9.0,"d2":8.0,"d3":8.0,"d4":7.0,"d5":9.0,"d6":8.0,"d7":9.0,"d8":9.0,"d9":7.0,"d10":8.0,"d11":8.0},"verdict":"pass","issues":["D4: Check C — spacer frame in auto-layout","D9: 2 hardcoded fills in secondary surfaces"],"improvements_applied":0},"phase":3}
 ```
 
 **Deep (session-end)**:
 ```jsonl
-{"v":1,"ts":"2026-02-24T12:00:00Z","op":"quality_audit","target":"session","detail":{"tier":"deep","composite_score":7.9,"scores":{"d1":8.0,"d2":8.0,"d3":7.0,"d4":7.0,"d5":9.0,"d6":8.0,"d7":9.0,"d8":9.0,"d9":7.0,"d10":8.0},"verdict":"conditional_pass","issues":["D3: 5 generic names in deep children","D4: Check B — 1 frame with 3 stacked children, no auto-layout","D9: 8 hardcoded fills remain"],"improvements_applied":2,"judges":{"visual_fidelity":{"d1":8.0,"d6":8.0,"d7":9.0},"structural_component":{"d2":8.0,"d3":7.0,"d4":7.0,"d5":9.0,"d8":9.0},"design_system":{"d9":7.0,"d10":8.0}},"consensus":"Structural quality strong. Naming and token binding are primary gaps. No Critical/Major blockers."},"phase":4}
+{"v":1,"ts":"2026-02-24T12:00:00Z","op":"quality_audit","target":"session","detail":{"tier":"deep","composite_score":7.9,"scores":{"d1":8.0,"d2":8.0,"d3":7.0,"d4":7.0,"d5":9.0,"d6":8.0,"d7":9.0,"d8":9.0,"d9":7.0,"d10":8.0,"d11":8.0},"verdict":"conditional_pass","issues":["D3: 5 generic names in deep children","D4: Check B — 1 frame with 3 stacked children, no auto-layout","D9: 8 hardcoded fills remain"],"improvements_applied":2,"judges":{"visual_fidelity":{"d1":8.0,"d6":8.0,"d7":9.0},"structural_component":{"d2":8.0,"d3":7.0,"d4":7.0,"d5":9.0,"d8":9.0,"d11":8.0},"design_system":{"d9":7.0,"d10":8.0},"ux_critic":"advisory — see consensus report"},"consensus":"Structural quality strong. Naming and token binding are primary gaps. No Critical/Major blockers."},"phase":4}
 ```
 
 ---
@@ -675,8 +699,8 @@ When modifying any quality procedure:
 
 ## Cross-References
 
-- **quality-dimensions.md** — 10 dimension rubrics, composite scoring formula, depth tier definitions, contradiction resolutions
-- **quality-audit-scripts.md** — JavaScript audit scripts A-F, positional diff script, per-element position analysis, scrollability check
+- **quality-dimensions.md** — 11 dimension rubrics, composite scoring formula, depth tier definitions, contradiction resolutions
+- **quality-audit-scripts.md** — JavaScript audit scripts A-I, positional diff script, per-element position analysis, scrollability check
 - **Convergence Protocol** (journal schema for audit results): `convergence-protocol.md`
 - **Compound Learning** (save triggers T1-T6, cross-session persistence): `compound-learning.md`
 - **Anti-patterns** (known errors to distinguish from quality gaps): `anti-patterns.md`

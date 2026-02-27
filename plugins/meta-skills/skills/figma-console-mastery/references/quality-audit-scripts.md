@@ -1,15 +1,15 @@
 # Quality Audit Scripts
 
-> JavaScript audit scripts A-F, screen diff templates, per-element position analysis, and scrollability checks.
+> JavaScript audit scripts A-I, screen diff templates, per-element position analysis, and scrollability checks.
 > Part of the Unified Quality Model for figma-console design validation.
-> Version: 1.0.0
+> Version: 1.1.0
 
 **Load when**: Any Standard or Deep audit execution (referenced by Handoff Audit Template and Deep judges)
 
 **Related files**: This file is part of a 3-file split:
-- **quality-dimensions.md** — 10 dimensions, rubrics, composite scoring, depth tiers, contradiction resolutions
-- **quality-audit-scripts.md** (this file) — JavaScript audit scripts A-F, diff templates, positional analysis
-- **quality-procedures.md** — Spot/Standard/Deep audit procedures, fix cycles, judge templates
+- **quality-dimensions.md** — 11 dimensions, rubrics, composite scoring, depth tiers, contradiction resolutions
+- **quality-audit-scripts.md** (this file) — JavaScript audit scripts A-I, diff templates, positional analysis
+- **quality-procedures.md** — Spot/Standard/Deep audit procedures, fix cycles, 3+1 judge templates
 
 ---
 
@@ -316,7 +316,297 @@ return (async () => {
 
 ---
 
-## 7. Screen Diff Template (Draft vs Handoff Visual Comparison)
+## 7. Script G: Accessibility Compliance Check (5 Sub-Checks G1-G5)
+
+Single `figma_execute` script for D11 Accessibility Compliance. Runs in Standard and Deep tiers only (NOT Spot — Spot is inline ~1K tokens; accessibility checks are better caught at phase boundaries).
+
+```js
+return (async () => {
+  const screen = await figma.getNodeByIdAsync('{{NODE_ID}}');
+  if (!screen) return JSON.stringify({ error: 'Screen node not found', nodeId: '{{NODE_ID}}' });
+
+  const allNodes = screen.findAll(n => true);
+  const issues = [];
+
+  // Helper: WCAG 2.1 relative luminance
+  const luminance = (r, g, b) => {
+    const [rs, gs, bs] = [r, g, b].map(c => {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  };
+  const contrastRatio = (l1, l2) => {
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+  };
+  const getSolidFillRGB = (node) => {
+    const fills = node.fills;
+    if (!fills || !Array.isArray(fills)) return null;
+    const solid = fills.find(f => f.type === 'SOLID' && f.visible !== false);
+    if (!solid) return null;
+    return { r: Math.round(solid.color.r * 255), g: Math.round(solid.color.g * 255), b: Math.round(solid.color.b * 255) };
+  };
+  const getBackgroundRGB = (node) => {
+    let current = node.parent;
+    while (current) {
+      const rgb = getSolidFillRGB(current);
+      if (rgb) return rgb;
+      current = current.parent;
+    }
+    return { r: 255, g: 255, b: 255 }; // assume white if no background found
+  };
+
+  // Helper: detect interactive elements
+  const isInteractive = (node) => {
+    if (node.type === 'INSTANCE') return true;
+    if (node.reactions && node.reactions.length > 0) return true;
+    const nameLower = (node.name || '').toLowerCase();
+    return /button|btn|cta|link|tab|toggle|switch|checkbox|radio|input|select|chip|fab/.test(nameLower);
+  };
+
+  // CHECK G1: Color contrast (WCAG luminance formula, SOLID fills, parent-walk for background)
+  for (const node of allNodes) {
+    if (node.type !== 'TEXT') continue;
+    const fgRGB = getSolidFillRGB(node);
+    if (!fgRGB) continue;
+    const bgRGB = getBackgroundRGB(node);
+    const fgL = luminance(fgRGB.r, fgRGB.g, fgRGB.b);
+    const bgL = luminance(bgRGB.r, bgRGB.g, bgRGB.b);
+    const ratio = contrastRatio(fgL, bgL);
+    const fontSize = node.fontSize || 16;
+    const isLargeText = fontSize >= 18 || (fontSize >= 14 && (node.fontWeight >= 700 || (node.fontName && node.fontName.style && /bold/i.test(node.fontName.style))));
+    const requiredRatio = isLargeText ? 3.0 : 4.5;
+    if (ratio < requiredRatio) {
+      const severity = ratio < 3.0 ? 'Critical' : 'Major';
+      issues.push({
+        check: 'G1', severity,
+        msg: `Text "${node.characters?.slice(0, 30)}" contrast ${ratio.toFixed(2)}:1 (need ${requiredRatio}:1, ${isLargeText ? 'large' : 'normal'} text)`,
+        nodeId: node.id, nodeName: node.name,
+        fg: fgRGB, bg: bgRGB, ratio: +ratio.toFixed(2), required: requiredRatio
+      });
+    }
+  }
+
+  // CHECK G2: Touch target size (>=44x44 for interactive elements)
+  for (const node of allNodes) {
+    if (!isInteractive(node)) continue;
+    const w = Math.round(node.width);
+    const h = Math.round(node.height);
+    if (w < 44 || h < 44) {
+      const minDim = Math.min(w, h);
+      const severity = minDim < 32 ? 'Critical' : 'Major';
+      issues.push({
+        check: 'G2', severity,
+        msg: `Interactive element ${w}x${h}px (minimum 44x44)`,
+        nodeId: node.id, nodeName: node.name, size: { w, h }
+      });
+    }
+  }
+
+  // CHECK G3: Text size (>=14px body, >=12px caption by name pattern)
+  for (const node of allNodes) {
+    if (node.type !== 'TEXT') continue;
+    const fontSize = node.fontSize || 16;
+    const nameLower = (node.name || '').toLowerCase();
+    const isCaption = /caption|footnote|helper|hint|sub/.test(nameLower);
+    if (isCaption && fontSize < 12) {
+      issues.push({
+        check: 'G3', severity: 'Minor',
+        msg: `Caption text "${node.characters?.slice(0, 20)}" at ${fontSize}px (minimum 12px)`,
+        nodeId: node.id, nodeName: node.name, fontSize
+      });
+    } else if (!isCaption && fontSize < 14) {
+      const severity = fontSize < 12 ? 'Major' : 'Minor';
+      issues.push({
+        check: 'G3', severity,
+        msg: `Body text "${node.characters?.slice(0, 20)}" at ${fontSize}px (minimum 14px)`,
+        nodeId: node.id, nodeName: node.name, fontSize
+      });
+    }
+  }
+
+  // CHECK G4: Interactive spacing (>=8px between sibling interactive elements)
+  const interactiveByParent = {};
+  for (const node of allNodes) {
+    if (!isInteractive(node) || !node.parent) continue;
+    const pid = node.parent.id;
+    if (!interactiveByParent[pid]) interactiveByParent[pid] = [];
+    interactiveByParent[pid].push(node);
+  }
+  for (const [pid, nodes] of Object.entries(interactiveByParent)) {
+    if (nodes.length < 2) continue;
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const gapX = Math.abs(a.x > b.x ? a.x - (b.x + b.width) : b.x - (a.x + a.width));
+        const gapY = Math.abs(a.y > b.y ? a.y - (b.y + b.height) : b.y - (a.y + a.height));
+        const gap = Math.min(gapX, gapY);
+        if (gap >= 0 && gap < 8) {
+          issues.push({
+            check: 'G4', severity: 'Minor',
+            msg: `Interactive elements "${a.name}" and "${b.name}" spaced ${Math.round(gap)}px apart (minimum 8px)`,
+            nodeIds: [a.id, b.id], gap: Math.round(gap)
+          });
+        }
+      }
+    }
+  }
+
+  // CHECK G5: Missing descriptions on interactive components
+  for (const node of allNodes) {
+    if (node.type !== 'INSTANCE' && node.type !== 'COMPONENT') continue;
+    if (!isInteractive(node)) continue;
+    if (!node.description || node.description.trim() === '') {
+      issues.push({
+        check: 'G5', severity: 'Minor',
+        msg: `Interactive component "${node.name}" has no description (assists downstream a11y labeling)`,
+        nodeId: node.id, nodeName: node.name
+      });
+    }
+  }
+
+  return JSON.stringify({
+    totalIssues: issues.length,
+    critical: issues.filter(i => i.severity === 'Critical').length,
+    major: issues.filter(i => i.severity === 'Major').length,
+    minor: issues.filter(i => i.severity === 'Minor').length,
+    issues
+  }, null, 2);
+})();
+```
+
+**IMPORTANT — script-only rule**: Report ONLY issues detected by checks G1-G5. Same principle as D4/Script F.
+
+---
+
+## 8. Script H: UX Copy Quality Check (4 Sub-Checks H1-H4)
+
+Single `figma_execute` script for D8 Instance Integrity copy quality sub-checks. Heuristic checks — auditor should verify flagged items.
+
+```js
+return (async () => {
+  const screen = await figma.getNodeByIdAsync('{{NODE_ID}}');
+  if (!screen) return JSON.stringify({ error: 'Screen node not found', nodeId: '{{NODE_ID}}' });
+
+  const allNodes = screen.findAll(n => true);
+  const issues = [];
+
+  const GENERIC_CTA = /^(submit|ok|send|click here|go|done|cancel|yes|no|confirm|next|back|close|continue)$/i;
+  const ACTION_VERBS = /^(add|create|save|delete|remove|update|edit|share|download|upload|sign|log|view|open|start|join|buy|get|try|learn|explore|discover|browse|search|find|filter|sort|reset|apply|clear|copy|paste|cut|undo|redo|refresh|retry|dismiss|skip|accept|decline|approve|reject|submit|publish|send|reply|forward|attach|pin|unpin|archive|restore|mute|unmute|block|unblock|follow|unfollow|like|dislike|rate|review|comment|report|flag|mark|set|enable|disable|toggle|switch|expand|collapse|show|hide|minimize|maximize)/i;
+
+  // CHECK H1: CTA quality — detect button/CTA TEXT nodes, check against generic patterns
+  for (const node of allNodes) {
+    if (node.type !== 'TEXT') continue;
+    const parentName = (node.parent?.name || '').toLowerCase();
+    const nodeName = (node.name || '').toLowerCase();
+    const isButtonText = /button|btn|cta|action|primary|secondary/.test(parentName) ||
+                         /button|btn|cta|action/.test(nodeName);
+    if (!isButtonText) continue;
+    const text = (node.characters || '').trim();
+    if (!text) continue;
+    if (GENERIC_CTA.test(text)) {
+      const isPrimary = /primary|cta|main/.test(parentName);
+      issues.push({
+        check: 'H1', severity: isPrimary ? 'Major' : 'Minor',
+        msg: `${isPrimary ? 'Primary' : 'Secondary'} CTA text "${text}" is generic — use specific action verb (e.g., "Save Changes", "Add to Cart")`,
+        nodeId: node.id, nodeName: node.name, text
+      });
+    } else if (!ACTION_VERBS.test(text)) {
+      issues.push({
+        check: 'H1', severity: 'Minor',
+        msg: `CTA text "${text}" does not start with action verb`,
+        nodeId: node.id, nodeName: node.name, text
+      });
+    }
+  }
+
+  // CHECK H2: Error message structure — detect error TEXT, check sentence count >= 2
+  for (const node of allNodes) {
+    if (node.type !== 'TEXT') continue;
+    const nameLower = (node.name || '').toLowerCase();
+    const parentNameLower = (node.parent?.name || '').toLowerCase();
+    const isError = /error|alert|warning|danger|invalid|fail/.test(nameLower) ||
+                    /error|alert|warning|danger/.test(parentNameLower);
+    if (!isError) continue;
+    const text = (node.characters || '').trim();
+    if (!text || text.length < 5) continue;
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    if (sentences.length < 2) {
+      issues.push({
+        check: 'H2', severity: 'Minor',
+        msg: `Error message "${text.slice(0, 40)}..." has ${sentences.length} sentence — should follow What+Why+How structure (>=2 sentences)`,
+        nodeId: node.id, nodeName: node.name, text: text.slice(0, 80)
+      });
+    }
+  }
+
+  // CHECK H3: Empty state structure — detect empty state TEXT, check sentence count >= 2
+  for (const node of allNodes) {
+    if (node.type !== 'TEXT') continue;
+    const nameLower = (node.name || '').toLowerCase();
+    const parentNameLower = (node.parent?.name || '').toLowerCase();
+    const isEmptyState = /empty.?state|no.?data|no.?results|no.?items|placeholder.?text/.test(nameLower) ||
+                         /empty.?state|no.?data|no.?results/.test(parentNameLower);
+    if (!isEmptyState) continue;
+    const text = (node.characters || '').trim();
+    if (!text || text.length < 5) continue;
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    if (sentences.length < 2) {
+      issues.push({
+        check: 'H3', severity: 'Minor',
+        msg: `Empty state text "${text.slice(0, 40)}..." has ${sentences.length} sentence — should follow What+Why+How structure (>=2 sentences)`,
+        nodeId: node.id, nodeName: node.name, text: text.slice(0, 80)
+      });
+    }
+  }
+
+  // CHECK H4: Dialog button labels — detect dialog ancestor, check button text isn't generic
+  for (const node of allNodes) {
+    if (node.type !== 'TEXT') continue;
+    // Walk up to find dialog ancestor
+    let ancestor = node.parent;
+    let isInDialog = false;
+    let depth = 0;
+    while (ancestor && depth < 6) {
+      const aName = (ancestor.name || '').toLowerCase();
+      if (/dialog|modal|confirm|alert|popup|overlay/.test(aName)) {
+        isInDialog = true;
+        break;
+      }
+      ancestor = ancestor.parent;
+      depth++;
+    }
+    if (!isInDialog) continue;
+    // Check if this is a button text inside the dialog
+    const parentName = (node.parent?.name || '').toLowerCase();
+    const isButtonText = /button|btn|action/.test(parentName);
+    if (!isButtonText) continue;
+    const text = (node.characters || '').trim();
+    if (/^(ok|cancel|yes|no)$/i.test(text)) {
+      issues.push({
+        check: 'H4', severity: 'Minor',
+        msg: `Dialog button "${text}" is generic — use action-labeled text (e.g., "Delete Account", "Keep Editing")`,
+        nodeId: node.id, nodeName: node.name, text
+      });
+    }
+  }
+
+  return JSON.stringify({
+    totalIssues: issues.length,
+    issues
+  }, null, 2);
+})();
+```
+
+**Note**: These are heuristic checks based on node naming patterns. The auditor should verify flagged items — false positives are expected for non-standard naming conventions.
+
+---
+
+## 9. Screen Diff Template (Draft vs Handoff Visual Comparison)
+
+> **Note**: Sections 9-12 were renumbered from 7-10 in v1.1.0 after inserting Scripts G and H.
 
 Use when comparing two versions of the same screen. Dispatch as `Task(subagent_type="general-purpose", model="sonnet")`.
 
@@ -399,7 +689,7 @@ After any figma_execute mutations in this session, use figma_capture_screenshot 
 
 ---
 
-## 8. Per-Element Position Analysis
+## 10. Per-Element Position Analysis
 
 For each element in a screen, evaluate if current positioning (absolute, auto-layout child, anchored) is appropriate.
 
@@ -449,7 +739,7 @@ Is this element inside an auto-layout container?
 
 ---
 
-## 9. Scrollability Check
+## 11. Scrollability Check
 
 Verify whether screen is intended as scrollable or fixed viewport, and whether structure matches intent.
 
@@ -474,7 +764,7 @@ Verify whether screen is intended as scrollable or fixed viewport, and whether s
 
 **If fixed viewport:**
 - Screen root: FRAME without auto-layout (stage)
-- Direct children: per-type constraint rules (Section 8)
+- Direct children: per-type constraint rules (Section 10)
 - Bottom-anchored elements: constraints MAX vertical
 - Full-width elements: constraints STRETCH or LEFT_RIGHT horizontal
 
@@ -486,7 +776,7 @@ Verify whether screen is intended as scrollable or fixed viewport, and whether s
 
 ---
 
-## 10. Positional Diff Script (Enhanced)
+## 12. Positional Diff Script (Enhanced)
 
 Alternative to Script B for more detailed positional analysis. Use when Draft reference is available and detailed metric tracking is needed.
 
@@ -572,7 +862,7 @@ return (async () => {
 
 ## Cross-References
 
-- **quality-dimensions.md** — 10 dimension rubrics, composite scoring formula, depth tier definitions, contradiction resolutions
+- **quality-dimensions.md** — 11 dimension rubrics, composite scoring formula, depth tier definitions, contradiction resolutions
 - **quality-procedures.md** — Spot/Standard/Deep audit execution procedures, fix cycles, Handoff Audit Template that references these scripts, Deep judge templates
 - **Convergence Protocol** (journal schema for audit results): `convergence-protocol.md`
 - **Plugin API** (figma_execute patterns): `plugin-api.md`
@@ -584,7 +874,7 @@ return (async () => {
 
 ### Updating Audit Scripts
 
-When modifying scripts A-F:
+When modifying scripts A-I:
 
 - [ ] Update script in this file (Sections 1-6)
 - [ ] Update corresponding dimension rubric in quality-dimensions.md Section 2

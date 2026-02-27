@@ -7,15 +7,15 @@
 **Load when**: Flow 1 Phase 4, Flow 2 Phases 2-4, any quality audit dispatch
 
 **Related files**: This file is part of a 3-file split:
-- **quality-dimensions.md** (this file) — 10 dimensions, rubrics, composite scoring, depth tiers, contradiction resolutions
-- **quality-audit-scripts.md** — JavaScript audit scripts A-F, diff templates, positional analysis
-- **quality-procedures.md** — Spot/Standard/Deep audit procedures, fix cycles, judge templates
+- **quality-dimensions.md** (this file) — 11 dimensions, rubrics, composite scoring, depth tiers, contradiction resolutions
+- **quality-audit-scripts.md** — JavaScript audit scripts A-I, diff templates, positional analysis
+- **quality-procedures.md** — Spot/Standard/Deep audit procedures, fix cycles, 3+1 judge templates
 
 ---
 
-## 1. 10 Unified Dimensions
+## 1. 11 Unified Dimensions
 
-All Figma design quality is evaluated across these 10 dimensions. Each scores 0-10.
+All Figma design quality is evaluated across these 11 dimensions. Each scores 0-10.
 
 | Cat. | # | Dimension | Notes |
 |------|---|-----------|-------|
@@ -28,6 +28,7 @@ All Figma design quality is evaluated across these 10 dimensions. Each scores 0-
 | | D7 | Screen Properties | Root=FRAME, cornerRadius, clipsContent, dimensions. Scrollability: structure consistent with scroll/non-scroll intent |
 | | D8 | Instance Integrity | Override correctness via `.characters`, no residual placeholder text |
 | **Design System** | D9 | Token Binding | % fills/strokes/effects/spacing bound to variables. Flag magic numbers not confirmed by user |
+| **Accessibility** | D11 | Accessibility Compliance | WCAG 2.1 AA: contrast 4.5:1 (text), 3:1 (large/UI), touch targets 44x44, text >=14px body/>=12px caption, interactive spacing >=8px, descriptions |
 | **Process** | D10 | Operational Efficiency | Batch ratio, convergence compliance, native-tools-first |
 
 ---
@@ -225,12 +226,20 @@ All Figma design quality is evaluated across these 10 dimensions. Each scores 0-
 
 **Residual placeholder patterns** (auto-detect): `Title text here`, `Body text here`, `Label`, `Placeholder`, `Lorem ipsum`
 
+**Copy quality sub-checks** (Script H — `quality-audit-scripts.md`):
+- **H1**: CTA text starts with verb, is specific (not "Submit"/"OK"/"Click Here")
+- **H2**: Error message follows What+Why+How structure (>= 2 sentences)
+- **H3**: Empty state follows What+Why+How structure (>= 2 sentences)
+- **H4**: Confirmation dialog buttons are action-labeled (not "OK"/"Cancel")
+
+**Scoring with copy quality**: 10 = zero placeholders + all copy checks pass; 6-7 = some placeholders OR copy violations in primary surfaces.
+
 **Issue severity:**
 - **Critical**: Expected copy missing, placeholder text in critical screen section (title, CTA)
-- **Major**: Placeholder text in secondary surfaces (body, labels)
-- **Minor**: Override correct but formatting inconsistent (e.g., capitalization)
+- **Major**: Placeholder text in secondary surfaces (body, labels), generic CTA on primary action (H1 violation)
+- **Minor**: Override correct but formatting inconsistent (e.g., capitalization), generic CTA on secondary action, dialog with OK/Cancel (H4 violation)
 
-**figma-console tools**: `figma_execute` (`.characters` read). NEVER rely on screenshots alone — REST API screenshots show stale component defaults, not live overrides.
+**figma-console tools**: `figma_execute` (`.characters` read, Script H for copy quality). NEVER rely on screenshots alone — REST API screenshots show stale component defaults, not live overrides.
 
 ---
 
@@ -290,13 +299,40 @@ All Figma design quality is evaluated across these 10 dimensions. Each scores 0-
 
 ---
 
+### D11 — Accessibility Compliance
+
+**Data sources**: `figma_execute` Script G (checks G1-G5 from `quality-audit-scripts.md`)
+
+| Score | Criteria |
+|-------|----------|
+| 10 | All contrast ratios pass WCAG 2.1 AA. All interactive targets >=44x44. Text >=14px body/>=12px caption. Interactive spacing >=8px. All interactive components have descriptions |
+| 8-9 | 1-2 Minor issues (secondary text contrast, caption size, spacing) |
+| 6-7 | 1 Major issue (body text contrast, interactive target 32-43px, body text <14px) or 3-4 Minor issues |
+| 4-5 | Multiple Major issues or 5+ Minor issues |
+| 0-3 | Critical issues: CTA fails <3:1 contrast, interactive targets <32px. Pervasive accessibility failures |
+
+**IMPORTANT — script-only rule**: Report ONLY issues detected by Script G automated checks G1-G5. Same rule as D4.
+
+**N/A conditions**: Icon-only designs, non-interactive wireframes. When D11 is N/A, exclude from composite score (see Section 3).
+
+**Issue severity:**
+- **Critical**: CTA fails <3:1 contrast, interactive target <32px
+- **Major**: Body text fails 4.5:1 contrast, interactive target 32-43px, body text <14px on primary surfaces
+- **Minor**: Secondary text contrast marginal, caption <12px, interactive spacing <8px
+
+**figma-console tools**: `figma_execute` (Script G from quality-audit-scripts.md)
+
+---
+
 ## 3. Composite Scoring
 
-**Formula**: Simple average (equal weight per dimension)
+**Formula**: Simple average (equal weight per applicable dimension, dynamic denominator)
 
 ```
-composite = (D1 + D2 + D3 + D4 + D5 + D6 + D7 + D8 + D9 + D10) / 10
+composite = sum(applicable dimensions) / count(applicable dimensions)
 ```
+
+When any dimension is scored N/A (D10 for single-screen audits, D11 for non-interactive/icon-only designs), exclude it from both numerator and denominator. Example: if D10 and D11 are both N/A, composite = sum(D1..D9) / 9.
 
 | Composite | Verdict | Action |
 |-----------|---------|--------|
@@ -315,8 +351,10 @@ Three tiers match audit depth to operation significance.
 | Tier | When | Dimensions | Who executes | Token Budget |
 |------|------|-----------|-------------|--------|
 | **Spot** | After each screen modification, single ops | D1, D4, D10 | Inline (exception to subagent-first rule) | ~1K |
-| **Standard** | Phase boundary, per-screen in Flow 2 | All 10 | Sonnet subagent | ~4K |
-| **Deep** | Session end, Flow 2 final gate | All 10 + 3 judges + debate | 3 parallel Sonnet subagents | ~12K |
+| **Standard** | Phase boundary, per-screen in Flow 2 | All 11 (excl. N/A) | Sonnet subagent | ~5K |
+| **Deep** | Session end, Flow 2 final gate | All 11 (excl. N/A) + 3 judges + Judge 4 (advisory) + debate | 3-4 parallel Sonnet subagents | ~18K |
+
+> **Deep tier note**: Deep also includes Judge 4: UX Design Critic (advisory, no score contribution). Judge 4 produces qualitative findings only — they appear in the consensus report but do NOT affect the composite score.
 
 ### Triage Decision Matrix
 
@@ -367,7 +405,7 @@ This unified model resolves 10 contradictions between reflection-protocol.md (R0
 
 ## Cross-References
 
-- **quality-audit-scripts.md** — JavaScript audit scripts A-F, positional diff script, per-element position analysis, scrollability check
+- **quality-audit-scripts.md** — JavaScript audit scripts A-I, positional diff script, per-element position analysis, scrollability check
 - **quality-procedures.md** — Spot/Standard/Deep audit procedures, fix cycles, judge templates, journal integration, compound learning integration
 - **Convergence Protocol** (journal schema, subagent prompt template, batch operations): `convergence-protocol.md`
 - **Compound Learning** (save triggers T1-T6, cross-session persistence): `compound-learning.md`

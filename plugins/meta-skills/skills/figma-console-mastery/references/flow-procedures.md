@@ -176,7 +176,7 @@ After all categories, compile a user-approved checklist with numbered items acro
 #### Quality audit tiers (per `quality-dimensions.md`)
 
 - **Spot**: Quick visual check, screenshot analysis, 3 dimensions (D1 Visual Quality, D4 Auto-Layout, D10 Operational Efficiency). Run after each screen in Create/Targeted, after each fix in Audit.
-- **Standard**: 10-dimension audit (add Layer Structure, Semantic Naming, Component Compliance 3-layer, Constraints, Screen Properties, Instance Override Integrity, Token Bindings, Operational Efficiency). Run at end of Create, after Restructure completion.
+- **Standard**: 11-dimension audit (add Layer Structure, Semantic Naming, Component Compliance 3-layer, Constraints, Screen Properties, Instance Override Integrity, Token Bindings, Operational Efficiency, Accessibility Compliance). Run at end of Create, after Restructure completion.
 - **Deep**: Standard + multi-judge critique (Visual Fidelity Expert, Structural & Component Expert, Design System & Token Expert). Run at session end for Restructure.
 
 #### Validation steps
@@ -218,9 +218,9 @@ Quality assurance flow for preparing designs for code handoff. Replaces Visual Q
 
 **Per screen, in Sonnet subagent**:
 
-1. Load `quality-dimensions.md` for 10-dimension Standard audit
+1. Load `quality-dimensions.md` for 11-dimension Standard audit
 2. Load screen-specific context (baseline screenshot, node tree excerpt)
-3. Run 10-dimension audit:
+3. Run 11-dimension audit:
    - D1: Visual Quality
    - D2: Layer Structure
    - D3: Semantic Naming
@@ -231,6 +231,7 @@ Quality assurance flow for preparing designs for code handoff. Replaces Visual Q
    - D8: Instance Override Integrity
    - D9: Token Bindings
    - D10: Operational Efficiency
+   - D11: Accessibility Compliance
 4. Score each dimension (0-10)
 5. Identify deviations with node IDs
 6. Write audit report: `specs/figma/audits/{screen-name}.md`
@@ -257,7 +258,7 @@ If approved for auto-fix:
 #### Audit subagent (Sonnet, separate dispatch)
 
 1. Load `quality-dimensions.md`
-2. Re-run 10-dimension audit on modified screen
+2. Re-run 11-dimension audit on modified screen
 3. Compare scores to previous audit
 4. Write updated audit report
 5. Return pass/fail verdict
