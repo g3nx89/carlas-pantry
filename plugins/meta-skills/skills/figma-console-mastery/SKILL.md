@@ -1,6 +1,6 @@
 ---
 name: figma-console-mastery
-version: 1.0.0
+version: 1.1.0
 description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", or when developing skills/commands that use the Figma Console MCP server. Provides 2 flows (Design Session and Handoff QA), subagent-first orchestration, quality model, and selective reference loading. For Draft-to-Handoff and Code Handoff preparation workflows, use the design-handoff skill (product-definition plugin) which delegates Figma operations to this skill's references.
 ---
 
@@ -18,7 +18,7 @@ description: This skill should be used when the user asks to "create a Figma des
 1. **Native-tools-first** — use figma-console native tools for standard operations; `figma_execute` for everything else
 2. **Discover before creating** — check existing components/tokens before building from scratch
 3. **Converge, never regress** — log every operation to per-screen journal; never redo completed work (`convergence-protocol.md`)
-4. **Validate visually** — 10-dimension quality audit with tiered depth Spot/Standard/Deep (`quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`)
+4. **Validate visually** — 11-dimension quality audit with tiered depth Spot/Standard/Deep (`quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`)
 5. **Subagent-first (Sonnet)** — all Figma modifications and audits delegated to Sonnet subagents; main context orchestrates only
 6. **Ask user when in doubt** — every `AskUserQuestion` includes "Let's discuss this" option
 7. **GROUP→FRAME before constraints** — GROUPs don't support `constraints`; assignment silently fails
@@ -70,7 +70,7 @@ Unified flow for design creation, restructuring, targeted fixes, and audits. **F
 Shared: `figma_get_status` → `figma_list_open_files` → `figma_navigate` → build/validate Session Index → load learnings → `figma_get_design_system_summary` → `figma_get_variables`. Mode-specific additions via Sonnet subagent. See `flow-procedures.md` §1.1.
 
 ### Phase 2 — Analysis & Planning (Create/Restructure only)
-Expanded Socratic Protocol with 10 categories (Cat. 0-9). **Question templates**: `references/socratic-protocol.md`. **Procedures**: `flow-procedures.md` §1.2. Do NOT proceed to Phase 3 until user approves checklist.
+Expanded Socratic Protocol with 11 categories (Cat. 0-10). **Question templates**: `references/socratic-protocol.md`. **Procedures**: `flow-procedures.md` §1.2. Do NOT proceed to Phase 3 until user approves checklist.
 
 ### Phase 3 — Execution (Sonnet subagent)
 Dispatch subagent with approved checklist + references. Logs to per-screen journal. See `flow-procedures.md` §1.3.
@@ -85,7 +85,7 @@ Quality assurance for code handoff readiness. Does NOT generate manifest. **Full
 | Phase | Focus | Who |
 |-------|-------|-----|
 | 1 — Screen Inventory | Baseline screenshots, screen catalog | Sonnet subagent |
-| 2 — Quality Audit | 10-dimension Standard per screen | Sonnet subagent |
+| 2 — Quality Audit | 11-dimension Standard per screen | Sonnet subagent |
 | 3 — Mod-Audit-Loop | Fix → re-audit → loop (max 3/screen) | Sonnet subagents |
 | 4 — Handoff Readiness | Naming rules, token alignment, health check | Sonnet + user |
 
@@ -187,10 +187,10 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/session-index-
 # Compound Learning Protocol — cross-session knowledge persistence
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/compound-learning.md
 
-# Quality Dimensions — 10 dimensions, depth tiers, scoring rubrics, contradiction resolutions
+# Quality Dimensions — 11 dimensions, depth tiers, scoring rubrics, contradiction resolutions
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-dimensions.md
 
-# Quality Audit Scripts — JS scripts A-F, positional diff, screen diff template
+# Quality Audit Scripts — JS scripts A-I, positional diff, screen diff template
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-audit-scripts.md
 
 # Quality Procedures — Spot/Standard/Deep execution, fix cycles, judge templates
@@ -202,7 +202,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/field-learning
 # Flow procedures — detailed phase steps for Flow 1 (4 modes) and Flow 2
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/flow-procedures.md
 
-# Socratic Protocol — Cat. 0-9 question templates for Phase 2
+# Socratic Protocol — Cat. 0-10 question templates for Phase 2
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/socratic-protocol.md
 
 # Essential Rules — full 23 MUST + 14 AVOID rules
