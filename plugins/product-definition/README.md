@@ -22,7 +22,7 @@ This plugin provides four interconnected workflows:
 # Specification: after PRD is ready:
 /product-definition:specify
 
-# Design Handoff: with Figma Desktop + Console open:
+# Design Handoff: with figma-console MCP running:
 /product-definition:handoff
 ```
 
@@ -84,10 +84,10 @@ Prepares Figma designs for coding agent consumption. Two-track approach: **Track
 
 | Stage | Name | Description |
 |-------|------|-------------|
-| 1 | Discovery & Inventory | Dual MCP check, page scan, readiness audit, TIER decision, designer approval |
+| 1 | Discovery & Inventory | figma-console MCP check, page scan, readiness audit, TIER decision, designer approval |
 | 2 | Figma Preparation | Per-screen structural cleanup via figma-console-mastery (one screen per dispatch) |
 | 2J/3J/3.5J/5J | Judge Checkpoints | LLM-as-judge quality gates at critical boundaries |
-| 3 | Gap & Completeness | Gap detection + missing screen/state detection via dual MCP |
+| 3 | Gap & Completeness | Gap detection + missing screen/state detection via figma-console |
 | 3.5 | Design Extension | Create missing screens in Figma (conditional — only if gaps detected) |
 | 4 | Designer Dialog | Per-screen interactive Q&A about gaps only |
 | 5 | Output Assembly | HANDOFF-SUPPLEMENT.md + handoff-manifest.md generation |
@@ -99,7 +99,7 @@ Prepares Figma designs for coding agent consumption. Two-track approach: **Track
 
 **Key features:**
 - Figma is the visual source of truth — supplement NEVER describes what's already visible
-- Dual MCP: figma-desktop (read-only) + figma-console (read+write), both required
+- figma-console MCP only (live Plugin API state — no REST API staleness)
 - Smart Componentization with 3-gate TIER system (recurrence, variants, codebase match)
 - LLM-as-judge (opus) at 4 stage boundaries with checkpoint-specific rubrics
 - One-screen-per-dispatch pattern prevents context compaction
@@ -182,13 +182,13 @@ design-narration/
 
 | MCP Server | Used By | Purpose | Fallback |
 |------------|---------|---------|----------|
-| `figma-desktop` | `/handoff`, `/narrate` | Screen metadata, screenshots, design context | **Required** for handoff/narration |
-| `figma-console` | `/handoff` | Figma file mutations, audit, screenshots, component search | **Required** for handoff |
+| `figma-desktop` | `/narrate` | Screen metadata, screenshots, design context | **Required** for narration |
+| `figma-console` | `/handoff` | Figma file read + mutations, audit, screenshots, component search | **Required** for handoff |
 | `pal` | `/requirements`, `/narrate` | Multi-model consensus, ThinkDeep analysis | Single-model analysis |
 | `sequential-thinking` | `/requirements` | Deep structured analysis | Standard reasoning |
 
 If MCP tools are unavailable:
-- `/handoff`: Both `figma-desktop` AND `figma-console` required — no graceful degradation
+- `/handoff`: `figma-console` required — no graceful degradation
 - `/requirements`: Complete and Advanced modes degrade to Standard when PAL unavailable
 - `/narrate`: Stage 4 validation runs MPA-only (PAL consensus skipped)
 - User is notified of degraded capability in all cases
@@ -216,7 +216,7 @@ If MCP tools are unavailable:
 | `qa-strategist` | specify | V-Model test strategy | sonnet |
 | `handoff-screen-scanner` | handoff | Figma frame discovery, structural analysis, readiness scoring | haiku |
 | `handoff-figma-preparer` | handoff | Per-screen Figma preparation via figma-console-mastery | sonnet |
-| `handoff-gap-analyzer` | handoff | Gap detection + missing screen/state detection, dual MCP | sonnet |
+| `handoff-gap-analyzer` | handoff | Gap detection + missing screen/state detection via figma-console | sonnet |
 | `handoff-judge` | handoff | LLM-as-judge at 4 stage boundaries | opus |
 | `narration-figma-discovery` | narrate | Figma frame detection + batch page discovery with matching | haiku |
 | `narration-screen-analyzer` | narrate | Per-screen narrative + self-critique | sonnet |
@@ -312,7 +312,7 @@ rm design-narration/.narration-state.local.md
 
 ### Figma not detected
 - Ensure Figma Desktop is open with the design file
-- `/handoff` requires BOTH `figma-desktop` AND `figma-console` MCP servers running
+- `/handoff` requires `figma-console` MCP server running
 - `/narrate` requires `figma-desktop` MCP only
 
 ## Version
