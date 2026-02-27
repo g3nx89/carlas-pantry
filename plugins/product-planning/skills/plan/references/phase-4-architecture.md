@@ -370,7 +370,7 @@ IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentia
 
   # RISK-C1: Frame risk assessment across all options
   mcp__sequential-thinking__sequentialthinking({
-    thought: "RISK ASSESSMENT FRAME for all architecture perspectives. PERSPECTIVES: [grounding, ideality, resilience]. RISK CATEGORIES: Technical (complexity, unknowns), Integration (API, migration, external), Schedule (dependencies, learning curve), Security (attack surfaces, compliance). Analyzing each perspective against all categories.",
+    thought: "RISK ASSESSMENT FRAME for all architecture perspectives. PERSPECTIVES: [grounding, ideality, resilience]. RISK CATEGORIES: Technical (complexity, unknowns), Integration (API, migration, external), Schedule (dependencies, learning curve), Security (attack surfaces, compliance), Operational (scalability, external dependencies, deployment rollback, compliance/privacy — may be N/A for MVP/internal tools). Analyzing each perspective against all categories.",
     thoughtNumber: 1,
     totalThoughts: 5,
     nextThoughtNeeded: true
@@ -378,7 +378,7 @@ IF analysis_mode in {advanced, complete} AND mcp__sequential-thinking__sequentia
 
   # RISK-C2: Risk Identification per option
   mcp__sequential-thinking__sequentialthinking({
-    thought: "RISK IDENTIFICATION across all perspectives. GROUNDING: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. IDEALITY: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. RESILIENCE: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list]. TOTAL RISKS: grounding={N}, ideality={M}, resilience={P}. HYPOTHESIS: {perspective} has highest risk count due to {reason}. CONFIDENCE: medium.",
+    thought: "RISK IDENTIFICATION across all perspectives. GROUNDING: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list], OPERATIONAL: [list or N/A]. IDEALITY: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list], OPERATIONAL: [list or N/A]. RESILIENCE: TECHNICAL: [list], INTEGRATION: [list], SCHEDULE: [list], SECURITY: [list], OPERATIONAL: [list or N/A]. TOTAL RISKS: grounding={N}, ideality={M}, resilience={P}. HYPOTHESIS: {perspective} has highest risk count due to {reason}. CONFIDENCE: medium.",
     thoughtNumber: 2,
     totalThoughts: 5,
     nextThoughtNeeded: true

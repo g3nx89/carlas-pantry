@@ -753,8 +753,8 @@ const CONFIG_SECTIONS = [
     kvFn: function() {
       return [
         { key:'current_depth', val: getDepth(), active: true, detail: 'mode='+state.mode+' x risk='+state.risk+' = '+getDepth() },
-        { key:'risk_keywords.high', val:'payment, auth, security, encryption, PII, GDPR, HIPAA...', active:false, detail:'17 keywords that trigger high risk classification' },
-        { key:'risk_keywords.medium', val:'API, integration, migration, database, performance, cache...', active:false, detail:'12 keywords that trigger medium risk classification' },
+        { key:'risk_keywords.high', val:'payment, auth, security, encryption, PII, GDPR, HIPAA, CCPA, circuit breaker...', active:false, detail:'24 keywords that trigger high risk classification' },
+        { key:'risk_keywords.medium', val:'API, integration, migration, database, performance, cache, rate limit, failover...', active:false, detail:'22 keywords that trigger medium risk classification' },
         { key:'depth.minimal', val:'1 agent, direct matches only, no ST', active: getDepth()==='minimal', detail:'Surface-level scan for low-risk simple features' },
         { key:'depth.standard', val:'2 agents, related patterns, T4+T5', active: getDepth()==='standard', detail:'Moderate exploration with pattern recognition' },
         { key:'depth.deep', val:'3 agents, comprehensive, T4+T5+T6', active: getDepth()==='deep', detail:'Full codebase exploration with constraint analysis' }

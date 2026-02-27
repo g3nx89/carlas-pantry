@@ -249,6 +249,13 @@ research_depth:
       - compliance
       - financial
       - transaction
+      # Production-mature (v1.3.0 alignment with specify)
+      - CCPA
+      - data retention
+      - audit log
+      - circuit breaker
+      - deployment rollback
+      - blast radius
     medium:
       - API
       - integration
@@ -262,6 +269,18 @@ research_depth:
       - cache
       - session
       - state
+      # Production-mature (v1.3.0 alignment with specify)
+      - rate limit
+      - backpressure
+      - failover
+      - health check
+      - feature flag
+      - degraded mode
+      - p95
+      - p99
+      - external dependency
+      - third-party
+      - deployment pipeline
 
   # Depth levels and what they mean
   levels:

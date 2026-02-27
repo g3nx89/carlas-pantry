@@ -155,7 +155,7 @@ After selecting an architecture approach, YOU MUST assess risks using T11-T13:
 ```javascript
 // T11: Risk Identification
 mcp__sequential-thinking__sequentialthinking({
-  thought: "RISK IDENTIFICATION for {selected_approach}. TECHNICAL RISKS: [complexity, unknowns, new patterns]. INTEGRATION RISKS: [API boundaries, external services]. SCHEDULE RISKS: [dependencies, learning curve]. SECURITY RISKS: [attack surfaces, compliance]. OPERATIONAL RISKS: [deployment, monitoring].",
+  thought: "RISK IDENTIFICATION for {selected_approach}. TECHNICAL RISKS: [complexity, unknowns, new patterns]. INTEGRATION RISKS: [API boundaries, external services]. SCHEDULE RISKS: [dependencies, learning curve]. SECURITY RISKS: [attack surfaces, compliance]. OPERATIONAL RISKS: [deployment, monitoring, scalability degradation, external dependency failure, rollback safety, compliance/privacy — may be N/A for MVP/internal tools].",
   thoughtNumber: 6,
   totalThoughts: 8,
   nextThoughtNeeded: true,

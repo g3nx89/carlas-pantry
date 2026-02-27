@@ -218,7 +218,7 @@ Templates are organized by planning phase and loaded on-demand during structured
 
 ```json
 {
-  "thought": "Step 1/3: Identifying risks using categories. TECHNICAL RISKS: [unknown technologies, complexity]. INTEGRATION RISKS: [API changes, data migration]. SCHEDULE RISKS: [dependencies, unknowns]. SECURITY RISKS: [vulnerabilities, compliance]. HYPOTHESIS: Identified [N] risks across [M] categories. CONFIDENCE: medium.",
+  "thought": "Step 1/3: Identifying risks using categories. TECHNICAL RISKS: [unknown technologies, complexity]. INTEGRATION RISKS: [API changes, data migration]. SCHEDULE RISKS: [dependencies, unknowns]. SECURITY RISKS: [vulnerabilities, compliance]. OPERATIONAL RISKS: [deployment, monitoring, scalability, external dependencies, rollback safety, compliance/privacy]. HYPOTHESIS: Identified [N] risks across [M] categories. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 3,
   "nextThoughtNeeded": true
@@ -232,7 +232,7 @@ Templates are organized by planning phase and loaded on-demand during structured
 - Integration (external systems)
 - Schedule (timeline, dependencies)
 - Security (vulnerabilities)
-- Operational (deployment, monitoring)
+- Operational Resilience (deployment, monitoring, scalability degradation, external dependency failure, rollback safety, compliance/privacy — may be N/A for MVP/internal tools)
 
 ---
 
@@ -353,7 +353,7 @@ These templates are used in Phase 7 (Test Strategy) for V-Model test planning.
 
 ```json
 {
-  "thought": "Step 1/3: Identifying all failure modes for this feature. DATA FAILURES: [missing data, malformed input, stale cache, data too large]. INTEGRATION FAILURES: [dependencies unavailable, timeouts, version mismatch, API changes]. STATE FAILURES: [race conditions, stale reads, lost updates, deadlocks]. USER FAILURES: [invalid input, misuse, unexpected navigation, permission issues]. INFRASTRUCTURE FAILURES: [network, disk, memory, CPU exhaustion]. HYPOTHESIS: Identified [N] potential failure modes across [M] categories. CONFIDENCE: medium.",
+  "thought": "Step 1/3: Identifying all failure modes for this feature. DATA FAILURES: [missing data, malformed input, stale cache, data too large]. INTEGRATION FAILURES: [dependencies unavailable, timeouts, version mismatch, API changes]. STATE FAILURES: [race conditions, stale reads, lost updates, deadlocks]. USER FAILURES: [invalid input, misuse, unexpected navigation, permission issues]. INFRASTRUCTURE FAILURES: [network, disk, memory, CPU exhaustion]. OPERATIONAL RESILIENCE FAILURES: [rate limit exceeded, circuit breaker open, backpressure buildup, timeout/retry storms, health check false positive, data consistency during failover, bulkhead isolation breach, deployment rollback with schema changes, compliance/privacy violations]. HYPOTHESIS: Identified [N] potential failure modes across [M] categories. CONFIDENCE: medium.",
   "thoughtNumber": 1,
   "totalThoughts": 3,
   "nextThoughtNeeded": true
@@ -368,6 +368,7 @@ These templates are used in Phase 7 (Test Strategy) for V-Model test planning.
 - **State:** Concurrency, persistence, session management
 - **User:** Input errors, workflow violations, permission boundaries
 - **Infrastructure:** Resource limits, network conditions
+- **Operational Resilience:** Rate limiting, circuit breakers, backpressure [scalability degradation]; external service unavailable, data consistency during failover [external dependency failure]; timeout/retry, health checks, bulkhead isolation; deployment rollback safety [deployment rollback]; compliance/privacy [compliance/privacy] (may be N/A for MVP/internal tools)
 
 **Key Question:** "What could go wrong that would make a user unable to complete their task?"
 
@@ -420,6 +421,13 @@ These templates are used in Phase 7 (Test Strategy) for V-Model test planning.
 **Output Artifact:** Coverage matrix in test-plan.md showing risk-to-test traceability.
 
 **UAT Connection:** Map risks that affect user-visible behavior to acceptance criteria for Product Owner validation.
+
+**Operational Resilience Test Mapping:**
+- **Scalability degradation** → Load/stress tests (E2E) + capacity unit tests
+- **External dependency failure** → Integration tests (circuit breaker, fallback) + E2E (degraded mode UX)
+- **Deployment rollback** → Integration tests (schema reversibility) + E2E (feature flag toggling)
+- **Compliance/privacy** → Unit tests (PII encryption, data retention) + E2E (audit log verification) + UAT (consent flows)
+- **N/A Guidance:** For MVP or internal tools, mark production-mature failure categories as "N/A — not applicable for current scope" in the coverage matrix rather than omitting them
 
 ---
 
@@ -1014,7 +1022,7 @@ Set `nextThoughtNeeded: false` after T8b_COMPOSE when ALL are true:
 ### Risk Assessment (T11-T13) Termination
 
 Set `nextThoughtNeeded: false` after T13 when ALL are true:
-- ✅ Risks identified across all categories (technical, integration, schedule, security)
+- ✅ Risks identified across all categories (technical, integration, schedule, security, operational)
 - ✅ Priority matrix applied (probability × impact)
 - ✅ Critical risks have mitigation strategies
 - ✅ Residual risks documented with justification

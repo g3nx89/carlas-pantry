@@ -58,6 +58,7 @@ THOUGHT 1: "What are all the ways this feature could fail?"
 - State failures (race conditions, stale reads, lost updates)
 - User failures (invalid input, misuse, unexpected navigation)
 - Infrastructure failures (network, disk, memory)
+- Operational resilience failures (rate limits, circuit breakers, backpressure, failover, deployment rollback, compliance/privacy — N/A for MVP/internal tools)
 
 THOUGHT 2: "Which user flows are critical for acceptance?"
 - Primary flow: Most common user journey (MUST test)
@@ -105,7 +106,7 @@ ELSE:
 ```javascript
 // Step 1: Failure Mode Identification
 mcp__sequential-thinking__sequentialthinking({
-  thought: "Step 1/3: Identifying all failure modes. DATA FAILURES: [missing data, malformed input, stale cache]. INTEGRATION FAILURES: [dependencies unavailable, timeouts]. STATE FAILURES: [race conditions, stale reads]. USER FAILURES: [invalid input, misuse].",
+  thought: "Step 1/3: Identifying all failure modes. DATA FAILURES: [missing data, malformed input, stale cache]. INTEGRATION FAILURES: [dependencies unavailable, timeouts]. STATE FAILURES: [race conditions, stale reads]. USER FAILURES: [invalid input, misuse]. INFRASTRUCTURE FAILURES: [network, disk, memory]. OPERATIONAL RESILIENCE FAILURES: [rate limits exceeded, circuit breaker open, backpressure, failover data consistency, deployment rollback, compliance/privacy violations].",
   thoughtNumber: 1,
   totalThoughts: 3,
   nextThoughtNeeded: true,

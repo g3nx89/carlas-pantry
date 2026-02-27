@@ -194,6 +194,8 @@ mcp__sequential-thinking__sequentialthinking(T-RISK-1: Failure Mode Identificati
 - Integration failures: dependencies unavailable, timeouts
 - State failures: race conditions, stale reads, lost updates
 - User failures: invalid input, misuse, unexpected navigation
+- Infrastructure failures: network, disk, memory, CPU exhaustion
+- Operational resilience failures: rate limits, circuit breakers, backpressure, failover, deployment rollback, compliance/privacy (N/A for MVP/internal — see config risk_keywords)
 
 mcp__sequential-thinking__sequentialthinking(T-RISK-2: Risk Prioritization)
 - Critical: Data loss, security breach, system crash
