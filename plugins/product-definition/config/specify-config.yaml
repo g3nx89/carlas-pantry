@@ -12,7 +12,7 @@
 ---
 
 # Version tracking
-version: "2.2.0"
+version: "2.3.0"
 last_updated: "2026-01-26"
 
 # =============================================================================
@@ -91,8 +91,8 @@ feature_flags:
   # P5: Enable parallel execution of Phase 5 and Phase 5.5
   enable_parallel_phase_5: false  # Requires orchestrator changes
 
-  # Enable PAL Consensus validation (can be disabled for faster iteration)
-  enable_pal_validation: true
+  # Enable CLI multi-stance validation in Stage 5
+  enable_cli_validation: true
 
   # Enable self-critique in BA agent (mandatory for quality)
   enable_self_critique: true
@@ -495,301 +495,137 @@ sadd_patterns:
           yellow: 2.5
 
 # =============================================================================
-# THINKDEEP INTEGRATION (MPA Framework v4.1)
+# CLI DISPATCH CONFIGURATION (v1.0)
 # =============================================================================
-# Multi-Perspective Analysis using PAL's ThinkDeep tool for cognitive diversity.
-# Complements PAL Consensus by providing DEEP REASONING vs voting.
+# Replaces PAL MCP ThinkDeep and Consensus with direct CLI dispatch.
+# Uses dispatch-cli-agent.sh (scripts/dispatch-cli-agent.sh) to invoke
+# Codex, Gemini, and OpenCode CLIs for tri-model analysis.
 #
-# Key difference:
-# - PAL Consensus: "Is this good enough?" (agreement-seeking)
-# - ThinkDeep: "What are we missing?" (diversity-seeking)
-#
-# NOTE: grok-4 is included for additional variety but is OPTIONAL.
-# Workflow continues gracefully if any model fails.
+# CLI → Model mapping:
+#   codex    → GPT-4o (OpenAI)    — precision, logical rigor, structured analysis
+#   gemini   → Gemini Pro (Google) — breadth, cross-domain synthesis
+#   opencode → Grok (xAI via OpenRouter) — contrarian, assumption-challenging
 
-thinkdeep:
-  # Master switch for MPA framework
+cli_dispatch:
+  # Master switch — set to false to use internal reasoning only
   enabled: true
-  version: "4.1.0"
+  version: "1.0.0"
+
+  # Script path (relative to plugin root)
+  script_path: "scripts/dispatch-cli-agent.sh"
+
+  # CLI client config directory (relative to plugin root)
+  cli_clients_dir: "config/cli_clients"
 
   # ─────────────────────────────────────────────────────────────
-  # ADDITIONAL MODEL: grok-4 via openrouter (OPTIONAL)
+  # TIMEOUT CONFIGURATION (per-integration)
   # ─────────────────────────────────────────────────────────────
-  # grok-4 provides contrarian perspective and assumption validation.
-  # If unavailable, workflow continues with other models.
 
-  additional_models:
-    - alias: "x-ai/grok-4"
-      provider: "openrouter"
-      thinking_mode: "high"
-      default_focus: "contrarian_analysis"
+  timeouts:
+    challenge_seconds: 120       # Integration 1: Challenge (Stage 2)
+    edge_cases_seconds: 150      # Integration 2: Edge Cases (Stage 4)
+    triangulation_seconds: 90    # Integration 3: Triangulation (Stage 4)
+    evaluation_seconds: 120      # Integration 4: Evaluation (Stage 5)
+    default_seconds: 300         # Default fallback timeout
 
   # ─────────────────────────────────────────────────────────────
-  # INTEGRATION POINTS
+  # RETRY CONFIGURATION
+  # ─────────────────────────────────────────────────────────────
+
+  retry:
+    max_attempts: 2              # Max retries per CLI call on failure
+    retry_on_exit_codes: [1, 2]  # Retry on CLI failure (1) or timeout (2)
+    no_retry_on: [3]             # Don't retry if CLI not found (exit 3)
+
+  # ─────────────────────────────────────────────────────────────
+  # CIRCUIT BREAKER
+  # ─────────────────────────────────────────────────────────────
+
+  circuit_breaker:
+    enabled: true
+    # If ALL 3 CLIs fail for an integration, skip it (don't block workflow)
+    skip_on_all_fail: true
+    # Minimum substantive responses needed for evaluation (Integration 4)
+    min_responses_for_evaluation: 2
+
+  # ─────────────────────────────────────────────────────────────
+  # INTEGRATION DEFINITIONS
   # ─────────────────────────────────────────────────────────────
 
   integrations:
-    # Phase 2.3: Problem Challenge (after spec draft, before Gate 1)
     challenge:
       enabled: true
-      phase: "2.3"
-      trigger: "always"  # always | on_yellow (save costs on YELLOW gate 1)
-      timeout_seconds: 120
-      max_insights: null  # No limit on insights
-      red_flag_workflow: true  # Enable STOP on critical issues
+      stage: 2
+      condition: "CLI_AVAILABLE"
+      output_dir: "analysis/"
+      output_file: "mpa-challenge-parallel.md"
+      models:
+        - cli: "codex"
+          role: "spec_root_cause"
+        - cli: "gemini"
+          role: "spec_alt_framing"
+        - cli: "opencode"
+          role: "spec_assumption_probe"
 
-      # v4.1: Parallel Multi-Model Execution (grok-4 included for variety)
-      parallel:
-        enabled: true
-        models:
-          - alias: "gpt5.2"
-            thinking_mode: "high"
-            focus: "root_cause_analysis"
-          - alias: "pro"
-            thinking_mode: "high"
-            focus: "alternative_interpretations"
-          - alias: "x-ai/grok-4"
-            provider: "openrouter"
-            thinking_mode: "high"
-            focus: "assumption_validation"
-        synthesizer:
-          model: "haiku"
-          strategy: "union_with_dedup"
-
-      # Fallback when parallel.enabled: false
-      single_model:
-        model: "pro"
-        thinking_mode: "high"
-
-    # Phase 4.3: Edge Case Mining (after checklist validation, before clarification)
     edge_cases:
       enabled: true
-      phase: "4.3"
-      trigger: "always"  # Changed: ALWAYS run edge case mining
-      trigger_threshold: null  # No threshold - always execute
-      timeout_seconds: 150
-      inject_critical_high: true  # Auto-inject CRITICAL/HIGH as clarifications
+      stage: 4
+      condition: "CLI_AVAILABLE"
+      output_dir: "analysis/"
+      output_file: "mpa-edgecases-parallel.md"
+      models:
+        - cli: "codex"
+          role: "edge_security_perf"
+        - cli: "gemini"
+          role: "edge_ux_coverage"
+        - cli: "opencode"
+          role: "edge_contrarian_a11y"
 
-      # v4.1: Parallel Multi-Model Execution (grok-4 included for variety)
-      parallel:
-        enabled: true
-        models:
-          - alias: "pro"
-            thinking_mode: "max"
-            focus: "security_performance"
-          - alias: "gpt5.2"
-            thinking_mode: "high"
-            focus: "user_experience"
-          - alias: "x-ai/grok-4"
-            provider: "openrouter"
-            thinking_mode: "high"
-            focus: "accessibility_i18n_contrarian"
-        synthesizer:
-          model: "haiku"
-          strategy: "union_with_dedup"
-          severity_boost: true  # 2+ models = boost severity
-
-      # Fallback when parallel.enabled: false
-      single_model:
-        model: "pro"
-        thinking_mode: "max"
-
-    # Phase 4.6: Question Triangulation (after BA questions, before user answers)
     triangulation:
       enabled: true
-      phase: "4.6"
+      stage: 4
+      condition: "CLI_AVAILABLE"
+      output_dir: "analysis/"
+      output_file: "mpa-triangulation.md"
       models:
-        technical: "pro"
-        business: "gpt5.2"
-        contrarian: "x-ai/grok-4"  # Additional perspective for variety
-      thinking_mode: "medium"
-      max_additional_questions: null  # No limit on additional questions
-      similarity_threshold: 0.85
-      similarity_model: "flash"  # Fast model for deduplication
-      timeout_seconds: 90
+        - cli: "codex"
+          role: "spec_q_technical"
+        - cli: "gemini"
+          role: "spec_q_coverage"
+        - cli: "opencode"
+          role: "spec_q_contrarian"
 
-  # ─────────────────────────────────────────────────────────────
-  # CROSS-MODEL SYNTHESIS (v4.1)
-  # ─────────────────────────────────────────────────────────────
-
-  synthesis:
-    auto_incorporate_confidence: 0.8  # Auto-apply if confidence > 80%
-    require_user_review: true  # Always show findings to user
-    cross_model_priority_boost: true  # Issues from 2+ models = HIGH priority
-
-    # Synthesizer subagent defaults
-    synthesizer_defaults:
-      model: "haiku"
-      timeout_seconds: 30
-      strategies:
-        union_with_dedup:
-          similarity_threshold: 0.85
-          keep: "most_detailed"
-        consensus_only:
-          min_agreement: 2
-        weighted:
-          weights:
-            "gpt5.2": 1.0
-            "pro": 1.0
-            "x-ai/grok-4": 1.2  # Slightly higher weight for contrarian
-            "flash": 0.5
-
-  # ─────────────────────────────────────────────────────────────
-  # FALLBACK BEHAVIOR
-  # ─────────────────────────────────────────────────────────────
-
-  fallback:
-    on_timeout: "skip"  # Skip model that times out, continue with others
-    on_error: "skip"    # Skip model that errors, continue with others
-    max_retries: 2
-    retry_delay_seconds: 5
-
-    # v4.1: Per-model fallback - NO substitution
-    # ThinkDeep is for VARIETY - if a model fails, we DON'T substitute with another
-    # We simply proceed with fewer perspectives, not redundant ones
-    per_model_fallback:
+    evaluation:
       enabled: true
-      continue_if_one_fails: true  # Continue with remaining models
-      substitute_failed_model: false  # NEVER substitute - defeats variety purpose
-      min_models_required: 1  # At least one model must succeed for ThinkDeep
-
-    # User notification for model failures
-    notify_user:
-      on_model_skip: true  # Inform user when a model is skipped
-      on_partial_results: true  # Inform user when results are partial
-      message_template: "⚠️ Model {MODEL} unavailable. Continuing with {REMAINING} models."
-
-  # ─────────────────────────────────────────────────────────────
-  # COST CONTROL (v4.1 - No skipping allowed)
-  # ─────────────────────────────────────────────────────────────
-
-  cost_control:
-    max_thinkdeep_calls_per_spec: null  # No limit
-    skip_on_simple_features: false  # NEVER skip - thoroughness over cost
-
-    # v4.1: Budget preset
-    budget_preset: "thorough"  # ALWAYS thorough - quality over cost
-    presets:
-      thorough:
-        parallel_enabled: true
-        max_models: null  # No limit - use all available models
-        skip_phases: []   # NEVER skip any phase
-
-  # ─────────────────────────────────────────────────────────────
-  # SIMPLE FEATURE HEURISTICS (DISABLED)
-  # ─────────────────────────────────────────────────────────────
-  # No special handling for "simple" features - ALL features get full treatment
-
-  simple_feature_heuristics:
-    enabled: false  # DISABLED - no shortcuts
-    # No limits on user stories or acceptance criteria
-    max_user_stories: null
-    max_acceptance_criteria: null
-    skip_phases: []  # NEVER skip any phase
+      stage: 5
+      condition: "CLI_AVAILABLE"
+      output_dir: "analysis/"
+      output_file: "mpa-evaluation.md"
+      models:
+        - cli: "gemini"
+          role: "spec_evaluator_neutral"
+        - cli: "codex"
+          role: "spec_evaluator_for"
+        - cli: "opencode"
+          role: "spec_evaluator_against"
 
   # ─────────────────────────────────────────────────────────────
   # OUTPUT CONFIGURATION
   # ─────────────────────────────────────────────────────────────
 
   output:
-    directory: "analysis/"
-    templates:
-      challenge: "mpa-challenge.md"
-      challenge_parallel: "mpa-challenge-parallel.md"
-      edge_cases: "mpa-edgecases.md"
-      edge_cases_parallel: "mpa-edgecases-parallel.md"
-      triangulation: "mpa-triangulation.md"
+    # Intermediate prompt files (per CLI dispatch call)
+    prompt_dir: "analysis/cli-prompts/"
+    # Output files per dispatch call (before synthesis)
+    raw_output_dir: "analysis/cli-outputs/"
+    # Metrics sidecars written by dispatch script
+    metrics_dir: "analysis/cli-metrics/"
 
 # =============================================================================
-# PAL CONSENSUS CONFIGURATION (v2.0)
+# REMOVED: thinkdeep (PAL MCP ThinkDeep v4.1) — superseded by cli_dispatch
+# REMOVED: pal_consensus (PAL MCP Consensus v2.0) — superseded by cli_dispatch
+# Active configuration: see cli_dispatch section above.
 # =============================================================================
-# Configuration for mcp__pal__consensus tool usage.
-# grok-4 is included for additional variety but is OPTIONAL.
-# Workflow continues gracefully if any model fails.
-
-pal_consensus:
-  # Master switch
-  enabled: true
-  version: "2.0.0"
-
-  # ─────────────────────────────────────────────────────────────
-  # DEFAULT MODELS FOR CONSENSUS
-  # ─────────────────────────────────────────────────────────────
-  # grok-4 provides contrarian perspective for additional variety.
-  # If unavailable, workflow continues with other models.
-
-  default_models:
-    - model: "gemini-3-pro-preview"
-      stance: "neutral"
-    - model: "gpt-5.2"
-      stance: "for"
-    - model: "x-ai/grok-4"
-      stance: "against"
-      stance_prompt: "Challenge every assumption. Find hidden risks. Be the devil's advocate."
-
-  # Phase 5: PAL Gate specific configuration
-  phase_5_pal_gate:
-    models:
-      - model: "gemini-3-pro-preview"
-        stance: "neutral"
-      - model: "gpt-5.2"
-        stance: "for"
-        stance_prompt: "Advocate for the specification's strengths. Focus on what works."
-      - model: "x-ai/grok-4"
-        stance: "against"
-        stance_prompt: "Find every weakness. Challenge completeness. Be skeptical of claimed coverage."
-    min_models_for_consensus: 2  # At least 2 models must respond
-    consensus_threshold: 0.67
-
-  # ─────────────────────────────────────────────────────────────
-  # CONTENT DELIVERY
-  # ─────────────────────────────────────────────────────────────
-  # External models cannot read local files. Spec content must be
-  # embedded inline in the PAL prompt.
-  content_delivery:
-    mode: "inline"                # Always inline — never file paths
-    inline_word_limit: 4000       # Specs larger than this are auto-summarized
-
-  # ─────────────────────────────────────────────────────────────
-  # RESPONSE VALIDATION
-  # ─────────────────────────────────────────────────────────────
-  # Detect non-substantive responses from models that failed to
-  # process the spec (e.g., "I cannot access this file").
-  response_validation:
-    enabled: true
-    min_response_words: 50        # Responses shorter than this are flagged
-    non_substantive_patterns:
-      - "cannot access"
-      - "file not found"
-      - "unable to read"
-      - "no file provided"
-      - "I don't have access"
-      - "I cannot open"
-      - "unable to access"
-    # Flag responses where all 5 dimension scores are identical
-    flag_identical_scores: true
-
-  # Fallback behavior - require minimum 2 models for valid consensus
-  fallback:
-    on_model_unavailable: "continue"  # Continue with available models
-    min_models_required: 2  # FAIL consensus if < 2 models available
-    retry_count: 2
-    retry_delay_seconds: 5
-
-    # Failure handling - what happens when consensus cannot be reached
-    on_insufficient_models:
-      action: "fail"  # FAIL the consensus - don't proceed with single model
-      notify_user: true  # Always inform user
-      message: "❌ PAL Consensus FAILED: Only {AVAILABLE} model(s) available, minimum 2 required."
-      user_options:
-        - "Retry consensus (recommended)"
-        - "Skip PAL validation (not recommended)"
-        - "Abort workflow"
-
-    # Notify user about partial consensus (2 of 3 models)
-    on_partial_models:
-      notify_user: true
-      message: "⚠️ PAL Consensus: {AVAILABLE}/{TOTAL} models responded. Results may have reduced variety."
 
 # =============================================================================
 # DESIGN BRIEF CONFIGURATION (v2.0)
@@ -1001,8 +837,8 @@ skill_orchestrator:
         - "error-handling"
       config_yaml: true
       extra_refs:
-        - name: "thinkdeep-patterns"
-          condition: "PAL_AVAILABLE"
+        - name: "cli-dispatch-patterns"
+          condition: "CLI_AVAILABLE"
     stage_3_checklist:
       shared_refs:
         - "checkpoint-protocol"
@@ -1015,9 +851,9 @@ skill_orchestrator:
         - "error-handling"
       config_yaml: true
       extra_refs:
-        - name: "thinkdeep-patterns"
-          condition: "PAL_AVAILABLE"
-    stage_5_pal_design:
+        - name: "cli-dispatch-patterns"
+          condition: "CLI_AVAILABLE"
+    stage_5_validation_design:
       shared_refs:
         - "checkpoint-protocol"
         - "error-handling"

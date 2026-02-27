@@ -8,13 +8,13 @@ artifacts_written:
 
 # Stage 2: Spec Draft & Gates (Coordinator)
 
-> This stage creates the specification draft, challenges problem framing with ThinkDeep, and validates through incremental quality gates.
+> This stage creates the specification draft, challenges problem framing via CLI dispatch, and validates through incremental quality gates.
 
 ## CRITICAL RULES (must follow — failure-prevention)
 
 1. **BA recommendation**: first option MUST be "(Recommended)" with rationale
 2. **No limits**: on user stories, acceptance criteria, or NFRs — capture ALL requirements
-3. **ThinkDeep MUST complete before gates**: challenge insights inform evaluation
+3. **CLI Challenge MUST complete before gates**: challenge insights inform evaluation
 4. **Gate evaluation**: GREEN = proceed silently, YELLOW/RED = signal `needs-user-input`
 5. **If gates require BA revision**: re-invoke BA then re-run gates (coordinator-internal loop)
 6. **NEVER interact with users directly**: signal `needs-user-input` in summary for orchestrator
@@ -35,10 +35,14 @@ Perform business analysis and requirements gathering for:
 {IF FIGMA_CONTEXT_FILE exists: Include content}
 {ELSE: "No Figma designs available - proceed without design context"}
 
+## Handoff Context
+{HANDOFF_CONTEXT}
+
 ## Variables
 - FEATURE_NAME: {value}
 - FEATURE_DIR: specs/{FEATURE_DIR}
 - SPEC_FILE: specs/{FEATURE_DIR}/spec.md
+- HANDOFF_CONTEXT: {value from STATE.handoff_supplement or "No handoff supplement. Use [Frame: ScreenName] placeholders"}
 
 ## Instructions
 @$CLAUDE_PLUGIN_ROOT/templates/prompts/ba-spec-draft.md
@@ -58,18 +62,44 @@ Extract from agent output:
 - `problem_statement_quality`: assessment
 - `true_need_confidence`: low/medium/high
 
-## Step 2.3: MPA-Challenge ThinkDeep
+## Step 2.3: MPA-Challenge CLI Dispatch
 
-**Check:** `thinkdeep.integrations.challenge.enabled` in config
+**Check:** `cli_dispatch.integrations.challenge.enabled` in config
 
-**If enabled AND PAL_AVAILABLE:**
+**If enabled AND CLI_AVAILABLE:**
 
-Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/thinkdeep-patterns.md` → Integration 1: Challenge
+Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli-dispatch-patterns.md` → Integration 1: Challenge
 
-Execute parallel ThinkDeep with 3 models:
-- gpt5.2: root cause analysis focus
-- pro: alternative interpretations focus
-- x-ai/grok-4: assumption validation focus
+Write prompt files for each CLI at `specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-{cli}.md`.
+Embed spec content inline — do NOT reference file paths.
+
+Dispatch 3 CLIs in parallel via Bash:
+- codex (`spec_root_cause`): root cause vs symptoms, logical flaws
+- gemini (`spec_alt_framing`): alternative interpretations, adjacent problems
+- opencode (`spec_assumption_probe`): assumption probing, devil's advocate
+
+```bash
+# Run all 3 in parallel (background processes)
+$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
+  --cli codex --role spec_root_cause \
+  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-codex.md \
+  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/challenge-codex.md \
+  --timeout 120 &
+
+$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
+  --cli gemini --role spec_alt_framing \
+  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-gemini.md \
+  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/challenge-gemini.md \
+  --timeout 120 &
+
+$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
+  --cli opencode --role spec_assumption_probe \
+  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-opencode.md \
+  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/challenge-opencode.md \
+  --timeout 120 &
+
+wait  # collect all results
+```
 
 **Synthesize** findings using haiku agent (union_with_dedup strategy).
 
@@ -85,7 +115,7 @@ flags:
   pause_type: "interactive"
   block_reason: "MPA-Challenge found critical issues with problem framing"
   question_context:
-    question: "ThinkDeep analysis identified critical issues with the problem framing. How would you like to proceed?"
+    question: "CLI analysis identified critical issues with the problem framing. How would you like to proceed?"
     header: "Challenge"
     options:
       - label: "Revise problem framing (Recommended)"
@@ -104,7 +134,7 @@ flags:
 
 Write report: `specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md`
 
-**If disabled OR PAL_AVAILABLE = false:** Skip, proceed to Step 2.4.
+**If disabled OR CLI_AVAILABLE = false:** Skip, proceed to Step 2.4.
 
 ## Step 2.4: Gate 1 — Problem Quality
 
@@ -186,7 +216,7 @@ status: completed | needs-user-input
 checkpoint: SPEC_DRAFT
 artifacts_written:
   - specs/{FEATURE_DIR}/spec.md
-  - specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md  # if ThinkDeep ran
+  - specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md  # if CLI Challenge ran
 summary: "Spec draft created with {N} user stories. Self-critique: {S}/20. Challenge risk: {LEVEL}. Gate 1: {S}/4. Gate 2: {S}/4."
 flags:
   self_critique_score: {N}
@@ -209,7 +239,7 @@ Spec draft at specs/{FEATURE_DIR}/spec.md with {N} user stories.
 
 BEFORE writing the summary file, verify:
 1. `specs/{FEATURE_DIR}/spec.md` exists and has content (not just template)
-2. If ThinkDeep ran: analysis report exists
+2. If CLI Challenge ran: analysis report exists
 3. Gate scores are populated (not placeholder values)
 4. State file updated with stage 2 checkpoint data
 5. Summary YAML frontmatter has no placeholder values
@@ -218,6 +248,6 @@ BEFORE writing the summary file, verify:
 
 - BA recommendation: first option = "(Recommended)"
 - No limits on user stories, ACs, or NFRs
-- ThinkDeep completes before gates
+- CLI Challenge completes before gates
 - Gates: GREEN proceed, YELLOW/RED signal needs-user-input
 - NEVER interact with users directly
