@@ -72,11 +72,11 @@
 
 ---
 
-## 3. Deep Critique Procedure (3 Judges + Debate)
+## 3. Deep Critique Procedure (3 Figma-Domain Judges + 1 UX Critic + Debate)
 
 **When**: Session completion (all phases done) or user-triggered with "critique" keyword. Runs exactly once per session.
 
-**Pattern**: Multi-Agent Debate with 3 Figma-domain judges dispatched in parallel, followed by coordinator synthesis.
+**Pattern**: Multi-Agent Debate with 3 Figma-domain judges + 1 UX Critic judge dispatched in parallel, followed by coordinator synthesis.
 
 ### Judge Dispatch
 
@@ -87,35 +87,44 @@ All judges are `Task(subagent_type="general-purpose", model="sonnet")` with prom
 - Data sources: screenshots, positional diff, constraints inspection
 
 **Judge 2: Structural & Component Expert**
-- Evaluates: D2 (Layer Structure), D3 (Semantic Naming), D4 (Auto-Layout), D5 (Component Compliance), D8 (Instance Integrity)
-- Data sources: node tree, auto-layout scripts, component registry, instance inspection
+- Evaluates: D2 (Layer Structure), D3 (Semantic Naming), D4 (Auto-Layout), D5 (Component Compliance), D8 (Instance Integrity), D11 (Accessibility Compliance)
+- Data sources: node tree, auto-layout scripts, component registry, instance inspection, Script G
 
 **Judge 3: Design System & Token Expert**
 - Evaluates: D9 (Token Binding), D10 (Operational Efficiency)
 - Data sources: `boundVariables` inspection, journal analysis
 
+**Judge 4: UX Design Critic** (advisory, no score)
+- Evaluates: Visual Hierarchy, Usability, Consistency, First Impression (qualitative only)
+- Data sources: screenshots (screenshot-based analysis)
+- Produces findings and suggestions but does NOT contribute to composite score
+
 ### Coordinator Synthesis
 
-After all 3 judges return:
+After all 4 judges return:
 
 ```
-1. Collect all 10 dimension scores from the 3 judges
-2. Compute composite score (simple average)
-3. Identify areas of agreement (all judges flag same concern)
+1. Collect all 11 dimension scores from Judges 1-3
+2. Compute composite score (dynamic denominator, excluding N/A)
+3. Identify areas of agreement (all scoring judges flag same concern)
 4. Identify contradictions (>2pt spread on any dimension between judges)
 5. If contradictions exist:
    - Determine which judge has stronger evidence (node IDs, journal entries, screenshots)
-   - Run mini-debate: present both judge findings to a 4th Sonnet subagent, ask for arbitration
+   - Run mini-debate: present both judge findings to a 5th Sonnet subagent, ask for arbitration
    - Accept arbitrator's ruling
+5.5. Incorporate Judge 4 UX Critique findings as advisory section in consensus report.
+   Flag contradictions between Judge 4 findings and Judge 1 (visual fidelity).
+   Do NOT include Judge 4 findings in composite score.
 6. Produce consensus verdict (pass / conditional_pass / fail)
 7. Generate prioritized action items:
    - Must Do: dimensions < 5.0
    - Should Do: dimensions 5.0-6.9
    - Could Do: dimensions 7.0-7.9
-8. Log to journal (op: "quality_audit", tier: "deep", all scores, judges, consensus)
+   - UX Advisory: Judge 4 top 3 improvements (informational, not blocking)
+8. Log to journal (op: "quality_audit", tier: "deep", all scores, judges, consensus, ux_critique)
 ```
 
-**Token budget**: ~12K total — 3 judges (~3K each) + synthesis (~3K).
+**Token budget**: ~18K total — 3 scoring judges (~3K each) + Judge 4 (~3K) + synthesis (~6K).
 
 ---
 
@@ -619,6 +628,77 @@ Return JSON:
   "d10_issues": [{"issue": "...", "journal_evidence": "...", "severity": "Minor"}],
   "verification_answers": ["...", "...", "..."],
   "summary": "1-2 sentence assessment"
+}
+```
+
+---
+
+### Judge 4: UX Design Critic (Deep only, advisory)
+
+**Evaluates**: Visual Hierarchy, Usability, Consistency, First Impression (qualitative — no numeric dimension scores)
+
+**Note**: Judge 4 produces qualitative findings only. Findings appear in the Deep consensus report as an advisory section but do NOT affect the composite score. Flag any contradictions with Judge 1 (Visual Fidelity Expert).
+
+**Prompt template**:
+
+```
+## Role
+UX Design Critic — evaluate the overall user experience quality of Figma designs
+created or modified in this session. Provide qualitative critique on visual hierarchy,
+usability, consistency, and first impressions. Your findings are ADVISORY — they
+inform but do not gate the quality verdict.
+
+## Skill References (MANDATORY)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md
+
+## Context
+- Figma file: {file_name}
+- Screens processed: {screen_list}
+- Target page ID: {target_page_id}
+
+## Evaluation Process
+
+1. Visual Hierarchy Assessment (per screen):
+   - figma_take_screenshot for each screen in {screen_list}
+   - Evaluate: clear focal points, logical reading flow (F-pattern/Z-pattern), proper contrast between primary and secondary content
+   - Note: screens with strong hierarchy guide the eye naturally without effort
+
+2. Usability Assessment (per screen):
+   - Check: actionable elements are clearly tappable/clickable, navigation is discoverable, form flows are logical, error prevention patterns present
+   - Evaluate: cognitive load (too many choices, unclear grouping, competing CTAs)
+
+3. Consistency Assessment (cross-screen):
+   - Check: same element types styled consistently across screens, spacing rhythm maintained, color usage semantically consistent
+   - Flag: inconsistent button styles, mismatched section spacing, color meaning changes between screens
+
+4. First Impression Test (per screen):
+   - 2-second rule: what does the user notice first? Is it the right thing?
+   - Overall aesthetic: does the design feel polished, professional, intentional?
+   - Identify any "jarring" elements that break visual cohesion
+
+5. Synthesize findings into actionable suggestions.
+
+## Output Format
+Return JSON:
+{
+  "findings": [
+    {
+      "pillar": "Visual Hierarchy|Usability|Consistency|First Impression",
+      "screen": "screen name or 'cross-screen'",
+      "observation": "what was observed",
+      "suggestion": "specific improvement recommendation",
+      "severity": "high|medium|low"
+    }
+  ],
+  "first_impression_pass": [
+    {"screen": "...", "focal_point": "...", "passes_2s_test": true/false, "notes": "..."}
+  ],
+  "overall_ux_assessment": "1-3 sentence holistic assessment",
+  "top_3_improvements": [
+    "Most impactful improvement suggestion",
+    "Second most impactful",
+    "Third most impactful"
+  ]
 }
 ```
 
