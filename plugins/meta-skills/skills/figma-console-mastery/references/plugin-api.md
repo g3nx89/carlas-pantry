@@ -1,6 +1,6 @@
 # Plugin API Reference — Writing figma_execute Code
 
-> **Compatibility**: Verified against Figma Plugin API via Figma Console MCP v1.10.0 (February 2026)
+> **Compatibility**: Verified against Figma Plugin API via figma-console-mcp v1.10.0 (February 2026)
 
 > For M3 specs to use in code, see `design-rules.md`. For complete working recipes, see `recipes-foundation.md`, `recipes-components.md`, and `recipes-advanced.md`. For error recovery, see `anti-patterns.md`.
 

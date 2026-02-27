@@ -1,6 +1,6 @@
 # Recipes — Component Patterns
 
-> **Compatibility**: Verified against Figma Console MCP v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 >
 > **Prerequisite**: Load `recipes-foundation.md` first — all component recipes assume familiarity with the IIFE wrapper, font preloading, and node reference patterns.
 >

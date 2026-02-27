@@ -29,10 +29,10 @@ Unified flow for design creation, restructuring, targeted fixes, and audits. Rep
 1. `figma_get_status` → verify connection and mode
 2. `figma_list_open_files` → confirm correct file is active
 3. `figma_navigate` → open target page/file if needed
-3.5. **Build/validate Session Index** — if `specs/figma/session-index.jsonl` does not exist or meta `file_key` differs from current file, call `figma_get_file_data(verbosity='summary', depth=1)` and write the index (see `session-index-protocol.md`). If the index exists and is fresh (< 5 min), skip.
-4. **Load compound learnings** — if `~/.figma-console-mastery/learnings.md` exists, read entries relevant to the current task type
-5. `figma_get_design_system_summary` → understand existing tokens, components, styles
-6. `figma_get_variables(format="summary")` → catalog available variables
+4. **Build/validate Session Index** — if `specs/figma/session-index.jsonl` does not exist or meta `file_key` differs from current file, call `figma_get_file_data(verbosity='summary', depth=1)` and write the index (see `session-index-protocol.md`). If the index exists and is fresh (< 5 min), skip.
+5. **Load compound learnings** — if `~/.figma-console-mastery/learnings.md` exists, read entries relevant to the current task type
+6. `figma_get_design_system_summary` → understand existing tokens, components, styles
+7. `figma_get_variables(format="summary")` → catalog available variables
 
 #### Restructure mode additions (Sonnet subagent)
 
@@ -55,7 +55,13 @@ Unified flow for design creation, restructuring, targeted fixes, and audits. Rep
 
 **Run for**: Create and Restructure modes
 
-The Socratic Protocol ensures user-approved design decisions before execution. Each category prompts the user with key questions, captures decisions, and builds a checklist.
+The Socratic Protocol ensures user-approved design decisions before execution. For each applicable category: present key questions via `AskUserQuestion`, capture decisions, and add to the checklist.
+
+**Convergence criteria**:
+- Minimum 1 question per applicable category (skip only categories marked N/A for the mode)
+- Maximum 3 Socratic rounds per category (question → answer → follow-up)
+- Converged when 2 consecutive rounds produce no new design decisions
+- On convergence: compile checklist and present for explicit user approval before Phase 3
 
 #### Category 0 — Existing Documentation Check
 
@@ -124,10 +130,17 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
 - Ask user if prototype connections should be added
 - Output: interaction targets or "No interactions"
 
+#### Category 10 — Content & Interaction Specifications (optional)
+
+- Capture content constraints: character limits, truncation strategies, string expansion for i18n
+- Document empty states, loading states, and error states for interactive elements
+- Record gesture/hover/focus behaviors beyond what Figma prototype captures
+- Output: content and interaction specs for Handoff Manifest OR "Skipped — handled elsewhere"
+
 #### Mode-specific category subsets
 
-- **Create mode**: Run Cat. 0, 1, 2 (optional), 5, 6, 7, 8. Skip Cat. 3, 4, 9.
-- **Restructure mode**: Run all categories (0-9).
+- **Create mode**: Run Cat. 0, 1, 2 (optional), 5, 6, 7, 8, 10 (optional). Skip Cat. 3, 4, 9.
+- **Restructure mode**: Run all categories (0-10).
 
 #### Checklist output
 
@@ -135,7 +148,7 @@ After all categories, compile a user-approved checklist with numbered items acro
 
 ### 1.3 Phase 3 — Execution
 
-**ALWAYS in Sonnet subagent.** Main context dispatches subagent with approved checklist and relevant references.
+**ALWAYS in subagent.** Main context dispatches subagent with approved checklist and relevant references.
 
 #### Create mode
 
@@ -165,17 +178,31 @@ After all categories, compile a user-approved checklist with numbered items acro
 
 #### Subagent loads
 
-**Required**: `recipes-foundation.md`, `convergence-protocol.md`
+**Required**: `recipes-foundation.md`, `convergence-protocol.md`, `convergence-execution.md`, `essential-rules.md`
 
 **Mode-specific**: `recipes-components.md`, `recipes-restructuring.md`, `recipes-advanced.md`, etc.
 
+#### Phase 3 Completion Contract
+
+Phase 3 subagent MUST log a `phase_complete` journal entry before returning:
+
+```jsonl
+{"v":1,"ts":"...","op":"phase_complete","target":"phase:3","detail":{"screens_modified":3,"operations_count":47,"errors_count":0},"phase":3}
+```
+
+**Orchestrator validation** (inline, before dispatching Phase 4):
+
+1. Read journal, find `op: "phase_complete"` with `target: "phase:3"`
+2. If `errors_count > 0`: present error summary to user with `AskUserQuestion` before proceeding to Phase 4
+3. If no `phase_complete` entry found (subagent crash): reconstruct from journal — count distinct `target` screens, sum operations, count entries with `"error"` in detail. Log reconstructed entry with `"reconstructed": true`
+
 ### 1.4 Phase 4 — Validation
 
-**ALWAYS in Sonnet subagent.** Main context dispatches audit subagent with quality-dimensions.md reference.
+**ALWAYS in subagent.** Main context dispatches audit subagent with `quality-dimensions.md` reference.
 
 #### Quality audit tiers (per `quality-dimensions.md`)
 
-- **Spot**: Quick visual check, screenshot analysis, 3 dimensions (D1 Visual Quality, D4 Auto-Layout, D10 Operational Efficiency). Run after each screen in Create/Targeted, after each fix in Audit.
+- **Spot** (D1, D4, D10): Quick visual check, screenshot analysis, 3 dimensions (D1 Visual Quality, D4 Auto-Layout, D10 Operational Efficiency). Run after each screen in Create/Targeted, after each fix in Audit.
 - **Standard**: 11-dimension audit (add Layer Structure, Semantic Naming, Component Compliance 3-layer, Constraints, Screen Properties, Instance Override Integrity, Token Bindings, Operational Efficiency, Accessibility Compliance). Run at end of Create, after Restructure completion.
 - **Deep**: Standard + multi-judge critique (Visual Fidelity Expert, Structural & Component Expert, Design System & Token Expert). Run at session end for Restructure.
 
@@ -184,7 +211,7 @@ After all categories, compile a user-approved checklist with numbered items acro
 1. Subagent runs tier-appropriate audit from quality-dimensions.md
 2. Captures screenshot via `figma_capture_screenshot` (Desktop Bridge, live state)
 3. Scores 11 dimensions (or 3 for Spot, excl. N/A)
-4. If fail or conditional_pass: targeted fix cycle (max 2 iterations per screen)
+4. If fail or conditional_pass: targeted fix cycle (max 2 iterations per screen — phase boundary limit per `quality-dimensions.md` Contradiction Resolution #3)
 5. Logs audit results to per-screen journal: `op: "quality_audit"`
 6. Returns findings to main context
 
@@ -194,6 +221,13 @@ After all categories, compile a user-approved checklist with numbered items acro
 
 At session end, review for learning-worthy discoveries (triggers T1-T6 from `compound-learning.md`); append 0-3 new entries to `~/.figma-console-mastery/learnings.md`.
 
+### Phase Transition Guards
+
+- Phase 1 → 2: IF `figma_get_status` returned connected AND mode determined THEN proceed
+- Phase 2 → 3: IF user approved checklist (explicit confirmation) THEN dispatch subagent
+- Phase 3 → 4: IF `phase_complete` journal entry exists (or reconstructed) THEN validate Session Index freshness (C9), dispatch audit
+- Phase 4 → end: IF audit verdict = pass OR user accepted conditional_pass THEN save learnings
+
 ---
 
 ## 2. Flow 2 — Handoff QA
@@ -202,7 +236,7 @@ Quality assurance flow for preparing designs for code handoff. Replaces Visual Q
 
 ### 2.1 Phase 1 — Screen Inventory & Baseline
 
-**In Sonnet subagent**:
+**In subagent (Sonnet)**:
 
 1. `figma_list_open_files` → identify target file
 2. `figma_navigate` → open target page
@@ -216,7 +250,7 @@ Quality assurance flow for preparing designs for code handoff. Replaces Visual Q
 
 ### 2.2 Phase 2 — Quality Audit
 
-**Per screen, in Sonnet subagent**:
+**Per screen, in subagent**:
 
 1. Load `quality-dimensions.md` for 11-dimension Standard audit
 2. Load screen-specific context (baseline screenshot, node tree excerpt)
@@ -247,6 +281,8 @@ Quality assurance flow for preparing designs for code handoff. Replaces Visual Q
 
 If approved for auto-fix:
 
+> **Why separate subagents?** The modification subagent loads recipes and convergence references, while the audit subagent loads `quality-dimensions.md`. Combining both in one subagent would exceed recommended context budget. Separate dispatch ensures context isolation.
+
 #### Modification subagent (Sonnet)
 
 1. Load audit report for screen
@@ -263,15 +299,27 @@ If approved for auto-fix:
 4. Write updated audit report
 5. Return pass/fail verdict
 
+#### Per-Screen Loop Summary (context management)
+
+After each screen's mod-audit-loop completes (pass or max iterations), write a summary file:
+
+`specs/figma/audits/{screen-name}-loop-summary.md` containing:
+- Final dimension scores (table)
+- Issues fixed (count + list)
+- Issues remaining (count + list)
+- Iteration count used
+
+**Context rule**: When starting the next screen's mod-audit-loop, orchestrator reads ONLY the previous screen's `*-loop-summary.md` for cross-screen context — never the full audit reports. This prevents context accumulation across 10+ screen iterations.
+
 #### Main context checks verdict
 
-- **Pass**: move to next screen
-- **Conditional pass** or **Fail**: loop back (max 3 iterations per screen)
-- After 3 iterations: escalate to user with findings
+- **Pass**: write loop summary, move to next screen
+- **Conditional pass** or **Fail**: loop back (max 3 iterations per screen — per-screen limit)
+- After 3 iterations: write loop summary with remaining issues, escalate to user with findings
 
 ### 2.4 Phase 4 — Handoff Readiness
 
-**In Sonnet subagent**:
+**In subagent**:
 
 #### Naming audit with single-source-of-truth
 
@@ -308,6 +356,13 @@ If approved for auto-fix:
 
 **Main context** presents readiness report to user, confirms handoff-ready status. Does NOT generate manifest — that's the responsibility of `design-handoff` skill.
 
+### Phase Transition Guards
+
+- Phase 1 → 2: IF screen inventory confirmed by user THEN proceed
+- Phase 2 → 3: IF all screens audited AND deviations identified THEN start mod-loop
+- Phase 3 → 4: IF all screens pass OR max iterations reached for all THEN proceed
+- Phase 4 → end: IF naming audit + token check pass THEN declare handoff-ready
+
 ---
 
 ## Cross-References
@@ -315,7 +370,8 @@ If approved for auto-fix:
 - **SKILL.md** — Flow selection, mode selection, phase boundary rules
 - **socratic-protocol.md** — Phase 2 question templates (Flow 1)
 - **quality-dimensions.md** — Phase 4 audit dimensions, scripts, judge templates
-- **convergence-protocol.md** — Per-screen journal, anti-regression rules, subagent dispatch templates
+- **convergence-protocol.md** — Per-screen journal, anti-regression rules
+- **convergence-execution.md** — Batch scripting, subagent dispatch templates, session snapshots, compact recovery
 - **recipes-foundation.md** — Required for any figma_execute code
 - **recipes-restructuring.md** — Restructure mode patterns
 - **recipes-components.md** — Component creation patterns

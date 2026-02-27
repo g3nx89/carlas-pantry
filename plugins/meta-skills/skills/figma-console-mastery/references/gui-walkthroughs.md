@@ -8,7 +8,7 @@ Step-by-step GUI instructions for Figma Desktop operations that have no MCP tool
 
 ## When to Use This File
 
-Read this file when a task requires one of the following GUI-only operations. Relay the numbered steps directly to the user — these operations cannot be automated via Figma Console MCP tools.
+Read this file when a task requires one of the following GUI-only operations. Relay the numbered steps directly to the user — these operations cannot be automated via figma-console-mcp tools.
 
 ---
 

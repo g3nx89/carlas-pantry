@@ -1,5 +1,7 @@
 # Quality Procedures
 
+> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+>
 > Spot/Standard/Deep audit execution procedures, fix cycles, judge templates, journal integration, and compound learning.
 > Part of the Unified Quality Model for figma-console design validation.
 > Version: 1.0.0
@@ -110,8 +112,8 @@ After all 4 judges return:
 4. Identify contradictions (>2pt spread on any dimension between judges)
 5. If contradictions exist:
    - Determine which judge has stronger evidence (node IDs, journal entries, screenshots)
-   - Run mini-debate: present both judge findings to a 5th Sonnet subagent, ask for arbitration
-   - Accept arbitrator's ruling
+   - Run mini-debate: present both judge findings to a 5th subagent using Arbitration Template (below)
+   - Accept arbitrator's ruling (if confidence = low, flag for user review before accepting)
 5.5. Incorporate Judge 4 UX Critique findings as advisory section in consensus report.
    Flag contradictions between Judge 4 findings and Judge 1 (visual fidelity).
    Do NOT include Judge 4 findings in composite score.
@@ -312,7 +314,7 @@ All fix cycles follow the Modification-Audit-Loop pattern. Modifications NEVER h
 
 ```
 1. Identify the dimension(s) < 7.0
-2. Dispatch Modification Subagent (Sonnet):
+2. Dispatch Modification subagent:
    - Input: issue list from Spot Check, node IDs, specific fixes
    - Uses: figma_execute to apply all changes
    - Returns: list of changes applied + node IDs modified
@@ -326,10 +328,10 @@ All fix cycles follow the Modification-Audit-Loop pattern. Modifications NEVER h
 
 ```
 1. Rank dimensions by score (lowest first)
-2. Dispatch Modification Subagent (Sonnet) with bottom 2-3 dimensions as focus:
+2. Dispatch Modification subagent with bottom 2-3 dimensions as focus:
    - D1: Screenshot comparison + targeted adjustments
    - D2: Batch GROUP→FRAME conversion, fix nesting, remove orphaned siblings
-   - D3: Batch rename using convergence-protocol batch rename template
+   - D3: Batch rename using convergence-execution batch rename template
    - D4: Apply auto-layout fixes from script findings
    - D5: Replace raw frames with DS instances, fix mainComponent references
    - D6: Update constraints via figma_execute setBoundVariable
@@ -372,9 +374,17 @@ LOOP (max N iterations, N depends on tier):
   5. Compare new scores to previous scores:
      - All fixed dimensions improved AND no regression → EXIT LOOP (success)
      - Fixed dimensions improved but some regression → revert regression fix, CONTINUE LOOP
-     - Fixed dimensions unchanged or worse → escalate to user, EXIT LOOP (failure)
+     - Fixed dimensions unchanged or worse → run Fix Failure Analysis (see below), CONTINUE LOOP
   6. If iteration count >= N → escalate to user, EXIT LOOP (failure)
 END LOOP
+
+### Fix Failure Analysis (between retry iterations)
+
+When a fix attempt fails the re-audit (scores unchanged or worse):
+
+1. **Failure hypothesis** — subagent MUST produce a 1-2 sentence hypothesis explaining why the fix did not resolve the issue (e.g., "setBoundVariable targeted parent frame but the hardcoded fill is on a nested child")
+2. **Approach change** — next iteration MUST use a different approach informed by the hypothesis. Log both the hypothesis and the new approach in the journal (`op: "fix_failure_analysis"`)
+3. **Duplicate approach guard** — if the same approach category (e.g., "re-run same script with different parameters") is attempted twice, skip remaining iterations and escalate to user immediately with both hypotheses attached
 
 Post-loop:
 - Log final audit entry with verdict (pass/conditional_pass/fail)
@@ -704,6 +714,45 @@ Return JSON:
 
 ---
 
+### Arbitration Template (5th Sonnet Subagent — Contradiction Resolution)
+
+Used when coordinator synthesis (Section 3, step 5) detects a >2pt score spread between judges on any dimension. Dispatch as `Task(subagent_type="general-purpose", model="sonnet")`.
+
+```
+## Role
+Arbitrator — resolve a scoring contradiction between two Deep Critique judges.
+
+## Conflict
+- **Dimension**: {dimension_name} ({dimension_id})
+- **Position A** ({judge_a_role}): {judge_a_position_one_sentence}
+  Evidence: {judge_a_evidence} (node IDs, screenshots, script output)
+- **Position B** ({judge_b_role}): {judge_b_position_one_sentence}
+  Evidence: {judge_b_evidence} (node IDs, screenshots, script output)
+
+## Instructions
+1. Restate both positions (1 sentence each) to confirm understanding
+2. Evaluate the evidence cited by each position — which is more specific, verifiable, and tied to rubric criteria?
+3. Write chain-of-thought reasoning (3-5 sentences) explaining which position better reflects the rubric
+4. Deliver final verdict
+
+## Output Format
+Return JSON:
+{
+  "position_a_restated": "...",
+  "position_b_restated": "...",
+  "reasoning": "chain-of-thought (3-5 sentences)",
+  "verdict": "A" | "B" | "split",
+  "recommended_score": <0-10>,
+  "confidence": "high" | "medium" | "low",
+  "flag_for_user": true/false
+}
+
+If confidence is "low", set flag_for_user to true. Coordinator must present
+the arbitration to the user before accepting the ruling.
+```
+
+---
+
 ## 8. Journal Integration
 
 ### New Operation Type
@@ -782,6 +831,7 @@ When modifying any quality procedure:
 - **quality-dimensions.md** — 11 dimension rubrics, composite scoring formula, depth tier definitions, contradiction resolutions
 - **quality-audit-scripts.md** — JavaScript audit scripts A-I, positional diff script, per-element position analysis, scrollability check
 - **Convergence Protocol** (journal schema for audit results): `convergence-protocol.md`
+- **Convergence Execution** (batch scripting, subagent delegation, compact recovery): `convergence-execution.md`
 - **Compound Learning** (save triggers T1-T6, cross-session persistence): `compound-learning.md`
 - **Anti-patterns** (known errors to distinguish from quality gaps): `anti-patterns.md`
 - **Design Rules** (MUST/SHOULD/AVOID — referenced by all judges): `design-rules.md`

@@ -165,7 +165,7 @@ Match by **Tags** field against the current task characteristics:
 
 ### Filtered Injection into Subagent Prompts
 
-When dispatching subagents (per `convergence-protocol.md` Subagent Prompt Template), the orchestrator
+When dispatching subagents (per `convergence-execution.md` Subagent Prompt Template), the orchestrator
 MAY inject relevant learnings into the subagent prompt:
 
 ```

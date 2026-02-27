@@ -1,6 +1,6 @@
 # Recipes — Foundation Patterns & Layouts
 
-> **Compatibility**: Verified against Figma Console MCP v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 >
 > For Plugin API details, see `plugin-api.md`. For M3 specs, see `design-rules.md`. For common errors, see `anti-patterns.md`.
 > For component recipes (cards, buttons, forms, tables, etc.), see `recipes-components.md`. For composition and advanced patterns, see `recipes-advanced.md`.
@@ -10,16 +10,16 @@
 | Section | Recipe | Line |
 |---------|--------|-----:|
 | **Foundation** | Error-Handled IIFE Wrapper | 28 |
-| | Multi-Font Preloading | 59 |
-| | Node Reference Across Calls | 83 |
-| | Returning Structured Data | 100 |
-| **Layouts** | Page Container (Full-Width Vertical Stack) | 118 |
-| | Horizontal Row with Fill Children | 155 |
-| | Wrap Layout (Tag Cloud / Chip Group) | 210 |
-| | Absolute Positioned Badge on Card | 274 |
-| | CSS Grid Card Layout | 310 |
-| **Constraints** | Constraint Reference Table | 412 |
-| | Proportional Resize Calculator | 432 |
+| | Multi-Font Preloading | 62 |
+| | Node Reference Across Calls | 86 |
+| | Returning Structured Data | 103 |
+| **Layouts** | Page Container (Full-Width Vertical Stack) | 121 |
+| | Horizontal Row with Fill Children | 158 |
+| | Wrap Layout (Tag Cloud / Chip Group) | 213 |
+| | Absolute Positioned Badge on Card | 277 |
+| | ~~CSS Grid Card Layout~~ | → `recipes-advanced.md` |
+| **Constraints** | Constraint Reference Table | 317 |
+| | ~~Proportional Resize Calculator~~ | → `recipes-advanced.md` |
 
 ---
 
@@ -308,105 +308,7 @@ return {
 
 **Next**: Add a count label inside the badge (requires font loading and a text node centered within the ellipse).
 
----
-
-### Recipe: CSS Grid Card Layout
-
-> Requires: Plugin API Update 115+ (July 2025). See `plugin-api.md` Grid Layout section.
-
-Creates a 3-column responsive grid with flexible tracks, gaps, and a featured card spanning 2 rows.
-
-**Code**:
-
-```javascript
-(async () => {
-  try {
-    await figma.loadFontAsync({ family: "Inter", style: "Regular" })
-    await figma.loadFontAsync({ family: "Inter", style: "Bold" })
-
-    const grid = figma.createFrame()
-    grid.name = "Card Grid"
-    grid.layoutMode = 'GRID'
-    grid.resize(960, 720)
-
-    // 3 columns x 3 rows
-    grid.gridColumnCount = 3
-    grid.gridRowCount = 3
-
-    // Flexible columns (1fr each)
-    grid.gridColumnSizes = [
-      { type: 'FLEX', value: 1 },
-      { type: 'FLEX', value: 1 },
-      { type: 'FLEX', value: 1 }
-    ]
-    // Rows hug content
-    grid.gridRowSizes = [
-      { type: 'HUG' },
-      { type: 'HUG' },
-      { type: 'HUG' }
-    ]
-
-    grid.gridRowGap = 16
-    grid.gridColumnGap = 16
-    grid.paddingTop = 24; grid.paddingBottom = 24
-    grid.paddingLeft = 24; grid.paddingRight = 24
-    grid.fills = [figma.util.solidPaint('#F9FAFB')]
-
-    // Helper: create a card
-    function makeCard(name, label) {
-      const card = figma.createFrame()
-      card.name = name
-      card.layoutMode = 'VERTICAL'
-      card.itemSpacing = 8
-      card.paddingTop = 16; card.paddingBottom = 16
-      card.paddingLeft = 16; card.paddingRight = 16
-      card.cornerRadius = 12
-      card.fills = [figma.util.solidPaint('#FFFFFF')]
-      card.strokes = [figma.util.solidPaint('#E5E7EB')]
-      card.strokeWeight = 1
-      card.layoutSizingHorizontal = 'FILL'
-      card.layoutSizingVertical = 'FILL'
-
-      const title = figma.createText()
-      title.fontName = { family: "Inter", style: "Bold" }
-      title.characters = label
-      title.fontSize = 16
-      card.appendChild(title)
-
-      return card
-    }
-
-    // Featured card spanning 2 rows
-    const featured = makeCard("Featured", "Featured Item")
-    grid.appendChildAt(featured, 0, 0)
-    featured.gridRowSpan = 2
-
-    // Regular cards
-    grid.appendChildAt(makeCard("Card-B", "Item B"), 0, 1)
-    grid.appendChildAt(makeCard("Card-C", "Item C"), 0, 2)
-    grid.appendChildAt(makeCard("Card-D", "Item D"), 1, 1)
-    grid.appendChildAt(makeCard("Card-E", "Item E"), 1, 2)
-    grid.appendChildAt(makeCard("Card-F", "Item F"), 2, 0)
-
-    figma.currentPage.appendChild(grid)
-    figma.viewport.scrollAndZoomIntoView([grid])
-    console.log(JSON.stringify({ success: true, id: grid.id }))
-  } catch (e) {
-    console.log(JSON.stringify({ error: e.message }))
-  }
-})()
-```
-
-**Key patterns**: `layoutMode = 'GRID'` + `gridColumnCount`/`gridRowCount` for structure, `GridTrackSize` objects for sizing, `appendChildAt(node, row, col)` for placement, `gridRowSpan` for spanning.
-
-**Variation — Fixed + Flex columns** (sidebar layout):
-```javascript
-grid.gridColumnSizes = [
-  { type: 'FIXED', value: 240 },  // sidebar
-  { type: 'FLEX', value: 1 }       // main content
-]
-grid.gridColumnCount = 2
-```
+> For CSS Grid Card Layout patterns, see `recipes-advanced.md`.
 
 ---
 
@@ -432,103 +334,4 @@ grid.gridColumnCount = 2
 - Use STRETCH for elements that fill remaining space (e.g., episode info section between hero at y=400 and frame bottom)
 - Use MAX for elements with fixed size that should stay near the bottom
 
-### Recipe: Proportional Resize Calculator
-
-**Goal**: Recalculate Y positions of all children when resizing a viewport screen from draft height to handoff height. Each constraint type requires a different formula.
-
-**When to use**: Step 2.5 of the Draft-to-Handoff pipeline, for Viewport screens only. Scrollable screens keep draft positions unchanged.
-
-**Code**:
-
-```javascript
-// figma_execute — proportional resize calculator
-(async () => {
-  try {
-    const screen = await figma.getNodeByIdAsync("SCREEN_ID");
-    if (!screen) return JSON.stringify({ error: "Screen not found" });
-
-    const h1 = DRAFT_HEIGHT;   // e.g., 800 (original draft height)
-    const h2 = HANDOFF_HEIGHT; // e.g., 871 (target handoff height)
-
-    // Resize the screen frame first
-    screen.resize(screen.width, h2);
-
-    const results = [];
-    for (const child of screen.children) {
-      if (!('constraints' in child)) {
-        results.push({ name: child.name, status: "no_constraints" });
-        continue;
-      }
-
-      const vCon = child.constraints.vertical;
-      const oldY = child.y;
-      const elemH = child.height;
-
-      switch (vCon) {
-        case "MIN":
-          // Pinned to top — no change
-          results.push({ name: child.name, constraint: "MIN", y: oldY, changed: false });
-          break;
-
-        case "MAX": {
-          // Pinned to bottom — shift proportionally
-          const bottomGap = h1 - oldY - elemH;
-          const newY = h2 - elemH - bottomGap;
-          child.y = newY;
-          results.push({ name: child.name, constraint: "MAX", y: newY, changed: true });
-          break;
-        }
-
-        case "CENTER": {
-          // Center stays proportional
-          const center1 = oldY + elemH / 2;
-          const center2 = (center1 / h1) * h2;
-          const newY = center2 - elemH / 2;
-          child.y = Math.round(newY);
-          results.push({ name: child.name, constraint: "CENTER", y: Math.round(newY), changed: true });
-          break;
-        }
-
-        case "STRETCH": {
-          // Both edges pinned — resize height
-          const topGap = oldY;
-          const bottomGap = h1 - oldY - elemH;
-          const newH = h2 - topGap - bottomGap;
-          child.resize(child.width, newH);
-          results.push({ name: child.name, constraint: "STRETCH", height: newH, changed: true });
-          break;
-        }
-
-        default:
-          results.push({ name: child.name, constraint: vCon, status: "unknown" });
-      }
-    }
-
-    return JSON.stringify({
-      success: true,
-      from: h1,
-      to: h2,
-      results
-    });
-  } catch (e) {
-    return JSON.stringify({ error: e.message });
-  }
-})()
-```
-
-**Returns**: `{ success: true, from: 800, to: 871, results: [...] }`
-
-**Example** (WK-02 screen, 800 → 871):
-
-| Element | Draft y | Constraint | Handoff y | Calculation |
-|---------|---------|-----------|-----------|-------------|
-| TopProgressStrip | 125 | MIN | **125** | Keep draft y |
-| PhaseCountdownRing | 218 | CENTER | **263** | center=346/800x871=376 → y=376-128/2 |
-| PauseButton | 560 | MAX (gap=176) | **631** | 871-64-176 |
-| SlideToLock | 696 | MAX (gap=40) | **767** | 871-64-40 |
-| Background | 0 | STRETCH | **0** | height: 871-0-0 |
-
-**Key rules**:
-- Resize the screen FIRST, then recalculate child positions
-- NEVER use uniform y-shift for all elements — each constraint type has its own formula
-- For scrollable screens (height > viewport), skip this recipe entirely — use all MIN constraints
+> For Proportional Resize Calculator, see `recipes-advanced.md`.

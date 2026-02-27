@@ -193,7 +193,7 @@ Before trusting the index after a gap (phase transition, compact recovery, or >5
 
 - **Builds** the Session Index during Phase 1 Preflight
 - **Validates** freshness before dispatching subagents (C9 rule)
-- Includes index path in subagent context block (see `convergence-protocol.md` Subagent Prompt Template)
+- Includes index path in subagent context block (see `convergence-execution.md` Subagent Prompt Template)
 
 ### Subagent Responsibilities
 

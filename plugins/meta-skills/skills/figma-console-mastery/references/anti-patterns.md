@@ -2,7 +2,7 @@
 
 > **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 
-This reference catalogs the most common failures, anti-patterns, and hard constraints encountered when working with the Figma Console MCP. Each entry includes a clear recovery path. For correct patterns, see `plugin-api.md`. For design rules, see `design-rules.md`. For GUI-only recovery steps (plugin setup, cache refresh, CDP launch), see `gui-walkthroughs.md`.
+This reference catalogs the most common failures, anti-patterns, and hard constraints encountered when working with figma-console-mcp. Each entry includes a clear recovery path. For correct patterns, see `plugin-api.md`. For design rules, see `design-rules.md`. For GUI-only recovery steps (plugin setup, cache refresh, CDP launch), see `gui-walkthroughs.md`.
 
 ---
 
@@ -19,7 +19,7 @@ This reference catalogs the most common failures, anti-patterns, and hard constr
 | Fill/stroke mutation fails | Clone array, modify clone, reassign (immutable reference pattern) |
 | `figma_instantiate_component` silent fail | Verify variant property names match exactly (case-sensitive) |
 | Batch variable call fails | Verify `collectionId` is valid; max 100 per batch call |
-| Node IDs lost after context compaction | Re-read per-screen journal `specs/figma/journal/{screen-name}.jsonl` and `session-state.json` — see `convergence-protocol.md` Compact Recovery Protocol |
+| Node IDs lost after context compaction | Re-read per-screen journal `specs/figma/journal/{screen-name}.jsonl` and `session-state.json` — see `convergence-execution.md` Compact Recovery Protocol |
 | System redoing already-completed work | Read per-screen journal, skip any operation already logged |
 | Console log buffer missing earlier results | Buffer holds ~100 entries, each `console.log` emits 3 — call `figma_clear_console` before each batch |
 | `figma_take_screenshot` shows stale content | Use `figma_capture_screenshot` (Desktop Bridge, live state) for post-Plugin-API validation |
@@ -157,7 +157,7 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 | Using `figma_get_file_data` on large files | Response exceeds token limits, gets truncated | Use `figma_get_file_for_plugin` for optimized output |
 | Not discovering before creating | Duplicate components or missed existing assets | Always `figma_search_components` before creating new components |
 | Non-idempotent creation scripts | Re-running a script creates duplicate nodes every time | Before creating a named node, check: `const existing = figma.currentPage.findOne(n => n.name === "Target"); if (existing) return { id: existing.id, reused: true }`. Only create if not found |
-| Overusing `figma_execute` for atomic operations | Each execute + console-logs pair costs ~2,000 tokens; accumulates to context overflow on large sessions | Use `return (async () => { ... return JSON.stringify(data); })()` form for operations that need data back; batch 3+ same-type operations into a single idempotent script (see `convergence-protocol.md` Batch Scripting Protocol); use native figma-console tools (`figma_search_components`, `figma_instantiate_component`, `figma_batch_create_variables`) instead of scripting those via `figma_execute` |
+| Overusing `figma_execute` for atomic operations | Each execute + console-logs pair costs ~2,000 tokens; accumulates to context overflow on large sessions | Use `return (async () => { ... return JSON.stringify(data); })()` form for operations that need data back; batch 3+ same-type operations into a single idempotent script (see `convergence-execution.md` Batch Scripting Protocol); use native figma-console tools (`figma_search_components`, `figma_instantiate_component`, `figma_batch_create_variables`) instead of scripting those via `figma_execute` |
 | **Building screens from text descriptions** | Text files (PRDs, reconstruction guides) cannot capture IMAGE fills, exact fonts, layer ordering, opacity, gradients, or spacing — 100% of produced screens will be visually incorrect | ALWAYS read source Figma nodes via `figma_execute` (Plugin API node traversal) before constructing screens. Text documents are supplementary context for annotations only — see `design-handoff` skill (product-definition plugin) |
 | **Silent fallback to text when Figma access fails** | When source design cannot be read, silently building from text produces entirely wrong output; the user discovers the failure only after hours of work | If source node reading via `figma_execute` fails on ANY source screen, STOP immediately and inform the user. NEVER fall back to text-based construction |
 | **No visual fidelity check during construction** | Deferring visual validation to the final phase allows N screens of wrong output to accumulate before any comparison | Run `figma_capture_screenshot` (Desktop Bridge, live state) after EVERY screen and compare against the before-screenshot. Do NOT defer to the final phase — see `design-handoff` skill (product-definition plugin) |
@@ -213,8 +213,8 @@ These patterns cause the system to **undo its own work** or **redo already-compl
 | Restarting a phase from scratch after compact | The AI loses phase progress and re-executes the entire phase, redoing all operations | Read journal + session snapshot after compact; resume from first uncompleted operation, not phase start |
 | Restructuring already-restructured screens | After compact, the AI applies auto-layout, renames, and instance replacements to screens that were already processed | Check journal for `clone_screen` and `batch_rename` entries for the target screen before restructuring |
 | Using in-context memory as truth after compact | The AI "remembers" partial state from before compact but that memory may be incomplete or wrong | ONLY trust the operation journal; in-context memory after compact is unreliable — see `convergence-protocol.md` Rule C6 |
-| No idempotency in batch scripts | A batch `figma_execute` script modifies nodes unconditionally; if re-run after compact, it re-applies all changes | Include `if (node.name === r.name) { status: "already_done"; continue; }` checks in all batch scripts — see `convergence-protocol.md` Batch Script Templates |
-| Using individual calls for 3+ same-type operations | 20 individual `figma_rename_node` calls consume ~2,000 tokens and 20 round-trips; a single batch script does the same in ~600 tokens and 1 round-trip | Batch homogeneous operations (renames, moves, fills) into `figma_execute` scripts — see `convergence-protocol.md` Batch Scripting Protocol |
+| No idempotency in batch scripts | A batch `figma_execute` script modifies nodes unconditionally; if re-run after compact, it re-applies all changes | Include `if (node.name === r.name) { status: "already_done"; continue; }` checks in all batch scripts — see `convergence-execution.md` Batch Script Templates |
+| Using individual calls for 3+ same-type operations | 20 individual `figma_rename_node` calls consume ~2,000 tokens and 20 round-trips; a single batch script does the same in ~600 tokens and 1 round-trip | Batch homogeneous operations (renames, moves, fills) into `figma_execute` scripts — see `convergence-execution.md` Batch Scripting Protocol |
 
 ---
 
@@ -243,7 +243,7 @@ These workflow-level patterns cause context window exhaustion and data loss from
 |-------------|---------|---------|
 | fire-log-verify pattern overuse | `figma_execute` + `figma_get_console_logs` pairs consume ~1,500-3,000 tokens each; 100+ pairs exhaust the context window | Use `return (async () => { ... return JSON.stringify(data); })()` for direct data retrieval; reserve console.log only when async return is not practical |
 | Console log buffer rotation + tripling | Figma's console buffer holds ~100 entries. Each `console.log()` call inside `figma_execute` emits **3 identical entries** (not 1) — a script with 30 log calls fills the entire buffer, pushing out earlier entries | Call `figma_clear_console` before each `figma_execute` batch. Budget max ~18-20 `console.log` calls per IIFE. Use `return JSON.stringify(...)` (sync return with outer `return`) instead of `console.log` for data retrieval — avoids buffer tripling |
-| No session state persistence | After context compaction, all created node IDs, positions, and intermediate state are lost | Write node IDs and phase state to a local file after each operation batch — see `convergence-protocol.md` Session Snapshot schema |
+| No session state persistence | After context compaction, all created node IDs, positions, and intermediate state are lost | Write node IDs and phase state to a local file after each operation batch — see `convergence-execution.md` Session Snapshot schema |
 | Orphaned components from wrong phase order | Components created after screen cloning result in screens using old variants with zero new-component instances | Always create components before assembling screens; enforce strict phase ordering (see `convergence-protocol.md`) |
 | Plans with assumed node IDs | Plans drafted with cached or guessed node IDs get rejected when IDs do not match live data | Always verify node IDs against live file data in a read-only inventory phase before drafting a plan |
 

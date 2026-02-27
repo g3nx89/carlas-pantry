@@ -3,7 +3,7 @@
 > **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
 >
 > **Scope**: Interactive planning protocol for Flow 1 Phase 2 (Create and Restructure modes).
-> Captures user-approved design decisions before execution via 10 structured question categories.
+> Captures user-approved design decisions before execution via 11 structured question categories (Cat. 0-10).
 >
 > **Load when**: Orchestrator enters Phase 2 of Flow 1 (Create or Restructure mode).
 
@@ -38,8 +38,6 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
    - Options: "Yes, I'll provide them", "No, proceed without", "Let's discuss this"
 
 **Output**: Reference to existing docs (file path or user-provided content) OR "No documentation — proceeding without reference"
-
-**Mode notes**: Applies to both Create and Restructure modes.
 
 ---
 
@@ -85,11 +83,11 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
 **Purpose**: Choose between surgical fixes (preserve structure) or full rebuild.
 
 **Key questions**:
-1. **Path selection**: "Based on Phase 1 analysis, I found [N issues]. Two approaches are available:
-   - **Path A (Surgical)**: Preserve existing structure, apply auto-layout and tokens selectively. Faster, lower risk of breaking prototype connections.
-   - **Path B (Rebuild)**: Reconstruct from scratch using best practices. Cleaner result, requires re-wiring prototypes.
+1. **Path selection**: "Based on Phase 1 analysis, I found [N issues]:
+   - **Path A (Surgical)**: Preserve existing structure, apply auto-layout and tokens selectively. Lower risk of breaking prototype connections.
+   - **Path B (Rebuild)**: Reconstruct from scratch. Cleaner result, requires re-wiring prototypes.
 
-   Which path should I take?"
+   Which path?"
    - Options: "Path A (Surgical)", "Path B (Rebuild)", "Let's discuss this"
 
 2. **Preserve prototype?**: If prototype connections exist: "I detected [N] prototype connections. Path B will break these. Should I preserve the prototype?"
@@ -106,7 +104,7 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
 **Purpose**: Get user approval for structural changes to layer hierarchy.
 
 **Key questions**:
-1. **Flatten deep nesting**: "I found [N] deeply nested GROUP layers (5+ levels). Should I flatten these to improve hierarchy clarity?"
+1. **Flatten deep nesting**: "I found [N] deeply nested GROUP layers (5+ levels). Should I flatten these?"
    - Options: "Yes, flatten all", "Show me the list first", "Let's discuss this"
 
 2. **Reparent floating elements**: "I found [N] elements with absolute positioning that could be grouped into sections. Propose grouping?"
@@ -137,8 +135,6 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
 
 **Output**: Auto-layout targets with spacing/padding values (e.g., "Apply auto-layout to 12 frames: vertical gap=16px, horizontal padding=24px")
 
-**Mode notes**: Applies to both Create and Restructure modes.
-
 ---
 
 ## Category 6 — Componentization
@@ -162,8 +158,6 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
    - Options: "Yes, all match", "Some match (specify)", "No coded components yet", "Let's discuss this"
 
 **Output**: Component targets with variant properties (e.g., "Create Button component: Size (SM/MD/LG), State (Default/Hover/Disabled/Loading), Type (Primary/Secondary/Ghost)")
-
-**Mode notes**: Applies to both Create and Restructure modes.
 
 ---
 
@@ -189,7 +183,7 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
 
 **Output**: Naming rules reference (Figma text block location) + brief summary (e.g., "Naming rules at Components > Naming Rules text block: Frames use [Screen]/[Section]/[Element], Components use [Type]/[Variant]")
 
-**Mode notes**: Applies to both Create and Restructure modes. Critical for multi-screen consistency.
+**Mode notes**: Critical for multi-screen consistency.
 
 ---
 
@@ -214,7 +208,7 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
 
 **Output**: Token binding plan (e.g., "Bind 12 colors to existing tokens, create 3 new spacing tokens (Spacing/Card-Gap=16px, Spacing/Section-Gap=32px, Spacing/Page-Margin=48px)")
 
-**Mode notes**: Applies to both Create and Restructure modes. Critical for design system consistency.
+**Mode notes**: Critical for design system consistency.
 
 ---
 

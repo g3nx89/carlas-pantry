@@ -1,5 +1,7 @@
 # figma-console-mastery — Reference Files
 
+> **Subagent model convention**: Unless specified otherwise, all subagents use Sonnet (per SKILL.md P2).
+
 ## File Usage Table
 
 | File | Lines | Purpose | Load When |
@@ -7,24 +9,25 @@
 | `tool-playbook.md` | 403 | Tool selection decision tree, quick reference core tools, tool categories across 60 tools, figma-console-only strategy, component property tools, design system audit tools | Choosing which tool to call |
 | `plugin-api.md` | 1308 | Plugin API reference for `figma_execute` code (node creation, auto-layout, text, colors, images, components, variables, performance optimization, CSS Grid layout, expanded prototype reactions, variable aliases and binding targets, Figma Draw APIs) | Writing `figma_execute` code |
 | `design-rules.md` | 299 | MUST/SHOULD/AVOID rules, dimensions, typography, M3 specs, QA checklist | Making design decisions |
-| `recipes-foundation.md` | 534 | Foundation patterns (async IIFE wrapper with outer-return requirement, enum validation caveat, font preloading, node references, structured data), layout recipes (page container, horizontal row, wrap layout, absolute badge, CSS Grid card layout recipe), constraint patterns (reference table, proportional resize calculator) | Writing ANY `figma_execute` code (Tier 1 — always load) |
+| `recipes-foundation.md` | 337 | Foundation patterns (async IIFE wrapper with outer-return requirement, enum validation caveat, font preloading, node references, structured data), layout recipes (page container, horizontal row, wrap layout, absolute badge), constraint patterns (reference table). CSS Grid Card Layout and Proportional Resize Calculator moved to `recipes-advanced.md` | Writing ANY `figma_execute` code (Tier 1 — always load) |
 | `recipes-components.md` | 1401 | Component recipes: card, button, input, toast, navbar, sidebar, form, data table, empty state, modal, dashboard header, component variant set. Handoff patterns: GROUP-to-FRAME conversion (single + batch), componentize from clone, COMPONENT_SET variant instantiation | Building specific UI components (Tier 2 — by task) |
-| `recipes-advanced.md` | 974 | Composition patterns (shell injection, library composition, design system bootstrap), advanced recipes (variable binding, variable alias chain, effect/layout-grid variable binding, SVG import, rich text), full page composition, chaining patterns, handoff preparation | Assembling multi-component layouts, full pages, advanced patterns, or code handoff (Tier 3 — by need) |
+| `recipes-advanced.md` | 1181 | Composition patterns (shell injection, library composition, design system bootstrap), relocated recipes (CSS Grid card layout, proportional resize calculator), advanced recipes (variable binding, variable alias chain, effect/layout-grid variable binding, SVG import, rich text), full page composition, chaining patterns, handoff preparation | Assembling multi-component layouts, full pages, advanced patterns, or code handoff (Tier 3 — by need) |
 | `recipes-restructuring.md` | 1022 | Restructuring recipes: deep node tree analysis, repeated pattern detection, visual blueprint extraction, convert to auto-layout, reparent children, snap spacing, extract component, replace with library instance, variant sets, token binding, batch rename | Restructuring a freehand design — Path A (in-place) or Path B (reconstruction) (Tier 2 — by task) |
 | `recipes-m3.md` | 703 | Material Design 3 recipes: M3 Button, Card, Top App Bar, TextField, Bottom Nav, Dialog, Snackbar, Elevation Shadows | Building M3-specific components |
 | `anti-patterns.md` | 375 | Quick Troubleshooting Index (37-row symptom-to-fix table), error catalog, recurring API pattern errors, auto-layout pitfalls, GROUP coordinate system, instance resize vs rescale, page-context reversion, console-log tripling, screenshot validation, session-level anti-patterns, handoff-specific anti-patterns, regression anti-patterns, performance anti-patterns, hard constraints | Debugging or reviewing output |
 | `gui-walkthroughs.md` | 141 | Step-by-step GUI instructions for Figma Desktop operations with no MCP/CLI equivalent: plugin setup, activation, cache refresh, node selection | Connection/setup issues requiring user interaction with Figma Desktop |
 | `st-integration.md` | 657 | Sequential Thinking thought chain templates (Phase 1 Analysis, Path A/B Fork-Join, Visual Fidelity Loop, Naming Audit Reasoning, Iterative Refinement, Design System Bootstrap Checkpoint), activation protocol, suppress conditions | ST server available and workflow complexity warrants structured reasoning (Tier 3 — by need) |
 | `workflow-code-handoff.md` | 212 | Code Handoff Protocol: TIER system (componentization depth), Smart Componentization Criteria (3 gates), Handoff Manifest template (incl. Interaction/Content/Edge Case specs), Behavioral Specification Extraction Steps, naming audit, token alignment, multi-platform notes, UX-NARRATIVE preceding input reference | Preparing designs for code implementation (Tier 2 — by task) |
-| `convergence-protocol.md` | ~650 | Operation Journal spec (append-only JSONL, 9 rules incl. real timestamps), anti-regression Convergence Check rules (9 rules incl. C8-C9 Session Index), Batch Scripting Protocol, Subagent Delegation Model (per-screen sequential architecture, skill-inheriting prompt template), Session Snapshot schema v4, Compact Recovery Protocol, per-screen journal architecture, journal compaction, cross-screen operations journal, session summary compaction | Any multi-step workflow — anti-regression, batch efficiency, subagent delegation (Tier 1 — always) |
+| `convergence-protocol.md` | 241 | Operation Journal spec (append-only JSONL, 9 rules incl. real timestamps), anti-regression Convergence Check rules (C1-C9 incl. Session Index), per-screen journal architecture, journal compaction, cross-screen operations journal, session summary compaction | Any multi-step workflow — anti-regression, journal format (Tier 1 — always) |
+| `convergence-execution.md` | 439 | Batch Scripting Protocol (when-to-batch, script templates, error handling), Subagent Delegation Model (per-screen sequential architecture, skill-inheriting prompt template with reasoning preamble), Session Snapshot schema v4, Compact Recovery Protocol (4-step with mismatch resolution) | Batch operations, subagent dispatch, crash recovery (Tier 2 — by task) |
 | `compound-learning.md` | 216 | Compound Learning Protocol: learnings file format (H2 categories to H3 entries), file lifecycle, save protocol (6 auto-detect triggers incl. T6 quality audit), load protocol (Tag-based relevance matching), deduplication procedure, subagent integration (orchestrator-only reads/writes, filtered injection) | Cross-session knowledge persistence — load at Preflight, save at Validation (Tier 3 — by need) |
 | `quality-dimensions.md` | 445 | Unified Quality Model dimensions: 11 dimensions (D1 Visual Quality, D2 Layer Structure, D3 Semantic Naming, D4 Auto-Layout, D5 Component Compliance, D6 Constraints & Position, D7 Screen Properties, D8 Instance Integrity + UX copy quality, D9 Token Binding, D10 Operational Efficiency, D11 Accessibility Compliance), scoring rubrics (0-10 per dimension), dynamic composite scoring formula, depth tiers (Spot/Standard/Deep) with triage decision matrix, contradiction resolutions (10 resolved) | Quality audit planning, understanding dimension definitions and rubrics (Tier 3 — by need) |
 | `quality-audit-scripts.md` | 966 | JavaScript audit scripts A-I (parent context check, positional diff, DS registry, structure inspection, raw frames detection, auto-layout inspection, accessibility compliance G1-G5, UX copy quality H1-H4, prototype connection extraction), Screen Diff template (Sonnet subagent prompt), per-element position analysis decision tree and constraint rules, scrollability check, enhanced positional diff script | Executing Standard or Deep audits, running audit scripts (Tier 3 — by need) |
-| `quality-procedures.md` | 791 | Spot/Standard/Deep audit execution procedures, Handoff Audit template (Sonnet subagent prompt with all 11 dimensions), unified fix cycle, Mod-Audit-Loop pattern, Deep Critique judge templates (Visual Fidelity, Structural & Component, Design System & Token, UX Design Critic advisory), journal integration (quality_audit op type), compound learning T6 trigger integration | Phase 4 quality self-assessment, handoff audits, modification-audit loops (Tier 3 — by need) |
+| `quality-procedures.md` | 841 | Spot/Standard/Deep audit execution procedures, Handoff Audit template (Sonnet subagent prompt with all 11 dimensions), unified fix cycle, Mod-Audit-Loop pattern, Deep Critique judge templates (Visual Fidelity, Structural & Component, Design System & Token, UX Design Critic advisory), journal integration (quality_audit op type), compound learning T6 trigger integration | Phase 4 quality self-assessment, handoff audits, modification-audit loops (Tier 3 — by need) |
 | `field-learnings.md` | 338 | Production strategies distilled from cross-session learnings: componentization workflows (clone 6-step, scratch 6-step, property binding vs override), component migration (swapComponent, M3 remote access, fill override), container & layout strategies, text handling, cross-call data patterns, variant patterns, coordinate systems (GROUP, SECTION), audit performance, instance creation | Componentization, migration, layout debugging, advanced Plugin API patterns (Tier 3 — by need) |
-| `flow-procedures.md` | 322 | Detailed phase procedures for Flow 1 (Design Session — 4 modes: Create, Restructure, Audit, Targeted) and Flow 2 (Handoff QA — 4 phases incl. behavioral spec extraction). Phase-by-phase steps, mode-specific variations, subagent dispatch instructions | Understanding full phase procedures for either flow (Tier 2 — by task) |
+| `flow-procedures.md` | 378 | Detailed phase procedures for Flow 1 (Design Session — 4 modes: Create, Restructure, Audit, Targeted) and Flow 2 (Handoff QA — 4 phases incl. behavioral spec extraction). Phase-by-phase steps, mode-specific variations, subagent dispatch instructions, Cat. 10 summary | Understanding full phase procedures for either flow (Tier 2 — by task) |
 | `socratic-protocol.md` | 291 | Expanded Socratic Protocol question templates for Phase 2 — Categories 0-10 (Documentation Check, User Description, Cross-Screen Comparison, General Approach, Screen Structure, Auto-Layout/Spacing, Componentization, Naming Rules, Design Tokens, Interactions, Content & Interaction Specs). Mode-specific category subsets (Create vs Restructure) | Phase 2 analysis and planning in Flow 1 (Tier 2 — by task) |
-| `essential-rules.md` | 63 | Complete collection of 23 MUST rules and 14 AVOID rules. Full rule text with cross-references. SKILL.md contains top-8 MUST and top-5 AVOID summary | Full rule reference when top-8/top-5 in SKILL.md is insufficient (Tier 2 — by task) |
+| `essential-rules.md` | 62 | Complete collection of 23 MUST rules and 13 AVOID rules. Full rule text with cross-references. SKILL.md contains top-8 MUST and top-5 AVOID summary | Full rule reference when top-8/top-5 in SKILL.md is insufficient (Tier 2 — by task) |
 | `session-index-protocol.md` | 219 | Session Index: L2 cache format (JSONL), build via `figma_get_file_data(summary)`, Grep-based lookups, invalidation via `figma_get_design_changes`, subagent integration | Multi-screen workflows needing name-to-ID resolution (Tier 2 — by task) |
 
 ## Cross-References
@@ -43,13 +46,14 @@
 | `gui-walkthroughs.md` | `anti-patterns.md`, `tool-playbook.md` |
 | `st-integration.md` | `recipes-restructuring.md`, `recipes-advanced.md`, `tool-playbook.md` |
 | `workflow-code-handoff.md` | `recipes-advanced.md`, `design-rules.md`, `st-integration.md`, `tool-playbook.md`, `quality-audit-scripts.md` (Script I, Script H), external: `design-narration` skill (product-definition plugin) |
-| `convergence-protocol.md` | `anti-patterns.md`, `recipes-foundation.md`, `compound-learning.md`, `quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`, `session-index-protocol.md` |
-| `compound-learning.md` | `convergence-protocol.md`, `anti-patterns.md`, `SKILL.md`, `quality-dimensions.md` |
+| `convergence-protocol.md` | `anti-patterns.md`, `recipes-foundation.md`, `convergence-execution.md`, `session-index-protocol.md` |
+| `convergence-execution.md` | `convergence-protocol.md`, `recipes-foundation.md`, `essential-rules.md`, `session-index-protocol.md`, `quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`, `compound-learning.md` |
+| `compound-learning.md` | `convergence-protocol.md`, `convergence-execution.md`, `anti-patterns.md`, `SKILL.md`, `quality-dimensions.md` |
 | `quality-dimensions.md` | `quality-audit-scripts.md`, `quality-procedures.md`, `convergence-protocol.md`, `compound-learning.md`, `design-rules.md`, `SKILL.md` |
 | `quality-audit-scripts.md` | `quality-dimensions.md`, `quality-procedures.md`, `convergence-protocol.md`, `plugin-api.md`, `design-rules.md`, `workflow-code-handoff.md` (Script I) |
-| `quality-procedures.md` | `quality-dimensions.md`, `quality-audit-scripts.md`, `convergence-protocol.md`, `compound-learning.md`, `anti-patterns.md`, `design-rules.md`, `plugin-api.md`, `field-learnings.md`, `recipes-components.md`, `SKILL.md` |
+| `quality-procedures.md` | `quality-dimensions.md`, `quality-audit-scripts.md`, `convergence-protocol.md`, `convergence-execution.md`, `compound-learning.md`, `anti-patterns.md`, `design-rules.md`, `plugin-api.md`, `field-learnings.md`, `recipes-components.md`, `SKILL.md` |
 | `field-learnings.md` | `anti-patterns.md`, `plugin-api.md`, `quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`, `convergence-protocol.md`, `recipes-components.md` |
-| `flow-procedures.md` | `quality-dimensions.md`, `socratic-protocol.md`, `convergence-protocol.md`, `compound-learning.md`, `SKILL.md`, `session-index-protocol.md` |
+| `flow-procedures.md` | `quality-dimensions.md`, `socratic-protocol.md`, `convergence-protocol.md`, `convergence-execution.md`, `compound-learning.md`, `SKILL.md`, `session-index-protocol.md` |
 | `socratic-protocol.md` | `flow-procedures.md`, `SKILL.md` |
 | `essential-rules.md` | `SKILL.md`, `convergence-protocol.md`, `anti-patterns.md`, `quality-dimensions.md` |
 | `session-index-protocol.md` | `convergence-protocol.md`, `flow-procedures.md`, `SKILL.md` |
@@ -82,7 +86,8 @@ Each topic lives in exactly one canonical file:
 | Foundation patterns | `recipes-foundation.md` |
 | Async IIFE return value requirement (outer return) | `recipes-foundation.md` |
 | Layout recipes | `recipes-foundation.md` |
-| Constraint reference table, proportional resize calculator | `recipes-foundation.md` |
+| Constraint reference table | `recipes-foundation.md` |
+| CSS Grid Card Layout, Proportional Resize Calculator | `recipes-advanced.md` |
 | Component recipes | `recipes-components.md` |
 | GROUP-to-FRAME conversion recipes (single + batch) | `recipes-components.md` |
 | Componentize from Clone recipe | `recipes-components.md` |
@@ -97,12 +102,13 @@ Each topic lives in exactly one canonical file:
 | UX-NARRATIVE preceding input (design-narration skill) | `workflow-code-handoff.md` |
 | Operation Journal spec, JSONL format, entry types | `convergence-protocol.md` |
 | Anti-regression Convergence Check rules (C1-C9) | `convergence-protocol.md` |
-| Batch Scripting Protocol, script templates, when-to-batch | `convergence-protocol.md` |
-| Subagent Delegation Model, skill-inheriting prompt template | `convergence-protocol.md` |
 | Real timestamp requirement for journal entries | `convergence-protocol.md` |
-| Compact Recovery Protocol | `convergence-protocol.md` |
 | Per-screen journal architecture, journal compaction | `convergence-protocol.md` |
 | Cross-screen operations journal, session summary compaction | `convergence-protocol.md` |
+| Batch Scripting Protocol, script templates, when-to-batch | `convergence-execution.md` |
+| Subagent Delegation Model, skill-inheriting prompt template | `convergence-execution.md` |
+| Session Snapshot schema v4 | `convergence-execution.md` |
+| Compact Recovery Protocol (4-step with mismatch resolution) | `convergence-execution.md` |
 | Compound Learning Protocol, learnings file format, save/load rules | `compound-learning.md` |
 | ST thought chain templates for Figma workflows | `st-integration.md` |
 | Unified quality dimensions (D1-D11), rubrics, composite scoring | `quality-dimensions.md` |
@@ -137,7 +143,7 @@ Each topic lives in exactly one canonical file:
 | Flow 1/Flow 2 phase procedures (Create, Restructure, Audit, Targeted, Handoff QA) | `flow-procedures.md` |
 | Expanded Socratic Protocol question templates (Cat. 0-10) | `socratic-protocol.md` |
 | Category 10: Content & Interaction Specifications | `socratic-protocol.md` |
-| Full 23 MUST + 14 AVOID rules | `essential-rules.md` |
+| Full 23 MUST + 13 AVOID rules | `essential-rules.md` |
 | Top-8 MUST + Top-5 AVOID summary | `SKILL.md` |
 | Session Index format (JSONL), meta file schema, build procedure | `session-index-protocol.md` |
 | Session Index lookup patterns, validation, subagent integration | `session-index-protocol.md` |

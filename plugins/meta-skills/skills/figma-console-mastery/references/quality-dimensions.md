@@ -422,7 +422,7 @@ This unified model resolves 10 contradictions between reflection-protocol.md (R0
 
 ### Adding a New Dimension
 
-When adding dimension D11 (or modifying existing dimensions), update:
+When adding dimension D12 (or modifying existing dimensions), update:
 
 - [ ] **Section 1 table** — add dimension row with category, notes
 - [ ] **Section 2 rubric** — add 5-tier scoring rubric (0-3, 4-5, 6-7, 8-9, 10)
