@@ -161,9 +161,9 @@ Write to: `specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md`
 
 | CLI | Role | Focus |
 |-----|------|-------|
-| codex | `edge_security_perf` | Security vulnerabilities, performance bottlenecks, data integrity, boundary conditions |
-| gemini | `edge_ux_coverage` | Missing UI states, incomplete flows, user error recovery, multi-context gaps |
-| opencode | `edge_contrarian_a11y` | Accessibility (a11y), i18n/l10n, adversarial use, non-standard users |
+| codex | `edge_technical_quality` | Security vulnerabilities, performance bottlenecks, data integrity, boundary conditions, scalability degradation (10x load behavior, p95/p99 latency, rate limits), external dependency failures |
+| gemini | `edge_ux_coverage` | Missing UI states, incomplete flows, user error recovery, multi-context gaps; UX manifestations of infrastructure failures (error messages, degraded-mode UI, fallback experiences during outages or rollbacks) |
+| opencode | `edge_ops_compliance` | Accessibility (a11y), i18n/l10n, adversarial use, non-standard users, deployment rollback scenarios (schema reversibility, blast radius), compliance & privacy obligations (GDPR/CCPA, PII classification, audit trail) |
 
 ### Analysis Prompt Template
 
@@ -177,6 +177,10 @@ Analyze this specification for edge cases and failure modes:
 5. What accessibility issues might arise?
 6. What i18n/l10n considerations are missing?
 7. What concurrency or race conditions could occur?
+8. What happens when load increases 10x? Where do p95/p99 latencies degrade first?
+9. What external dependencies could fail? How does the system behave when each is unavailable or slow?
+10. Is the deployment reversible? What breaks if a rollback is needed mid-migration?
+11. What PII or sensitive data is involved? Which compliance obligations (GDPR, CCPA) apply?
 
 Feature: {FEATURE_NAME}
 Spec: {SPEC_CONTENT_SUMMARY}

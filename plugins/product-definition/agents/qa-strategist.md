@@ -99,8 +99,12 @@ Identify failure points across these categories:
 | **Data Edge Cases** | Null values? Empty strings? Maximum lengths? Special characters? |
 | **Concurrency** | What operations can happen simultaneously? Race conditions? |
 | **State Transitions** | What state needs preservation? What happens during interruption? |
+| **Scalability Degradation** | How does behavior change at 10x load? Where do p95/p99 latencies degrade? Are there O(n) operations? What happens when rate limits are hit? |
+| **External Dependency Failure** | What external APIs or services are required? What happens when each is slow or down? Is there circuit breaking or a degraded mode? |
+| **Deployment & Rollback** | Are schema migrations reversible? How are in-flight requests handled during deploy? Are there feature flag conflicts? Can the release be safely rolled back? |
+| **Compliance & Privacy** | What data is collected and under which legal basis? What retention period applies and how are deletion and portability requests handled (right to be forgotten)? Is PII encrypted at rest and in transit? Are audit logs required by regulation? |
 
-> **Adapt categories to the feature type.** For non-UI features (APIs, backend services, CLIs, data pipelines), replace visual categories with: data validation, schema changes, rate limiting, resource exhaustion, deployment rollback.
+> **Adapt categories to the feature type.** For non-UI features (APIs, backend services, CLIs, data pipelines), also consider: data validation, schema changes, resource exhaustion, queue saturation.
 
 **Output:** Risk assessment table with severity and affected requirements.
 

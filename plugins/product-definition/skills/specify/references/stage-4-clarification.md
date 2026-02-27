@@ -135,13 +135,13 @@ Write prompt files for each CLI at `specs/{FEATURE_DIR}/analysis/cli-prompts/edg
 Embed spec content and checklist gaps inline — do NOT reference file paths.
 
 Dispatch 3 CLIs in parallel via Bash:
-- codex (`edge_security_perf`): security, performance, data integrity, boundary conditions
-- gemini (`edge_ux_coverage`): missing UI states, incomplete flows, user error recovery
-- opencode (`edge_contrarian_a11y`): accessibility, i18n/l10n, adversarial/non-standard users
+- codex (`edge_technical_quality`): security, performance, scalability, external dependencies, data integrity, boundary conditions
+- gemini (`edge_ux_coverage`): missing UI states, incomplete flows, user error recovery, UX manifestations of infrastructure failures
+- opencode (`edge_ops_compliance`): accessibility, i18n/l10n, adversarial/non-standard users, deployment rollback, compliance & privacy
 
 ```bash
 $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli codex --role edge_security_perf \
+  --cli codex --role edge_technical_quality \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/edgecases-codex.md \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/edgecases-codex.md \
   --timeout 150 &
@@ -153,7 +153,7 @@ $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --timeout 150 &
 
 $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli opencode --role edge_contrarian_a11y \
+  --cli opencode --role edge_ops_compliance \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/edgecases-opencode.md \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/edgecases-opencode.md \
   --timeout 150 &

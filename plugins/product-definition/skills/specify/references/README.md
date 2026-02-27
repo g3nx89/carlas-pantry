@@ -37,7 +37,7 @@
 | `checkpoint-protocol.md` | ~55 | State update patterns |
 | `error-handling.md` | ~165 | CLI/Figma/gate/design/QA failures, graceful degradation |
 | `config-reference.md` | ~235 | Template variables, limits, thresholds, feature flags, CLI dispatch params |
-| `cli-dispatch-patterns.md` | ~280 | Parameterized execution for 4 CLI dispatch integration points |
+| `cli-dispatch-patterns.md` | ~295 | Parameterized execution for 4 CLI dispatch integration points |
 | `figma-capture-protocol.md` | ~240 | Figma connection selection, capture process (ReAct), screenshot naming, error handling |
 | `clarification-protocol.md` | ~250 | File-based Q&A format, BA recommendations, answer parsing rules, state tracking |
 | `auto-resolve-protocol.md` | ~190 | Auto-resolve gate logic, classification levels, exclusion rules, report format |

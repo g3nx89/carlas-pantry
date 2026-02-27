@@ -8,6 +8,7 @@ Focus areas:
 3. Multi-device/context edge cases: interrupted flows, background/foreground transitions, push notifications mid-flow
 4. User error recovery: Can users undo? What if they submit twice? What if they navigate back mid-flow?
 5. Accessibility and cognitive load: Are there flows too complex for first-time users?
+6. UX manifestations of infrastructure failures: What does the user see when the system is degraded or an external service is down? What error messages, fallback states, or degraded-mode UI are needed? What happens to in-flight user sessions during a deployment or rollback? Are there missing degraded-mode screens (e.g., read-only mode during write outage, partial data display when one dependency fails)?
 
 For each gap found:
 - CRITICAL: User cannot complete the core task
@@ -31,6 +32,11 @@ Output format:
 
 ### Multi-Context Edge Cases
 {Numbered list}
+
+### Infrastructure Failure UX Gaps
+| Scenario | Missing UI/State | Severity | User Impact |
+|----------|-----------------|----------|-------------|
+| {e.g., external service down} | {e.g., no degraded-mode screen} | {CRITICAL/HIGH/MEDIUM} | {what user experiences} |
 
 ### Top 3 Critical Gaps
 1. ...

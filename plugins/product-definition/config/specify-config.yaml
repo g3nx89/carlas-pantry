@@ -575,11 +575,11 @@ cli_dispatch:
       output_file: "mpa-edgecases-parallel.md"
       models:
         - cli: "codex"
-          role: "edge_security_perf"
+          role: "edge_technical_quality"
         - cli: "gemini"
           role: "edge_ux_coverage"
         - cli: "opencode"
-          role: "edge_contrarian_a11y"
+          role: "edge_ops_compliance"
 
     triangulation:
       enabled: true
@@ -794,14 +794,23 @@ test_strategy:
     file: "test-plan.md"
     template: "$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md"
 
-  # Risk analysis categories (agent uses these for structured analysis)
+  # Risk analysis categories — DOCUMENTATION ONLY.
+  # This list is NOT read programmatically. The operative definitions live in:
+  #   agents/qa-strategist.md (risk table) and agents/qa-references/sequential-thinking-templates.md (T1 template).
+  # Changes here MUST be manually synchronized to those two files.
   risk_categories:
-    - "network_failure"
-    - "permission_denial"
-    - "empty_states"
-    - "state_transitions"
-    - "concurrency"
-    - "data_edge_cases"
+    # ── Core categories (all features) ─────────────────────────────────────────
+    - "network_failure"          # UI, API, Backend, Mobile — connectivity loss, timeout handling
+    - "permission_denial"        # UI, API, Backend, Mobile — auth failures, access control
+    - "empty_states"             # UI, Mobile — absent data, null values, empty collections
+    - "state_transitions"        # UI, Mobile, long-running processes — interruption, resumption
+    - "concurrency"              # API, Backend, data pipelines — race conditions, simultaneous ops
+    - "data_edge_cases"          # All features with user input — boundaries, encoding, special chars
+    # ── Extended categories (production-mature / high-volume features) (v1.3.0) ─
+    - "scalability_degradation"      # API, Backend, high-volume UI — 10x load, p95/p99, rate limits
+    - "external_dependency_failure"  # API, Backend — third-party API/service downtime, degraded mode
+    - "deployment_rollback"          # Backend, API, data pipelines — CI/CD safety, schema reversibility
+    - "compliance_privacy"           # Any feature handling PII or regulated data — GDPR/CCPA
 
   # Optional inputs that enhance analysis
   optional_inputs:
