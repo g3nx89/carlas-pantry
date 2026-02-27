@@ -175,9 +175,9 @@ After all categories, compile a user-approved checklist with numbered items acro
 
 #### Quality audit tiers (per `quality-dimensions.md`)
 
-- **Spot**: Quick visual check, screenshot analysis, 3 dimensions (Visual Quality, Layer Structure, Semantic Naming). Run after each screen in Create/Targeted, after each fix in Audit.
-- **Standard**: 10-dimension audit (add Auto-Layout with 6 automated checks, Component Compliance 3-layer, Constraints, Screen Properties, Instance Override Integrity, Token Bindings, Accessibility). Run at end of Create, after Restructure completion.
-- **Deep**: Standard + multi-judge critique (Requirements Validator, Solution Architect, Code Quality Reviewer). Run at session end for Restructure.
+- **Spot**: Quick visual check, screenshot analysis, 3 dimensions (D1 Visual Quality, D4 Auto-Layout, D10 Operational Efficiency). Run after each screen in Create/Targeted, after each fix in Audit.
+- **Standard**: 10-dimension audit (add Layer Structure, Semantic Naming, Component Compliance 3-layer, Constraints, Screen Properties, Instance Override Integrity, Token Bindings, Operational Efficiency). Run at end of Create, after Restructure completion.
+- **Deep**: Standard + multi-judge critique (Visual Fidelity Expert, Structural & Component Expert, Design System & Token Expert). Run at session end for Restructure.
 
 #### Validation steps
 
@@ -230,7 +230,7 @@ Quality assurance flow for preparing designs for code handoff. Replaces Visual Q
    - D7: Screen Properties
    - D8: Instance Override Integrity
    - D9: Token Bindings
-   - D10: Accessibility
+   - D10: Operational Efficiency
 4. Score each dimension (0-10)
 5. Identify deviations with node IDs
 6. Write audit report: `specs/figma/audits/{screen-name}.md`
