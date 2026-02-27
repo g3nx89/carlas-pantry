@@ -367,9 +367,9 @@ Has the session involved >0 mutating operations?
     Was this a per-screen pipeline completion?
       Yes -> Spot (D1, D4, D10 only)
     Was this a phase boundary?
-      Yes -> Standard (all 10 dimensions)
+      Yes -> Standard (all 11 dimensions, excl. N/A)
     Was this session completion (all phases)?
-      Yes -> Deep (3 judges + debate)
+      Yes -> Deep (3+1 judges + debate)
     Was this user-triggered?
       "audit" keyword -> Standard
       "critique" keyword -> Deep

@@ -30,7 +30,7 @@
 17. **Save discoveries at session end** — during Phase 4, review for compound learning triggers. Deduplicate by H3 key before appending
 18. **`createInstance()` on COMPONENT, not COMPONENT_SET` — get COMPONENT_SET → find variant child → `createInstance()` on the child
 19. **Never call `group.remove()` after moving children** — GROUP auto-deletes when all children are moved out. Explicit `remove()` throws and silently skips subsequent code
-20. **Run quality audit per tier** — Spot after each screen pipeline, Standard at phase boundaries, Deep at session end. Quality model defines 10 dimensions, depth tiers, audit scripts. See `quality-dimensions.md`.
+20. **Run quality audit per tier** — Spot after each screen pipeline, Standard at phase boundaries, Deep at session end. Quality model defines 11 dimensions, depth tiers, audit scripts. See `quality-dimensions.md`.
 21. **Log quality audit to journal** — append `op: "quality_audit"` entry with tier, scores, and verdict after every audit evaluation
 22. **Always include "Let's discuss this" option in AskUserQuestion calls** — never force users into constrained choices; always provide open-ended escape
 23. **All Figma modifications and audits delegated to Sonnet subagents** — main context orchestrates only; never execute `figma_execute` or quality audits in main context

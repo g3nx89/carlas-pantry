@@ -183,7 +183,7 @@ After all categories, compile a user-approved checklist with numbered items acro
 
 1. Subagent runs tier-appropriate audit from quality-dimensions.md
 2. Captures screenshot via `figma_capture_screenshot` (Desktop Bridge, live state)
-3. Scores 10 dimensions (or 3 for Spot)
+3. Scores 11 dimensions (or 3 for Spot, excl. N/A)
 4. If fail or conditional_pass: targeted fix cycle (max 2 iterations per screen)
 5. Logs audit results to per-screen journal: `op: "quality_audit"`
 6. Returns findings to main context

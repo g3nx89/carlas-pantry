@@ -118,7 +118,7 @@ Each topic lives in exactly one canonical file:
 | Per-element position analysis, constraint rules | `quality-audit-scripts.md` |
 | Scrollability check | `quality-audit-scripts.md` |
 | Spot/Standard/Deep audit execution procedures | `quality-procedures.md` |
-| Handoff Audit template (Sonnet subagent prompt with all 10 dimensions) | `quality-procedures.md` |
+| Handoff Audit template (Sonnet subagent prompt with all 11 dimensions) | `quality-procedures.md` |
 | Deep Critique judge prompt templates (Visual Fidelity, Structural, Design System, UX Critic advisory) | `quality-procedures.md` |
 | Judge 4: UX Design Critic (Deep, advisory, no score) | `quality-procedures.md` |
 | Fix cycle protocol, Mod-Audit-Loop pattern | `quality-procedures.md` |

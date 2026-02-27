@@ -65,7 +65,7 @@
    - Enter Fix Cycle (Section 5)
    - Max 2 iterations per phase boundary, max 3 per screen
 
-4. Log to journal (op: "quality_audit", tier: "standard", all 10 scores + composite)
+4. Log to journal (op: "quality_audit", tier: "standard", all 11 scores + composite)
 ```
 
 **Token budget**: ~5K per screen — includes structural scripts, accessibility check (Script G), copy quality check (Script H), screenshot, analysis.
@@ -387,7 +387,7 @@ Post-loop:
 
 ## 7. Deep Critique Judge Templates
 
-Use when dispatching 3 judges for session-end Deep Critique. All judges are `Task(subagent_type="general-purpose", model="sonnet")`.
+Use when dispatching judges for session-end Deep Critique. All judges are `Task(subagent_type="general-purpose", model="sonnet")`. Judges 1-3 produce dimension scores; Judge 4 produces advisory qualitative findings only.
 
 ### Judge Prompt Variables
 
