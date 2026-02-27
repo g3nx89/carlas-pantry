@@ -53,6 +53,11 @@ case "$CLI_NAME" in
   gemini)
     CLI_CMD="gemini --non-interactive --yolo --output-format json < $PROMPT_FILE"
     ;;
+  opencode)
+    OPENCODE_INSTRUCTION="${OPENCODE_INSTRUCTION:-Execute the analysis instructions in the attached file. Return your complete findings in the specified output format.}"
+    ESCAPED_INSTRUCTION=$(printf '%s' "$OPENCODE_INSTRUCTION" | sed "s/'/'\\\\''/g")
+    CLI_CMD="opencode run --format json -f $PROMPT_FILE '${ESCAPED_INSTRUCTION}'"
+    ;;
   *)
     CLI_CMD="$CLI_NAME < $PROMPT_FILE"
     ;;

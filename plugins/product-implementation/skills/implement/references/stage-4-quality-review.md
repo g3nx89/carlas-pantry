@@ -168,7 +168,7 @@ When the `code-review` plugin is installed, Tier B runs a context-isolated revie
 
 > See `stage-4-cli-review.md` for the full procedure.
 
-When `cli_dispatch.stage4.multi_model_review.enabled` is `true`, Tier C dispatches external CLI agents for multi-model review. Phase 1 runs parallel reviewers (correctness via Codex, plus conditional security and Android domain reviewers). Phase 2 conditionally runs a codebase-wide pattern search via Gemini when Phase 1 produces Critical/High findings. All CLI dispatches follow `cli-dispatch-procedure.md`.
+When `cli_dispatch.stage4.multi_model_review.enabled` is `true`, Tier C dispatches external CLI agents for multi-model review. Phase 1 runs parallel reviewers (correctness via Codex, plus conditional security, Android domain, and UX/accessibility reviewers). Phase 2 conditionally runs a codebase-wide pattern search via Gemini when Phase 1 produces Critical/High findings. All CLI dispatches follow `cli-dispatch-procedure.md`.
 
 ### Dev-Skills Conditional Reviewers
 

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "opencode",
+  "command": "opencode",
+  "additional_args": [],
+  "roles": {
+    "ux_test_reviewer": { "prompt_path": "opencode_ux_test_reviewer.txt", "max_output_tokens": 6000 },
+    "ux_validator":     { "prompt_path": "opencode_ux_validator.txt", "max_output_tokens": 8000 },
+    "ux_reviewer":      { "prompt_path": "opencode_ux_reviewer.txt", "max_output_tokens": 6000 },
+    "doc_reviewer":     { "prompt_path": "opencode_doc_reviewer.txt", "max_output_tokens": 6000 }
+  }
+}

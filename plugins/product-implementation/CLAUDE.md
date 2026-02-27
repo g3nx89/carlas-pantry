@@ -99,6 +99,34 @@ Stage 6 generates a comprehensive implementation retrospective using a three-lay
 - Section toggles: `retrospective.sections.*` (timeline, what_worked, what_didnt_work, etc.)
 - Auto-commit: `auto_commit.message_templates.retrospective` + exclude patterns for report card and transcript extract
 
+## OpenCode CLI Integration
+
+OpenCode provides the UX/Product lens across Stages 2-5, complementing Codex (code correctness) and Gemini (broad/strategic analysis). All 4 roles are disabled by default (opt-in via config).
+
+### Roles
+
+| Role | Stage | Config Key | Focus |
+|------|-------|-----------|-------|
+| `ux_test_reviewer` | 2 (Step 3.6) | `cli_dispatch.stage2.ux_test_reviewer` | Test coverage for UX scenarios (empty/loading/error states, accessibility) |
+| `ux_validator` | 3 (Section 3.1b) | `cli_dispatch.stage3.ux_validator` | Implementation completeness from UX/accessibility perspective |
+| `ux_reviewer` | 4 (Tier C Phase 1) | `cli_dispatch.stage4.multi_model_review.conditional` | WCAG 2.2 compliance, user flows, interaction states |
+| `doc_reviewer` | 5 (Section 5.2a) | `cli_dispatch.stage5.doc_reviewer` | Documentation quality from user perspective |
+
+### Key Constraints
+
+- **Orchestrator-transparent**: Only coordinators and Stage 1 (inline) touch OpenCode; orchestrator never sees it
+- **No auto-approval flag**: OpenCode runs in non-interactive mode and auto-rejects permission requests — inherently safe
+- **Dispatch syntax**: `opencode run --format json -f $PROMPT_FILE '<instruction>'` (configured in `scripts/dispatch-cli-agent.sh`; instruction properly escaped for single quotes)
+- **Conditional domain trigger**: UX roles (ux_test_reviewer, ux_reviewer) only fire for UI domains (compose, android, web_frontend)
+- **Advisory findings**: Stage 2 UX test review gaps are advisory (do not block phase progression)
+- **One revision cycle**: Stage 5 doc review can trigger one tech-writer revision for Critical/High gaps
+
+### Configuration
+
+- CLI metadata: `config/cli_clients/opencode.json`
+- Role prompts: `config/cli_clients/opencode_ux_*.txt` and `opencode_doc_reviewer.txt`
+- All configurable values in `config/implementation-config.yaml` under `cli_dispatch.stage{2,3,4,5}`
+
 ## Dev-Skills Integration
 
 When the `dev-skills` plugin is installed alongside `product-implementation`, agents receive conditional domain-specific skill references that enhance implementation quality with patterns, anti-patterns, and decision trees.

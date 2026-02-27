@@ -2,9 +2,10 @@
 purpose: "Shared parameterized CLI dispatch, timeout, parsing, and fallback procedure"
 referenced_by:
   - "stage-1-setup.md (Section 1.7b)"
-  - "stage-2-execution.md (Options H, I, J)"
-  - "stage-3-validation.md (Option C)"
+  - "stage-2-execution.md (Options H, I, J, K)"
+  - "stage-3-validation.md (Options C, D)"
   - "stage-4-cli-review.md (Tier C dispatches)"
+  - "stage-5-documentation.md (Option L)"
 config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (cli_dispatch)"
 ---
 

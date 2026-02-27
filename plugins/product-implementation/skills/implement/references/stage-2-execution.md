@@ -265,6 +265,46 @@ After phase completion is verified (all tasks `[X]`, tests passing), optionally 
 
 Adds ~5-15s dispatch overhead + 30-120s agent execution per phase. Skipped automatically when disabled, when no eligible files exist, or when file count exceeds threshold.
 
+### Step 3.6: UX Test Coverage Review (Optional)
+
+> **Conditional**: Only runs when ALL of:
+>   1. `cli_dispatch.stage2.ux_test_reviewer.enabled` is `true`
+>   2. `cli_availability.opencode` is `true` (from Stage 1 summary)
+>   3. Phase touches UI files (task file paths match any domain in `ux_test_reviewer.phase_relevance.ui_domains`)
+> If any condition is false, skip this step silently.
+
+After tests are written and passing (Step 3), dispatch OpenCode to review test coverage for UX scenarios: empty states, loading states, error states, and accessibility assertions.
+
+#### Procedure
+
+1. **Phase relevance check**: Check if ANY task file path in the current phase matches UI domain indicators from `cli_dispatch.stage2.ux_test_reviewer.phase_relevance.ui_domains` (resolved via `dev_skills.domain_mapping` indicators). If no match, skip.
+
+2. **Collect test files**: List all test files created or modified in this phase (from Step 3 output).
+
+3. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
+   - `cli_name="opencode"`, `role="ux_test_reviewer"`
+   - `fallback_behavior` from `cli_dispatch.stage2.ux_test_reviewer.fallback_behavior` (default: `"skip"`)
+   - `expected_fields=["test_files_reviewed", "components_covered", "ux_scenario_gaps", "top_gap"]`
+
+4. **Coordinator-Injected Context** (appended per `cli-dispatch-procedure.md` variable injection convention):
+   - `{phase_name}` — current phase name
+   - `{FEATURE_DIR}` — feature directory
+   - `{PROJECT_ROOT}` — project root
+   - `{test_files}` — list of test files created/modified in this phase
+   - `{source_files}` — list of source files the tests cover
+   - `{skill_references}` — resolved in Section 2.0 (or fallback text)
+
+5. **Result processing**: Parse `<SUMMARY>` block. If UX scenario gaps are found:
+   - `[High]` gaps (missing accessibility tests on interactive components): log finding, include in phase metrics
+   - `[Medium]`/`[Low]` gaps (missing empty/loading state tests): log as warning, continue
+   - Gaps do NOT block phase progression — they are advisory for awareness
+
+6. **If CLI fails, CLI unavailable, or times out**: follow `fallback_behavior` — default `"skip"` means continue without review, log warning
+
+#### Latency Impact
+
+Adds ~5-15s dispatch overhead + 30-90s agent execution per relevant phase. Skipped automatically when disabled, when OpenCode is unavailable, or when phase has no UI files.
+
 ### Step 3.7: UAT Mobile Testing (Optional)
 
 > **Conditional**: Only runs when ALL of:

@@ -333,6 +333,7 @@ Store in Stage 1 summary YAML frontmatter:
 cli_availability:
   codex: true
   gemini: false
+  opencode: true
 dispatch_infrastructure:
   script_available: true
   jq_available: true
@@ -354,6 +355,7 @@ Initialize the circuit breaker state for all detected CLIs:
 cli_circuit_state:
   codex: {consecutive_failures: 0, status: "closed"}
   gemini: {consecutive_failures: 0, status: "closed"}
+  opencode: {consecutive_failures: 0, status: "closed"}
 ```
 
 Only include CLIs where `cli_availability.{cli_name}` is `true`. Omit unavailable CLIs.
@@ -476,6 +478,7 @@ detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from
 cli_availability:              # from Section 1.7a (empty {} if no CLI options enabled)
   codex: {true/false}
   gemini: {true/false}
+  opencode: {true/false}
 mcp_availability:           # from Section 1.6a (all false if research_mcp.enabled is false)
   ref: {true/false}
   context7: {true/false}

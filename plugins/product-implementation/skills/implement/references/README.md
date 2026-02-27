@@ -47,13 +47,13 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | 258 | Dispatch loop, crash recovery, lock release, state migration, late notification handling, autonomy policy infrastructure checks, context pack protocol |
-| `stage-1-setup.md` | 591 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), plugin availability check (1.6f), CLI circuit breaker initialization (1.7b), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), context contributions initialization, summary template |
-| `stage-2-execution.md` | 617 | Skill resolution, research context resolution (2.0a), phase loop, CLI test author (Step 1.8), code simplification (Step 3.5), UAT mobile testing (Step 3.7) with non-skippable gate check, CLI test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, cli_dispatch_metrics, circuit state propagation, context contributions, autonomy policy checks |
-| `stage-3-validation.md` | 201 | Validation checks, CLI spec validator (3.1a), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, circuit state propagation, context contributions, autonomy policy check (3.4) |
+| `stage-1-setup.md` | 594 | Inline setup instructions, domain detection, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), plugin availability check (1.6f), CLI circuit breaker initialization (1.7b), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), context contributions initialization, summary template |
+| `stage-2-execution.md` | ~660 | Skill resolution, research context resolution (2.0a), phase loop, CLI test author (Step 1.8), code simplification (Step 3.5), OpenCode UX test review (Step 3.6), UAT mobile testing (Step 3.7) with non-skippable gate check, CLI test augmenter (2.1a), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, cli_dispatch_metrics, circuit state propagation, context contributions, autonomy policy checks |
+| `stage-3-validation.md` | ~240 | Validation checks, CLI spec validator (3.1a), OpenCode UX validator (3.1b), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, circuit state propagation, context contributions, autonomy policy check (3.4) |
 | `stage-4-quality-review.md` | 467 | Three-tier review architecture (Tier A native, Tier B plugin, Tier C CLI), Tier A native multi-agent review, stance assignment (4.2), convergence detection (4.3a), confidence scoring with outcome logging, severity reclassification (with intentional bypass note), stance divergence analysis (4.3), CoVe post-synthesis (4.3b), finding consolidation, auto-decision matrix with autonomy policy extension (4.4), CLI fix engineer (Option F), auto-commit on fix |
 | `stage-4-plugin-review.md` | 69 | Tier B: Plugin-based review via code-review skill, config-driven CEK confidence normalization, max findings cap, graceful degradation |
-| `stage-4-cli-review.md` | 112 | Tier C: CLI multi-model review, Phase 1 parallel dispatch (correctness, security, android domain), Phase 2 sequential pattern search (Gemini 1M context), consolidation checkpoint |
-| `stage-5-documentation.md` | 259 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, auto-commit documentation, lock release, context contributions, autonomy policy check for incomplete tasks (5.1) |
+| `stage-4-cli-review.md` | ~130 | Tier C: CLI multi-model review, Phase 1 parallel dispatch (correctness, security, android domain, UX/accessibility), Phase 2 sequential pattern search (Gemini 1M context), consolidation checkpoint |
+| `stage-5-documentation.md` | ~300 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, OpenCode doc review (5.2a), auto-commit documentation, lock release, context contributions, autonomy policy check for incomplete tasks (5.1) |
 | `agent-prompts.md` | 541 | All 9 agent prompt templates (8 agent + 1 auto-commit) with `{skill_references}`, `{research_context}`, and `{reviewer_stance}` variables, verified test count, severity escalation, R-REV-01 pattern propagation, build verification, API verification, test quality, animation testing, code simplification, retrospective composition |
 | `auto-commit-dispatch.md` | 62 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
 | `skill-resolution.md` | 87 | Shared skill resolution algorithm for domain-specific skill injection |
@@ -133,3 +133,18 @@ Quick guide to when to read each reference file during skill development or debu
 - `stage-1-setup.md` writes `cli_circuit_state` to Stage 1 summary (Section 1.7b); propagated through Stages 2, 3, 4 via summary flags, updated by CLI dispatches
 - `stage-1-setup.md` writes initial `context_contributions` to Stage 1 summary; accumulated across all stages via `orchestrator-loop.md` context pack builder
 - `agent-prompts.md` `{reviewer_stance}` variable in Quality Review Prompt with explicit fallback default
+- OpenCode CLI integration is orchestrator-transparent: only coordinators and Stage 1 (inline) detect availability; orchestrator never sees OpenCode
+- `config/cli_clients/opencode.json` → OpenCode CLI metadata with 4 roles: `ux_test_reviewer`, `ux_validator`, `ux_reviewer`, `doc_reviewer`
+- `config/cli_clients/opencode_ux_test_reviewer.txt` → role prompt for Option K UX test coverage review (Stage 2 Step 3.6)
+- `config/cli_clients/opencode_ux_validator.txt` → role prompt for Option D UX completeness validation (Stage 3 Section 3.1b)
+- `config/cli_clients/opencode_ux_reviewer.txt` → role prompt for Tier C UX/accessibility code review (Stage 4 Phase 1)
+- `config/cli_clients/opencode_doc_reviewer.txt` → role prompt for Option L documentation quality review (Stage 5 Section 5.2a)
+- `config/implementation-config.yaml` `cli_dispatch.stage2.ux_test_reviewer` → referenced by `stage-2-execution.md` Step 3.6
+- `config/implementation-config.yaml` `cli_dispatch.stage3.ux_validator` → referenced by `stage-3-validation.md` Section 3.1b
+- `config/implementation-config.yaml` `cli_dispatch.stage4.multi_model_review.conditional` includes OpenCode `ux_reviewer` for UI domains
+- `config/implementation-config.yaml` `cli_dispatch.stage5.doc_reviewer` → referenced by `stage-5-documentation.md` Section 5.2a
+- `stage-1-setup.md` writes `cli_availability.opencode` to Stage 1 summary (auto-detected when any OpenCode option is enabled); consumed by Stages 2, 3, 4, 5 coordinators
+- `stage-2-execution.md` Step 3.6 uses `cli-dispatch-procedure.md` for OpenCode UX test review dispatch
+- `stage-3-validation.md` Section 3.1b uses `cli-dispatch-procedure.md` for OpenCode UX validation dispatch
+- `stage-4-cli-review.md` includes OpenCode `ux_reviewer` as conditional Phase 1 reviewer alongside security and android domain reviewers
+- `stage-5-documentation.md` Section 5.2a uses `cli-dispatch-procedure.md` for OpenCode doc review dispatch; can trigger one tech-writer revision cycle

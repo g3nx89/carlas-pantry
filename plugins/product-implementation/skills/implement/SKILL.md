@@ -224,7 +224,7 @@ Configuration: `config/implementation-config.yaml` under `research_mcp`.
 
 ## CLI Dispatch
 
-When external CLI agents (Codex, Gemini) are installed, coordinators can delegate specific tasks via Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`) for multi-model code generation, testing, validation, and review. This integration is:
+When external CLI agents (Codex, Gemini, OpenCode) are installed, coordinators can delegate specific tasks via Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`) for multi-model code generation, testing, validation, and review. This integration is:
 
 - **Zero-cost when disabled** — all CLI options default to `enabled: false` in config; when disabled, no CLI dispatch occurs and no CLI availability checks run
 - **Orchestrator-transparent** — the orchestrator never invokes CLI dispatch or reads CLI config; all dispatch happens inside coordinator subagents and Stage 1 (inline)
@@ -236,9 +236,10 @@ When external CLI agents (Codex, Gemini) are installed, coordinators can delegat
 **CLI availability detection** runs in Stage 1 (Section 1.7a): dispatch script smoke tests verify which CLIs are installed, with results stored in `cli_availability` in the Stage 1 summary.
 
 **Injection points:**
-- Stage 2: Test Author (Option H — Codex generates TDD tests from specs), Test Augmenter (Option I — Gemini discovers untested edge cases), UAT Mobile Tester (Option J — Gemini runs per-phase behavioral acceptance testing and Figma visual verification on Genymotion emulator via mobile-mcp)
-- Stage 3: Spec Validator (Option C — Gemini cross-validates implementation against specs in parallel with native validator)
-- Stage 4: Three-tier review (Tier A: native always, Tier B: plugin when installed, Tier C: CLI multi-model). Tier C includes correctness reviewer (Codex), security reviewer (Codex, conditional), android domain reviewer (Gemini, conditional), and codebase pattern reviewer (Gemini, Phase 2 sequential). Fix Engineer (Option F — Codex fixes review findings).
+- Stage 2: Test Author (Option H — Codex generates TDD tests from specs), Test Augmenter (Option I — Gemini discovers untested edge cases), UAT Mobile Tester (Option J — Gemini runs per-phase behavioral acceptance testing and Figma visual verification on Genymotion emulator via mobile-mcp), UX Test Reviewer (Option K — OpenCode reviews test coverage for UX scenarios, conditional on UI domains)
+- Stage 3: Spec Validator (Option C — Gemini cross-validates implementation against specs in parallel with native validator), UX Validator (Option D — OpenCode validates implementation completeness from UX/accessibility perspective)
+- Stage 4: Three-tier review (Tier A: native always, Tier B: plugin when installed, Tier C: CLI multi-model). Tier C includes correctness reviewer (Codex), security reviewer (Codex, conditional), android domain reviewer (Gemini, conditional), codebase pattern reviewer (Gemini, Phase 2 sequential), and UX/accessibility reviewer (OpenCode, conditional on UI domains). Fix Engineer (Option F — Codex fixes review findings).
+- Stage 5: Doc Reviewer (Option L — OpenCode reviews documentation quality from user perspective)
 
 **Shared procedure:** All CLI dispatches use the parameterized procedure in `references/cli-dispatch-procedure.md` for dispatch, timeout, 4-tier output parsing, metrics sidecar, and fallback handling.
 
@@ -274,7 +275,7 @@ Configuration: `config/implementation-config.yaml` under `autonomy_policy`.
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |
 | `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Three-tier review architecture, Tier A native review (with optional stances), convergence detection, confidence scoring, finding consolidation, CoVe post-synthesis, auto-decision matrix |
 | `references/stage-4-plugin-review.md` | Stage 4 (coordinator reads) | Tier B: Plugin-based review via code-review skill, finding normalization |
-| `references/stage-4-cli-review.md` | Stage 4 (coordinator reads) | Tier C: CLI multi-model review, Phase 1/2 dispatch, pattern search |
+| `references/stage-4-cli-review.md` | Stage 4 (coordinator reads) | Tier C: CLI multi-model review, Phase 1/2 dispatch, pattern search, UX/accessibility review |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
 | `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | All 9 agent prompt templates with build verification, API verification, test quality, animation testing, pattern propagation, code simplification, auto-commit, retrospective composition |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5, 6 (coordinator reads) | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |

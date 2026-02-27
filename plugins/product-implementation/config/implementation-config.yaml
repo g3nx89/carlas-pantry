@@ -460,6 +460,19 @@ cli_dispatch:
       # Timeout for the CLI dispatch itself (overrides global cli_dispatch.timeout_ms)
       timeout_ms: 600000                 # 10 minutes — UAT scenarios with mobile-mcp interactions take longer than code review
 
+    # Option K: Post-phase UX test coverage review via OpenCode (Tier 2)
+    # Reviews test files after each phase for UX scenario coverage gaps:
+    # empty states, loading states, error states, accessibility assertions.
+    # Only triggers for phases with UI-related file paths.
+    ux_test_reviewer:
+      enabled: false
+      cli_name: "opencode"
+      role: "ux_test_reviewer"
+      fallback_behavior: "skip"          # Skip silently if OpenCode unavailable
+      phase_relevance:
+        check_ui_file_paths: true        # Check task file paths against UI domain indicators
+        ui_domains: ["compose", "android", "web_frontend"]  # Domains from dev_skills.domain_mapping whose indicators suggest UI work
+
   # --- STAGE 3 ---
 
   stage3:
@@ -469,6 +482,16 @@ cli_dispatch:
       cli_name: "gemini"
       role: "spec_validator"
       merge_strategy: "conservative"  # Use lower test count, flag disagreements
+
+    # Option D: UX/Accessibility validation via OpenCode (Tier 2)
+    # Validates implementation completeness from UX perspective: user flow states,
+    # accessibility attributes, error recovery paths. Runs in parallel with native
+    # validator and Gemini spec validator.
+    ux_validator:
+      enabled: false
+      cli_name: "opencode"
+      role: "ux_validator"
+      merge_strategy: "conservative"  # UX gaps added to merged finding set; disagreements marked "NEEDS MANUAL REVIEW"
 
   # --- STAGE 4 ---
 
@@ -493,6 +516,10 @@ cli_dispatch:
           cli_name: "gemini"
           role: "android_domain_reviewer"
           domains: ["android", "compose", "kotlin"]
+        - focus: "UX quality, accessibility compliance, user flow completeness"
+          cli_name: "opencode"
+          role: "ux_reviewer"
+          domains: ["compose", "android", "web_frontend"]
       # Codebase pattern reviewer — Phase 2 sequential dispatch (requires Phase 1 Critical/High findings)
       codebase_pattern_reviewer:
         dispatch_phase: 2             # Runs after Phase 1 consolidation, only if Critical/High findings exist
@@ -553,6 +580,16 @@ cli_dispatch:
       cli_name: "gemini"
       role: "doc_researcher"
       max_tokens: 1500
+
+    # Option L: Documentation quality review via OpenCode (Tier 2)
+    # Reviews documentation produced by tech-writer from user perspective:
+    # completeness, accuracy, usability, accessibility documentation.
+    # Runs AFTER tech-writer produces docs, findings fed back for optional revision.
+    doc_reviewer:
+      enabled: false
+      cli_name: "opencode"
+      role: "doc_reviewer"
+      fallback_behavior: "skip"          # Skip silently if OpenCode unavailable
 
 # Implementation retrospective (Stage 6)
 # Generates a KPI Report Card and narrative retrospective document after all stages complete.
