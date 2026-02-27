@@ -287,6 +287,14 @@ If approved for auto-fix:
 3. Present findings to user with explicit confirmation: "Bind to token X?" (never assume user intent for magic numbers)
 4. Apply approved bindings
 
+#### Behavioral & content specification extraction
+
+1. Run Script I (`quality-audit-scripts.md` Section 9) per screen to auto-extract prototype connections
+2. Prompt user for gesture/hover/focus behaviors not captured in Figma prototype
+3. Compute current character counts for TEXT nodes, prompt user for limits and overflow rules
+4. Present edge case checklist (i18n, degraded conditions) per `workflow-code-handoff.md` Behavioral Specification Extraction Steps
+5. Write behavioral specifications to handoff manifest draft
+
 #### Final design system audit
 
 1. `figma_audit_design_system` → 0-100 health scorecard

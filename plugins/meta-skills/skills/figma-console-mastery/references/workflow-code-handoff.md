@@ -1,6 +1,6 @@
 # Code Handoff Protocol
 
-> **Cross-references**: `recipes-advanced.md` (Handoff Preparation Pattern + naming audit recipe), `design-rules.md` (Code-readiness SHOULD rules #11-14), `st-integration.md` (Naming Audit Reasoning template)
+> **Cross-references**: `recipes-advanced.md` (Handoff Preparation Pattern + naming audit recipe), `design-rules.md` (Code-readiness SHOULD rules #11-14), `st-integration.md` (Naming Audit Reasoning template), `quality-audit-scripts.md` (Script I: Prototype Connection Extraction, Script H: UX Copy Quality)
 
 When the design session is complete and the design will be implemented as code,
 run this protocol to prepare the Figma artifact for downstream consumption by a
@@ -100,10 +100,80 @@ Elements failing any gate remain as styled frames with proper naming and token b
    - Design System Audit: [N]/100
    - Naming compliance: [N]% PascalCase
    - Token coverage: [N]% bound to variables
+
+   ## Interaction Specifications
+
+   ### Prototype Connections (auto-extracted via Script I)
+
+   | # | Element | Trigger | Action | Destination | Transition | Duration |
+   |---|---------|---------|--------|-------------|------------|----------|
+   | 1 | [source name] | ON_CLICK | NAVIGATE | [dest screen] | SMART_ANIMATE | 300ms |
+
+   ### Gesture & Hover Behaviors (manual — not captured by Figma prototype)
+
+   | Element | Gesture/State | Behavior | Notes |
+   |---------|--------------|----------|-------|
+   | [element] | Long press | [action] | [details] |
+   | [element] | Hover | [visual change] | [details] |
+
+   ### Focus & Active States (manual)
+
+   | Element | Focus State | Active State | Tab Order |
+   |---------|------------|-------------|-----------|
+   | [element] | [visual indicator] | [visual change] | [N] |
+
+   ## Content Specifications
+
+   | Field | Max Characters | Truncation | Empty State | Loading State |
+   |-------|---------------|------------|-------------|---------------|
+   | [field name] | [N] | [ellipsis/fade/wrap] | [placeholder text] | [skeleton/spinner] |
+
+   ### Error States
+
+   | Field/Screen | Error Condition | Message | Recovery Action |
+   |-------------|----------------|---------|-----------------|
+   | [field] | [condition] | [error text] | [how to recover] |
+
+   ## Edge Case Specifications
+
+   ### i18n String Expansion
+
+   | Element | Current (EN) | Max Expansion | Overflow Strategy |
+   |---------|-------------|---------------|-------------------|
+   | [element] | [text] | [1.5x/2x] | [truncate/wrap/resize] |
+
+   ### Degraded Conditions
+
+   | Condition | Affected Elements | Behavior | Fallback |
+   |-----------|------------------|----------|----------|
+   | Slow connection (>3s) | [elements] | [behavior] | [fallback UI] |
+   | Missing data | [elements] | [behavior] | [empty state] |
+   | Offline | [elements] | [behavior] | [cached/disabled] |
    ```
 
    The coding agent reads this manifest to locate screens by node ID, map components
    to code, and resolve token names.
+
+## Behavioral Specification Extraction Steps
+
+These steps populate the Interaction, Content, and Edge Case sections of the Handoff Manifest:
+
+1. **Prototype Connection Extraction (auto)** — Run Script I (`quality-audit-scripts.md` Section 9) per screen. Populates the "Prototype Connections" table automatically from `node.reactions`.
+
+2. **Gesture/Hover/Focus Behaviors (manual prompt)** — Script I captures only Figma prototype connections. For behaviors not captured:
+   - Ask user: "Are there gesture interactions (long press, swipe, pinch) not in the prototype?"
+   - Ask user: "Are there hover/focus states that should be documented?"
+   - Include "Let's discuss this" option per P3.
+
+3. **Content Specifications (heuristic-assisted)** — For each TEXT node in interactive elements:
+   - Auto-compute current character count from `.characters.length`
+   - Ask user: "What is the max character limit for [field]?" / "How should overflow be handled?"
+   - Auto-detect empty state patterns (see Script H, check H3) and prompt user for loading state behavior.
+
+4. **Edge Case Checklist (manual prompt)** — Present checklist to user:
+   - i18n: "Will this support multiple languages? Expected max expansion factor?"
+   - Degraded conditions: "What happens on slow connection / missing data / offline?"
+   - Include "Skip — not applicable" and "Let's discuss this" options.
 
 ## Multi-Platform Notes
 

@@ -604,9 +604,81 @@ return (async () => {
 
 ---
 
-## 9. Screen Diff Template (Draft vs Handoff Visual Comparison)
+## 9. Script I: Prototype Connection Extraction
 
-> **Note**: Sections 9-12 were renumbered from 7-10 in v1.1.0 after inserting Scripts G and H.
+Extracts `node.reactions` data from all interactive elements on a screen. Used by the Handoff Manifest (see `workflow-code-handoff.md`) to auto-populate Interaction Specifications.
+
+```js
+return (async () => {
+  const screen = await figma.getNodeByIdAsync('{{NODE_ID}}');
+  if (!screen) return JSON.stringify({ error: 'Screen node not found', nodeId: '{{NODE_ID}}' });
+
+  const allNodes = screen.findAll(n => true);
+  const connections = [];
+
+  for (const node of allNodes) {
+    if (!node.reactions || node.reactions.length === 0) continue;
+    for (const reaction of node.reactions) {
+      const trigger = reaction.trigger;
+      const action = reaction.actions?.[0] || reaction.action;
+      if (!action) continue;
+
+      const entry = {
+        sourceId: node.id,
+        sourceName: node.name,
+        sourceType: node.type,
+        trigger: {
+          type: trigger?.type || 'UNKNOWN',
+          delay: trigger?.delay || 0
+        },
+        action: {
+          type: action.type || 'UNKNOWN',
+          destinationId: action.destinationId || null,
+          navigation: action.navigation || null,
+          transition: action.transition ? {
+            type: action.transition.type || null,
+            easing: action.transition.easing ? {
+              type: action.transition.easing.type || null
+            } : null,
+            duration: action.transition.duration || null
+          } : null,
+          overlay: action.type === 'OVERLAY' ? {
+            position: action.overlayRelativePosition || null,
+            closeOnClickOutside: action.closeOnClickOutside ?? null
+          } : null
+        }
+      };
+
+      // Resolve destination name if available
+      if (action.destinationId) {
+        try {
+          const dest = await figma.getNodeByIdAsync(action.destinationId);
+          entry.action.destinationName = dest?.name || 'Unknown';
+        } catch {
+          entry.action.destinationName = 'Unresolvable';
+        }
+      }
+
+      connections.push(entry);
+    }
+  }
+
+  return JSON.stringify({
+    screenId: screen.id,
+    screenName: screen.name,
+    totalConnections: connections.length,
+    connections
+  }, null, 2);
+})();
+```
+
+**Usage**: Run per screen during Handoff Manifest generation. Output feeds directly into the Interaction Specifications table in `workflow-code-handoff.md`.
+
+---
+
+## 10. Screen Diff Template (Draft vs Handoff Visual Comparison)
+
+> **Note**: Sections 10-13 were renumbered from 7-10 in v1.1.0 after inserting Scripts G, H, and I.
 
 Use when comparing two versions of the same screen. Dispatch as `Task(subagent_type="general-purpose", model="sonnet")`.
 
@@ -689,7 +761,7 @@ After any figma_execute mutations in this session, use figma_capture_screenshot 
 
 ---
 
-## 10. Per-Element Position Analysis
+## 11. Per-Element Position Analysis
 
 For each element in a screen, evaluate if current positioning (absolute, auto-layout child, anchored) is appropriate.
 
@@ -739,7 +811,7 @@ Is this element inside an auto-layout container?
 
 ---
 
-## 11. Scrollability Check
+## 12. Scrollability Check
 
 Verify whether screen is intended as scrollable or fixed viewport, and whether structure matches intent.
 
@@ -764,7 +836,7 @@ Verify whether screen is intended as scrollable or fixed viewport, and whether s
 
 **If fixed viewport:**
 - Screen root: FRAME without auto-layout (stage)
-- Direct children: per-type constraint rules (Section 10)
+- Direct children: per-type constraint rules (Section 11)
 - Bottom-anchored elements: constraints MAX vertical
 - Full-width elements: constraints STRETCH or LEFT_RIGHT horizontal
 
@@ -776,7 +848,7 @@ Verify whether screen is intended as scrollable or fixed viewport, and whether s
 
 ---
 
-## 12. Positional Diff Script (Enhanced)
+## 13. Positional Diff Script (Enhanced)
 
 Alternative to Script B for more detailed positional analysis. Use when Draft reference is available and detailed metric tracking is needed.
 

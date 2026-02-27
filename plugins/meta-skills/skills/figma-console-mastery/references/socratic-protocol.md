@@ -21,8 +21,8 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
 
 | Mode | Categories | Skip |
 |------|-----------|------|
-| **Create** | Cat. 0, 1, 2 (optional), 5, 6, 7, 8 | Cat. 3, 4, 9 |
-| **Restructure** | All categories (0-9) | None |
+| **Create** | Cat. 0, 1, 2 (optional), 5, 6, 7, 8, 10 (optional) | Cat. 3, 4, 9 |
+| **Restructure** | All categories (0-10) | None |
 
 ---
 
@@ -235,6 +235,29 @@ The Socratic Protocol ensures user-approved design decisions before execution. E
 **Output**: Interaction targets (e.g., "Add prototype: Login Button → Dashboard screen, Help icon → Help overlay (close on outside click)") OR "No interactions — static mockup"
 
 **Mode notes**: Mostly Restructure mode (preserving/adding interactions). Optional for Create mode if user requests interactive prototype.
+
+---
+
+## Category 10 — Content & Interaction Specifications (optional)
+
+**Purpose**: Capture content constraints, interaction behaviors, and edge case specifications that inform the Handoff Manifest.
+
+**Key questions**:
+1. **Character limits**: "Do any text fields have maximum character limits? What truncation strategy should be used (ellipsis, fade, wrap)?"
+   - Options: "Yes, I'll provide limits", "Use current lengths as defaults", "Skip — not applicable", "Let's discuss this"
+
+2. **Empty/loading/error states**: "Should I document empty states, loading states, and error states for interactive elements on this screen?"
+   - Options: "Yes, document all", "Only error states", "Skip — handled in PRD", "Let's discuss this"
+
+3. **i18n considerations**: "Will this design support multiple languages? If so, what's the expected maximum string expansion factor?"
+   - Options: "1.5x expansion", "2x expansion", "Not applicable", "Let's discuss this"
+
+4. **Interaction behaviors**: "Are there gesture interactions (long press, swipe, pinch), hover states, or focus behaviors beyond what's in the Figma prototype?"
+   - Options: "Yes, I'll describe them", "No, prototype is complete", "Let's discuss this"
+
+**Output**: Content and interaction specifications for the Handoff Manifest OR "Skipped — specifications handled elsewhere"
+
+**Mode notes**: Optional for both modes. Most useful when preparing for code handoff. Populates the Interaction/Content/Edge Case sections of the Handoff Manifest (`workflow-code-handoff.md`).
 
 ---
 

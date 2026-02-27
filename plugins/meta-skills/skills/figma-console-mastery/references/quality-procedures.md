@@ -421,7 +421,7 @@ screen-level properties of Figma designs created or modified in this session.
 
 ## Skill References (MANDATORY)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-dimensions.md (Section 2: D1, D6, D7 rubrics)
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-audit-scripts.md (Section 10: Per-element position analysis, Section 11: Scrollability check)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/quality-audit-scripts.md (Section 11: Per-element position analysis, Section 12: Scrollability check)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md
 
 ## Context
@@ -440,14 +440,14 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.m
 
 2. Constraints & Position (D6):
    - figma_execute to inspect constraints on all direct children of each screen
-   - Per-element position analysis (quality-audit-scripts.md Section 10): verify appropriate positioning
+   - Per-element position analysis (quality-audit-scripts.md Section 11): verify appropriate positioning
    - Check: bottom-anchored elements on MAX vertical, full-width on STRETCH/LEFT_RIGHT horizontal
    - Score per D6 rubric (0-10)
 
 3. Screen Properties (D7):
    - figma_execute to inspect root node properties for each screen
    - Check: type=FRAME, cornerRadius=32, clipsContent=true, dimensions match target
-   - Scrollability check (quality-audit-scripts.md Section 11): structure consistent with scroll/non-scroll intent
+   - Scrollability check (quality-audit-scripts.md Section 12): structure consistent with scroll/non-scroll intent
    - Score per D7 rubric (0-10)
 
 4. Self-verification (answer before scoring):
