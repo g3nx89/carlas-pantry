@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "codex",
+  "command": "codex",
+  "additional_args": ["--dangerously-bypass-approvals-and-sandbox"],
+  "roles": {
+    "spec_root_cause":      { "prompt_path": "codex_spec_root_cause.txt",      "max_output_tokens": 6000 },
+    "edge_security_perf":   { "prompt_path": "codex_edge_security_perf.txt",   "max_output_tokens": 6000 },
+    "spec_q_technical":     { "prompt_path": "codex_spec_q_technical.txt",     "max_output_tokens": 4000 },
+    "spec_evaluator_for":   { "prompt_path": "codex_spec_evaluator_for.txt",   "max_output_tokens": 5000 }
+  }
+}

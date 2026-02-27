@@ -7,16 +7,16 @@
 | `orchestrator-loop.md` | Start of orchestration — dispatch loop, variable defaults, iteration logic, quality gates |
 | `recovery-migration.md` | On crash or v2 state detected — crash recovery procedures, v2→v3 state migration |
 | `stage-1-setup.md` | Stage 1 inline execution — init, MCP check, workspace, Figma capture |
-| `stage-2-spec-draft.md` | Dispatching Stage 2 — BA spec draft, MPA-Challenge ThinkDeep, incremental gates |
+| `stage-2-spec-draft.md` | Dispatching Stage 2 — BA spec draft, MPA-Challenge CLI dispatch, incremental gates |
 | `stage-3-checklist.md` | Dispatching Stage 3 — platform detect, checklist creation, BA validation |
 | `stage-4-clarification.md` | Dispatching Stage 4 — MPA-EdgeCases, clarification protocol, MPA-Triangulation, spec update |
-| `stage-5-pal-design.md` | Dispatching Stage 5 — PAL Consensus, design-brief, design-supplement (MANDATORY) |
+| `stage-5-validation-design.md` | Dispatching Stage 5 — CLI multi-stance evaluation, design-brief, design-supplement (MANDATORY) |
 | `stage-6-test-strategy.md` | Dispatching Stage 6 — V-Model test plan, AC traceability (optional, feature flag) |
 | `stage-7-completion.md` | Dispatching Stage 7 — lock release, completion report, next steps |
 | `checkpoint-protocol.md` | Any checkpoint — state update patterns and immutable decision rules |
 | `error-handling.md` | Any error condition — PAL failures, Figma failures, graceful degradation, recovery |
-| `config-reference.md` | PAL tool usage — template variables, PAL patterns, scoring thresholds |
-| `thinkdeep-patterns.md` | Stages 2, 4 (ThinkDeep calls) — parameterized multi-model execution for Challenge, EdgeCases, Triangulation |
+| `config-reference.md` | CLI dispatch usage — template variables, CLI patterns, scoring thresholds |
+| `cli-dispatch-patterns.md` | Stages 2, 4, 5 (CLI dispatch calls) — parameterized tri-CLI execution for Challenge, EdgeCases, Triangulation, Evaluation |
 | `figma-capture-protocol.md` | Stage 1 (Figma enabled) — connection selection, capture process, screenshot naming, error recovery |
 | `clarification-protocol.md` | Stage 4 (clarification dispatch) — file-based Q&A, BA recommendations, answer parsing |
 | `auto-resolve-protocol.md` | Stage 4 (pre-question generation) — auto-resolve gate, classification, citation rules, exclusion rules |
@@ -28,16 +28,16 @@
 | `orchestrator-loop.md` | ~380 | Dispatch loop, variable defaults, iteration logic (Stage 3↔4), quality gates, stall detection |
 | `recovery-migration.md` | ~80 | Crash recovery procedures, v2→v3 state migration (loaded on-demand) |
 | `stage-1-setup.md` | ~350 | Inline setup: MCP check, pre-flight, lock, workspace, Figma capture, state init |
-| `stage-2-spec-draft.md` | ~450 | BA spec draft, MPA-Challenge ThinkDeep, Gate 1 (Problem), Gate 2 (True Need) |
+| `stage-2-spec-draft.md` | ~450 | BA spec draft, MPA-Challenge CLI dispatch, Gate 1 (Problem), Gate 2 (True Need) |
 | `stage-3-checklist.md` | ~200 | Platform detect, checklist copy, BA validation, coverage scoring |
-| `stage-4-clarification.md` | ~400 | MPA-EdgeCases ThinkDeep, clarification protocol, MPA-Triangulation, spec update |
-| `stage-5-pal-design.md` | ~350 | PAL Consensus (retry loop), design-brief-generator, gap-analyzer |
+| `stage-4-clarification.md` | ~400 | MPA-EdgeCases CLI dispatch, clarification protocol, MPA-Triangulation CLI dispatch, spec update |
+| `stage-5-validation-design.md` | ~310 | CLI multi-stance evaluation (retry loop), design-brief-generator, gap-analyzer |
 | `stage-6-test-strategy.md` | ~250 | Feature flag check, QA strategist, AC coverage validation |
 | `stage-7-completion.md` | ~130 | Lock release, completion report, next steps |
 | `checkpoint-protocol.md` | ~55 | State update patterns |
-| `error-handling.md` | ~160 | PAL/Figma/gate/design/QA failures, graceful degradation |
-| `config-reference.md` | ~250 | Template variables, limits, thresholds, feature flags, PAL params |
-| `thinkdeep-patterns.md` | ~200 | Parameterized execution for 3 ThinkDeep integration points |
+| `error-handling.md` | ~165 | CLI/Figma/gate/design/QA failures, graceful degradation |
+| `config-reference.md` | ~235 | Template variables, limits, thresholds, feature flags, CLI dispatch params |
+| `cli-dispatch-patterns.md` | ~280 | Parameterized execution for 4 CLI dispatch integration points |
 | `figma-capture-protocol.md` | ~240 | Figma connection selection, capture process (ReAct), screenshot naming, error handling |
 | `clarification-protocol.md` | ~250 | File-based Q&A format, BA recommendations, answer parsing rules, state tracking |
 | `auto-resolve-protocol.md` | ~190 | Auto-resolve gate logic, classification levels, exclusion rules, report format |
@@ -48,9 +48,9 @@
 
 - Stages 2-7 reference `checkpoint-protocol.md` for state updates (Stage 1 implements checkpoints inline)
 - Stages 2-6 reference `error-handling.md` for failure recovery
-- `stage-2-spec-draft.md` references `thinkdeep-patterns.md` (Integration 1: Challenge)
-- `stage-4-clarification.md` references `thinkdeep-patterns.md` (Integrations 2 & 3: EdgeCases, Triangulation)
-- `stage-5-pal-design.md` references `config-reference.md` for PAL Consensus parameters
+- `stage-2-spec-draft.md` references `cli-dispatch-patterns.md` (Integration 1: Challenge)
+- `stage-4-clarification.md` references `cli-dispatch-patterns.md` (Integrations 2 & 3: EdgeCases, Triangulation)
+- `stage-5-validation-design.md` references `cli-dispatch-patterns.md` (Integration 4: Evaluation) and `config-reference.md` for CLI dispatch params
 - Gate thresholds (Stages 2, 3) and test thresholds (Stage 6) are loaded via config YAML in the dispatch template
 
 ### Orchestrator → Stage Files

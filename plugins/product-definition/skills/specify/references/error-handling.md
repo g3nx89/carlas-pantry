@@ -8,74 +8,81 @@
 2. Offer recovery options via summary `status: needs-user-input`
 3. If critical: set `status: failed` with clear message
 
-## PAL Service Unavailable
+## CLI Dispatch Unavailable
 
-1. Log: "PAL service unavailable"
-2. Signal `needs-user-input` with options: Retry, Skip, Abort
-3. **Graceful Degradation:** Skip ThinkDeep and Consensus steps — proceed with internal reasoning
+1. Log: "CLI dispatch unavailable (script not found or no CLI binaries in PATH)"
+2. Set `CLI_AVAILABLE = false`
+3. **Graceful Degradation:** Skip Challenge, EdgeCases, Triangulation, and Evaluation steps — proceed with internal reasoning
+4. Notify user: "CLI dispatch unavailable. Multi-model analysis steps will be skipped."
 
 ---
 
-## PAL Model Failure Notification Format
+## CLI Failure Notification Format
 
-When ANY PAL model fails, the coordinator MUST include this in the summary context:
+When ANY CLI dispatch fails, the coordinator MUST include this in the summary context:
 
 ```
 +-----------------------------------------------------------+
-| WARNING: PAL MODEL FAILURE                                 |
+| WARNING: CLI DISPATCH FAILURE                              |
 +-----------------------------------------------------------+
-| Model:     {MODEL_NAME}                                    |
+| CLI:       {CLI_NAME}                                      |
+| Role:      {ROLE_NAME}                                     |
 | Stage:     {STAGE_NUMBER} - {STAGE_NAME}                   |
-| Operation: {thinkdeep|consensus}                           |
+| Operation: {challenge|edge_cases|triangulation|evaluation} |
+| Exit Code: {EXIT_CODE} — {description}                     |
 | Error:     {ERROR_MESSAGE}                                 |
 |                                                            |
-| Remaining models: {COUNT} of {TOTAL}                       |
-| Minimum required: 2 (for consensus)                        |
+| CLIs responded: {COUNT} of {TOTAL}                         |
+| Minimum required: 2 (for evaluation)                       |
 +-----------------------------------------------------------+
 ```
 
-**If remaining models < 2 for consensus:**
-Set `status: failed` with message:
-```
-Cannot continue: PAL Consensus requires minimum 2 models.
-Only {COUNT} model(s) available. Please check PAL configuration.
-```
+**Exit code descriptions:**
+- `1` = CLI failure (retried, still failing)
+- `2` = Timeout
+- `3` = CLI not found in PATH
+- `4` = Parse failure (output captured but unstructured)
+
+**If substantive responses < 2 for evaluation (Stage 5):**
+Signal `needs-user-input` — do NOT self-assess.
 
 ---
 
-## Model Failure Logging
+## CLI Failure Logging
 
-When a model fails, log to state file:
+When a CLI fails, log to state file:
 
 ```yaml
 model_failures:
-  - model: "{MODEL_NAME}"
+  - cli: "{CLI_NAME}"
+    role: "{ROLE_NAME}"
     stage: {STAGE_NUMBER}
-    operation: "{thinkdeep|consensus}"
+    operation: "{challenge|edge_cases|triangulation|evaluation}"
+    exit_code: {EXIT_CODE}
     error: "{ERROR_MESSAGE}"
     timestamp: "{ISO_TIMESTAMP}"
-    action_taken: "{retry|continue|abort}"
+    action_taken: "{retry|continue|skipped}"
 ```
 
 ---
 
 ## Recovery Procedures
 
-### ThinkDeep Failure Recovery (Stages 2, 4)
+### CLI Challenge / EdgeCases / Triangulation Failure (Stages 2, 4)
 
 1. Log the failure
 2. Include notification in summary context
-3. If >= 1 model succeeded: continue with partial results
-4. If 0 models succeeded: skip ThinkDeep, proceed with internal reasoning
-5. Update state with `thinkdeep_failures` array
+3. If >= 1 CLI succeeded: continue with partial results (lower coverage but valid)
+4. If 0 CLIs succeeded: skip this integration point, proceed with internal reasoning
+5. Update state with `model_failures` array
 
-### Consensus Failure Recovery (Stage 5)
+### CLI Evaluation Failure (Stage 5)
 
 1. Log the failure
 2. Include notification in summary context
-3. If < 2 models available: set `status: failed` (consensus requires minimum 2)
-4. If >= 2 models: continue with available models, note partial results
-5. Update state with `consensus_failures` array
+3. If < 2 substantive responses: signal `needs-user-input` (NEVER self-assess)
+4. If >= 2 substantive responses: score using available responses, note partial results
+5. Update state with `model_failures` array
 
 ---
 
@@ -111,13 +118,14 @@ model_failures:
 
 ## Graceful Degradation (Plugin Mode)
 
-When MCP tools are unavailable at startup (detected in Stage 1):
+When tools are unavailable at startup (detected in Stage 1):
 
-### PAL Unavailable
-- Notify user: "PAL tools unavailable. ThinkDeep and Consensus steps will be skipped."
-- Skip ThinkDeep in Stages 2, 4
-- Skip PAL Consensus in Stage 5
-- Use internal validation instead
+### CLI Dispatch Unavailable
+- Notify user: "CLI dispatch unavailable. Challenge, EdgeCase, Triangulation, and Evaluation steps will be skipped."
+- `CLI_AVAILABLE = false` — set in state file
+- Skip CLI Challenge in Stage 2
+- Skip CLI EdgeCases and Triangulation in Stage 4
+- Skip CLI Evaluation in Stage 5 — use internal quality gates instead
 
 ### Sequential Thinking Unavailable
 - Notify user: "Sequential Thinking unavailable. Using internal reasoning."
@@ -131,9 +139,9 @@ When MCP tools are unavailable at startup (detected in Stage 1):
 
 ## Critical Rules
 
-1. **NEVER substitute models** — If a model fails, continue with remaining, do NOT swap in another
+1. **NEVER substitute CLIs** — If a CLI fails, continue with remaining, do NOT swap in another
 2. **ALWAYS notify user** — Every failure must be surfaced (via summary context for coordinator-delegated stages)
-3. **Minimum 2 for consensus** — PAL Consensus cannot proceed with < 2 models
+3. **Minimum 2 for evaluation** — CLI Evaluation cannot be scored with < 2 substantive responses
 4. **Log everything** — All failures and recovery actions must be logged to state
-5. **Graceful degradation** — If MCP unavailable, fall back to internal capabilities
+5. **Graceful degradation** — If CLI unavailable, fall back to internal capabilities
 6. **Mandatory outputs** — design-brief.md and design-supplement.md NEVER skipped, even on failure (retry required)

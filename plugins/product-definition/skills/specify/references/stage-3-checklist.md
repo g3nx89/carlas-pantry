@@ -86,6 +86,37 @@ Write updated checklist to: specs/{FEATURE_DIR}/spec-checklist.md
 Update spec with [NEEDS CLARIFICATION] markers: specs/{FEATURE_DIR}/spec.md
 ```
 
+## Step 3.3b: Figma Mock Coverage Check
+
+**Runs only if `STATE.handoff_supplement.available == true`.**
+
+For each user story in `spec.md`, scan its Figma references row:
+- `[Happy→Frame-X]` → verify `Frame-X` exists in the HANDOFF-SUPPLEMENT Screen Reference Table
+- `[FSB-NNN pending]` → this is already documented — not a new missing mock, just not yet created
+- `[Frame: ScreenName]` placeholder (no node ID) → screen name not found in supplement → **FIGMA MOCK MISSING**
+- No Figma reference at all for a story with behavioral AC → **FIGMA MOCK MISSING**
+
+For each AC row tagged `FIGMA MOCK MISSING`, add a marker in `spec.md`:
+```
+[FIGMA MOCK MISSING: {US-NNN} {scenario description} — no Figma frame for this scenario]
+```
+
+Track:
+```yaml
+figma_mock_gaps:
+  count: {N}
+  items:
+    - us_id: "US-NNN"
+      scenario: "{scenario description}"
+      reason: "{why mock is needed}"
+```
+
+**If count > 0:** Set `flags.figma_mock_gaps_count: {N}` in summary contract.
+**If count == 0:** Set `flags.figma_mock_gaps_count: 0` — no action needed.
+
+This check is independent of the checklist coverage score. Figma mock gaps do NOT reduce coverage_pct —
+they are surfaced separately in Stage 4 (see stage-4-clarification.md Step 4.0).
+
 ## Step 3.4: Process Results
 
 Parse BA validation output:
@@ -135,6 +166,7 @@ flags:
   markers_added: {N}
   platform_type: "{mobile|generic}"
   iteration: {N}
+  figma_mock_gaps_count: {N}
   next_action: "proceed" | "loop_clarify"
 ---
 

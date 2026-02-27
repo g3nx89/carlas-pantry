@@ -19,14 +19,20 @@ artifacts_written:
 4. **Figma is optional**: Never block the workflow if Figma is unavailable or user declines.
 5. **Feature ID uniqueness**: Always check existing branches and specs before assigning a number.
 
-## Step 1.1: MCP Availability Check
+## Step 1.1: CLI & MCP Availability Check
 
-Before proceeding, check which MCP tools are available:
+Before proceeding, check which tools are available:
 
 ```
-CHECK PAL tools:
-- Try invoking mcp__pal__thinkdeep or mcp__pal__consensus probe
-- If fails: PAL_AVAILABLE = false
+CHECK CLI dispatch script:
+- test -x "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
+- If not executable: CLI_AVAILABLE = false
+- If executable: probe each CLI binary:
+    command -v codex  → CODEX_AVAILABLE = true/false
+    command -v gemini → GEMINI_AVAILABLE = true/false
+    command -v opencode → OPENCODE_AVAILABLE = true/false
+  CLI_AVAILABLE = true if ANY CLI binary is found
+  (At least 2 must be available for evaluation; 1+ for analysis steps)
 
 CHECK Sequential Thinking:
 - Try invoking mcp__sequential-thinking__sequentialthinking with a simple thought
@@ -37,8 +43,8 @@ CHECK Figma MCP:
 - Also check mcp__figma__get_screenshot as fallback
 ```
 
-**If PAL_AVAILABLE = false:**
-- Notify user: "PAL tools unavailable. ThinkDeep and Consensus steps will be skipped."
+**If CLI_AVAILABLE = false:**
+- Notify user: "CLI dispatch unavailable. Challenge, EdgeCase, Triangulation, and Evaluation steps will be skipped. Install codex, gemini, or opencode CLI to enable multi-model analysis."
 
 **If ST_AVAILABLE = false:**
 - Notify user: "Sequential Thinking unavailable. Using internal reasoning."
@@ -221,6 +227,42 @@ Context available:
 - `FIGMA_CONTEXT_FILE`: path or null
 - `SCREENS_CAPTURED`: count
 
+## Step 1.9b: Load Handoff Supplement (Optional)
+
+Check for design-handoff output from the previous workflow step:
+
+```bash
+# Primary: feature-scoped supplement
+test -f "design-handoff/HANDOFF-SUPPLEMENT.md" && echo "FOUND"
+# Also check: briefs directory
+ls design-handoff/figma-screen-briefs/FSB-*.md 2>/dev/null | wc -l
+```
+
+**If `HANDOFF-SUPPLEMENT.md` found:**
+1. Set `HANDOFF_SUPPLEMENT_PATH = "design-handoff/HANDOFF-SUPPLEMENT.md"`
+2. Set `HANDOFF_SUPPLEMENT_AVAILABLE = true`
+3. Read the file — extract:
+   - Screen inventory (from `## Screen Reference Table` or manifest)
+   - Cross-screen patterns (from `## Cross-Screen Patterns`)
+   - Figma briefs index (from `## Figma Screen Briefs` if present) → `EXISTING_BRIEFS[]`
+4. Notify user: "Found design-handoff supplement ({N} screens). Spec will reference Figma for visual design."
+
+**If NOT found:**
+- Set `HANDOFF_SUPPLEMENT_AVAILABLE = false`
+- Notify user: "No design-handoff supplement found. Run `/product-definition:design-handoff` first for Figma-backed specs (recommended). Proceeding without."
+- Continue normally — supplement is recommended but not blocking.
+
+**Set variable `HANDOFF_CONTEXT`:**
+```
+IF HANDOFF_SUPPLEMENT_AVAILABLE:
+    HANDOFF_CONTEXT = "HANDOFF-SUPPLEMENT.md available. Figma is the visual source of truth.
+    Use screen names and node IDs from the Screen Reference Table when writing Figma references in US."
+ELSE:
+    HANDOFF_CONTEXT = "No handoff supplement. Specify Figma references as [Frame: ScreenName] placeholders."
+```
+
+This variable is injected into the BA agent dispatch context in Stage 2.
+
 ## Step 1.10: Initialize/Update State (CHECKPOINT)
 
 Create state file from template or update existing:
@@ -235,9 +277,16 @@ updated: "{ISO_TIMESTAMP}"
 current_stage: 1
 stage_status: "completed"
 mcp_availability:
-  pal_available: {true|false}
+  cli_available: {true|false}
+  codex_available: {true|false}
+  gemini_available: {true|false}
+  opencode_available: {true|false}
   st_available: {true|false}
   figma_mcp_available: {true|false}
+handoff_supplement:
+  available: {true|false}
+  path: "{design-handoff/HANDOFF-SUPPLEMENT.md | null}"
+  existing_briefs_count: {N}
 user_decisions:
   figma_enabled: {true|false}
 ```
@@ -257,11 +306,16 @@ artifacts_written:
   - specs/{FEATURE_DIR}/.specify.lock
 summary: "Initialized workspace for {FEATURE_NAME}. Figma: {enabled|disabled}."
 flags:
-  pal_available: {true|false}
+  cli_available: {true|false}
+  codex_available: {true|false}
+  gemini_available: {true|false}
+  opencode_available: {true|false}
   st_available: {true|false}
   figma_mcp_available: {true|false}
   figma_enabled: {true|false}
   figma_screens: {N|0}
+  handoff_supplement_available: {true|false}
+  existing_briefs_count: {N|0}
   workflow_mode: "{NEW|RESUME}"
 ---
 ```

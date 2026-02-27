@@ -21,7 +21,7 @@
 | `{RESUME_CONTEXT}` | Resume context from state | (generated text or empty) |
 | `{STAGE_NUMBER}` | Current stage number | `3` |
 | `{STAGE_NAME}` | Current stage name | `CHECKLIST_VALIDATION` |
-| `{MODEL_NAME}` | PAL model identifier | `gpt-5.2` |
+| `{MODEL_NAME}` | CLI model identifier | `codex`, `gemini`, `opencode` |
 | `{ERROR_MESSAGE}` | Error details | `Connection timeout` |
 | `{REMAINING_COUNT}` | Remaining models after failure | `2` |
 | `{TOTAL}` | Total models configured | `3` |
@@ -42,8 +42,8 @@
 | `figma_context.md` | Figma design context | (fixed name) |
 | `.specify-state.local.md` | Workflow state | (fixed name) |
 | `.specify.lock` | Session lock | (fixed name) |
-| `analysis/mpa-challenge*.md` | Challenge ThinkDeep report | (with -parallel suffix if parallel) |
-| `analysis/mpa-edgecases*.md` | Edge Cases ThinkDeep report | (with -parallel suffix if parallel) |
+| `analysis/mpa-challenge*.md` | Challenge CLI dispatch report | (with -parallel suffix if parallel) |
+| `analysis/mpa-edgecases*.md` | Edge Cases CLI dispatch report | (with -parallel suffix if parallel) |
 | `analysis/mpa-triangulation.md` | Triangulation report | (fixed name) |
 | `.stage-summaries/stage-{N}-summary.md` | Stage summaries | `stage-2-summary.md` |
 
@@ -57,7 +57,7 @@
 
 | Setting | Path | Value |
 |---------|------|-------|
-| PAL rejection retries | `limits.pal_rejection_retries_max` | 2 |
+| CLI rejection retries | `limits.pal_rejection_retries_max` | 2 |
 | Questions per batch (deprecated) | `limits.questions_per_batch` | 4 (deprecated — file-based mode) |
 | Lock staleness hours | `limits.lock_staleness_hours` | 2 |
 | Max user stories | `limits.max_user_stories` | **null** (no limit) |
@@ -82,87 +82,54 @@
 | Flag | Path | Default |
 |------|------|---------|
 | Incremental gates | `feature_flags.enable_incremental_gates` | true |
-| PAL validation | `feature_flags.enable_pal_validation` | true |
+| CLI validation | `feature_flags.enable_cli_validation` | true |
 | Self-critique | `feature_flags.enable_self_critique` | true |
 | Figma integration | `feature_flags.enable_figma_integration` | true |
 | Test strategy | `feature_flags.enable_test_strategy` | true |
 
 ---
 
-## PAL Tool Quick Reference
+## CLI Dispatch Quick Reference
 
-> **IMPORTANT:** Authoritative PAL call syntax lives in each stage file and `thinkdeep-patterns.md`. This section is a parameter reference only.
+> **IMPORTANT:** Authoritative dispatch syntax lives in each stage file and `cli-dispatch-patterns.md`. This section is a parameter reference only.
 
-### Shared Parameters (ThinkDeep & Consensus)
+### Script Invocation Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `step` | string | Yes | Your current analysis — NOT just a title |
-| `step_number` | integer | Yes | Current step in multi-step chain |
-| `total_steps` | integer | Yes | ThinkDeep: 3 per chain. Consensus: models + 1 |
-| `next_step_required` | boolean | Yes | True until final step |
-| `findings` | string | Yes | Summary of discoveries — MUST NOT be empty |
-| `relevant_files` | array | No | Context files — MUST use ABSOLUTE paths |
-| `continuation_id` | string | No | Thread ID from previous step — required on steps 2+ |
+| `--cli` | string | Yes | CLI name: `codex`, `gemini`, or `opencode` |
+| `--role` | string | Yes | Role name from CLI's JSON config (e.g., `spec_root_cause`) |
+| `--prompt-file` | path | Yes | Path to prompt file with embedded spec content |
+| `--output-file` | path | Yes | Path where extracted output will be written |
+| `--timeout` | integer | No | Timeout in seconds (default: 300) |
+| `--expected-fields` | string | No | Comma-separated fields to validate in SUMMARY block |
 
-### ThinkDeep-Only Parameters
+### Exit Codes
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `model` | string | Single model ID (e.g., `gpt-5.2`) |
-| `thinking_mode` | string | `"high"` for deep analysis |
-| `confidence` | string | `"exploring"` → `"low"` → `"high"` across steps |
-| `focus_areas` | array | e.g., `["competitive_analysis", "market_positioning"]` |
-| `problem_context` | string | MUST include "This is BUSINESS/SPECIFICATION ANALYSIS, not code analysis" |
-
-### Consensus-Only Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `models` | array | List of `{model, stance, stance_prompt}` objects |
-| `models[].stance` | string | `"neutral"`, `"for"`, or `"against"` |
+| Code | Meaning | Action |
+|------|---------|--------|
+| 0 | Success | Use output file |
+| 1 | CLI failure | Retry up to `cli_dispatch.retry.max_attempts` |
+| 2 | Timeout | Retry up to `cli_dispatch.retry.max_attempts` |
+| 3 | CLI not found in PATH | Skip — do NOT retry |
+| 4 | Parse failure (no structured output) | Include raw output in synthesis (best-effort) |
 
 ### Common Mistakes (CRITICAL)
 
 | Mistake | Impact | Fix |
 |---------|--------|-----|
-| Using `prompt` instead of `step` | Wrong parameter name | Both tools use `step` |
-| Using `files` instead of `relevant_files` | Wrong parameter name | Both tools use `relevant_files` |
-| Treating Consensus as single-call | Skips model processing | Multi-step: step 1 = analysis, steps 2-N = models, final = synthesis |
-| Missing `continuation_id` on steps 2+ | Loses context | Pass from each previous step |
-| Empty `findings` | Model has no context | NEVER empty |
-| No spec disclaimer in `problem_context` | Model requests source files | Add "This is BUSINESS/SPECIFICATION ANALYSIS" |
-| Relative file paths | Tool error | MUST use absolute paths |
+| Passing file paths in prompt file | CLI cannot read local files | Embed spec content inline in prompt file |
+| Not checking exit code 3 | Hangs on missing CLI | Check exit code before retry |
+| Ignoring exit code 4 output | Loses partial results | Include in synthesis even if unstructured |
+| Running evaluation with < 2 responses | Invalid scoring | Check `clis_substantive` before computing score |
 
----
+### CLI → Model Mapping
 
-## PAL Consensus Configuration
-
-### Default Models
-
-| Model | Stance | Purpose |
-|-------|--------|---------|
-| `gemini-3-pro-preview` | neutral | Objective assessment |
-| `gpt-5.2` | for | Advocate for strengths |
-| `x-ai/grok-4` | against | Challenge completeness |
-
-**Minimum Models Required:** 2
-
-### Content Delivery (CRITICAL)
-
-| Setting | Path | Default | Description |
-|---------|------|---------|-------------|
-| Mode | `pal_consensus.content_delivery.mode` | `inline` | Always inline — never file paths |
-| Word limit | `pal_consensus.content_delivery.inline_word_limit` | 4000 | Specs larger than this are auto-summarized |
-
-### Response Validation
-
-| Setting | Path | Default | Description |
-|---------|------|---------|-------------|
-| Enabled | `pal_consensus.response_validation.enabled` | `true` | Detect non-substantive responses |
-| Min words | `pal_consensus.response_validation.min_response_words` | 50 | Responses shorter than this are flagged |
-| Patterns | `pal_consensus.response_validation.non_substantive_patterns` | (list) | Strings that indicate model couldn't read content |
-| Identical scores | `pal_consensus.response_validation.flag_identical_scores` | `true` | Flag responses with identical dimension scores |
+| CLI | Model | Provider | Characteristic |
+|-----|-------|----------|----------------|
+| `codex` | GPT-4o | OpenAI | Precision, logical rigor, structured analysis |
+| `gemini` | Gemini Pro | Google | Breadth, cross-domain synthesis, coverage |
+| `opencode` | Grok (via OpenRouter) | xAI | Contrarian, assumption-challenging, unconventional |
 
 ### Stage 5 Evaluation Dimensions
 
@@ -174,16 +141,18 @@
 | Stakeholder coverage | 4/20 | All personas addressed |
 | Technology agnosticism | 4/20 | No implementation details |
 
+**Minimum Substantive Responses Required:** 2 (for evaluation scoring)
+
 ---
 
 ## Graceful Degradation Matrix
 
-| MCP Status | ThinkDeep | Gates | PAL Consensus | Design Artifacts |
-|------------|-----------|-------|---------------|-----------------|
-| All available | Full | Judge-evaluated | Multi-model | Full |
-| PAL unavailable | Skipped | Internal evaluation | Skipped | Full |
-| ST unavailable | Internal reasoning | Internal evaluation | Full | Full |
-| Figma unavailable | Full | Full | Full | Spec-only mode |
+| CLI/MCP Status | Challenge / Edge Cases / Triangulation | Gates | Evaluation (Stage 5) | Design Artifacts |
+|----------------|---------------------------------------|-------|----------------------|-----------------|
+| CLI + ST + Figma available | Full tri-CLI dispatch | Judge-evaluated | Multi-stance (3 CLIs) | Full |
+| CLI available, ST unavailable | Full tri-CLI dispatch | Internal evaluation | Multi-stance (3 CLIs) | Full |
+| CLI unavailable, ST available | Skipped (internal reasoning) | Internal evaluation | Skipped (internal gates) | Full |
+| Figma unavailable | Full (unaffected) | Full | Full | Spec-only mode |
 | All unavailable | Skipped | Internal evaluation | Skipped | Spec-only mode |
 
-*Design artifacts (design-brief.md, design-supplement.md) are ALWAYS generated regardless of MCP availability.
+*Design artifacts (design-brief.md, design-supplement.md) are ALWAYS generated regardless of CLI/MCP availability.

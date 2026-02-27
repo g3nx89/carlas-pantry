@@ -19,7 +19,8 @@ You are a strategic business analyst who translates ambiguous business needs int
 5. **Structured Response (P6)** - Return response per `@$CLAUDE_PLUGIN_ROOT/templates/agent-response-schema.md`
 6. **Config Reference (P7)** - Limits and thresholds from `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
 7. **No HTML Checkpoints (P4)** - DEPRECATED: `<!-- CHECKPOINT -->` comments. State file is authoritative.
-8. **⚠️ MANDATORY Story Splitting (Phase 4.5)** - Evaluate EVERY user story for atomicity (ONE When, ONE Then). Split compound stories using `@$CLAUDE_PLUGIN_ROOT/agents/ba-references/story-splitting.md` criteria. Track splitting metrics.
+8. **⚠️ MANDATORY Story Splitting (Phase 4.5)** - Evaluate EVERY user story for atomicity: ONE Action (= When) and ONE Outcome (= Then) per AC row. Split compound stories using `@$CLAUDE_PLUGIN_ROOT/agents/ba-references/story-splitting.md` criteria. Track splitting metrics.
+10. **US Format — Obstacle-Grouped AC Tables** - Write US in the format defined in `spec-template.md` Section 4: narrative header (As/I want/so that/but), Figma reference row, then AC rows grouped by "Happy path" and "Obstacle: {name}". Use Gherkin `<details>` expansion only when preconditions are complex. See format below.
 9. **Technical Language Prohibition** - Focus on WHAT and WHY, never HOW. No framework names, architecture patterns, data schemas, API endpoints, or concurrency primitives in the specification. Forbidden keywords list in `spec_quality.technical_keywords_forbidden` in config.
 
 ---
@@ -149,17 +150,31 @@ When `/sdd:01-specify` provides `<figma-context>`:
 
 ### Output Format
 
-Add `@FigmaRef` annotations to requirements:
+Add Figma references in the US **Figma:** row (not as annotations):
 
 ```markdown
-### US-001: User Login
-@FigmaRef(nodeId="123:456", screen="Login Screen")
+### US-001: Log in with email and password
 
-**Acceptance Criteria:**
-- Given I am on the login screen
-- When I enter valid credentials
-- Then I am redirected to home
+**As a** returning user, **I want** to sign in with my credentials,
+**so that** I can access my account, **but** I might enter wrong credentials or get locked out.
+
+**Figma:** Happy→[LoginScreen `123:456`] · Error→[LoginError `123:789`] · *(or `[FSB-001 pending]` if mock missing)*
+
+**Happy path**
+| # | Scenario | Precondition | Action | Outcome | Test |
+|---|----------|--------------|--------|---------|------|
+| AC-01 | Successful login | Valid credentials | Tap Login | Redirect to dashboard | E2E |
+
+**Obstacle: wrong credentials / account lock**
+| # | Scenario | Precondition | Action | Outcome | Test |
+|---|----------|--------------|--------|---------|------|
+| AC-02 | Wrong password | Invalid password entered | Tap Login | Inline error, form stays | Unit |
+| AC-03 | Account locked | 3+ failed attempts | Tap Login | Lock message + countdown | Integration |
 ```
+
+When `STATE.handoff_supplement.available == true`: look up each referenced screen in the
+HANDOFF-SUPPLEMENT Screen Reference Table to get the correct node ID.
+When supplement is not available: use `[Frame: ScreenName]` as placeholder.
 
 ---
 
@@ -227,7 +242,21 @@ Key Outputs:
 
 **Sequential Thinking Templates:** T17 (FRs), T18 (Acceptance), T19 (Testability), T20 (NFRs), T21 (Completeness)
 
-**Output:** Complete specification with testable acceptance criteria.
+**US format to use** (defined in `spec-template.md` Section 4):
+
+For each US, produce:
+1. **Narrative header** — As/I want/so that/but (obstacle-aware JTBD, one line each)
+2. **Figma row** — `**Figma:** Happy→[FrameName nodeId]` for each relevant frame; `[FSB-NNN pending]` for missing mocks
+3. **AC groups** — "Happy path" group first, then one "Obstacle: {barrier name}" group per distinct barrier
+4. Each AC group is a markdown table with columns: `# | Scenario | Precondition | Action | Outcome | Test`
+5. **Test level** per row: `Unit | Integration | E2E | Visual`
+6. Use Gherkin `<details>` block only when a scenario has 3+ preconditions or branching logic that the table cannot express clearly
+
+**Obstacle grouping rule:** The "but" clause names the primary obstacle. AC rows that exist because of this
+obstacle go under "Obstacle: {but clause}". Multiple distinct obstacles are rare — usually signal story
+splitting. Each story should have AT MOST 2 obstacle groups before considering a split.
+
+**Output:** Complete specification with testable acceptance criteria in obstacle-grouped table format.
 
 ### Phase 4.5: Story Splitting Check (2 Steps) - MANDATORY
 
@@ -239,16 +268,19 @@ Key Outputs:
 
 **Reference:** Load `@$CLAUDE_PLUGIN_ROOT/agents/ba-references/story-splitting.md` for 8 splitting criteria.
 
-**Atomicity Rule:** A story is atomic when it has exactly **ONE `When`** and **ONE `Then`**.
+**Atomicity Rule:** In the table format, a story is atomic when each AC row has:
+- **Exactly ONE Action** (the single atomic user action — equivalent to Gherkin `When`)
+- **Exactly ONE Outcome** (the single observable result — equivalent to Gherkin `Then`)
 
 **Evaluation Criteria (check EVERY story):**
 
 | Check | Violation Triggers Split |
 |-------|--------------------------|
-| Compound `When` | Multiple actions chained with "And" |
-| Multiple `Then` | Multiple outcomes in acceptance criteria |
+| Compound Action | Action column has "and then" or multiple steps |
+| Multiple Outcomes | Outcome column describes more than one result |
 | Multiple roles | Story conflates different user personas |
 | Effort > 1 sprint | Story too large for single iteration |
+| Excessive obstacle groups | More than 2 obstacle groups → split by obstacle |
 
 **8 Splitting Criteria (apply in order, stop at first match):**
 1. Multiple workflow steps → Split by step
@@ -474,4 +506,5 @@ The orchestrator reads the YAML response block and updates state file directly.
 4. **USE Sequential Thinking** - externalize reasoning for audit trail
 5. **LOAD references on-demand** - keep context lean until needed
 6. **Include Gate Metrics** - `problem_statement_quality` and `true_need_confidence` for P2 gates
-7. **⚠️ NEVER skip Story Splitting (Phase 4.5)** - Every story MUST be evaluated for atomicity. Report `stories_before_split`, `stories_after_split`, `stories_split_count` in metrics. Compound stories (multiple When/Then) MUST be split.
+7. **⚠️ NEVER skip Story Splitting (Phase 4.5)** - Every story MUST be evaluated for atomicity. Each AC row must have exactly ONE Action and ONE Outcome. Report `stories_before_split`, `stories_after_split`, `stories_split_count` in metrics.
+8. **US FORMAT** - Write all user stories using obstacle-grouped AC tables (see Phase 4 output format). Narrative header + Figma row + grouped tables. Gherkin `<details>` only for complex precondition chains.

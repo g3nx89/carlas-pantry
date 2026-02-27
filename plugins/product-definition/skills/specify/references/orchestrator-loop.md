@@ -42,10 +42,10 @@ For stages 2-7, dispatch a coordinator subagent using the per-stage dispatch pro
 
 | Stage | Shared Refs | Config YAML | Extra Refs |
 |-------|-------------|-------------|------------|
-| 2 (Spec Draft) | checkpoint-protocol, error-handling | Yes | thinkdeep-patterns (if PAL available) |
+| 2 (Spec Draft) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
 | 3 (Checklist) | checkpoint-protocol, error-handling | Yes | — |
-| 4 (Clarification) | checkpoint-protocol, error-handling | Yes | thinkdeep-patterns (if PAL available) |
-| 5 (PAL & Design) | checkpoint-protocol, error-handling | Yes | config-reference (PAL params) |
+| 4 (Clarification) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
+| 5 (Validation & Design) | checkpoint-protocol, error-handling | Yes | config-reference (CLI dispatch params) |
 | 6 (Test Strategy) | checkpoint-protocol, error-handling | Yes | — |
 | 7 (Completion) | checkpoint-protocol | No | — |
 
@@ -61,7 +61,10 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 ## Context
 - Feature directory: specs/{FEATURE_DIR}
 - Feature name: {FEATURE_NAME}
-- PAL available: {PAL_AVAILABLE}
+- CLI available: {CLI_AVAILABLE}
+- Codex available: {CODEX_AVAILABLE}
+- Gemini available: {GEMINI_AVAILABLE}
+- OpenCode available: {OPENCODE_AVAILABLE}
 - Sequential Thinking available: {ST_AVAILABLE}
 - Figma MCP available: {FIGMA_MCP_AVAILABLE}
 - Figma enabled: {FIGMA_ENABLED}
@@ -109,7 +112,10 @@ Every dispatch variable MUST have a defined fallback:
 | Variable | Default | Rationale |
 |----------|---------|-----------|
 | `ENTRY_TYPE` | `"first_entry"` | Safe default for first invocation |
-| `PAL_AVAILABLE` | `false` | Assume unavailable; prevents failed PAL calls |
+| `CLI_AVAILABLE` | `false` | Assume unavailable; prevents failed CLI dispatch calls |
+| `CODEX_AVAILABLE` | `false` | Assume unavailable; detected in Stage 1 |
+| `GEMINI_AVAILABLE` | `false` | Assume unavailable; detected in Stage 1 |
+| `OPENCODE_AVAILABLE` | `false` | Assume unavailable; detected in Stage 1 |
 | `ST_AVAILABLE` | `false` | Assume unavailable; coordinators use internal reasoning |
 | `FIGMA_MCP_AVAILABLE` | `false` | Assume unavailable; Figma is always optional |
 | `FIGMA_ENABLED` | `false` | User must explicitly enable |
@@ -330,7 +336,7 @@ The orchestrator stays running and mediates via AskUserQuestion.
 Pause points:
 - Stage 2: Gate RED/YELLOW, MPA-Challenge RED
 - Stage 4: Clarification batches (via clarification protocol)
-- Stage 5: PAL REJECTED after retries, insufficient models
+- Stage 5: CLI evaluation REJECTED after retries, insufficient CLI responses
 - Stage 6: Test coverage gaps
 
 ### Resume from Needs-User-Input

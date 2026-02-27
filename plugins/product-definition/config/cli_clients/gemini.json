@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "gemini",
+  "command": "gemini",
+  "additional_args": ["--yolo"],
+  "roles": {
+    "spec_alt_framing":       { "prompt_path": "gemini_spec_alt_framing.txt",       "max_output_tokens": 6000 },
+    "edge_ux_coverage":       { "prompt_path": "gemini_edge_ux_coverage.txt",       "max_output_tokens": 6000 },
+    "spec_q_coverage":        { "prompt_path": "gemini_spec_q_coverage.txt",        "max_output_tokens": 4000 },
+    "spec_evaluator_neutral": { "prompt_path": "gemini_spec_evaluator_neutral.txt", "max_output_tokens": 5000 }
+  }
+}

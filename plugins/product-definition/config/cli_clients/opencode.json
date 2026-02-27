@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "opencode",
+  "command": "opencode",
+  "additional_args": [],
+  "roles": {
+    "spec_assumption_probe":    { "prompt_path": "opencode_spec_assumption_probe.txt",    "max_output_tokens": 6000 },
+    "edge_contrarian_a11y":     { "prompt_path": "opencode_edge_contrarian_a11y.txt",     "max_output_tokens": 6000 },
+    "spec_q_contrarian":        { "prompt_path": "opencode_spec_q_contrarian.txt",        "max_output_tokens": 4000 },
+    "spec_evaluator_against":   { "prompt_path": "opencode_spec_evaluator_against.txt",   "max_output_tokens": 5000 }
+  }
+}

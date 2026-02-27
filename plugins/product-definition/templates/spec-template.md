@@ -166,59 +166,78 @@
 
 ## 4. User Stories
 
-> Obstacle-Aware JTBD Format with Gherkin Acceptance Criteria
+> Obstacle-Aware JTBD Format — AC grouped by obstacle, tabular by default.
+> Atomicity rule: each AC row has exactly ONE Action (= When) and ONE Outcome (= Then).
+> Expand to Gherkin `<details>` block only when preconditions are complex or multi-step.
 
-### US-001: {Human-readable summary of value delivered}
-
-#### Use Case (Obstacle-Aware JTBD Format)
-
-**As a** {persona within specific context},
-**I [want | need | must be able to]** {desired outcome or goal},
-**so that I can** {complete specific job or functional objective},
-**but** {barrier, obstacle, or constraint that might prevent success}.
-
-#### Acceptance Criteria (Gherkin)
-
-**Scenario**: {Concise, human-readable behavior description}
-
-**Given** {precondition 1 - sets the stage}
-- And **Given** {precondition 2 - adds needed context}
-- And **Given** {precondition N - as many as needed to load context}
-**When** {ONE atomic user action - simple, unchained, decisive}
-**Then** {ONE observable outcome - tied to the job-to-be-done}
-
----
-
-### US-002: {Human-readable summary}
-
-#### Use Case (Obstacle-Aware JTBD Format)
+### US-001: {Verb + Object — scannable action title}
 
 **As a** {persona within specific context},
-**I [want | need | must be able to]** {desired outcome or goal},
-**so that I can** {complete specific job or functional objective},
-**but** {barrier, obstacle, or constraint}.
+**I want** {specific goal},
+**so that** {concrete value delivered},
+**but** {primary obstacle or risk that makes this story non-trivial}.
 
-#### Acceptance Criteria (Gherkin)
+**Figma:** Happy→[{FrameName}] · Error→[{FrameName}] · *(use `[FSB-NNN pending]` for undocumented screens)*
 
-**Scenario**: {Behavior description}
+**Happy path**
 
-**Given** {precondition 1}
+| # | Scenario | Precondition | Action | Outcome | Test |
+|---|----------|--------------|--------|---------|------|
+| AC-01 | {brief scenario title} | {setup state} | {user does X} | {system does Y} | E2E |
+
+**Obstacle: {name the barrier — mirrors the "but" clause}**
+
+| # | Scenario | Precondition | Action | Outcome | Test |
+|---|----------|--------------|--------|---------|------|
+| AC-02 | {error/edge scenario} | {setup state} | {user does X} | {system does Y} | Unit |
+| AC-03 | {another variant} | {setup state} | {user does X} | {system does Y} | Integration |
+
+<!-- Use <details> only when preconditions are multi-step or the scenario logic is non-obvious from the table -->
+<!-- Example:
+<details><summary>AC-04 — {complex scenario name}</summary>
+
+**Given** {precondition 1 — rich context}
 - And **Given** {precondition 2}
-**When** {ONE atomic action}
+**When** {ONE atomic user action}
 **Then** {ONE observable outcome}
 
----
-
-### US-003: {Add more stories as needed}
-
-{Follow the same format}
+</details>
+-->
 
 ---
 
-### Story Atomicity Note
+### US-002: {Verb + Object}
 
-> Each user story should have exactly ONE `When` and ONE `Then` in its acceptance criteria.
-> If a story has compound actions or multiple outcomes, the BA agent applies story splitting criteria.
+**As a** {persona within specific context},
+**I want** {specific goal},
+**so that** {concrete value delivered},
+**but** {obstacle}.
+
+**Figma:** Happy→[{FrameName}]
+
+**Happy path**
+
+| # | Scenario | Precondition | Action | Outcome | Test |
+|---|----------|--------------|--------|---------|------|
+| AC-01 | {scenario} | {setup} | {action} | {outcome} | E2E |
+
+**Obstacle: {barrier name}**
+
+| # | Scenario | Precondition | Action | Outcome | Test |
+|---|----------|--------------|--------|---------|------|
+| AC-02 | {scenario} | {setup} | {action} | {outcome} | Unit |
+
+---
+
+### Story Atomicity Rules
+
+> **Action column = ONE atomic user action** (equivalent to Gherkin `When`).
+> **Outcome column = ONE observable system response** (equivalent to Gherkin `Then`).
+> If a row needs multiple actions or outcomes → apply story splitting criteria.
+>
+> **Obstacle grouping:** AC rows that exist because of the "but" clause go under the Obstacle group.
+> AC rows for the success path go under Happy path. Use additional obstacle groups if the story
+> has multiple distinct barriers (rare — usually signals story splitting needed instead).
 
 ---
 

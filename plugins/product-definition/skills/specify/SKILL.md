@@ -1,13 +1,13 @@
 ---
 name: specify
-description: Create or update feature specifications through guided analysis with Figma integration, PAL validation, and V-Model test strategy
-version: 1.1.0
-allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
+description: Create or update feature specifications through guided analysis with Figma integration, CLI multi-stance validation, and V-Model test strategy
+version: 1.2.0
+allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Bash(command:*)", "Bash(wait:*)", "Task", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
 ---
 
 # Feature Specify Skill — Lean Orchestrator
 
-Guided feature specification with codebase understanding, Figma integration, PAL consensus validation, and V-Model test strategy generation.
+Guided feature specification with codebase understanding, Figma integration, CLI multi-stance validation (Codex/Gemini/OpenCode), and V-Model test strategy generation.
 
 **This workflow is resumable and resilient.** Progress is preserved in state files. User decisions are NEVER lost.
 
@@ -34,16 +34,16 @@ Guided feature specification with codebase understanding, Figma integration, PAL
 14. **No Story Limits**: There is NO maximum on user stories, acceptance criteria, or NFRs — capture ALL requirements.
 15. **No Iteration Limits**: Continue clarification loops until COMPLETE, not until a counter reaches max.
 
-### PAL/Model Failure Rules
-16. **PAL Consensus Minimum**: Consensus requires **minimum 2 substantive responses**. If < 2 → signal `needs-user-input` (NEVER self-assess).
-17. **No Model Substitution**: If a ThinkDeep model fails, **DO NOT** substitute with another model. ThinkDeep is for variety — substituting defeats the purpose.
-17b. **PAL Content Inline**: NEVER pass local file paths to external models. Embed spec content inline in the PAL prompt. External models cannot read local files.
-18. **User Notification MANDATORY**: When ANY PAL model fails or is unavailable, **ALWAYS** notify user.
+### CLI Dispatch Rules
+16. **CLI Evaluation Minimum**: Evaluation requires **minimum 2 substantive responses**. If < 2 → signal `needs-user-input` (NEVER self-assess).
+17. **No CLI Substitution**: If a CLI dispatch fails, **DO NOT** substitute with another CLI. Tri-CLI dispatch is for variety — substituting defeats the purpose.
+17b. **Spec Content Inline**: NEVER pass local file paths to CLI dispatch prompt files. Embed spec content inline. External CLIs cannot read local files.
+18. **User Notification MANDATORY**: When ANY CLI fails or is unavailable, **ALWAYS** notify user.
 
 ### Graceful Degradation
-19. **MCP Availability Check**: Before using PAL/Sequential Thinking/Figma MCP, check if tools are available
-20. **Fallback Behavior**: If PAL unavailable, skip ThinkDeep and Consensus steps — proceed with internal reasoning
-21. **grok-4 for Variety**: PAL Consensus and ThinkDeep include `x-ai/grok-4` for additional variety. Continue gracefully if unavailable.
+19. **CLI Availability Check**: Before dispatching CLI, check if `scripts/dispatch-cli-agent.sh` is executable and at least one CLI binary is in PATH
+20. **Fallback Behavior**: If CLI unavailable, skip Challenge, EdgeCases, Triangulation, and Evaluation steps — proceed with internal reasoning
+21. **OpenCode for Variety**: CLI dispatch includes OpenCode (Grok) for contrarian perspective. Continue gracefully if unavailable.
 
 ### Orchestrator Delegation Rules
 22. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
@@ -66,11 +66,11 @@ Guided feature specification with codebase understanding, Figma integration, PAL
 | Auto-resolve enabled | `clarification.auto_resolve.enabled` | `true` |
 | User stories | `limits.max_user_stories` | **null** (no limit) |
 | NFRs | `limits.max_nfrs` | **null** (no limit) |
-| PAL rejection retries max | `limits.pal_rejection_retries_max` | 2 |
+| CLI rejection retries max | `limits.pal_rejection_retries_max` | 2 |
 | Checklist GREEN threshold | `thresholds.checklist.green` | 85% |
 | Checklist YELLOW threshold | `thresholds.checklist.yellow` | 60% |
-| PAL GREEN threshold | `thresholds.pal.green` | 16/20 |
-| PAL YELLOW threshold | `thresholds.pal.yellow` | 12/20 |
+| CLI eval GREEN threshold | `thresholds.pal.green` | 16/20 |
+| CLI eval YELLOW threshold | `thresholds.pal.yellow` | 12/20 |
 | Incremental gates enabled | `feature_flags.enable_incremental_gates` | true |
 | Test strategy enabled | `feature_flags.enable_test_strategy` | true |
 | Design brief skip allowed | `design_artifacts.skip_allowed` | **false** |
@@ -97,7 +97,7 @@ You **MUST** consider the user input before proceeding (if not empty).
                                 |
 +-------------------------------v-----------------------------------+
 |  Stage 2 (Coordinator): SPEC DRAFT & GATES                        |
-|  BA agent, MPA-Challenge ThinkDeep, incremental gates              |
+|  BA agent, MPA-Challenge CLI dispatch, incremental gates           |
 +-------------------------------+-----------------------------------+
                                 |
 +-------------------------------v-----------------------------------+
@@ -107,14 +107,14 @@ You **MUST** consider the user input before proceeding (if not empty).
                                 |                      |             |
 +-------------------------------v-----------------------------------+
 |  Stage 4 (Coordinator): EDGE CASES & CLARIFICATION  |             |
-|  MPA-EdgeCases ThinkDeep, clarification protocol,    |             |
-|  MPA-Triangulation, spec update                      |             |
+|  MPA-EdgeCases CLI dispatch, clarification protocol, |             |
+|  MPA-Triangulation CLI dispatch, spec update         |             |
 +-------------------------------+----------------------+             |
                                 |              (loop if coverage     |
                           proceed               < 85%)               |
 +-------------------------------v-----------------------------------+
-|  Stage 5 (Coordinator): PAL VALIDATION & DESIGN                   |
-|  PAL Consensus, design-brief, design-supplement (MANDATORY)          |
+|  Stage 5 (Coordinator): CLI VALIDATION & DESIGN                   |
+|  CLI multi-stance eval, design-brief, design-supplement (MANDATORY)|
 +-------------------------------+-----------------------------------+
                                 |
 +-------------------------------v-----------------------------------+
@@ -138,7 +138,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 | 2 | Spec Draft & Gates | Coordinator | `references/stage-2-spec-draft.md` | SPEC_DRAFT | Yes (if gate RED/YELLOW) | No |
 | 3 | Checklist & Validation | Coordinator | `references/stage-3-checklist.md` | CHECKLIST_VALIDATION | No | No |
 | 4 | Edge Cases & Clarification | Coordinator | `references/stage-4-clarification.md` | CLARIFICATION | Yes (clarification Q&A) | Edge cases optional |
-| 5 | PAL Validation & Design | Coordinator | `references/stage-5-pal-design.md` | PAL_GATE | Yes (if PAL REJECTED) | PAL optional; design MANDATORY |
+| 5 | CLI Validation & Design | Coordinator | `references/stage-5-validation-design.md` | CLI_GATE | Yes (if eval REJECTED) | CLI optional; design MANDATORY |
 | 6 | Testability & Risk Assessment | Coordinator | `references/stage-6-test-strategy.md` | TEST_STRATEGY | Yes (if testability gaps) | Yes (feature flag) |
 | 7 | Completion | Coordinator | `references/stage-7-completion.md` | COMPLETE | No | No |
 
@@ -179,8 +179,8 @@ summary: "{1-2 sentence description of what happened}"
 flags:
   coverage_pct: {N}              # Stage 3 only
   gaps_count: {N}                # Stage 3 only
-  pal_score: {N}                 # Stage 5 only
-  pal_decision: "{APPROVED|CONDITIONAL|REJECTED}"  # Stage 5 only
+  cli_score: {N}                 # Stage 5 only
+  cli_decision: "{APPROVED|CONDITIONAL|REJECTED}"  # Stage 5 only
   block_reason: null | "{reason}"
   pause_type: null | "interactive" | "file_based"
   next_action: null | "loop_checklist" | "proceed"
@@ -219,7 +219,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 - `current_stage`: 1-7
 - `feature_id`: "{NUMBER}-{SHORT_NAME}"
 - `feature_name`: "{FEATURE_NAME}"
-- `mcp_availability`: `{pal_available: bool, st_available: bool, figma_mcp_available: bool}`
+- `mcp_availability`: `{cli_available: bool, codex_available: bool, gemini_available: bool, opencode_available: bool, st_available: bool, figma_mcp_available: bool}`
 - `user_decisions`: immutable decision log
 - `model_failures`: array of `{model, stage, operation, error, timestamp, action_taken}`
 
@@ -246,8 +246,8 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `specs/{FEATURE_DIR}/clarification-report.md` | 4 | Auto-resolve audit trail and answer summary |
 | `specs/{FEATURE_DIR}/design-supplement.md` | 5 | Design analysis (MANDATORY) |
 | `specs/{FEATURE_DIR}/test-plan.md` | 6 | V-Model test strategy (optional) |
-| `specs/{FEATURE_DIR}/analysis/mpa-challenge*.md` | 2 | MPA Challenge ThinkDeep report |
-| `specs/{FEATURE_DIR}/analysis/mpa-edgecases*.md` | 4 | MPA Edge Cases ThinkDeep report |
+| `specs/{FEATURE_DIR}/analysis/mpa-challenge*.md` | 2 | MPA Challenge CLI dispatch report |
+| `specs/{FEATURE_DIR}/analysis/mpa-edgecases*.md` | 4 | MPA Edge Cases CLI dispatch report |
 | `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md` | 4 | MPA Triangulation report |
 
 ---
@@ -262,13 +262,13 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `references/stage-2-spec-draft.md` | Spec draft, MPA-Challenge, incremental gates | Dispatching Stage 2 |
 | `references/stage-3-checklist.md` | Platform detect, checklist, BA validation | Dispatching Stage 3 |
 | `references/stage-4-clarification.md` | Edge cases, clarification, triangulation | Dispatching Stage 4 |
-| `references/stage-5-pal-design.md` | PAL Consensus, design-brief, design-supplement | Dispatching Stage 5 |
+| `references/stage-5-validation-design.md` | CLI multi-stance eval, design-brief, design-supplement | Dispatching Stage 5 |
 | `references/stage-6-test-strategy.md` | Risk analysis, testability verification, test level guidance | Dispatching Stage 6 |
 | `references/stage-7-completion.md` | Lock release, completion report | Dispatching Stage 7 |
 | `references/checkpoint-protocol.md` | State update patterns | Any checkpoint |
 | `references/error-handling.md` | Error recovery, degradation | Any error condition |
-| `references/config-reference.md` | Key config values, ThinkDeep/PAL params | PAL tool usage |
-| `references/thinkdeep-patterns.md` | Parameterized ThinkDeep execution patterns | Stages 2, 4 (ThinkDeep calls) |
+| `references/config-reference.md` | Key config values, CLI dispatch params | CLI tool usage |
+| `references/cli-dispatch-patterns.md` | Parameterized CLI dispatch execution patterns | Stages 2, 4, 5 (CLI dispatch calls) |
 | `references/figma-capture-protocol.md` | Figma connection, capture, screenshot naming | Stage 1 (Figma enabled) |
 | `references/clarification-protocol.md` | File-based Q&A, BA recommendations, answer parsing | Stage 4 (clarification dispatch) |
 | `references/auto-resolve-protocol.md` | Auto-resolve gate, classification, citation rules | Stage 4 (pre-question-file generation) |
@@ -285,3 +285,4 @@ Rules 1-26 above MUST be followed. Key reminders:
 - No artificial question/story/iteration limits
 - design-brief.md and design-supplement.md are MANDATORY — NEVER skip
 - Quality gates after Stages 2, 4, and 5 — non-blocking but user-notified
+- CLI dispatch replaces PAL MCP — `CLI_AVAILABLE` replaces `PAL_AVAILABLE` everywhere
