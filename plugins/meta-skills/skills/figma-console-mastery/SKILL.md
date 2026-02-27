@@ -67,7 +67,7 @@ Unified flow for design creation, restructuring, targeted fixes, and audits. **F
 | "Create components" / "Setup tokens" | **Targeted** | Targeted discovery | Specific ops (subagent) | Spot |
 
 ### Phase 1 — Preflight & Discovery (inline)
-Shared: `figma_get_status` → `figma_list_open_files` → `figma_navigate` → load learnings → `figma_get_design_system_summary` → `figma_get_variables`. Mode-specific additions via Sonnet subagent. See `flow-procedures.md` §1.1.
+Shared: `figma_get_status` → `figma_list_open_files` → `figma_navigate` → build/validate Session Index → load learnings → `figma_get_design_system_summary` → `figma_get_variables`. Mode-specific additions via Sonnet subagent. See `flow-procedures.md` §1.1.
 
 ### Phase 2 — Analysis & Planning (Create/Restructure only)
 Expanded Socratic Protocol with 10 categories (Cat. 0-9). **Question templates**: `references/socratic-protocol.md`. **Procedures**: `flow-procedures.md` §1.2. Do NOT proceed to Phase 3 until user approves checklist.
@@ -181,6 +181,9 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/workflow-code-
 # Convergence protocol — per-screen journal, anti-regression, batch scripting, subagent delegation
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-protocol.md
 
+# Session Index Protocol — L2 name→ID cache, build/validate/lookup patterns
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/session-index-protocol.md
+
 # Compound Learning Protocol — cross-session knowledge persistence
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/compound-learning.md
 
@@ -210,7 +213,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/essential-rule
 
 **Tier 1 — Always:** `recipes-foundation.md`, `convergence-protocol.md`
 
-**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `workflow-code-handoff.md` | `flow-procedures.md` | `socratic-protocol.md` | `essential-rules.md`
+**Tier 2 — By task:** `recipes-components.md` | `recipes-restructuring.md` | `tool-playbook.md` | `plugin-api.md` | `design-rules.md` | `workflow-code-handoff.md` | `flow-procedures.md` | `socratic-protocol.md` | `essential-rules.md` | `session-index-protocol.md`
 
 **Tier 3 — By need:** `recipes-advanced.md` | `recipes-m3.md` | `anti-patterns.md` | `gui-walkthroughs.md` | `st-integration.md` | `compound-learning.md` | `quality-dimensions.md` | `quality-audit-scripts.md` | `quality-procedures.md` | `field-learnings.md`
 

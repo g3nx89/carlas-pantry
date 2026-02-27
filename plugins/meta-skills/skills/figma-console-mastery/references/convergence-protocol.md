@@ -35,7 +35,7 @@ Per-screen journals replace the previous monolithic `operation-journal.jsonl`. E
 **Rules**:
 - Session-level events (session start, mode selection, session end) go to `_session-summary.jsonl`
 - Per-screen operations go to the screen's journal file
-- Convergence checks (C1-C7) apply per-screen journal
+- Convergence checks (C1-C9) apply per-screen journal
 - Crash recovery reads per-screen journal to determine completed operations
 - Subagents receive only the journal for their assigned screen (context reduction)
 
@@ -201,6 +201,8 @@ BEFORE mutating operation:
 | C5 | **Phase boundaries are logged** — `phase_complete` entries allow skipping entire phases on resume | Prevents re-executing completed phases |
 | C6 | **Treat journal as append-only truth** — if the journal says X was done, do not redo X even if it appears to need redoing | Breaks the regression loop |
 | C7 | **When in doubt, verify via Figma** — if a journal entry seems stale or wrong, use `figma_execute` to read node properties (`getNodeByIdAsync`, `findOne`, `children.map(c => ({id,name,type}))`) to check the actual Figma state, then decide whether to proceed or add a correction entry | Safety valve for journal integrity |
+| C8 | **Consult Session Index before MCP discovery calls** — when resolving a screen/frame by name, `Grep` the Session Index (`specs/figma/session-index.jsonl`) before calling `figma_get_file_for_plugin` or `figma_execute` discovery scripts. See `session-index-protocol.md` | Eliminates redundant MCP roundtrips; lookup cost is ~0 (local Grep) vs ~2-5s (MCP call) |
+| C9 | **Validate Session Index at phase boundaries** — before trusting index after a phase transition, compact recovery, or >5-min gap, check freshness via `figma_get_design_changes(since=last_validated)`. Rebuild if changes affect depth-1 nodes | Prevents stale ID references from external Figma edits or mutations by other subagents |
 
 ### Quick Convergence Patterns
 
@@ -424,6 +426,7 @@ Every subagent receives a standardized prompt structure. The **skill loading blo
 - Current time: {ISO_8601_timestamp}  ← orchestrator injects real wall-clock time
 - State file: specs/figma/session-state.json
 - Journal: specs/figma/journal/{screen_name}.jsonl
+- Session Index: specs/figma/session-index.jsonl (Grep for name→ID lookups; see session-index-protocol.md)
 
 ## Skill Loading (MANDATORY — NON-NEGOTIABLE)
 Every subagent MUST load the figma-console-mastery skill references BEFORE starting any work.
@@ -593,6 +596,9 @@ specs/figma/session-state.json
 
 ```
 1. Read session-state.json → determine current phase
+1.5. Validate Session Index → if specs/figma/session-index-meta.json exists,
+     check freshness via figma_get_design_changes(since=last_validated).
+     Rebuild if stale or missing. See session-index-protocol.md.
 2. Read operation-journal.jsonl → build completed-ops set
 3. Cross-validate: snapshot says phase 2 with 2/3 screens done
    Journal confirms: clone_screen for ONB-01, ONB-02 logged

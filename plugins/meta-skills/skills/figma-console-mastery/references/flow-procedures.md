@@ -29,6 +29,7 @@ Unified flow for design creation, restructuring, targeted fixes, and audits. Rep
 1. `figma_get_status` → verify connection and mode
 2. `figma_list_open_files` → confirm correct file is active
 3. `figma_navigate` → open target page/file if needed
+3.5. **Build/validate Session Index** — if `specs/figma/session-index.jsonl` does not exist or meta `file_key` differs from current file, call `figma_get_file_data(verbosity='summary', depth=1)` and write the index (see `session-index-protocol.md`). If the index exists and is fresh (< 5 min), skip.
 4. **Load compound learnings** — if `~/.figma-console-mastery/learnings.md` exists, read entries relevant to the current task type
 5. `figma_get_design_system_summary` → understand existing tokens, components, styles
 6. `figma_get_variables(format="summary")` → catalog available variables
@@ -205,8 +206,8 @@ Quality assurance flow for preparing designs for code handoff. Replaces Visual Q
 
 1. `figma_list_open_files` → identify target file
 2. `figma_navigate` → open target page
-3. `figma_get_file_for_plugin` → full node tree
-4. Identify top-level frames (screens)
+3. **Consult Session Index** — if `specs/figma/session-index.jsonl` exists and is valid (C9 check), use `Grep` to list all FRAME entries on the target page. If index is missing or stale, fall back to `figma_get_file_for_plugin` → full node tree (original behavior)
+4. Identify top-level frames (screens) from index entries or node tree
 5. Capture baseline screenshot for each screen via `figma_capture_screenshot`
 6. Generate screen inventory: `specs/figma/inventory.md` with screen names, dimensions, frame IDs
 7. Return inventory to main context
