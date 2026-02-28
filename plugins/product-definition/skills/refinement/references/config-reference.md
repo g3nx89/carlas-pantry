@@ -30,6 +30,23 @@
 | `{TOTAL}` | Total models configured | `3` |
 | `{REFLECTION_CONTEXT}` | Reflexion from previous RED round | (generated text or empty) |
 | `{SECTION_DECOMPOSITION}` | Least-to-Most section breakdown | (decomposition from Step 3B.2) |
+| `{ROLE}` | Panel member role title | `Senior Product Strategist` |
+| `{PERSPECTIVE_NAME}` | Panel member perspective label | `Product Strategy` |
+| `{QUESTION_PREFIX}` | Question ID prefix for panel member | `PSQ` |
+| `{MEMBER_ID}` | Panel member identifier | `product-strategist` |
+| `{FOCUS_AREAS}` | Comma-separated focus areas | `product vision, market positioning` |
+| `{PRD_SECTION_TARGETS}` | Target PRD sections | `Product Definition, Value Proposition` |
+| `{DOMAIN_GUIDANCE}` | Domain-specific guidance block | (15-25 lines of domain context) |
+| `{DOMAIN_DESCRIPTION}` | Short domain classification | `food-delivery marketplace` |
+| `{STEP_1_DESCRIPTION}` | Sequential Thinking step 1 | `Product Vision Analysis — ...` |
+| `{STEP_2_DESCRIPTION}` | Sequential Thinking step 2 | `Market Positioning — ...` |
+| `{STEP_3_DESCRIPTION}` | Sequential Thinking step 3 | `Business Model Exploration — ...` |
+| `{STEP_4_DESCRIPTION}` | Sequential Thinking step 4 | `Go-to-Market — ...` |
+| `{STEP_5_DESCRIPTION}` | Sequential Thinking step 5 | `Competitive Moat — ...` |
+| `{PANEL_CONFIG}` | Panel config YAML for synthesis agent | (members list with ids and perspectives) |
+| `{PANEL_CONFIG_PATH}` | Path to panel config file | `requirements/.panel-config.local.md` |
+| `{EXISTING_PRD_SECTIONS}` | PRD section headings with status (EXTEND mode) | `Product Definition: COMPLETE, ...` |
+| `{PRESET_NAME}` | Panel preset name | `product-focused` |
 
 ---
 
@@ -38,7 +55,7 @@
 | File Pattern | Purpose | Example |
 |--------------|---------|---------|
 | `QUESTIONS-{NNN}.md` | Question rounds | `QUESTIONS-001.md` |
-| `questions-*.md` | Agent-specific questions | `questions-product-strategy.md` |
+| `questions-{member-id}.md` | Per-panel-member questions | `questions-product-strategist.md` |
 | `thinkdeep-insights.md` | Stage 3 synthesis | (fixed name) |
 | `research-synthesis.md` | Research findings | (fixed name) |
 | `PRD.md` | Final output | (fixed name) |
@@ -156,10 +173,9 @@ Consensus shares multi-step workflow parameters with ThinkDeep (see "PAL Tool Qu
 
 | Agent | Stage | Purpose |
 |-------|-------|---------|
-| `requirements-product-strategy` | 3 | Product strategy questions |
-| `requirements-user-experience` | 3 | UX and persona questions |
-| `requirements-business-ops` | 3 | Business viability questions |
-| `requirements-question-synthesis` | 3 | Merge and format questions |
+| `requirements-panel-builder` | 1 | Compose dynamic MPA panel |
+| `requirements-panel-member` (template) | 3 | Parametric template dispatched per panel member |
+| `requirements-question-synthesis` | 3 | Merge N panel outputs into QUESTIONS file |
 | `requirements-prd-generator` | 5 | Generate/extend PRD |
 | `research-discovery-business` | 2 | Strategic research questions |
 | `research-discovery-ux` | 2 | UX research questions |
@@ -201,12 +217,12 @@ Consensus shares multi-step workflow parameters with ThinkDeep (see "PAL Tool Qu
 
 ## Analysis Mode Summary
 
-| Mode | MPA Agents | ThinkDeep Calls | Sequential | Consensus | Est. Cost/Round | Est. Duration/Round |
-|------|------------|-----------------|------------|-----------|-----------------|---------------------|
-| complete | 3 | 27 (3×3×3) | Yes | Yes | ~$0.50-1.00 | ~15-30 min |
-| advanced | 3 | 18 (2×3×3) | No | No | ~$0.30-0.50 | ~10-20 min |
-| standard | 3 | 0 | No | No | ~$0.15-0.25 | ~3-8 min |
-| rapid | 1 | 0 | No | No | ~$0.05-0.10 | ~1-3 min |
+| Mode | Panel | ThinkDeep Calls | Sequential | Consensus | Est. Cost/Round | Est. Duration/Round |
+|------|-------|-----------------|------------|-----------|-----------------|---------------------|
+| complete | Configured (2-5 members) | 27 (3×3×3) | Yes | Yes | ~$0.50-1.00 | ~15-30 min |
+| advanced | Configured (2-5 members) | 18 (2×3×3) | No | No | ~$0.30-0.50 | ~10-20 min |
+| standard | Configured (2-5 members) | 0 | No | No | ~$0.15-0.25 | ~3-8 min |
+| rapid | Single agent (product-strategist) | 0 | No | No | ~$0.05-0.10 | ~1-3 min |
 
 ---
 

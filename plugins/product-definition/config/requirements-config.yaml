@@ -1,11 +1,11 @@
 # Requirements Refinement Configuration
-# Version: 1.0.0
+# Version: 3.0.0
 #
 # Plugin: product-definition
 # Skill: refinement (migrated from /product-definition:requirements command)
 
-version: "2.1.0"
-last_updated: "2026-02-08"
+version: "3.0.0"
+last_updated: "2026-02-28"
 
 # =============================================================================
 # DIRECTORY STRUCTURE (User's working directory - NOT plugin directory)
@@ -39,7 +39,7 @@ analysis_modes:
   complete:
     description: "MPA + PAL ThinkDeep (3×3×3) + Sequential Thinking"
     mpa_enabled: true
-    mpa_agents: 3
+    mpa_agents: "panel"  # Dynamic — determined by panel config (2-5 members)
     pal_thinkdeep_enabled: true
     pal_thinkdeep_perspectives: 3  # competitive, risk, contrarian
     pal_thinkdeep_models: 3        # gpt-5.2, gemini-3-pro-preview, grok-4
@@ -54,7 +54,7 @@ analysis_modes:
   advanced:
     description: "MPA + PAL ThinkDeep (2×3×3)"
     mpa_enabled: true
-    mpa_agents: 3
+    mpa_agents: "panel"  # Dynamic — determined by panel config (2-5 members)
     pal_thinkdeep_enabled: true
     pal_thinkdeep_perspectives: 2  # competitive, risk (no contrarian)
     pal_thinkdeep_models: 3        # gpt-5.2, gemini-3-pro-preview, grok-4
@@ -69,7 +69,7 @@ analysis_modes:
   standard:
     description: "MPA only"
     mpa_enabled: true
-    mpa_agents: 3
+    mpa_agents: "panel"  # Dynamic — determined by panel config (2-5 members)
     pal_thinkdeep_enabled: false
     pal_thinkdeep_perspectives: 0
     sequential_thinking_enabled: false
@@ -109,57 +109,166 @@ questions:
   file_naming: "QUESTIONS-{NNN}.md"  # NNN = zero-padded round number
 
 # =============================================================================
-# MPA CONFIGURATION
+# PANEL CONFIGURATION (Dynamic MPA)
 # =============================================================================
+#
+# Panel members are composed at runtime from presets or custom selection.
+# Replaces the former hardcoded 3-agent MPA configuration.
 
-mpa:
-  enabled: true
-  parallel_execution: true
+panel:
+  # Panel Builder agent (dispatched in Stage 1)
+  builder:
+    agent: "$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-builder.md"
+    protocol: "$CLAUDE_PLUGIN_ROOT/skills/refinement/references/panel-builder-protocol.md"
+    model: "sonnet"
 
-  agents:
-    product_strategy:
-      enabled: true
-      model: "sonnet"
-      # NO LIMIT: Generate ALL questions necessary for complete PRD coverage
-      questions_limit: null  # No artificial limit
-      file: "$CLAUDE_PLUGIN_ROOT/agents/requirements-product-strategy.md"
+  # Template for all panel members (parametric — variables injected at dispatch)
+  member_template: "$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md"
+  member_model: "sonnet"
+
+  # Constraints
+  min_members: 2
+  max_members: 5
+
+  # Default preset when no prior panel config exists
+  default_preset: "product-focused"
+
+  # Panel config file (generated at runtime in user's workspace)
+  config_file: "requirements/.panel-config.local.md"
+  proposed_file: "requirements/.panel-proposed.local.md"
+
+  # Presets: named panel compositions for common project types
+  presets:
+    product-focused:
+      description: "Balanced product + UX + functional analysis"
+      members: ["product-strategist", "ux-researcher", "functional-analyst"]
+    consumer:
+      description: "Consumer app: product + UX + growth"
+      members: ["product-strategist", "ux-researcher", "growth-specialist"]
+    marketplace:
+      description: "Two-sided marketplace with domain expert"
+      members: ["product-strategist", "ux-researcher", "marketplace-dynamics", "growth-specialist"]
+    enterprise:
+      description: "B2B/regulated: product + UX + compliance"
+      members: ["product-strategist", "ux-researcher", "compliance-regulatory"]
+    custom:
+      description: "User picks from available perspectives"
+      members: []  # Populated at runtime
+
+  # Available perspectives registry (used by presets and custom selection)
+  available_perspectives:
+    product-strategist:
+      role: "Senior Product Strategist"
+      perspective_name: "Product Strategy"
+      question_prefix: "PSQ"
+      default_weight: 0.30
       focus_areas:
-        - product_vision
-        - market_positioning
-        - competitive_differentiation
-        - business_model
-        - pricing_strategy
-
-    user_experience:
-      enabled: true
-      model: "sonnet"
-      # NO LIMIT: Generate ALL questions necessary for complete PRD coverage
-      questions_limit: null  # No artificial limit
-      file: "$CLAUDE_PLUGIN_ROOT/agents/requirements-user-experience.md"
+        - "product vision"
+        - "market positioning"
+        - "competitive differentiation"
+        - "business model"
+      prd_section_targets:
+        - "Product Definition"
+        - "Value Proposition"
+        - "Success Criteria"
+    ux-researcher:
+      role: "Senior UX Researcher"
+      perspective_name: "User Experience"
+      question_prefix: "UXQ"
+      default_weight: 0.30
       focus_areas:
-        - personas
-        - user_journeys
-        - pain_points
-        - emotional_design
-        - accessibility
-
-    business_operations:
-      enabled: true
-      model: "sonnet"
-      # NO LIMIT: Generate ALL questions necessary for complete PRD coverage
-      questions_limit: null  # No artificial limit
-      file: "$CLAUDE_PLUGIN_ROOT/agents/requirements-business-ops.md"
+        - "personas"
+        - "user journeys"
+        - "pain points"
+        - "emotional design"
+        - "accessibility"
+      prd_section_targets:
+        - "Target Users"
+        - "Problem Analysis"
+        - "Core Workflows"
+    functional-analyst:
+      role: "Senior Functional Analyst"
+      perspective_name: "Functional Analysis"
+      question_prefix: "FAQ"
+      default_weight: 0.25
       focus_areas:
-        - operational_viability
-        - business_constraints
-        - regulatory_compliance
-        - scalability_business
-        - external_dependencies
+        - "feature completeness"
+        - "workflow edge cases"
+        - "data requirements"
+        - "integration points"
+      prd_section_targets:
+        - "Core Workflows"
+        - "Feature Inventory"
+        - "Business Constraints"
+    growth-specialist:
+      role: "Growth & Retention Specialist"
+      perspective_name: "Growth & Retention"
+      question_prefix: "GRQ"
+      default_weight: 0.20
+      focus_areas:
+        - "onboarding funnel"
+        - "engagement loops"
+        - "churn prevention"
+        - "viral mechanics"
+      prd_section_targets:
+        - "Target Users"
+        - "Value Proposition"
+        - "Feature Inventory"
+    compliance-regulatory:
+      role: "Compliance & Regulatory Specialist"
+      perspective_name: "Compliance & Regulatory"
+      question_prefix: "CRQ"
+      default_weight: 0.20
+      focus_areas:
+        - "regulatory requirements"
+        - "data privacy"
+        - "legal constraints"
+        - "audit trails"
+      prd_section_targets:
+        - "Business Constraints"
+        - "Assumptions & Risks"
+    marketplace-dynamics:
+      role: "Marketplace Dynamics Specialist"
+      perspective_name: "Marketplace Dynamics"
+      question_prefix: "MDQ"
+      default_weight: 0.20
+      focus_areas:
+        - "supply-demand balance"
+        - "network effects"
+        - "liquidity"
+        - "multi-sided incentives"
+      prd_section_targets:
+        - "Product Definition"
+        - "Core Workflows"
+        - "Success Criteria"
+    domain-expert:
+      role: "Domain Expert"  # Role customized by Panel Builder based on draft domain
+      perspective_name: "Domain Expertise"  # Customized by Panel Builder
+      question_prefix: "DEQ"
+      default_weight: 0.20
+      focus_areas: []  # Filled by Panel Builder based on draft domain
+      prd_section_targets: []  # Filled by Panel Builder
+    business-ops:
+      role: "Senior Business Operations Consultant"
+      perspective_name: "Business Operations"
+      question_prefix: "BOQ"
+      default_weight: 0.20
+      focus_areas:
+        - "operational viability"
+        - "business constraints"
+        - "regulatory compliance"
+        - "external dependencies"
+      prd_section_targets:
+        - "Business Constraints"
+        - "Assumptions & Risks"
+        - "Success Criteria"
 
+  # Synthesis (unchanged agent, updated to accept N perspectives)
   synthesis:
     agent: "$CLAUDE_PLUGIN_ROOT/agents/requirements-question-synthesis.md"
     model: "opus"
 
+  # Fallback
   fallback:
     continue_on_failure: true
     min_agents_required: 2
@@ -584,3 +693,4 @@ templates:
   prd: "$CLAUDE_PLUGIN_ROOT/templates/prd-template.md"
   questions: "$CLAUDE_PLUGIN_ROOT/templates/questions-template.md"
   decision_log: "$CLAUDE_PLUGIN_ROOT/templates/decision-log-template.md"
+  panel_config: "$CLAUDE_PLUGIN_ROOT/templates/.panel-config-template.local.md"

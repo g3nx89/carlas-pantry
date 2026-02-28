@@ -2,9 +2,7 @@
 stage: stage-3-analysis-questions
 artifacts_written:
   - requirements/analysis/thinkdeep-insights.md (conditional)
-  - requirements/analysis/questions-product-strategy.md
-  - requirements/analysis/questions-user-experience.md (conditional)
-  - requirements/analysis/questions-business-ops.md (conditional)
+  - requirements/analysis/questions-{member.id}.md (one per panel member)
   - requirements/working/QUESTIONS-{NNN}.md
 ---
 
@@ -306,17 +304,43 @@ Prioritize sub-problems that map to weak dimensions identified in the reflection
 
 Pass decomposition to MPA agents as `SECTION_DECOMPOSITION` in their prompt context.
 
-### Step 3B.3: MPA Agent Dispatch
+### Step 3B.3: MPA Agent Dispatch (Dynamic Panel)
+
+**Read panel config:** `requirements/.panel-config.local.md` (path from `PANEL_CONFIG_PATH`)
+**Read template agent:** `@$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md`
 
 **If ANALYSIS_MODE in {complete, advanced, standard}:**
 
-Launch 3 MPA agents **in parallel** using Task tool, passing ThinkDeep insights (if available from Part A):
+Launch panel member agents **in parallel** using Task tool. For EACH member in `panel_config.members`:
 
 ```
-Task(subagent_type="requirements-product-strategy", prompt="
+Task(subagent_type="general-purpose", model="sonnet", prompt="
+## Agent Identity
+You are a panel member agent. Read and follow the template below with your variables applied.
+
+Template: @$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md
+
+## Variable Injection
+Apply these variables to the template:
+- ROLE = {member.role}
+- PERSPECTIVE_NAME = {member.perspective_name}
+- QUESTION_PREFIX = {member.question_prefix}
+- MEMBER_ID = {member.id}
+- FOCUS_AREAS = {member.focus_areas joined as comma-separated list}
+- PRD_SECTION_TARGETS = {member.prd_section_targets joined as comma-separated list}
+- DOMAIN_GUIDANCE = {member.domain_guidance}
+- DOMAIN_DESCRIPTION = {panel_config.domain}
+- STEP_1_DESCRIPTION = {member.analysis_steps.step_1}
+- STEP_2_DESCRIPTION = {member.analysis_steps.step_2}
+- STEP_3_DESCRIPTION = {member.analysis_steps.step_3}
+- STEP_4_DESCRIPTION = {member.analysis_steps.step_4}
+- STEP_5_DESCRIPTION = {member.analysis_steps.step_5}
+
+## Context
 FEATURE_DIR: requirements
 DRAFT_CONTENT: {contents of requirements/working/draft-copy.md}
 PRD_MODE: {NEW|EXTEND}
+EXISTING_PRD_SECTIONS: {IF PRD_MODE = EXTEND: list section headings from requirements/PRD.md with status (COMPLETE/PARTIAL/MISSING). ELSE: 'N/A — NEW mode'}
 RESEARCH_SYNTHESIS: {contents of research-synthesis.md if exists, otherwise 'No research synthesis available'}
 
 ===============================================================
@@ -348,25 +372,46 @@ CRITICAL INSTRUCTIONS:
    - HIGH: Flagged by 2+ perspectives or model divergence
    - MEDIUM: Flagged by 1 perspective
 
-Generate strategic questions following your 6-step Sequential Thinking protocol.
-Output to: requirements/analysis/questions-product-strategy.md
+Generate questions following your 6-step Sequential Thinking protocol.
+Output to: requirements/analysis/questions-{member.id}.md
 ")
-
-Task(subagent_type="requirements-user-experience", prompt="...")
-Task(subagent_type="requirements-business-ops", prompt="...")
 ```
+
+→ All members dispatched in parallel via multiple Task() calls.
 
 **If ANALYSIS_MODE = rapid:**
-Launch single agent (no ThinkDeep):
+Launch single agent using `product-strategist` defaults from config (no panel config needed):
 ```
-Task(subagent_type="requirements-product-strategy", prompt="
+Task(subagent_type="general-purpose", model="sonnet", prompt="
+Read and follow: @$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md
+
+## Variable Injection
+- ROLE = Senior Product Strategist
+- PERSPECTIVE_NAME = Product Strategy
+- QUESTION_PREFIX = PSQ
+- MEMBER_ID = product-strategist
+- FOCUS_AREAS = product vision, market positioning, competitive differentiation, business model
+- PRD_SECTION_TARGETS = Product Definition, Value Proposition, Success Criteria
+- DOMAIN_GUIDANCE = Analyze the product draft broadly across all PRD dimensions. Generate questions covering all sections.
+- DOMAIN_DESCRIPTION = {extract domain from draft, e.g., 'consumer app', 'B2B SaaS', 'marketplace'}
+- STEP_1_DESCRIPTION = Product Vision Analysis — Is the product vision clear? What problem does this solve? How does it fit the user's life?
+- STEP_2_DESCRIPTION = Market Positioning — Who are direct/indirect competitors? What makes this different? New or existing market?
+- STEP_3_DESCRIPTION = Business Model Exploration — How will this make money? Who pays? Pricing strategy?
+- STEP_4_DESCRIPTION = Go-to-Market — Initial target segment? MVP vs full vision? What validates success?
+- STEP_5_DESCRIPTION = Competitive Moat — What's hard to replicate? Network effects? Long-term defensibility?
+
+FEATURE_DIR: requirements
+DRAFT_CONTENT: {contents of draft-copy.md}
+PRD_MODE: {NEW|EXTEND}
+EXISTING_PRD_SECTIONS: {IF PRD_MODE = EXTEND: list section headings from requirements/PRD.md with status. ELSE: 'N/A — NEW mode'}
+
 Generate ALL essential questions covering all PRD sections. NO LIMIT on number.
-Output to: requirements/analysis/questions-product-strategy.md
+Output to: requirements/analysis/questions-product-strategist.md
 ")
 ```
 
 **If ANALYSIS_MODE = standard (no ThinkDeep):**
-Launch 3 MPA agents WITHOUT ThinkDeep insights.
+Dispatch panel members WITHOUT ThinkDeep insights (same loop as above, THINKDEEP INSIGHTS section = 'No ThinkDeep insights available').
 
 ### Step 3B.4: Question Synthesis
 
@@ -392,10 +437,12 @@ ROUND_NUMBER: {N}
 PRD_MODE: {NEW|EXTEND}
 ANALYSIS_MODE: {MODE}
 
+PANEL_CONFIG: {contents of .panel-config.local.md YAML frontmatter — members list with id and perspective_name}
+
 INPUT FILES:
-- requirements/analysis/questions-product-strategy.md
-- requirements/analysis/questions-user-experience.md
-- requirements/analysis/questions-business-ops.md
+{FOR each member in panel_config.members:}
+- requirements/analysis/questions-{member.id}.md (perspective: {member.perspective_name})
+{END FOR}
 - requirements/analysis/thinkdeep-insights.md (reference)
 
 Output: requirements/working/QUESTIONS-{NNN}.md
@@ -447,15 +494,17 @@ status: completed
 checkpoint: ANALYSIS_QUESTIONS
 artifacts_written:
   - requirements/analysis/thinkdeep-insights.md (conditional - only if ThinkDeep ran)
-  - requirements/analysis/questions-product-strategy.md
-  - requirements/analysis/questions-user-experience.md (conditional - only if MPA mode)
-  - requirements/analysis/questions-business-ops.md (conditional - only if MPA mode)
+  # One file per panel member:
+  - requirements/analysis/questions-{member.id}.md
   - requirements/working/QUESTIONS-{NNN}.md
-summary: "Generated {N} questions across {M} perspectives with ThinkDeep insights"
+summary: "Generated {N} questions across {M} panel members ({PRESET_NAME}) with ThinkDeep insights"
 flags:
   round_number: {N}
   questions_count: {N}
   analysis_mode: "{MODE}"
+  panel_preset: "{PRESET_NAME}"
+  panel_members_count: {M}
+  panel_member_ids: ["{id1}", "{id2}", ...]
   thinkdeep_calls: {27|18|0}
   thinkdeep_expected: {27|18|0}
   thinkdeep_completion_pct: {0-100}

@@ -66,6 +66,7 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{STAGE_FILE}
 - PAL available: {PAL_AVAILABLE}
 - Sequential Thinking available: {ST_AVAILABLE}
 - Entry type: {ENTRY_TYPE}  # "first_entry" or "re_entry_after_user_input"
+- Panel config: {PANEL_CONFIG_PATH}  # null if rapid mode, path to .panel-config.local.md otherwise
 - Research MCP available: {RESEARCH_MCP_AVAILABLE}  # true if Tavily detected
 
 {IF REFLECTION_CONTEXT is non-empty (Stage 3 re-dispatch after RED validation):}
@@ -125,6 +126,7 @@ Every dispatch variable MUST have a defined fallback to prevent malformed coordi
 | `ROUND_NUMBER` | `1` | First invocation default |
 | `ANALYSIS_MODE` | `"standard"` | Safest mode — no MCP dependency |
 | `PRD_MODE` | `"NEW"` | Default to new PRD creation |
+| `PANEL_CONFIG_PATH` | `null` | null = rapid mode (single agent); otherwise path to `.panel-config.local.md` |
 | `RESEARCH_MCP_AVAILABLE` | `false` | Assume unavailable; Stage 2 falls back to manual research |
 
 **Precedence rule:** State file values always override defaults. Apply defaults only when the variable has no value in state AND was not explicitly set by a prior stage.

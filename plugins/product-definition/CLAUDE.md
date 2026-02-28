@@ -30,12 +30,15 @@ The skill `skills/refinement/SKILL.md` (invoked via `commands/requirements.md`) 
 5. **Stage 5: Validation & PRD** — PRD readiness validation, PRD generation/extension
 6. **Stage 6: Completion** — Lock release, report, next steps
 
-### Multi-Perspective Analysis (MPA) Pattern
+### Dynamic Panel (MPA) Pattern
 
-Question generation uses 3 parallel specialist agents (`agents/requirements-*.md`):
-- `requirements-product-strategy` - Market positioning, business model
-- `requirements-user-experience` - Personas, user journeys
-- `requirements-business-ops` - Operational viability, constraints
+Question generation uses a **dynamic panel** of 2-5 specialist agents composed at runtime:
+- `requirements-panel-builder` - Analyzes draft, detects domain, proposes panel composition
+- `requirements-panel-member` (template) - Parametric agent dispatched once per panel member with variables from panel config
+- Panel config persisted in `requirements/.panel-config.local.md`
+
+Presets: `product-focused` (default), `consumer`, `marketplace`, `enterprise`, `custom`.
+Available perspectives defined in `config/requirements-config.yaml` -> `panel.available_perspectives`.
 
 These run in parallel via the Task tool, then `requirements-question-synthesis` merges and deduplicates their output.
 
@@ -83,7 +86,7 @@ Stage 3 runs multi-model ThinkDeep analysis (gpt-5.2, gemini-3-pro-preview, grok
 
 ## File Naming Conventions
 
-- Agents: `agents/{domain}-{role}.md` (e.g., `requirements-product-strategy.md`)
+- Agents: `agents/{domain}-{role}.md` (e.g., `requirements-panel-member.md`)
 - Skill references: `skills/{name}/references/{stage-or-protocol}.md`
 - Templates: `templates/{purpose}-template.md`
 - User workspace files: `requirements/working/QUESTIONS-{NNN}.md`

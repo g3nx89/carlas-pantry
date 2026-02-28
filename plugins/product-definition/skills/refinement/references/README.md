@@ -16,6 +16,7 @@
 | `error-handling.md` | Any error condition — PAL failures, graceful degradation, recovery |
 | `config-reference.md` | PAL tool usage — template variables, PAL patterns, scoring thresholds |
 | `option-generation-reference.md` | Stage 3 question gen — option format, scoring algorithm, merging logic |
+| `panel-builder-protocol.md` | Stage 1 panel composition — domain detection, presets, perspective registry, validation rules |
 | `consensus-call-pattern.md` | Stages 4 and 5 consensus — shared model resolution, multi-step execution, unanimity check |
 | `research-mcp-reference.md` | Dispatching Stage 2 with research MCP available — tool selection decision tree, query patterns, cost management, anti-patterns |
 
@@ -35,6 +36,7 @@
 | `error-handling.md` | ~110 | Error recovery procedures |
 | `config-reference.md` | ~220 | PAL parameter reference, scoring thresholds |
 | `option-generation-reference.md` | ~300 | Question/option format specification |
+| `panel-builder-protocol.md` | ~200 | Domain detection, presets, perspective registry, panel validation |
 | `consensus-call-pattern.md` | ~90 | Shared PAL Consensus call workflow (model resolution, execution, unanimity) |
 | `research-mcp-reference.md` | ~200 | Research MCP decision tree, query patterns, anti-patterns, cost management |
 
@@ -44,6 +46,7 @@
 
 - All stage files reference `checkpoint-protocol.md` for state updates
 - All stage files reference `error-handling.md` for failure recovery
+- `stage-1-setup.md` references `panel-builder-protocol.md` for panel composition (Step 1.7.5)
 - `stage-3-analysis-questions.md` references `option-generation-reference.md` for scoring algorithms
 - `stage-3-analysis-questions.md` references `config-reference.md` for ThinkDeep PAL patterns
 - `stage-4-response-analysis.md` references `config-reference.md` for Consensus PAL patterns
@@ -73,7 +76,9 @@
 ### External References
 
 - All files reference `$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml` for configuration
-- Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/requirements-*.md`
+- `stage-1-setup.md` references `$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-builder.md` for panel composition
+- `stage-3-analysis-questions.md` references `$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md` (parametric template dispatched per member)
+- Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/requirements-question-synthesis.md`, `requirements-prd-generator.md`
 - Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/research-discovery-*.md`
 - Stage files reference templates at `$CLAUDE_PLUGIN_ROOT/templates/`
 

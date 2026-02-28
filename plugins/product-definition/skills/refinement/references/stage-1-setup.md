@@ -3,6 +3,7 @@ stage: stage-1-setup
 artifacts_written:
   - requirements/.requirements-state.local.md
   - requirements/.requirements-lock
+  - requirements/.panel-config.local.md (conditional — absent in rapid mode)
   - requirements/.stage-summaries/stage-1-summary.md
 ---
 
@@ -51,10 +52,9 @@ CHECK Research MCP (for auto-research in Stage 2):
 Validate all required components exist:
 
 ```bash
-# Check required agents — requirements workflow
-test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-product-strategy.md" || echo "MISSING"
-test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-user-experience.md" || echo "MISSING"
-test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-business-ops.md" || echo "MISSING"
+# Check required agents — panel system
+test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md" || echo "MISSING"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-builder.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-question-synthesis.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-prd-generator.md" || echo "MISSING"
 
@@ -63,6 +63,9 @@ test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-business.md" || echo "MIS
 test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-ux.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-technical.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/research-question-synthesis.md" || echo "MISSING"
+
+# Check required references — panel builder protocol
+test -f "$CLAUDE_PLUGIN_ROOT/skills/refinement/references/panel-builder-protocol.md" || echo "MISSING"
 
 # Check required config
 test -f "$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml" || echo "MISSING"
@@ -218,9 +221,9 @@ Use AskUserQuestion:
     "header": "Analysis",
     "multiSelect": false,
     "options": [
-      {"label": "Complete Analysis (MPA + PAL + ST) (Recommended)", "description": "3 MPA agents + 3 PAL perspectives + Sequential Thinking. Maximum depth, ~$0.50-1.00/round, ~15-30 min"},
-      {"label": "Advanced Analysis (MPA + PAL)", "description": "3 MPA agents + 2 PAL ThinkDeep perspectives. Good depth, ~$0.30-0.50/round, ~10-20 min"},
-      {"label": "Standard Analysis (MPA only)", "description": "3 MPA agents only. Solid coverage, ~$0.15-0.25/round, ~3-8 min"},
+      {"label": "Complete Analysis (MPA + PAL + ST) (Recommended)", "description": "Panel members + 3 PAL perspectives + Sequential Thinking. Maximum depth, ~$0.50-1.00/round, ~15-30 min"},
+      {"label": "Advanced Analysis (MPA + PAL)", "description": "Panel members + 2 PAL ThinkDeep perspectives. Good depth, ~$0.30-0.50/round, ~10-20 min"},
+      {"label": "Standard Analysis (MPA only)", "description": "Panel members only. Solid coverage, ~$0.15-0.25/round, ~3-8 min"},
       {"label": "Rapid Analysis (Single agent)", "description": "Single BA agent. Fast and minimal cost, ~$0.05-0.10/round, ~1-3 min"}
     ]
   }]
@@ -235,12 +238,176 @@ Use AskUserQuestion:
     "header": "Analysis",
     "multiSelect": false,
     "options": [
-      {"label": "Standard Analysis (MPA only) (Recommended)", "description": "3 MPA agents. Solid coverage, ~$0.15-0.25/round, ~3-8 min"},
+      {"label": "Standard Analysis (MPA only) (Recommended)", "description": "Panel members only. Solid coverage, ~$0.15-0.25/round, ~3-8 min"},
       {"label": "Rapid Analysis (Single agent)", "description": "Single BA agent. Fast and minimal cost, ~$0.05-0.10/round, ~1-3 min"}
     ]
   }]
 }
 ```
+
+## Step 1.7.5: Panel Composition
+
+**Purpose:** Build the MPA panel — the set of specialist perspectives that will generate questions.
+
+```
+IF ANALYSIS_MODE = rapid:
+    → Panel fixed to single panelist (product-strategist default)
+    → Skip Panel Builder dispatch
+    → Set PANEL_CONFIG_PATH = null (use default single-agent mode)
+    → Proceed to Step 1.8
+
+IF ANALYSIS_MODE in {standard, advanced, complete}:
+    → Continue to panel composition below
+```
+
+### 1. Check for Existing Panel Config
+
+```bash
+test -f requirements/.panel-config.local.md && echo "PANEL_EXISTS=true" || echo "PANEL_EXISTS=false"
+```
+
+### 2a. If Panel Config Exists
+
+Read panel config, display summary to user via AskUserQuestion:
+
+```json
+{
+  "questions": [{
+    "question": "Existing analysis panel found:\n\n{MEMBER_LIST_FROM_CONFIG}\n\nUse this panel or reconfigure?",
+    "header": "Panel",
+    "multiSelect": false,
+    "options": [
+      {"label": "Use existing panel (Recommended)", "description": "Continue with the same specialist perspectives"},
+      {"label": "Reconfigure panel", "description": "Choose a different preset or customize members"}
+    ]
+  }]
+}
+```
+
+- **"Use existing panel":** Set `PANEL_CONFIG_PATH = "requirements/.panel-config.local.md"`, skip to Step 1.8
+- **"Reconfigure":** Continue to step 3
+
+### 2b. If No Panel Config Exists
+
+Continue to step 3.
+
+### 3. Dispatch Panel Builder
+
+```
+Task(subagent_type="general-purpose", model="sonnet", prompt="""
+Read and follow: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/panel-builder-protocol.md
+
+You are the Panel Builder. Read your agent definition at:
+@$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-builder.md
+
+## Context
+- Draft file: requirements/working/draft-copy.md
+- Product name: {PRODUCT_NAME}
+- Analysis mode: {ANALYSIS_MODE}
+{IF PRESET_OVERRIDE:}- Preset override: {PRESET_OVERRIDE}{END IF}
+{IF CUSTOM_MEMBERS:}- Custom members: {CUSTOM_MEMBERS}{END IF}
+
+## Config
+Read available perspectives from: @$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml -> panel.available_perspectives
+
+## Output
+- Proposed panel: requirements/.panel-proposed.local.md
+- Summary: requirements/.stage-summaries/panel-builder-summary.md
+
+Analyze the draft, detect domain signals, and propose a panel.
+""")
+```
+
+### 3.1 Panel Builder Failure Fallback
+
+**If Panel Builder dispatch fails** (no summary produced, crash, or timeout):
+1. Notify user: "Panel Builder failed. Falling back to default preset."
+2. Use default preset from config (`panel.default_preset`, default: `product-focused`)
+3. Build panel config directly from `config/requirements-config.yaml` -> `panel.presets.{default_preset}` + `panel.available_perspectives`
+4. Write panel config to `requirements/.panel-config.local.md` using the template
+5. Skip steps 4-7, proceed to step 8 (Finalize Panel)
+
+### 4. Read Panel Builder Output
+
+Read `requirements/.stage-summaries/panel-builder-summary.md`.
+The summary will have `status: needs-user-input` with `question_context`.
+
+### 5. Present Panel to User
+
+Use `AskUserQuestion` with the question from the Panel Builder summary:
+
+```json
+{
+  "questions": [{
+    "question": "{question from panel-builder-summary.flags.question_context.question}",
+    "header": "Panel",
+    "multiSelect": false,
+    "options": [
+      {"label": "Accept panel (Recommended)", "description": "{preset description}"},
+      {"label": "Choose different preset", "description": "Select from: product-focused, consumer, marketplace, enterprise"},
+      {"label": "Customize members", "description": "Pick individual perspectives from the available registry"}
+    ]
+  }]
+}
+```
+
+### 6. Handle "Choose Different Preset"
+
+```json
+{
+  "questions": [{
+    "question": "Which panel preset do you want?",
+    "header": "Preset",
+    "multiSelect": false,
+    "options": [
+      {"label": "Product-focused", "description": "Product Strategist + UX Researcher + Functional Analyst"},
+      {"label": "Consumer", "description": "Product Strategist + UX Researcher + Growth Specialist"},
+      {"label": "Marketplace", "description": "Product Strategist + UX Researcher + Marketplace Dynamics + Growth"},
+      {"label": "Enterprise", "description": "Product Strategist + UX Researcher + Compliance & Regulatory"}
+    ]
+  }]
+}
+```
+
+Re-dispatch Panel Builder (step 3) with `PRESET_OVERRIDE` set to user's choice.
+
+### 7. Handle "Customize Members"
+
+```json
+{
+  "questions": [{
+    "question": "Select the perspectives for your panel (2-5 members):",
+    "header": "Members",
+    "multiSelect": true,
+    "options": [
+      {"label": "Product Strategist", "description": "Market positioning, competitive differentiation, business model"},
+      {"label": "UX Researcher", "description": "Personas, user journeys, pain points, accessibility"},
+      {"label": "Functional Analyst", "description": "Feature completeness, workflow edge cases, data requirements"},
+      {"label": "Growth Specialist", "description": "Onboarding, engagement loops, churn prevention"}
+    ]
+  }]
+}
+```
+
+**Note:** Show additional options from config `panel.available_perspectives` if relevant to the detected domain.
+
+Re-dispatch Panel Builder (step 3) with `CUSTOM_MEMBERS` set to user's selections.
+
+### 8. Finalize Panel
+
+```bash
+mv requirements/.panel-proposed.local.md requirements/.panel-config.local.md
+```
+
+Set `PANEL_CONFIG_PATH = "requirements/.panel-config.local.md"`
+
+Record user decision:
+```yaml
+user_decisions:
+  panel_round_1: "{PRESET_NAME or 'custom'}"
+```
+
+---
 
 ## Step 1.8: State Initialization (CHECKPOINT)
 
@@ -253,6 +420,9 @@ Set:
 - current_stage: 1
 - current_round: 1
 - analysis_mode: "{ANALYSIS_MODE}"
+- panel_preset: "{PRESET_NAME or null if rapid}"
+- panel_members_count: {N or 0 if rapid}
+- panel_config_path: "{PANEL_CONFIG_PATH or null if rapid}"
 - mcp_availability.pal_available: {true|false}
 - mcp_availability.st_available: {true|false}
 - mcp_availability.research_mcp.tavily: {true|false}
@@ -262,6 +432,7 @@ Record user decisions:
 ```yaml
 user_decisions:
   analysis_mode_round_1: "{ANALYSIS_MODE}"
+  panel_round_1: "{PRESET_NAME or 'rapid-default'}"
 ```
 
 **Git Suggestion:**
@@ -283,10 +454,14 @@ checkpoint: SETUP
 artifacts_written:
   - requirements/.requirements-state.local.md
   - requirements/.requirements-lock
-summary: "Initialized workspace in {PRD_MODE} mode with {ANALYSIS_MODE} analysis"
+  - requirements/.panel-config.local.md  # conditional — absent in rapid mode
+summary: "Initialized workspace in {PRD_MODE} mode with {ANALYSIS_MODE} analysis, {N}-member panel ({PRESET_NAME})"
 flags:
   analysis_mode: "{ANALYSIS_MODE}"
   prd_mode: "{PRD_MODE}"
+  panel_preset: "{PRESET_NAME or null}"
+  panel_members_count: {N or 0}
+  panel_config_path: "{PANEL_CONFIG_PATH or null}"
   pal_available: {true|false}
   st_available: {true|false}
   research_mcp_tavily: {true|false}

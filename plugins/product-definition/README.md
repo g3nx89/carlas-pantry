@@ -226,7 +226,7 @@ If MCP tools are unavailable:
 | `narration-edge-case-auditor` | narrate | MPA: unusual conditions | sonnet |
 | `narration-validation-synthesis` | narrate | Merge MPA + PAL, prioritize fixes | opus |
 
-### Templates (22)
+### Templates (23)
 
 | Template | Purpose |
 |----------|---------|
@@ -252,6 +252,7 @@ If MCP tools are unavailable:
 | `ux-narrative-index-template.md` | UX narrative index (multi-file mode) |
 | `batch-questions-template.md` | Batch mode consolidated Q&A document |
 | `screen-descriptions-template.md` | User input format for batch screen descriptions |
+| `.panel-config-template.local.md` | Panel composition config for MPA agents |
 
 ## Configuration
 
@@ -316,7 +317,7 @@ rm design-narration/.narration-state.local.md
 
 ## Version
 
-- **Plugin Version:** 2.3.0
+- **Plugin Version:** 3.0.0
 - **Schema Version:** 2
 
 ## License

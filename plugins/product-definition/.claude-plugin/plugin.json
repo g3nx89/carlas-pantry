@@ -1,6 +1,6 @@
 {
   "name": "product-definition",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Transform rough product drafts into finalized PRDs, create detailed technical specifications, prepare Figma designs for coding agent handoff, and generate UX/interaction narratives — with multi-perspective analysis, Figma integration, LLM-as-judge quality gates, and V-Model test strategy generation",
   "author": {
     "name": "Alessandro Fato",

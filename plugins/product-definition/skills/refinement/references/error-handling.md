@@ -141,6 +141,21 @@ Research MCP failures are **non-blocking** — research is optional, and auto-re
 
 ---
 
+## Panel Builder Failure Recovery (Stage 1)
+
+If the Panel Builder subagent fails (crash, timeout, no output):
+
+1. Notify user: "Panel Builder failed. Falling back to default preset."
+2. Read default preset from `config/requirements-config.yaml` -> `panel.default_preset` (default: `product-focused`)
+3. Build panel config from preset members + `panel.available_perspectives` registry
+4. Write directly to `requirements/.panel-config.local.md`
+5. Log: `model_failures.append({tool: "panel-builder", stage: 1, error: "...", action_taken: "fallback_to_default_preset"})`
+6. Continue to Step 1.8 (State Initialization)
+
+**Key:** Panel Builder failure is **non-blocking** — the default preset always produces a valid panel.
+
+---
+
 ## Critical Rules
 
 1. **NEVER substitute models** - If gpt-5.2 fails, do NOT use a different model in its place. _Note: This is an intentional deviation from PAL mastery's "graceful degradation" guidance. In requirements workflows, PRD decisions must be traceable to specific models for audit purposes. Swapping a different model mid-workflow would break traceability of which model influenced which product decision._

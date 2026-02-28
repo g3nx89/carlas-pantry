@@ -85,9 +85,23 @@ RECOMMENDATION SCORING (per option):
    +------------------------------------------------------------+
 
 3. MULTI_PERSPECTIVE_SCORE (0-25 points)
-   - Product Strategy alignment (+8)
-   - User Experience alignment (+8)
-   - Business Operations alignment (+9)
+   Distributed across panel members based on their configured weights:
+
+   FOR each member in PANEL_CONFIG.members:
+     - {member.perspective_name} alignment: +(25 * member.weight) points
+
+   Example with 3 members (weights 0.35, 0.35, 0.30):
+     - Product Strategy alignment: +8.75
+     - User Experience alignment: +8.75
+     - Functional Analysis alignment: +7.50
+     Total: 25 points
+
+   Example with 4 members (weights 0.30, 0.30, 0.20, 0.20):
+     - Product Strategy alignment: +7.5
+     - User Experience alignment: +7.5
+     - Domain Expert alignment: +5.0
+     - Growth & Retention alignment: +5.0
+     Total: 25 points
 
 4. INDUSTRY_PRACTICE_SCORE (0-25 points)
    - Follows established patterns? (+10)
@@ -118,7 +132,7 @@ THINKDEEP INTEGRATION RULES:
 
 ## 3. Synthesis Merging Logic
 
-When the synthesis agent merges questions from 3 MPA agents:
+When the synthesis agent merges questions from N panel member agents:
 
 ```
 DEDUPLICATION RULES:
@@ -146,10 +160,10 @@ MERGED QUESTION: "What is the primary revenue model?"
     D) Usage-based pricing - from BO
     E) Other (custom answer)
 
-MULTI-PERSPECTIVE CONTEXT:
+MULTI-PERSPECTIVE CONTEXT (dynamic — one line per panel member):
   [target] Product Strategy: "Recurring revenue enables predictable growth"
   [user] User Experience: "Subscription fatigue is real - consider value perception"
-  [briefcase] Business Ops: "Usage-based requires metering infrastructure"
+  [magnifier] Functional Analysis: "Usage-based requires metering workflows"
 ```
 
 ## 4. ThinkDeep -> Question Priority
@@ -260,33 +274,35 @@ This is the complete format for questions in `QUESTIONS-{NNN}.md`:
                                   |
                                   v
 +-----------------------------------------------------------------------------+
-|  Stage 3 Part B: MPA Agents (3 parallel) - WITH ThinkDeep Insights          |
+|  Stage 3 Part B: Dynamic Panel Dispatch - WITH ThinkDeep Insights           |
 |  =========================================================================  |
 |                                                                             |
-|  +-----------------+  +-----------------+  +-----------------------------+  |
-|  | Product Strategy|  | User Experience |  | Business Operations         |  |
-|  | Agent           |  | Agent           |  | Agent                       |  |
-|  |                 |  |                 |  |                             |  |
-|  | INPUT:          |  | INPUT:          |  | INPUT:                      |  |
-|  | - Draft         |  | - Draft         |  | - Draft                     |  |
-|  | - Research      |  | - Research      |  | - Research                  |  |
-|  | - ThinkDeep <---+--+-----------------+--+-- INSIGHTS INFORM OPTIONS   |  |
-|  |                 |  |                 |  |                             |  |
-|  | Questions focus:|  | Questions focus:|  | Questions focus:            |  |
-|  | - Vision        |  | - Personas      |  | - Constraints               |  |
-|  | - Market        |  | - Pain points   |  | - Compliance                |  |
-|  | - Business model|  | - Journeys      |  | - Operations                |  |
-|  +--------+--------+  +--------+--------+  +-----------------+-----------+  |
-|           |                    |                             |              |
-+-----------+--------------------+-----------------------------+--------------+
-            |                    |                             |
-            +--------------------+-----------------------------+
-                                 |
-                                 v
+|  Panel members loaded from requirements/.panel-config.local.md              |
+|  Each member uses the parametric template: requirements-panel-member.md     |
+|                                                                             |
+|  +-------------------+  +-------------------+      +-------------------+   |
+|  | Panel Member 1    |  | Panel Member 2    | ...  | Panel Member N    |   |
+|  | (e.g. Product     |  | (e.g. UX          |      | (e.g. Domain      |   |
+|  |  Strategist)      |  |  Researcher)      |      |  Expert)          |   |
+|  |                   |  |                   |      |                   |   |
+|  | INPUT:            |  | INPUT:            |      | INPUT:            |   |
+|  | - Draft           |  | - Draft           |      | - Draft           |   |
+|  | - Research        |  | - Research        |      | - Research        |   |
+|  | - ThinkDeep <-----+--+-------------------+------+- INSIGHTS         |   |
+|  | - Domain Guidance |  | - Domain Guidance |      | - Domain Guidance |   |
+|  | - Custom Steps    |  | - Custom Steps    |      | - Custom Steps    |   |
+|  +--------+----------+  +--------+----------+      +--------+----------+   |
+|           |                      |                           |             |
++-----------+----------------------+---------------------------+-------------+
+            |                      |                           |
+            +----------------------+---------------------------+
+                                   |
+                                   v
               +-------------------------------+
               | Question Synthesis Agent      |
               | (Sequential Thinking)         |
               |                               |
+              | - Reads N input files         |
               | - Deduplicates questions      |
               | - Merges options from all     |
               | - Recalculates recommendations|
@@ -296,7 +312,7 @@ This is the complete format for questions in `QUESTIONS-{NNN}.md`:
                               v
               +-------------------------------+
               | QUESTIONS-{NNN}.md            |
-              | (12-18 deduplicated questions)|
+              | (deduplicated questions)      |
               | WITH THINKDEEP-INFORMED       |
               | OPTIONS AND PRIORITIES        |
               +-------------------------------+

@@ -1,7 +1,7 @@
 ---
 name: feature-refinement
 description: Transform rough product drafts into finalized PRDs through iterative Q&A
-version: 2.1.0
+version: 3.0.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking", "mcp__tavily__tavily_search", "mcp__Ref__ref_search_documentation", "mcp__Ref__ref_read_url"]
 ---
 
@@ -81,12 +81,14 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Analysis Modes
 
-| Mode | MPA | ThinkDeep | ST | Consensus | MCP Required |
-|------|-----|-----------|----|-----------|--------------|
-| Complete | 3 agents | 27 calls (3×3×3) | Yes | Yes | Yes |
-| Advanced | 3 agents | 18 calls (2×3×3) | No | No | Yes |
-| Standard | 3 agents | 0 | No | No | No |
-| Rapid | 1 agent | 0 | No | No | No |
+| Mode | Panel | ThinkDeep | ST | Consensus | MCP Required |
+|------|-------|-----------|----|-----------|--------------|
+| Complete | Configured (2-5 members) | 27 calls (3×3×3) | Yes | Yes | Yes |
+| Advanced | Configured (2-5 members) | 18 calls (2×3×3) | No | No | Yes |
+| Standard | Configured (2-5 members) | 0 | No | No | No |
+| Rapid | Single agent (product-strategist) | 0 | No | No | No |
+
+Panel composition is set in Stage 1 via the Panel Builder and persisted in `requirements/.panel-config.local.md`. Users validate the panel before question generation begins.
 
 ---
 
@@ -201,15 +203,18 @@ status: completed
 checkpoint: ANALYSIS_QUESTIONS
 artifacts_written:
   - requirements/analysis/thinkdeep-insights.md
-  - requirements/analysis/questions-product-strategy.md
-  - requirements/analysis/questions-user-experience.md
-  - requirements/analysis/questions-business-ops.md
+  - requirements/analysis/questions-product-strategist.md
+  - requirements/analysis/questions-ux-researcher.md
+  - requirements/analysis/questions-functional-analyst.md
   - requirements/working/QUESTIONS-001.md
-summary: "Generated 14 questions across 3 perspectives with ThinkDeep insights from 27 calls"
+summary: "Generated 14 questions across 3 panel members (product-focused) with ThinkDeep insights from 27 calls"
 flags:
   round_number: 1
   questions_count: 14
   analysis_mode: "complete"
+  panel_preset: "product-focused"
+  panel_members_count: 3
+  panel_member_ids: ["product-strategist", "ux-researcher", "functional-analyst"]
   thinkdeep_calls: 27
   thinkdeep_completion_pct: 100
 ---
@@ -305,15 +310,16 @@ phases:
 
 | Agent | Stage | Purpose | Model |
 |-------|-------|---------|-------|
-| `requirements-product-strategy` | 3 | Product strategy questions | sonnet |
-| `requirements-user-experience` | 3 | UX and persona questions | sonnet |
-| `requirements-business-ops` | 3 | Business viability questions | sonnet |
-| `requirements-question-synthesis` | 3 | Merge and format questions | opus |
+| `requirements-panel-builder` | 1 | Analyze draft and compose MPA panel | sonnet |
+| `requirements-panel-member` (template) | 3 | Parametric template — dispatched once per panel member | sonnet |
+| `requirements-question-synthesis` | 3 | Merge N panel outputs into QUESTIONS file | opus |
 | `requirements-prd-generator` | 5 | Generate/extend PRD | opus |
 | `research-discovery-business` | 2 | Strategic research questions | sonnet |
 | `research-discovery-ux` | 2 | UX research questions | sonnet |
 | `research-discovery-technical` | 2 | Viability research | sonnet |
 | `research-question-synthesis` | 2 | Synthesize research agenda | opus |
+
+> **Dynamic Panel:** Panel members are not hardcoded agents. The `requirements-panel-member.md` template is dispatched via `Task(general-purpose)` with variables injected from the panel config (`requirements/.panel-config.local.md`). Available perspectives are defined in `config/requirements-config.yaml` -> `panel.available_perspectives`.
 
 ---
 
@@ -321,10 +327,12 @@ phases:
 
 | Artifact | Stage | Description |
 |----------|-------|-------------|
+| `requirements/.panel-config.local.md` | 1 | Panel composition (persisted across rounds) |
 | `requirements/PRD.md` | 5 | Product Requirements Document |
 | `requirements/decision-log.md` | 5 | Decision traceability |
 | `requirements/completion-report.md` | 6 | Final summary with metrics |
 | `requirements/working/QUESTIONS-{NNN}.md` | 3 | Question files per round |
+| `requirements/analysis/questions-{member-id}.md` | 3 | Per-panel-member question output |
 | `requirements/analysis/thinkdeep-insights.md` | 3 | ThinkDeep synthesis |
 | `requirements/analysis/response-validation-round-{N}.md` | 4 | Consensus validation results |
 | `requirements/research/RESEARCH-AGENDA.md` | 2 | Research questions |
@@ -348,6 +356,7 @@ phases:
 | `references/error-handling.md` | Error recovery, degradation | Any error condition |
 | `references/config-reference.md` | PAL parameter reference, scoring thresholds | PAL tool usage |
 | `references/option-generation-reference.md` | Question/option format | Stage 3 question gen |
+| `references/panel-builder-protocol.md` | Domain detection, presets, panel validation | Stage 1 panel composition |
 | `references/consensus-call-pattern.md` | Shared PAL Consensus call workflow | Stages 4 and 5 consensus |
 | `references/research-mcp-reference.md` | Research MCP tool selection, query patterns, cost management | Dispatching Stage 2 with research MCP available |
 

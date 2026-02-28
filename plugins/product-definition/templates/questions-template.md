@@ -30,9 +30,12 @@ For each question:
 {Why this question is important. What happens if it's not answered.}
 
 **Multi-Perspective Analysis:**
-- 🎯 **Product Strategy:** {Insight from product perspective}
-- 👤 **User Experience:** {Insight from UX perspective}
-- 💼 **Business Ops:** {Insight from operations perspective}
+<!-- Perspectives are dynamic based on panel configuration -->
+<!-- Each line below corresponds to a panel member — labels from panel config -->
+<!-- Use distinct emojis per perspective (🎯 👤 🔍 📈 🛡️ 🏪 🧩 💼) -->
+{FOR each member in PANEL:}
+- {EMOJI} **{member.perspective_name}:** {Insight from this perspective}
+{END FOR}
 
 | # | Answer | Pro | Con | Recommendation |
 |---|--------|-----|-----|----------------|
@@ -68,9 +71,12 @@ Write here any:
 {Context}
 
 **Multi-Perspective Analysis:**
-- 🎯 **Product Strategy:** {Insight}
-- 👤 **User Experience:** {Insight}
-- 💼 **Business Ops:** {Insight}
+<!-- Perspectives are dynamic based on panel configuration -->
+<!-- Each line below corresponds to a panel member — labels from panel config -->
+<!-- Use distinct emojis per perspective (🎯 👤 🔍 📈 🛡️ 🏪 🧩 💼) -->
+{FOR each member in PANEL:}
+- {EMOJI} **{member.perspective_name}:** {Insight from this perspective}
+{END FOR}
 
 | # | Answer | Pro | Con | Recommendation |
 |---|--------|-----|-----|----------------|
