@@ -4,6 +4,7 @@ artifacts_written:
   - specs/{FEATURE_DIR}/spec.md (updated)
   - specs/{FEATURE_DIR}/clarification-questions.md (created)
   - specs/{FEATURE_DIR}/clarification-report.md (created, after answers parsed)
+  - specs/{FEATURE_DIR}/rtm.md (updated, conditional)
   - specs/{FEATURE_DIR}/analysis/mpa-edgecases-parallel.md (conditional)
   - specs/{FEATURE_DIR}/analysis/mpa-edgecases.md (conditional)
   - specs/{FEATURE_DIR}/analysis/mpa-triangulation.md (conditional)
@@ -122,6 +123,41 @@ flags:
 **If "Continue without mocks":**
 - Mark each gap item in spec.md: replace `[FIGMA MOCK MISSING: ...]` with `[FSB-NNN pending]` link
 - Proceed to Step 4.1
+
+## Step 4.0a: RTM Disposition Resolution (Conditional)
+
+**Check:** `RTM_ENABLED == true` AND `ENTRY_TYPE != "re_entry_after_user_input"` AND (`rtm_unmapped_count > 0` OR any PENDING_STORY dispositions remain in `rtm.md`) (from Stage 3 summary flags)
+
+**If any condition is false:** Skip entirely, proceed to Step 4.1.
+
+**If all conditions met:**
+
+1. Read `specs/{FEATURE_DIR}/rtm.md` — extract all UNMAPPED and PENDING_STORY REQ entries
+2. For each UNMAPPED or PENDING_STORY REQ-NNN, write a disposition question to `specs/{FEATURE_DIR}/clarification-questions.md`
+   (prepended before BA clarification questions, in a dedicated `## RTM Dispositions` section):
+
+```markdown
+## RTM Dispositions
+
+> The following source requirements are not yet traced to any spec element.
+> Choose a disposition for each.
+
+### REQ-{NNN}: {Requirement description}
+
+**Source**: {source from inventory}
+
+- [ ] **Map to existing story**: This requirement is already covered by an existing user story
+  - If selected, specify which: US-___ (write the story ID)
+- [ ] **Needs new story**: A new user story should be created for this requirement
+- [ ] **Defer (out of scope)**: This requirement is valid but out of scope for this iteration
+  - If selected, add rationale: ___
+- [ ] **Remove**: This is not actually a requirement (context statement, duplicate, etc.)
+```
+
+3. Set `source: rtm_disposition` on these questions for parsing in Step 4.3
+
+**Note:** RTM disposition questions are part of the clarification file, following the same file-based
+Q&A pattern. They are processed during the normal answer parsing flow (Step 4.3).
 
 ## Step 4.1: MPA-EdgeCases CLI Dispatch (Optional)
 
@@ -249,6 +285,28 @@ Read `specs/{FEATURE_DIR}/clarification-questions.md` and parse answers per the 
 - Parse all answers: auto-resolved (check for overrides), user-provided, blank (use recommendation)
 - Save all answers to state file under `user_decisions.clarifications`
 
+**RTM Disposition Parsing (if RTM enabled):**
+
+For each question in the `## RTM Dispositions` section (identified by `source: rtm_disposition`):
+
+- **"Map to existing story"** selected with US-NNN specified:
+  - Update `rtm.md`: set REQ disposition = COVERED, set "Traced To" = US-NNN
+  - Record in `user_decisions.rtm_dispositions`: `{req_id: "REQ-NNN", disposition: "COVERED", target: "US-NNN", timestamp: "{ISO}"}`
+
+- **"Needs new story"** selected:
+  - Update `rtm.md`: set REQ disposition = PENDING_STORY
+  - Queue for BA in Step 4.5: new US must be created for this REQ
+  - Record in `user_decisions.rtm_dispositions`: `{req_id: "REQ-NNN", disposition: "PENDING_STORY", target: null, timestamp: "{ISO}"}`
+
+- **"Defer (out of scope)"** selected with rationale:
+  - Update `rtm.md`: set REQ disposition = DEFERRED, add rationale to Notes
+  - Add to spec Section 13 (Out of Scope): `- {REQ description} @RTMRef(req="REQ-NNN", disposition="DEFERRED")`
+  - Record in `user_decisions.rtm_dispositions`: `{req_id: "REQ-NNN", disposition: "DEFERRED", target: null, timestamp: "{ISO}"}`
+
+- **"Remove"** selected:
+  - Update `rtm.md`: set REQ disposition = REMOVED, note reason
+  - Record in `user_decisions.rtm_dispositions`: `{req_id: "REQ-NNN", disposition: "REMOVED", target: null, timestamp: "{ISO}"}`
+
 **Generate:** `specs/{FEATURE_DIR}/clarification-report.md` per auto-resolve-protocol.md format.
 
 ## Step 4.4: MPA-Triangulation CLI Dispatch (Optional)
@@ -316,13 +374,41 @@ Triangulation findings: {TRIANGULATION_SUMMARY}
 ## Instructions
 @$CLAUDE_PLUGIN_ROOT/templates/prompts/ba-update-spec.md
 
+RTM new stories: {RTM_NEW_STORIES}
+
 RULES:
 - ONLY add or refine requirements — NEVER remove existing ones
 - Remove [NEEDS CLARIFICATION] markers that have been resolved
 - Add @ResearchRef annotations where clarifications cite evidence
 - Maintain consistent formatting with existing spec sections
 - Preserve non-technical language — no framework/API references
+- If RTM_NEW_STORIES is non-empty: create new US entries for each, with @RTMRef annotations
 ```
+
+**Constructing RTM_NEW_STORIES variable:**
+
+Before dispatching BA, build the `RTM_NEW_STORIES` value from state:
+```
+IF RTM_ENABLED AND any user_decisions.rtm_dispositions have disposition == "PENDING_STORY":
+    RTM_NEW_STORIES = formatted list of pending requirements:
+    "- REQ-{NNN}: {requirement description} (from REQUIREMENTS-INVENTORY.md)"
+    for each PENDING_STORY disposition
+ELSE:
+    RTM_NEW_STORIES = "" (empty — BA skips RTM story creation)
+```
+
+**After BA update (if RTM enabled AND any PENDING_STORY dispositions):**
+
+1. Re-read updated `specs/{FEATURE_DIR}/spec.md` — find newly created US entries
+2. Update `specs/{FEATURE_DIR}/rtm.md`:
+   - For each PENDING_STORY REQ: update disposition to COVERED, set "Traced To" = new US-NNN
+3. Update Section 15 metrics in `spec.md`
+4. Verify zero UNMAPPED or PENDING_STORY dispositions remain
+
+**PENDING_STORY Recovery:** If BA fails to create a US for a PENDING_STORY REQ (e.g., coordinator crash),
+the RTM re-evaluation in Stage 3 (next iteration) will detect the still-PENDING_STORY entry and
+re-surface it. The disposition gate in Step 4.0a treats PENDING_STORY as equivalent to UNMAPPED
+for re-disposition purposes — user gets another chance to map, defer, or remove it.
 
 ## Step 4.6: Checkpoint
 
@@ -356,6 +442,22 @@ stages:
     auto_resolved: {N}
     inferred: {N}
     requires_user: {N}
+  rtm:
+    status: {completed|skipped}
+    disposition_status: "{resolved|pending|null}"
+    dispositions_applied: {N}
+    remaining_unmapped: {N}
+    coverage_pct: {N}
+```
+
+**RTM User Decisions (immutable):**
+```yaml
+user_decisions:
+  rtm_dispositions:
+    - req_id: "REQ-NNN"
+      disposition: "{COVERED|DEFERRED|REMOVED|PENDING_STORY}"
+      target: "{US-NNN | null}"
+      timestamp: "{ISO_TIMESTAMP}"
 ```
 
 ## Summary Contract (after answers parsed)

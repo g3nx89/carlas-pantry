@@ -222,6 +222,18 @@
 
 ---
 
+## 15. Requirements Traceability (RTM)
+
+> Validates that all source requirements have been consciously dispositioned.
+
+- [ ] **Inventory Complete**: All source requirements captured in `REQUIREMENTS-INVENTORY.md` and confirmed by user
+- [ ] **Forward Tracing**: Every REQ-NNN has a disposition in `rtm.md`
+- [ ] **No UNMAPPED**: Zero requirements with UNMAPPED disposition remain
+- [ ] **Deferred Documented**: All DEFERRED requirements have rationale and appear in Section 13 (Out of Scope)
+- [ ] **RTM Summary Populated**: Section 15 in spec.md has accurate coverage metrics matching `rtm.md`
+
+---
+
 ## Checklist Summary
 
 | Section | Items | Passed |
@@ -242,9 +254,10 @@
 | Testability (V-Model) | 5 | [ ]/5 |
 | Test Coverage (Mobile) | 6 | [ ]/6 |
 | V-Model Traceability | 12 | [ ]/12 |
-| **TOTAL** | **117** | **[ ]/117** |
+| RTM Traceability | 5 | [ ]/5 |
+| **TOTAL** | **122** | **[ ]/122** |
 
-**Passing Threshold**: ≥105/117 items (90%) to proceed to `/sdd:02-plan`
+**Passing Threshold**: ≥110/122 items (90%) to proceed to `/sdd:02-plan`
 
 ---
 

@@ -117,6 +117,31 @@ figma_mock_gaps:
 This check is independent of the checklist coverage score. Figma mock gaps do NOT reduce coverage_pct —
 they are surfaced separately in Stage 4 (see stage-4-clarification.md Step 4.0).
 
+## Step 3.3c: RTM Coverage Re-Evaluation (Conditional)
+
+**Check:** `RTM_ENABLED == true` (from state file `rtm_enabled`)
+
+**If RTM disabled:** Skip entirely, proceed to Step 3.4.
+Mark RTM checklist items (Section 10 in generic / Section 15 in mobile) as `N/A — RTM tracking disabled`
+in the checklist output. These items MUST NOT count toward the coverage denominator.
+
+**If RTM enabled:**
+
+1. Re-read `specs/{FEATURE_DIR}/rtm.md` and `specs/{FEATURE_DIR}/spec.md`
+2. Re-evaluate dispositions — previously UNMAPPED REQs may now be COVERED after BA validation
+   added or refined user stories during checklist iteration
+3. For each UNMAPPED REQ:
+   - Search spec for new `@RTMRef` annotations or semantic matches
+   - If match found: update disposition to COVERED or PARTIAL
+4. Update `specs/{FEATURE_DIR}/rtm.md` with revised dispositions
+5. Calculate updated metrics:
+   - `rtm_coverage_pct = (covered + partial + deferred + removed) / total * 100`
+   - `rtm_unmapped_count`: count of remaining UNMAPPED entries
+
+**Note:** RTM coverage is an independent metric from checklist `coverage_pct`.
+It does NOT affect the main checklist coverage score or the Stage 3↔4 iteration loop.
+UNMAPPED requirements are resolved through the disposition gate in Stage 4 (Step 4.0a).
+
 ## Step 3.4: Process Results
 
 Parse BA validation output:
@@ -167,6 +192,8 @@ flags:
   platform_type: "{mobile|generic}"
   iteration: {N}
   figma_mock_gaps_count: {N}
+  rtm_unmapped_count: {N|0}
+  rtm_coverage_pct: {N|0}
   next_action: "proceed" | "loop_clarify"
 ---
 

@@ -397,6 +397,22 @@
 
 ---
 
+## 15. Requirements Traceability Summary
+
+> Links to the full RTM for forward traceability from source requirements to spec elements.
+
+| Metric | Value |
+|--------|-------|
+| Source Requirements | {N} |
+| Covered | {N} |
+| Partial | {N} |
+| Deferred | {N} |
+| Unmapped | {N} |
+
+**Full traceability matrix:** See `rtm.md` in the feature directory.
+
+---
+
 ## Approval
 
 | Role | Name | Date | Approved |

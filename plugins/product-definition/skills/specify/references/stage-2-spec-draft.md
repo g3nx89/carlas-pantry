@@ -4,6 +4,7 @@ artifacts_written:
   - specs/{FEATURE_DIR}/spec.md
   - specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md (conditional)
   - specs/{FEATURE_DIR}/analysis/mpa-challenge.md (conditional)
+  - specs/{FEATURE_DIR}/rtm.md (conditional)
 ---
 
 # Stage 2: Spec Draft & Gates (Coordinator)
@@ -31,6 +32,10 @@ Dispatch BA agent via `Task(subagent_type="general-purpose")`:
 Perform business analysis and requirements gathering for:
 {USER_INPUT}
 
+## Requirements Inventory
+{IF RTM_ENABLED AND REQUIREMENTS-INVENTORY.md exists: Include content of specs/{FEATURE_DIR}/REQUIREMENTS-INVENTORY.md}
+{ELSE: "No requirements inventory available."}
+
 ## Figma Context
 {IF FIGMA_CONTEXT_FILE exists: Include content}
 {ELSE: "No Figma designs available - proceed without design context"}
@@ -43,12 +48,15 @@ Perform business analysis and requirements gathering for:
 - FEATURE_DIR: specs/{FEATURE_DIR}
 - SPEC_FILE: specs/{FEATURE_DIR}/spec.md
 - HANDOFF_CONTEXT: {value from STATE.handoff_supplement or "No handoff supplement. Use [Frame: ScreenName] placeholders"}
+- RTM_ENABLED: {true|false}
+- REQUIREMENTS_INVENTORY: {content or "Not available"}
 
 ## Instructions
 @$CLAUDE_PLUGIN_ROOT/templates/prompts/ba-spec-draft.md
 
 Write specification to {SPEC_FILE} following template structure.
 IF figma context provided: Correlate designs with requirements, add @FigmaRef annotations.
+IF requirements inventory provided: Ensure every REQ-NNN is addressed in user stories, add @RTMRef annotations.
 ```
 
 Agent uses Sequential Thinking (if available) for 8 phases: problem framing → JTBD → requirements → context → stakeholders → specification → story splitting → self-critique.
@@ -61,6 +69,37 @@ Extract from agent output:
 - `user_stories_count`: N
 - `problem_statement_quality`: assessment
 - `true_need_confidence`: low/medium/high
+
+## Step 2.1b: Generate Initial RTM (Conditional)
+
+**Check:** `RTM_ENABLED == true` (from Stage 1 summary flags)
+
+**If RTM disabled:** Skip entirely, proceed to Step 2.3.
+
+**If RTM enabled:**
+
+1. Read `specs/{FEATURE_DIR}/REQUIREMENTS-INVENTORY.md` — extract all REQ-NNN entries
+2. Read `specs/{FEATURE_DIR}/spec.md` — extract all US-NNN, AC-NN, and NFR-*-NN identifiers
+3. For each REQ-NNN, scan spec for:
+   - `@RTMRef(req="REQ-NNN")` annotations in US headers (highest confidence)
+   - Semantic matches: REQ description shares 2+ key terms with US title or AC description
+     (e.g., REQ mentions "dietary restrictions" and US-003 covers "filter by dietary preference")
+   - NFR matches: REQ performance/quality constraints match NFR entries
+4. Assign disposition for each REQ (only COVERED, PARTIAL, and UNMAPPED are auto-assignable
+   at this stage — DEFERRED and REMOVED require explicit user decision in Stage 4):
+   - **COVERED**: REQ is fully addressed by one or more spec elements (via annotation or semantic match)
+   - **PARTIAL**: REQ is partially addressed — some aspects not yet in spec
+   - **UNMAPPED**: No matching spec element found
+5. Load template: `@$CLAUDE_PLUGIN_ROOT/templates/rtm-template.md`
+6. Write `specs/{FEATURE_DIR}/rtm.md` with the traceability matrix populated
+7. Calculate coverage metrics:
+   - `rtm_total`: count of all REQ entries
+   - `rtm_covered`: count of COVERED dispositions
+   - `rtm_partial`: count of PARTIAL dispositions
+   - `rtm_unmapped`: count of UNMAPPED dispositions
+   - `rtm_coverage_pct`: (covered + partial + deferred + removed) / total * 100
+8. Populate Section 15 in `specs/{FEATURE_DIR}/spec.md` with summary metrics
+9. Populate backward trace: scan for US-NNN entries not traced from any REQ (scope creep detection — informational only)
 
 ## Step 2.3: MPA-Challenge CLI Dispatch
 
@@ -202,6 +241,13 @@ stages:
   gate_2_true_need:
     status: {completed|skipped}
     score: {N}/4
+  rtm:
+    status: {completed|skipped}
+    total: {N}
+    covered: {N}
+    partial: {N}
+    unmapped: {N}
+    coverage_pct: {N}
 ```
 
 ## Summary Contract
@@ -217,13 +263,18 @@ checkpoint: SPEC_DRAFT
 artifacts_written:
   - specs/{FEATURE_DIR}/spec.md
   - specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md  # if CLI Challenge ran
-summary: "Spec draft created with {N} user stories. Self-critique: {S}/20. Challenge risk: {LEVEL}. Gate 1: {S}/4. Gate 2: {S}/4."
+  - specs/{FEATURE_DIR}/rtm.md  # if RTM enabled
+summary: "Spec draft created with {N} user stories. Self-critique: {S}/20. Challenge risk: {LEVEL}. Gate 1: {S}/4. Gate 2: {S}/4. RTM: {N} total, {U} unmapped."
 flags:
   self_critique_score: {N}
   user_stories_count: {N}
   challenge_risk_level: "{GREEN|YELLOW|RED|skipped}"
   gate_1_score: {N}
   gate_2_score: {N}
+  rtm_total: {N|0}
+  rtm_covered: {N|0}
+  rtm_partial: {N|0}
+  rtm_unmapped: {N|0}
   block_reason: null | "{reason}"
   pause_type: null | "interactive"
   question_context: {see above if needs-user-input}

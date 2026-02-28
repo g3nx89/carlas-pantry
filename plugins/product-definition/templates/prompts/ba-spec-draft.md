@@ -22,6 +22,17 @@ IF figma-context provided:
 
 {USER_INPUT}
 
+## Requirements Inventory (if available)
+
+{REQUIREMENTS_INVENTORY}
+
+IF requirements inventory is provided (RTM enabled):
+- Ensure EVERY REQ-NNN is addressed by at least one user story
+- Add `@RTMRef(req="REQ-NNN")` annotation in the US header line for each traced requirement
+- If a single US addresses multiple REQs, list all: `@RTMRef(req="REQ-001, REQ-003")`
+- Requirements that cannot be addressed should be noted in Section 13 (Out of Scope) with `@RTMRef(req="REQ-NNN", disposition="DEFERRED")`
+- Unaddressed REQs will be flagged as UNMAPPED in the traceability matrix
+
 ## Variables
 
 | Variable | Value |
@@ -32,6 +43,8 @@ IF figma-context provided:
 | SPEC_FILE | {value} |
 | STATE_FILE | {value} |
 | PLATFORM_TYPE | {value} |
+| RTM_ENABLED | {true/false} |
+| REQUIREMENTS_INVENTORY | {content or "Not available"} |
 
 ## Sequential Thinking Templates
 

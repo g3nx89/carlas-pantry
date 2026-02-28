@@ -120,6 +120,7 @@ Every dispatch variable MUST have a defined fallback:
 | `FIGMA_MCP_AVAILABLE` | `false` | Assume unavailable; Figma is always optional |
 | `FIGMA_ENABLED` | `false` | User must explicitly enable |
 | `ITERATION_NUMBER` | `1` | First iteration default |
+| `RTM_ENABLED` | `false` | Assume disabled; set to true in Stage 1 if user confirms inventory |
 | `FEATURE_DIR` | (none) | MUST be set by Stage 1 — abort if missing |
 | `FEATURE_NAME` | (none) | MUST be set by Stage 1 — abort if missing |
 
@@ -245,7 +246,7 @@ IF issues found:
 READ Stage 3 summary -> flags.coverage_pct
 
 IF coverage_pct >= 85% (config -> thresholds.checklist.green):
-    PROCEED to Stage 5
+    PROCEED to RTM quality check (below), then Stage 5
 
 ELSE:
     IF this is iteration > 1 AND coverage improvement < 5% since last iteration:
@@ -255,6 +256,20 @@ ELSE:
         NOTIFY user: "Coverage at {PCT}% (need 85%). Re-running checklist validation."
         RE-DISPATCH Stage 3 (new iteration)
         THEN RE-DISPATCH Stage 4 if Stage 3 still has gaps
+
+RTM QUALITY CHECK (after Stage 4 if proceeding to Stage 5):
+IF RTM_ENABLED AND Stage 4 summary flags.rtm.remaining_unmapped > 0:
+    NOTIFY user (non-blocking): "RTM: {N} requirements still UNMAPPED.
+    Disposition was offered in Stage 4 but {N} remain unresolved.
+    Proceeding — these will be flagged in the completion report."
+    LOG rtm_warning in state file
+
+NOTE: This check is intentionally NON-BLOCKING (notification only, does not halt).
+The disposition gate in Stage 4 (Step 4.0a) already gave the user a chance to
+resolve every UNMAPPED requirement. If any remain UNMAPPED here, it means the user
+chose not to answer those disposition questions — this is their conscious choice.
+Blocking again would create an infinite loop. The remaining UNMAPPED entries are
+reported in the Stage 7 completion report for future resolution.
 ```
 
 ### After Stage 5 (Design Artifacts)
@@ -355,7 +370,7 @@ ON RE-ENTRY after user answers:
 
 **Loaded on-demand.** Full procedures are in a separate reference file.
 
-**Load when:** A coordinator produces no summary file (crash) OR state file has `schema_version: 2` (migration).
+**Load when:** A coordinator produces no summary file (crash) OR state file has `schema_version` < 5 (migration needed).
 
 **Reference:** `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/recovery-migration.md`
 
@@ -363,4 +378,4 @@ ON RE-ENTRY after user answers:
 
 **Crash Recovery:** If summary file missing for stage N, check for artifacts. If found, reconstruct minimal summary. If not, ask user to retry or skip.
 
-**State Migration:** If `schema_version == 2`, map `current_phase` to `current_stage` using the phase-to-stage table in the reference file, then set `schema_version: 3`.
+**State Migration:** Chained migrations: v2→v3 (phase→stage), v3→v4 (file-based clarification), v4→v5 (RTM tracking). Each migration is additive — new fields get null/empty defaults.

@@ -48,3 +48,20 @@ user_decisions:
 ```
 
 **CRITICAL:** Once a user decision is recorded, it is IMMUTABLE. Never re-ask questions that have been answered.
+
+### RTM Dispositions (immutable)
+
+```yaml
+user_decisions:
+  rtm_dispositions:
+    - req_id: "REQ-001"
+      disposition: "COVERED"
+      target: "US-003"
+      timestamp: "2026-02-28T10:30:00Z"
+    - req_id: "REQ-004"
+      disposition: "DEFERRED"
+      target: null
+      timestamp: "2026-02-28T10:32:00Z"
+```
+
+Same immutability rule applies — once a disposition is recorded, it is NEVER overwritten. New dispositions may only be appended.

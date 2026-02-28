@@ -5,6 +5,7 @@ artifacts_written:
   - specs/{FEATURE_DIR}/.specify.lock
   - specs/{FEATURE_DIR}/.stage-summaries/stage-1-summary.md
   - specs/{FEATURE_DIR}/figma_context.md (conditional)
+  - specs/{FEATURE_DIR}/REQUIREMENTS-INVENTORY.md (conditional)
 ---
 
 # Stage 1: Setup & Figma (Inline)
@@ -263,12 +264,68 @@ ELSE:
 
 This variable is injected into the BA agent dispatch context in Stage 2.
 
+## Step 1.9c: Requirements Inventory Extraction (Optional)
+
+**Check:** `feature_flags.enable_rtm_tracking` in config AND `WORKFLOW_MODE == NEW`
+
+**If disabled OR WORKFLOW_MODE != NEW:** Skip. Set `RTM_ENABLED = false`.
+
+**If enabled:**
+
+1. Parse `user_input` to extract discrete requirements. Look for:
+   - Imperative sentences ("Users must be able to...", "The system shall...")
+   - Must/should/shall clauses
+   - Bullet points describing capabilities
+   - Performance/quality constraints ("search results in <2s", "GDPR compliant")
+   - Each distinct capability or constraint = one REQ entry
+
+   **Minimum threshold:** If fewer than 2 requirements are extracted, notify user:
+   "Only {N} requirement(s) extracted — RTM tracking works best with 2+ discrete requirements.
+   Consider adding more detail to your input, or skip RTM tracking."
+   Still allow the user to proceed with RTM if they choose (the threshold is advisory, not blocking).
+
+2. Load template: `@$CLAUDE_PLUGIN_ROOT/templates/requirements-inventory-template.md`
+
+3. Assign REQ IDs sequentially: REQ-001, REQ-002, etc.
+
+4. Categorize each: Functional, NFR, or Constraint
+
+5. Write to `specs/{FEATURE_DIR}/REQUIREMENTS-INVENTORY.md`
+
+6. Present to user via AskUserQuestion:
+```json
+{
+  "questions": [{
+    "question": "I've extracted {N} requirements from your input and written them to REQUIREMENTS-INVENTORY.md. Review the file, then select how to proceed.",
+    "header": "RTM",
+    "multiSelect": false,
+    "options": [
+      {"label": "Continue (Recommended)", "description": "Requirements inventory looks good — proceed with RTM tracking"},
+      {"label": "I've edited the inventory", "description": "I've added/removed/changed requirements in the file — re-read it"},
+      {"label": "Skip RTM tracking", "description": "Proceed without requirements traceability"}
+    ]
+  }]
+}
+```
+
+7. Handle response:
+   - **"Continue"**: Set `RTM_ENABLED = true`. Read file, store confirmed count.
+   - **"I've edited the inventory"**: Re-read `REQUIREMENTS-INVENTORY.md`, update count, set `RTM_ENABLED = true`.
+   - **"Skip RTM tracking"**: Set `RTM_ENABLED = false`. All subsequent RTM steps become no-ops.
+
+8. If `RTM_ENABLED = true`:
+   - Update inventory file frontmatter: set `confirmed: true`, update `requirements_count`
+   - Record `user_decisions.rtm_enabled: true`
+
+9. If `RTM_ENABLED = false`:
+   - Record `user_decisions.rtm_enabled: false`
+
 ## Step 1.10: Initialize/Update State (CHECKPOINT)
 
 Create state file from template or update existing:
 
 ```yaml
-schema_version: 4
+schema_version: 5
 feature_id: "{NUMBER}-{SHORT_NAME}"
 feature_name: "{FEATURE_NAME}"
 user_input: "{USER_INPUT}"
@@ -276,6 +333,11 @@ created: "{ISO_TIMESTAMP}"
 updated: "{ISO_TIMESTAMP}"
 current_stage: 1
 stage_status: "completed"
+rtm_enabled: {true|false|null}
+requirements_inventory:
+  file_path: "{specs/{FEATURE_DIR}/REQUIREMENTS-INVENTORY.md | null}"
+  count: {N|0}
+  confirmed: {true|false}
 mcp_availability:
   cli_available: {true|false}
   codex_available: {true|false}
@@ -289,6 +351,7 @@ handoff_supplement:
   existing_briefs_count: {N}
 user_decisions:
   figma_enabled: {true|false}
+  rtm_enabled: {true|false}
 ```
 
 ## Summary Contract
@@ -304,7 +367,7 @@ checkpoint: INIT
 artifacts_written:
   - specs/{FEATURE_DIR}/.specify-state.local.md
   - specs/{FEATURE_DIR}/.specify.lock
-summary: "Initialized workspace for {FEATURE_NAME}. Figma: {enabled|disabled}."
+summary: "Initialized workspace for {FEATURE_NAME}. Figma: {enabled|disabled}. RTM: {enabled|disabled}."
 flags:
   cli_available: {true|false}
   codex_available: {true|false}
@@ -316,6 +379,8 @@ flags:
   figma_screens: {N|0}
   handoff_supplement_available: {true|false}
   existing_briefs_count: {N|0}
+  rtm_enabled: {true|false}
+  requirements_inventory_count: {N|0}
   workflow_mode: "{NEW|RESUME}"
 ---
 ```
@@ -323,11 +388,12 @@ flags:
 ## Self-Verification (MANDATORY before writing summary)
 
 BEFORE writing the summary file, verify:
-1. `specs/{FEATURE_DIR}/.specify-state.local.md` exists with `schema_version: 4`
+1. `specs/{FEATURE_DIR}/.specify-state.local.md` exists with `schema_version: 5`
 2. `specs/{FEATURE_DIR}/.specify.lock` exists with timestamp
 3. All workspace directories created (`analysis/`, `.stage-summaries/`)
 4. If Figma enabled: `figma_context.md` exists in feature directory
-5. Summary YAML frontmatter has no placeholder values
+5. If RTM enabled: `REQUIREMENTS-INVENTORY.md` exists with confirmed requirements
+6. Summary YAML frontmatter has no placeholder values
 
 ## CRITICAL RULES REMINDER
 

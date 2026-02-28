@@ -18,6 +18,8 @@ Ensure all answered questions are properly integrated into the specification.
 | SPEC_FILE | {value} |
 | STATE_FILE | {value} |
 | FIGMA_CONTEXT_FILE | {value or null} |
+| RTM_ENABLED | {true/false} |
+| RTM_NEW_STORIES | {list of REQ-NNN needing new stories, or "None"} |
 
 ## Clarification Responses to Integrate
 
@@ -72,6 +74,16 @@ For EACH new or modified requirement:
 
 As a user, I want to reset my password via email link...
 ```
+
+## RTM: New Stories Required
+
+{RTM_NEW_STORIES}
+
+IF `RTM_NEW_STORIES` is not "None":
+- For each REQ-NNN listed, create a new user story in obstacle-aware format
+- Add `@RTMRef(req="REQ-NNN")` annotation to the new US header
+- Ensure each new story has at least 2 acceptance criteria in Gherkin format
+- Apply the same quality standards as original stories (testable, atomic, single role)
 
 ## Update Constraints
 

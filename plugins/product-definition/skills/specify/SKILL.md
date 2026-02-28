@@ -52,6 +52,7 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 25. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty (see `orchestrator-loop.md` → Variable Defaults)
 26. **Quality gates**: Orchestrator performs lightweight quality checks after Stages 2, 4, and 5 — non-blocking, notify user of issues
 27. **Summary size limits**: Coordinator summaries max 500 chars (YAML `summary` field), 1000 chars (Context for Next Stage body). Detailed analysis in artifact files, not summaries.
+28. **RTM Disposition Gate**: Zero UNMAPPED requirements before proceeding past Stage 4. Every source requirement must have a conscious disposition (COVERED, PARTIAL, DEFERRED, or REMOVED).
 
 ---
 
@@ -74,6 +75,10 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 | Incremental gates enabled | `feature_flags.enable_incremental_gates` | true |
 | Test strategy enabled | `feature_flags.enable_test_strategy` | true |
 | Design brief skip allowed | `design_artifacts.skip_allowed` | **false** |
+| RTM tracking enabled | `feature_flags.enable_rtm_tracking` | true |
+| RTM inventory template | `rtm.inventory_extraction.template` | `requirements-inventory-template.md` |
+| RTM output file | `rtm.output.rtm_file` | `rtm.md` |
+| RTM gate-blocking dispositions | `rtm.dispositions.gate_blocking` | `[UNMAPPED, PENDING_STORY]` |
 
 ---
 
@@ -91,23 +96,27 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ```
 +-------------------------------------------------------------------+
-|  Stage 1 (Inline): SETUP & FIGMA                                  |
-|  Init, workspace, MCP check, lock, Figma capture (optional)       |
+|  Stage 1 (Inline): SETUP & FIGMA + RTM INVENTORY                  |
+|  Init, workspace, MCP check, lock, Figma capture (optional),      |
+|  requirements inventory extraction (optional, RTM)                 |
 +-------------------------------+-----------------------------------+
                                 |
 +-------------------------------v-----------------------------------+
-|  Stage 2 (Coordinator): SPEC DRAFT & GATES                        |
-|  BA agent, MPA-Challenge CLI dispatch, incremental gates           |
+|  Stage 2 (Coordinator): SPEC DRAFT & GATES + INITIAL RTM          |
+|  BA agent, MPA-Challenge CLI dispatch, incremental gates,          |
+|  initial rtm.md generation (if RTM enabled)                        |
 +-------------------------------+-----------------------------------+
                                 |
 +-------------------------------v-----------------------------------+
 |  Stage 3 (Coordinator): CHECKLIST & VALIDATION   <──+             |
-|  Platform detect, checklist copy, BA validate        |             |
+|  Platform detect, checklist copy, BA validate,       |             |
+|  RTM coverage re-evaluation (if RTM enabled)         |             |
 +-------------------------------+----------------------+             |
                                 |                      |             |
 +-------------------------------v-----------------------------------+
 |  Stage 4 (Coordinator): EDGE CASES & CLARIFICATION  |             |
-|  MPA-EdgeCases CLI dispatch, clarification protocol, |             |
+|  RTM disposition gate (zero UNMAPPED), MPA-EdgeCases |             |
+|  CLI dispatch, clarification protocol,               |             |
 |  MPA-Triangulation CLI dispatch, spec update         |             |
 +-------------------------------+----------------------+             |
                                 |              (loop if coverage     |
@@ -208,19 +217,21 @@ flags:
 ## State Management
 
 **State file:** `specs/{FEATURE_DIR}/.specify-state.local.md`
-**Schema version:** 4 (stage-based, file-based clarification)
+**Schema version:** 5 (stage-based, file-based clarification, RTM tracking)
 **Lock file:** `specs/{FEATURE_DIR}/.specify.lock`
 **Summaries:** `specs/{FEATURE_DIR}/.stage-summaries/`
 
 State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE.
 
 **Top-level fields:**
-- `schema_version`: 4
+- `schema_version`: 5
 - `current_stage`: 1-7
 - `feature_id`: "{NUMBER}-{SHORT_NAME}"
 - `feature_name`: "{FEATURE_NAME}"
+- `rtm_enabled`: `true | false | null` (null = not yet decided)
+- `requirements_inventory`: `{file_path, count, confirmed}`
 - `mcp_availability`: `{cli_available: bool, codex_available: bool, gemini_available: bool, opencode_available: bool, st_available: bool, figma_mcp_available: bool}`
-- `user_decisions`: immutable decision log
+- `user_decisions`: immutable decision log (includes `rtm_enabled`, `rtm_dispositions[]`)
 - `model_failures`: array of `{model, stage, operation, error, timestamp, action_taken}`
 
 ---
@@ -246,6 +257,8 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `specs/{FEATURE_DIR}/clarification-report.md` | 4 | Auto-resolve audit trail and answer summary |
 | `specs/{FEATURE_DIR}/design-supplement.md` | 5 | Design analysis (MANDATORY) |
 | `specs/{FEATURE_DIR}/test-plan.md` | 6 | V-Model test strategy (optional) |
+| `specs/{FEATURE_DIR}/REQUIREMENTS-INVENTORY.md` | 1 | Source requirements with REQ-NNN IDs (conditional, RTM enabled) |
+| `specs/{FEATURE_DIR}/rtm.md` | 2 | Forward traceability matrix REQ→US/AC (conditional, RTM enabled) |
 | `specs/{FEATURE_DIR}/analysis/mpa-challenge*.md` | 2 | MPA Challenge CLI dispatch report |
 | `specs/{FEATURE_DIR}/analysis/mpa-edgecases*.md` | 4 | MPA Edge Cases CLI dispatch report |
 | `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md` | 4 | MPA Triangulation report |
@@ -257,7 +270,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | Reference | Purpose | Load When |
 |-----------|---------|-----------|
 | `references/orchestrator-loop.md` | Dispatch loop, variable defaults, iteration, quality gates | Start of orchestration |
-| `references/recovery-migration.md` | Crash recovery, v2→v3 state migration | On crash or v2 state detected |
+| `references/recovery-migration.md` | Crash recovery, v2→v3→v4→v5 state migration | On crash or older state detected |
 | `references/stage-1-setup.md` | Inline setup: init, MCP check, workspace, Figma | Stage 1 execution |
 | `references/stage-2-spec-draft.md` | Spec draft, MPA-Challenge, incremental gates | Dispatching Stage 2 |
 | `references/stage-3-checklist.md` | Platform detect, checklist, BA validation | Dispatching Stage 3 |
@@ -277,7 +290,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 
 ## CRITICAL RULES (High Attention Zone — End)
 
-Rules 1-26 above MUST be followed. Key reminders:
+Rules 1-28 above MUST be followed. Key reminders:
 - Coordinators NEVER talk to users directly
 - Orchestrator owns the iteration loop (Stage 3 <-> Stage 4)
 - Stage 1 is inline, all others are coordinator-delegated

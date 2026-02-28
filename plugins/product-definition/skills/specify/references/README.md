@@ -5,7 +5,7 @@
 | File | Read When... |
 |------|--------------|
 | `orchestrator-loop.md` | Start of orchestration — dispatch loop, variable defaults, iteration logic, quality gates |
-| `recovery-migration.md` | On crash or v2 state detected — crash recovery procedures, v2→v3 state migration |
+| `recovery-migration.md` | On crash or v2/v3/v4 state detected — crash recovery procedures, v2→v3→v4→v5 state migration |
 | `stage-1-setup.md` | Stage 1 inline execution — init, MCP check, workspace, Figma capture |
 | `stage-2-spec-draft.md` | Dispatching Stage 2 — BA spec draft, MPA-Challenge CLI dispatch, incremental gates |
 | `stage-3-checklist.md` | Dispatching Stage 3 — platform detect, checklist creation, BA validation |
@@ -26,15 +26,15 @@
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | ~380 | Dispatch loop, variable defaults, iteration logic (Stage 3↔4), quality gates, stall detection |
-| `recovery-migration.md` | ~80 | Crash recovery procedures, v2→v3 state migration (loaded on-demand) |
-| `stage-1-setup.md` | ~350 | Inline setup: MCP check, pre-flight, lock, workspace, Figma capture, state init |
-| `stage-2-spec-draft.md` | ~450 | BA spec draft, MPA-Challenge CLI dispatch, Gate 1 (Problem), Gate 2 (True Need) |
-| `stage-3-checklist.md` | ~200 | Platform detect, checklist copy, BA validation, coverage scoring |
-| `stage-4-clarification.md` | ~400 | MPA-EdgeCases CLI dispatch, clarification protocol, MPA-Triangulation CLI dispatch, spec update |
+| `recovery-migration.md` | ~130 | Crash recovery procedures, v2→v3→v4→v5 state migration (loaded on-demand) |
+| `stage-1-setup.md` | ~400 | Inline setup: MCP check, pre-flight, lock, workspace, Figma capture, RTM inventory, state init |
+| `stage-2-spec-draft.md` | ~500 | BA spec draft, MPA-Challenge CLI dispatch, Gate 1 (Problem), Gate 2 (True Need), initial RTM |
+| `stage-3-checklist.md` | ~230 | Platform detect, checklist copy, BA validation, coverage scoring, RTM re-evaluation |
+| `stage-4-clarification.md` | ~480 | RTM disposition gate, MPA-EdgeCases CLI dispatch, clarification protocol, MPA-Triangulation CLI dispatch, spec update |
 | `stage-5-validation-design.md` | ~310 | CLI multi-stance evaluation (retry loop), design-brief-generator, gap-analyzer |
 | `stage-6-test-strategy.md` | ~250 | Feature flag check, QA strategist, AC coverage validation |
 | `stage-7-completion.md` | ~130 | Lock release, completion report, next steps |
-| `checkpoint-protocol.md` | ~55 | State update patterns |
+| `checkpoint-protocol.md` | ~75 | State update patterns, RTM disposition examples |
 | `error-handling.md` | ~165 | CLI/Figma/gate/design/QA failures, graceful degradation |
 | `config-reference.md` | ~235 | Template variables, limits, thresholds, feature flags, CLI dispatch params |
 | `cli-dispatch-patterns.md` | ~295 | Parameterized execution for 4 CLI dispatch integration points |
@@ -63,6 +63,17 @@
 
 - `stage-1-setup.md` loads `figma-capture-protocol.md` for Figma capture (Step 1.9)
 - `stage-4-clarification.md` loads `auto-resolve-protocol.md` (Step 4.1b) and `clarification-protocol.md` (Steps 4.2, 4.3)
+
+### RTM Cross-References
+
+- `stage-1-setup.md` Step 1.9c loads `$CLAUDE_PLUGIN_ROOT/templates/requirements-inventory-template.md`
+- `stage-2-spec-draft.md` Step 2.1b loads `$CLAUDE_PLUGIN_ROOT/templates/rtm-template.md` and reads `REQUIREMENTS-INVENTORY.md`
+- `stage-3-checklist.md` Step 3.3c re-evaluates `rtm.md` dispositions
+- `stage-4-clarification.md` Step 4.0a writes RTM disposition questions to `clarification-questions.md`; Step 4.3 parses RTM disposition answers; Step 4.5 creates new US for PENDING_STORY dispositions
+- `stage-7-completion.md` includes RTM metrics in completion report
+- `recovery-migration.md` defines v4→v5 state migration adding RTM fields
+- `checkpoint-protocol.md` Section 5 includes `rtm_dispositions` example
+- `orchestrator-loop.md` adds `RTM_ENABLED` to variable defaults and RTM quality check after Stage 4
 
 ### External References
 

@@ -29,11 +29,13 @@ Collect metrics from state file and stage summaries:
 | Checklist Coverage | {PCT}% |
 | Clarifications Answered | {N} |
 | Figma Integration | {enabled/disabled} ({SCREENS} screens) |
+| RTM Coverage | {N}% ({TOTAL} requirements, {U} unmapped) |
 | Test Plan | {generated/skipped} ({TOTAL} tests) |
 
 ## Generated Artifacts
 {FOR EACH artifact that exists:}
 - `specs/{FEATURE_DIR}/{artifact}` — {description}
+{Include rtm.md and REQUIREMENTS-INVENTORY.md if RTM was enabled}
 
 ## Specification Metrics
 | Metric | Count |
@@ -42,6 +44,7 @@ Collect metrics from state file and stage summaries:
 | Acceptance Criteria | {N} |
 | NFRs | {N} |
 | Edge Cases Identified | {N} |
+| RTM Entries | {N} |
 | Design Screens | {N} |
 
 ## Quality Gates
@@ -51,6 +54,7 @@ Collect metrics from state file and stage summaries:
 | True Need | {N}/4 | {GREEN/YELLOW/RED/skipped} |
 | PAL Consensus | {N}/20 | {APPROVED/CONDITIONAL/REJECTED/skipped} |
 | AC Test Coverage | {N}% | {status} |
+| RTM Disposition | {N}/{TOTAL} resolved | {PASS/FAIL} |
 
 ## Next Steps
 1. Review spec with stakeholders
@@ -117,6 +121,9 @@ flags:
   clarifications_count: {N}
   test_count: {N|0}
   figma_enabled: {true|false}
+  rtm_coverage_pct: {N|0}
+  rtm_entries_count: {N|0}
+  rtm_dispositions_resolved: {N|0}
 ---
 
 ## Completion Report

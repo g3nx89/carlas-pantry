@@ -131,3 +131,55 @@ IF state.schema_version == 3:
 - Migration is triggered automatically when orchestrator detects `schema_version: 3`
 - `user_decisions.clarifications` array format is unchanged (still records per-question decisions)
 - The old `questions_answered` counter remains for backward compatibility alongside new fields
+
+---
+
+## State Migration (v4 to v5)
+
+v5 adds Requirements Traceability Matrix (RTM) fields. This is an **additive migration** —
+all new fields have null/empty defaults, so v4 state files continue to function.
+If RTM fields are missing, RTM features are treated as disabled.
+
+### New Fields
+
+```
+rtm_enabled: null                            # NEW — true/false/null (null = not yet decided)
+requirements_inventory:                      # NEW — inventory tracking
+  file_path: null                            # Path to REQUIREMENTS-INVENTORY.md
+  count: 0                                   # Number of confirmed requirements
+  confirmed: false                           # Whether user has confirmed the inventory
+
+stages.rtm:                                  # NEW — RTM stage tracking
+  status: pending                            # pending | in_progress | completed
+  total: 0                                   # Total REQ entries
+  covered: 0                                 # COVERED disposition count
+  partial: 0                                 # PARTIAL disposition count
+  deferred: 0                                # DEFERRED disposition count
+  removed: 0                                 # REMOVED disposition count
+  unmapped: 0                                # UNMAPPED disposition count
+  coverage_pct: 0                            # (covered + partial + deferred + removed) / total * 100
+  disposition_status: null                   # null | pending | resolved
+  dispositions_applied: 0                    # Count of user disposition decisions applied
+
+user_decisions.rtm_dispositions: []          # NEW — immutable array of disposition decisions
+```
+
+### Migration Procedure
+
+```
+IF state.schema_version == 4:
+    SET schema_version: 5
+    ADD rtm_enabled: null
+    ADD requirements_inventory: {file_path: null, count: 0, confirmed: false}
+    ADD stages.rtm: {status: pending, total: 0, covered: 0, partial: 0, deferred: 0, removed: 0, unmapped: 0, coverage_pct: 0, disposition_status: null, dispositions_applied: 0}
+    ADD user_decisions.rtm_dispositions: []
+    PRESERVE all existing fields unchanged
+    WRITE updated state file
+```
+
+### Compatibility Notes
+
+- v4 state files work without migration — missing RTM fields mean RTM is disabled
+- Migration is triggered automatically when orchestrator detects `schema_version: 4`
+- `user_decisions.rtm_dispositions` follows the same immutable pattern as `user_decisions.clarifications`
+- The `rtm_enabled: null` state means "not yet decided" — user is prompted during Stage 1

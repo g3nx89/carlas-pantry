@@ -106,6 +106,9 @@ feature_flags:
   # Enable Test Strategy Generation Phase (Phase 5.7)
   enable_test_strategy: true
 
+  # Enable Requirements Traceability Matrix (RTM) tracking
+  enable_rtm_tracking: true
+
 # =============================================================================
 # RESEARCH DISCOVERY CONFIGURATION
 # =============================================================================
@@ -823,6 +826,79 @@ test_strategy:
     skip_reasons_allowed:
       - "documentation_only_feature"
       - "user_explicit_skip"
+
+# =============================================================================
+# REQUIREMENTS TRACEABILITY MATRIX (RTM) CONFIGURATION (v1.0)
+# =============================================================================
+# Forward traceability from source requirements (REQ-NNN) to spec elements.
+# Ensures zero requirements are accidentally forgotten during specification.
+#
+# Phase 1: /specify only. Reserved sections for /plan and /implement consumption.
+
+rtm:
+  # Master switch (also gated by feature_flags.enable_rtm_tracking)
+  enabled: true
+  version: "1.0.0"
+
+  # ─────────────────────────────────────────────────────────────
+  # INVENTORY EXTRACTION (Stage 1)
+  # ─────────────────────────────────────────────────────────────
+
+  inventory_extraction:
+    # Source for requirement extraction
+    source: "user_input"  # user_input | research_reports | both
+
+    # User must confirm inventory before IDs become stable
+    confirmation_required: true
+
+    # Template for the inventory file
+    template: "$CLAUDE_PLUGIN_ROOT/templates/requirements-inventory-template.md"
+
+  # ─────────────────────────────────────────────────────────────
+  # OUTPUT FILES
+  # ─────────────────────────────────────────────────────────────
+
+  output:
+    inventory_file: "REQUIREMENTS-INVENTORY.md"
+    rtm_file: "rtm.md"
+    template: "$CLAUDE_PLUGIN_ROOT/templates/rtm-template.md"
+
+  # ─────────────────────────────────────────────────────────────
+  # DISPOSITIONS
+  # ─────────────────────────────────────────────────────────────
+
+  dispositions:
+    valid_values:
+      - "COVERED"
+      - "PARTIAL"
+      - "DEFERRED"
+      - "REMOVED"
+      - "UNMAPPED"
+      - "PENDING_STORY"
+
+    # Dispositions that pass the gate (zero UNMAPPED required)
+    gate_passing:
+      - "COVERED"
+      - "PARTIAL"
+      - "DEFERRED"
+      - "REMOVED"
+
+    # Dispositions that block the gate
+    gate_blocking:
+      - "UNMAPPED"
+      - "PENDING_STORY"
+
+  # ─────────────────────────────────────────────────────────────
+  # ID FORMAT
+  # ─────────────────────────────────────────────────────────────
+
+  id_format:
+    # Source requirement ID pattern
+    requirement_pattern: "REQ-{NNN}"  # Zero-padded 3-digit
+
+    # Qualified AC format used in RTM "Traced To" column
+    # Resolves ambiguity of story-scoped AC-NN IDs
+    ac_qualified_format: "{US_ID}.AC-{NN}"  # e.g., US-001.AC-01
 
 # =============================================================================
 # SKILL ORCHESTRATOR CONFIGURATION (v1.0)
