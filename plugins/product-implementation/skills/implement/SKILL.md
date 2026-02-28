@@ -297,7 +297,7 @@ Configuration: `config/implementation-config.yaml` under `autonomy_policy`.
 ## Quick Start
 
 1. Ensure `{FEATURE_DIR}/tasks.md` and `plan.md` exist (run `/product-planning:plan` then `/product-planning:tasks`)
-2. Optional: verify `design.md`, `test-plan.md`, and `test-cases/` are present for richer agent context
+2. Optional: verify `design.md`, `test-plan.md`, `test-strategy.md`, and `test-cases/` are present for richer agent context
 3. Run `/product-implementation:implement`
 4. Choose autonomy policy (Full Auto / Balanced / Minimal) when prompted — or set `autonomy_policy.default_level` in config to skip the question
 5. Monitor stage-by-stage progress (interruptions depend on chosen policy)

@@ -180,6 +180,7 @@ Used in Stage 3 after all phases complete.
    - If test-case specs are available, cross-validate test IDs against implemented tests
    - Verify constitution/architecture compliance: if the project has constitution.md or CLAUDE.md at the project root declaring architectural constraints (e.g., layering rules, dependency directions), verify that the implementation adheres to each declared constraint. Flag violations as High severity.
    - Test coverage delta: count implemented automated tests by level (unit, integration, e2e). If test-plan.md is available, compare against planned targets and report delta as `{implemented}/{planned} {level} ({pct}%)`. Flag thresholds (from config): if unit tests < 80% of plan target, flag High; if any other level < 50% of plan target, flag Medium.
+   - Strategy risk cross-reference: if test-strategy.md is available, verify that critical/high risks from the strategy are addressed by implemented tests. Report uncovered risks as Medium severity.
    - Run the full test suite independently and report the verified count as `baseline_test_count: {N}` at the end of your validation report.
    - Report final status with summary of completed work
 

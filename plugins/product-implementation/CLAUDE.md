@@ -45,6 +45,7 @@ The implement skill expects these files in the feature directory (produced by pr
 - `tasks.md` (required) — phased task list with acceptance criteria
 - `plan.md` (required) — implementation plan
 - `design.md`, `test-plan.md` (expected — warns if missing, does not halt)
+- `test-strategy.md` (optional — from specify's strategic test analysis: risks, testable ACs, journeys)
 - `spec.md`, `data-model.md`, `contract.md`, `research.md` (optional)
 - `test-cases/` (optional) — test specifications by level (e2e, integration, unit, uat)
 - `analysis/task-test-traceability.md` (optional) — task-to-test-case mapping

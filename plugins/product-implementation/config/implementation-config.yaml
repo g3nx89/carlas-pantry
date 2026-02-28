@@ -130,6 +130,9 @@ handoff:
       warning: "design.md not found — developer agents will rely on plan.md only for architecture context"
     - file: "test-plan.md"
       warning: "test-plan.md not found — TDD will proceed without a V-Model test strategy document"
+  optional_files:
+    - file: "test-strategy.md"
+      description: "Strategic test analysis from specify — risks, testable ACs, critical journeys, edge cases"
   test_cases:
     subdirectories: ["e2e", "integration", "unit", "uat"]
     test_id_patterns: ["E2E-*", "INT-*", "UT-*", "UAT-*"]

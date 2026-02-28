@@ -14,6 +14,7 @@ artifacts_read:
   - "contract.md"
   - "research.md"
   - "test-plan.md"
+  - "test-strategy.md (if exists)"  # Optional — from specify (strategic risk/AC context)
   - "test-cases/ (if exists)"
   - "analysis/task-test-traceability.md (if exists)"
 artifacts_written:

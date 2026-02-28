@@ -59,7 +59,8 @@ Read these if they exist. They provide additional implementation context.
 | `{FEATURE_DIR}/research.md` | Technical decisions and constraints |
 | `{FEATURE_DIR}/spec.md` | Feature specification and user stories |
 | `{FEATURE_DIR}/design.md` | Architecture design document |
-| `{FEATURE_DIR}/test-plan.md` | V-Model test strategy |
+| `{FEATURE_DIR}/test-plan.md` | V-Model test plan (tactical — from plan) |
+| `{FEATURE_DIR}/test-strategy.md` | V-Model test strategy (strategic — from specify, optional) |
 | `{FEATURE_DIR}/test-cases/` | Test specifications by level (e2e, integration, unit, uat) |
 | `{FEATURE_DIR}/analysis/task-test-traceability.md` | Mapping of tasks to test cases and acceptance criteria |
 
@@ -537,6 +538,7 @@ context_contributions:
 | `plan.md` | Required — loaded | Tech stack: {stack}, {N} files planned |
 | `design.md` | {Loaded / Missing (expected)} | {1-line summary or "N/A"} |
 | `test-plan.md` | {Loaded / Missing (expected)} | {1-line summary or "N/A"} |
+| `test-strategy.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
 | `spec.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
 | `contract.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
 | `data-model.md` | {Loaded / Not found} | {1-line summary or "N/A"} |
@@ -554,6 +556,7 @@ For each loaded optional/expected file, provide a 1-line summary of its key cont
 - **data-model.md**: {1-line summary, e.g., "4 entities: User, Session, Token, AuditLog with relations"}
 - **research.md**: {1-line summary, e.g., "Chose bcrypt over argon2 for password hashing, Redis for sessions"}
 - **test-plan.md**: {1-line summary, e.g., "V-Model strategy: 12 e2e, 25 integration, 40 unit tests planned"}
+- **test-strategy.md**: {1-line summary, e.g., "Specify's strategic analysis: 5 risks, 12 testable ACs, 3 critical journeys"}
 - *(Omit lines for files that were not found)*
 
 ## Test Specifications

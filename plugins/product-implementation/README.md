@@ -54,7 +54,7 @@ product-implementation/
 
 | Phase | Plugin | Output |
 |-------|--------|--------|
-| Definition | product-definition | PRD, specifications |
+| Definition | product-definition | PRD, specifications, test-strategy.md |
 | Planning | product-planning | design.md, plan.md, tasks.md, test-plan.md |
 | **Implementation** | **product-implementation** | **Production code, tests, documentation** |
 

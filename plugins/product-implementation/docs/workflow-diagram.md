@@ -77,7 +77,7 @@ flowchart TD
     HAS_PLAN -- No --> HALT_PLAN(["HALT: Run\n/product-planning:plan"])
     HAS_PLAN -- Yes --> OPT_FILES
 
-    OPT_FILES["1.3 Optional Files\nRead: spec, design, contract,\ndata-model, research, test-plan"]
+    OPT_FILES["1.3 Optional Files\nRead: spec, design, contract,\ndata-model, research, test-plan,\ntest-strategy"]
     OPT_FILES --> EXPECTED["1.3a Expected Files Check\nWarn if missing:\ndesign.md, test-plan.md"]
     EXPECTED --> TEST_DISC["1.3b Test Cases Discovery\nScan test-cases/ directory"]
     TEST_DISC --> CONTEXT_LOAD["1.4 Context Loading\nRead tasks.md, plan.md,\noptional files, CLAUDE.md"]
