@@ -1281,6 +1281,7 @@ if (otherPage) {
 | Get node by ID | `figma.getNodeById("1:23")` | `await figma.getNodeByIdAsync("1:23")` |
 | Get main component | `instance.mainComponent` | `await instance.getMainComponentAsync()` |
 | Set reactions | `node.reactions = [...]` | `await node.setReactionsAsync([...])` |
+| Set vector network | `node.vectorNetwork = {...}` | `await node.setVectorNetworkAsync({...})` |
 | Get local styles | `figma.getLocalTextStyles()` | `await figma.getLocalTextStylesAsync()` |
 | Get local variables | — | `await figma.variables.getLocalVariablesAsync()` |
 

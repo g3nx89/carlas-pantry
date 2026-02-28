@@ -329,6 +329,27 @@ For button labels inside nested component instances: navigate to the nested Cont
 
 ---
 
+## Flow Map Vector Patterns
+
+### Spine+Branch Tree for Hub-and-Spoke Connections
+
+When drawing flow maps with one hub node connecting to multiple sub-screens (fan-out), avoid diagonal fan-out (crossing arrows) and horizontal bus-lines at node center Y (appears to "pass through" intermediate nodes, creating a false chain reading).
+
+**Root cause**: Horizontal vector arrows drawn at the same Y level as a node's center appear to pass *through* that node rather than stop at it — the brain reads them as a chain (A→B→C) not a fan (A→B, A→C).
+
+**Correct pattern — spine+branch tree:**
+
+1. `console.log` all node positions *before* drawing anything — verify actual x/y/width/height, never assume
+2. Draw a **horizontal stub** from hub right-center → spine X (no arrowhead)
+3. Draw a **single vertical spine** from top-branch Y to bottom-branch Y at spine X (no arrowhead)
+4. Draw **N independent horizontal branch vectors** — each at its own unique Y, from spine X to node left-X, with arrowhead
+5. Each branch is a named separate vector with explicit coordinates (`v.x = SPINE_X; v.y = CY_i`)
+6. Never use a loop to generate connections — write each one explicitly with its literal coordinates; this forces manual verification of each Y
+
+**Arrowhead implementation**: Use `await node.setVectorNetworkAsync(...)` with per-vertex `strokeCap` (see `anti-patterns.md` § VectorNode strokeCap entry). Direct `strokeCapEnd`/`strokeCapStart` properties exist only on `LineNode`, not `VectorNode`.
+
+---
+
 ## Cross-References
 
 - **Anti-patterns** (API errors, common failures): `anti-patterns.md`
