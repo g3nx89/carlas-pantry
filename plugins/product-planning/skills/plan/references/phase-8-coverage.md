@@ -9,6 +9,7 @@ prior_summaries:
 artifacts_read:
   - "test-plan.md"
   - "spec.md"
+  - "test-strategy.md"  # Optional — from specify's Stage 6 (for traceability validation)
 artifacts_written:
   - "analysis/test-coverage-validation.md"
   - "analysis/cli-coverage-consensus-report.md"  # conditional: CLI dispatch enabled
@@ -67,7 +68,7 @@ Follow CLI Multi-CLI Dispatch Pattern from $CLAUDE_PLUGIN_ROOT/skills/plan/refer
 | GEMINI_PROMPT | see below (advocate stance + coverage rubric) |
 | CODEX_PROMPT | see below (challenger stance + coverage rubric) |
 | OPENCODE_PROMPT | see below (product_lens stance + coverage rubric) |
-| FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md"]` |
+| FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/test-strategy.md"]` |
 | REPORT_FILE | `analysis/cli-coverage-consensus-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
 | POST_WRITE | none |

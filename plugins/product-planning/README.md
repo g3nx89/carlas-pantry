@@ -66,6 +66,7 @@ specs/
 ├── constitution.md
 └── {FEATURE_NAME}/
     ├── spec.md, plan.md (input)
+    ├── test-strategy.md (optional input — from specify)
     ├── design.md, tasks.md, test-plan.md (output)
     ├── test-cases/ (unit/, integration/, e2e/, uat/)
     └── .planning-state.local.md (state)

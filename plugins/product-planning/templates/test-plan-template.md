@@ -355,7 +355,51 @@ Production validation:
 
 ---
 
-## 10. Appendix
+## 10. Strategy Traceability
+
+> Maps every item from `test-strategy.md` (specify's strategic test analysis) to concrete test IDs.
+> This section is only present when `test-strategy.md` exists.
+> Goal: 100% coverage of all strategy items.
+
+### 10.1 Risk Traceability
+
+| Risk Area (from test-strategy.md) | Severity | Test IDs | Status |
+|-----------------------------------|----------|----------|--------|
+| {risk_area} | {severity} | {test_ids} | COVERED / GAP |
+
+### 10.2 Acceptance Criteria Traceability
+
+| AC ID | Test Level (Strategy) | Test IDs (Plan) | Status |
+|-------|----------------------|-----------------|--------|
+| {ac_id} | {strategy_test_level} | {plan_test_ids} | COVERED / GAP |
+
+### 10.3 Critical Journey Traceability
+
+| Journey | Priority | E2E/UAT IDs | Status |
+|---------|----------|-------------|--------|
+| {journey_name} | {priority} | {test_ids} | COVERED / GAP |
+
+### 10.4 Edge Case Traceability
+
+| Edge Case | Severity | Test IDs | Status |
+|-----------|----------|----------|--------|
+| {edge_case} | {severity} | {test_ids} | COVERED / GAP |
+
+### 10.5 Traceability Summary
+
+| Category | Total | Covered | Gaps | Coverage % |
+|----------|-------|---------|------|------------|
+| Risks | {N} | {N} | {N} | {N}% |
+| Acceptance Criteria | {N} | {N} | {N} | {N}% |
+| Critical Journeys | {N} | {N} | {N} | {N}% |
+| Edge Cases | {N} | {N} | {N} | {N}% |
+| **Total** | **{N}** | **{N}** | **{N}** | **{N}%** |
+
+> Gaps listed above have been flagged for resolution. If coverage < 100%, see phase summary `flags.strategy_traceability_gap`.
+
+---
+
+## 11. Appendix
 
 ### A. Test Environment Requirements
 
@@ -395,6 +439,7 @@ Production validation:
 | **Outer Loop** | Slower tests requiring human/agentic execution (E2E, UAT, exploratory) |
 | **P0/P1/P2** | Priority levels - P0 (critical), P1 (high), P2 (medium) |
 | **TDD** | Test-Driven Development - Write tests before implementation (RED → GREEN → REFACTOR) |
+| **Test Strategy** | Strategic test analysis from specify (test-strategy.md) — defines WHAT to test and WHY (risks, testable ACs, journeys, edge cases). The test plan implements this strategy with concrete test IDs |
 | **UAT** | User Acceptance Testing - Tests executed by stakeholders to validate business requirements |
 | **UT** | Unit Test - Tests that verify a single function/class in isolation |
 | **V-Model** | Testing methodology where each development phase has a corresponding test level |

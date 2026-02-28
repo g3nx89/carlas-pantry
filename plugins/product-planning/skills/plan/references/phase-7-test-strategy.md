@@ -13,6 +13,7 @@ artifacts_read:
   - "design.md"
   - "plan.md"
   - "analysis/thinkdeep-insights.md"
+  - "test-strategy.md"  # Optional — from specify's Stage 6 (strategic test analysis)
 artifacts_written:
   - "test-plan.md"
   - "test-cases/unit/"
@@ -83,6 +84,20 @@ READ:
   - {FEATURE_DIR}/spec.md (acceptance criteria, user stories)
   - {FEATURE_DIR}/design.md (architecture for test boundaries)
   - {FEATURE_DIR}/plan.md (implementation approach)
+  - {FEATURE_DIR}/test-strategy.md (OPTIONAL — specify's strategic test analysis)
+
+IF test-strategy.md exists:
+  EXTRACT: risk_areas, testable_acs, critical_journeys, edge_cases
+  STORE as strategy_inputs for Step 7.6b
+
+  # Migration check: old specify versions produced test-plan.md instead (remove after v2.0)
+  IF test-plan.md exists AND test-strategy.md does NOT exist:
+    CHECK header of test-plan.md — if it starts with "# Test Strategy:"
+    THEN treat as strategy input, LOG: "Legacy test-plan.md detected from specify — treating as test-strategy.md. Consider renaming."
+    strategy_inputs = EXTRACT from test-plan.md
+ELSE:
+  LOG: "test-strategy.md not found — proceeding without strategy traceability"
+  strategy_inputs = null
 ```
 
 ## Step 7.1b: Testing Best Practices Research (Research MCP)
@@ -236,6 +251,7 @@ Task(
     - Spec: {FEATURE_DIR}/spec.md
     - Design: {FEATURE_DIR}/design.md
     - Plan: {FEATURE_DIR}/plan.md
+    {IF strategy_inputs != null: - Test Strategy (from specify): {FEATURE_DIR}/test-strategy.md — USE as baseline for risks, ACs, journeys, edge cases. Ensure 100% coverage of strategy items.}
 
     Required Output:
     1. Risk Assessment with test mapping
@@ -245,7 +261,7 @@ Task(
     5. UAT Scripts (Given-When-Then)
     6. Coverage Matrix
   """,
-  description: "Generate V-Model test plan"
+  description: "Generate V-Model test plan with strategy traceability"
 )
 
 # Agent 2: Security Test Focus (Complete/Advanced modes)
@@ -293,7 +309,7 @@ Task(
 )
 ```
 
-Output to:
+Output to (MPA intermediate outputs — distinct from specify's root-level `test-strategy.md`):
 - `{FEATURE_DIR}/analysis/test-strategy-general.md`
 - `{FEATURE_DIR}/analysis/test-strategy-security.md`
 - `{FEATURE_DIR}/analysis/test-strategy-performance.md`
@@ -487,7 +503,7 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | GEMINI_PROMPT | `Review test strategy for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. ThinkDeep insights: {FEATURE_DIR}/analysis/thinkdeep-insights.md (if exists). Focus: Test infrastructure discovery, framework compatibility, coverage gaps, ThinkDeep-to-test reconciliation.` |
 | CODEX_PROMPT | `Review test code quality for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. Focus: Existing test patterns, assertion quality, mock patterns, test isolation.` |
 | OPENCODE_PROMPT | `Review UAT quality and accessibility test coverage for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. Focus: UAT script clarity (Given-When-Then readability), accessibility testing (keyboard nav, screen reader), exploratory testing charters from user perspective.` |
-| FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/analysis/thinkdeep-insights.md", "{FEATURE_DIR}/analysis/test-strategy-general.md"]` |
+| FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/test-strategy.md", "{FEATURE_DIR}/analysis/thinkdeep-insights.md", "{FEATURE_DIR}/analysis/test-strategy-general.md"]` |
 | REPORT_FILE | `analysis/cli-testreview-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
 | POST_WRITE | `Update test-plan.md with coverage gap additions (Gemini), pattern alignment recommendations (Codex), UAT/accessibility improvements (OpenCode), and ThinkDeep reconciliation report` |
@@ -532,6 +548,44 @@ WRITE uat scripts to test-cases/uat/
 
 Write `{FEATURE_DIR}/test-plan.md` using template from `$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md`
 
+## Step 7.6b: Strategy Traceability Verification
+
+```
+IF strategy_inputs != null:
+
+  1. BUILD traceability matrix:
+     FOR EACH risk IN strategy_inputs.risk_areas:
+       FIND matching test IDs in test-plan.md → record in risk_trace[]
+     FOR EACH ac IN strategy_inputs.testable_acs:
+       FIND matching test IDs in test-plan.md → record in ac_trace[]
+     FOR EACH journey IN strategy_inputs.critical_journeys:
+       FIND matching E2E/UAT IDs in test-plan.md → record in journey_trace[]
+     FOR EACH edge_case IN strategy_inputs.edge_cases:
+       FIND matching test IDs in test-plan.md → record in edge_trace[]
+
+  2. CALCULATE coverage:
+     total_items = len(risk_trace) + len(ac_trace) + len(journey_trace) + len(edge_trace)
+     covered_items = count items with at least 1 matching test ID
+     coverage_pct = covered_items / total_items * 100
+
+  3. IF coverage_pct < 100:
+     FOR EACH uncovered item:
+       GENERATE additional test case(s) to close the gap
+       APPEND to appropriate section of test-plan.md
+     RECALCULATE coverage_pct
+
+  4. APPEND Section 10 (Strategy Traceability) to test-plan.md:
+     Use traceability tables from template (Section 10)
+     Include: risk_trace, ac_trace, journey_trace, edge_trace, summary
+
+  5. IF coverage_pct < 100 after gap-closing attempt:
+     SET flags.strategy_traceability_gap = true in phase summary
+     DOCUMENT remaining gaps in Section 10.5
+
+ELSE:
+  SKIP — no Section 10 added to test-plan.md (strategy_inputs is null)
+```
+
 ## Step 7.7: Quality Gate - Test Coverage (S3)
 
 **Purpose:** Verify test coverage quality before coverage validation.
@@ -549,8 +603,10 @@ IF feature_flags.s3_judge_gates.enabled AND analysis_mode in {advanced, complete
          - {FEATURE_DIR}/test-plan.md
          - {FEATURE_DIR}/spec.md (for AC coverage check)
          - {FEATURE_DIR}/analysis/test-strategy-*.md
+         {IF strategy_inputs != null: - {FEATURE_DIR}/test-strategy.md (verify Section 10 traceability covers all strategy items)}
 
          Use Gate 3 criteria from judge-gate-rubrics.md.
+         {IF strategy_inputs != null: Additional criterion: Section 10 Strategy Traceability must cover 100% of test-strategy.md items.}
          Mode: {analysis_mode}
        """
      )

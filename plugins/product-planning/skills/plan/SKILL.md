@@ -266,7 +266,7 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 
 ## Quick Start
 
-1. Ensure `{FEATURE_DIR}/spec.md` exists
+1. Ensure `{FEATURE_DIR}/spec.md` exists (optional: `test-strategy.md` from specify for traceability)
 2. Run `/product-planning:plan`
 3. Select analysis mode
 4. Answer clarifying questions
