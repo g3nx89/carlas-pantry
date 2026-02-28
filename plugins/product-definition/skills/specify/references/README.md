@@ -11,7 +11,7 @@
 | `stage-3-checklist.md` | Dispatching Stage 3 — platform detect, checklist creation, BA validation |
 | `stage-4-clarification.md` | Dispatching Stage 4 — MPA-EdgeCases, clarification protocol, MPA-Triangulation, spec update |
 | `stage-5-validation-design.md` | Dispatching Stage 5 — CLI multi-stance evaluation, design-brief, design-supplement (MANDATORY) |
-| `stage-6-test-strategy.md` | Dispatching Stage 6 — V-Model test plan, AC traceability (optional, feature flag) |
+| `stage-6-test-strategy.md` | Dispatching Stage 6 — V-Model test strategy, AC traceability (optional, feature flag) |
 | `stage-7-completion.md` | Dispatching Stage 7 — lock release, completion report, next steps |
 | `checkpoint-protocol.md` | Any checkpoint — state update patterns and immutable decision rules |
 | `error-handling.md` | Any error condition — PAL failures, Figma failures, graceful degradation, recovery |

@@ -61,9 +61,9 @@ Orchestrates a 6-stage PRD refinement workflow.
 
 | Mode | Description | MCP Required | Cost/Round |
 |------|-------------|--------------|------------|
-| **Complete** | MPA (3 agents) + PAL ThinkDeep (9 calls) + Sequential | Yes | $0.80-1.50 |
-| **Advanced** | MPA (3 agents) + PAL ThinkDeep (6 calls) | Yes | $0.50-0.80 |
-| **Standard** | MPA (3 agents) only | No | $0.15-0.25 |
+| **Complete** | Panel (2-5 members) + PAL ThinkDeep (9 calls) + Sequential | Yes | $0.80-1.50 |
+| **Advanced** | Panel (2-5 members) + PAL ThinkDeep (6 calls) | Yes | $0.50-0.80 |
+| **Standard** | Panel (2-5 members) only | No | $0.15-0.25 |
 | **Rapid** | Single agent | No | $0.05-0.10 |
 
 ### `/product-definition:specify`
@@ -195,14 +195,13 @@ If MCP tools are unavailable:
 
 ## Plugin Components
 
-### Agents (27)
+### Agents (26)
 
 | Agent | Command/Skill | Purpose | Model |
 |-------|--------------|---------|-------|
-| `requirements-product-strategy` | requirements | Product/market questions | sonnet |
-| `requirements-user-experience` | requirements | UX/persona questions | sonnet |
-| `requirements-business-ops` | requirements | Operations questions | sonnet |
-| `requirements-question-synthesis` | requirements | Merge & deduplicate | opus |
+| `requirements-panel-builder` | requirements | Compose dynamic MPA panel | sonnet |
+| `requirements-panel-member` (template) | requirements | Parametric template per panel member | sonnet |
+| `requirements-question-synthesis` | requirements | Merge & deduplicate N perspectives | opus |
 | `requirements-prd-generator` | requirements | PRD document creation | opus |
 | `research-discovery-business` | requirements | Market research questions | sonnet |
 | `research-discovery-technical` | requirements | Viability research | sonnet |
@@ -244,7 +243,7 @@ If MCP tools are unavailable:
 | `design-brief-template.md` | Design brief structure |
 | `design-supplement-template.md` | Design supplement format |
 | `figma_context-template.md` | Figma context capture |
-| `test-plan-template.md` | V-Model test plan |
+| `test-strategy-template.md` | V-Model test strategy |
 | `handoff-supplement-template.md` | Handoff supplement output structure |
 | `handoff-screen-template.md` | Per-screen supplement section |
 | `handoff-manifest-template.md` | Screen inventory + component-to-code mapping |

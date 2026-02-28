@@ -93,7 +93,7 @@ Include in summary context for orchestrator to display:
 
 ### Next Steps:
 1. **Review** spec.md with stakeholders
-2. **Review** test-plan.md for TDD preparation (if generated)
+2. **Review** test-strategy.md for TDD preparation (if generated)
 3. **Run** `/sdd:02-plan` to create implementation plan
 4. **Address** any gaps from design-supplement.md
 

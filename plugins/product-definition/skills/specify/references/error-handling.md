@@ -109,7 +109,7 @@ model_failures:
 
 ## QA Strategist Failure
 
-1. Log: "QA strategist failed to produce test-plan.md"
+1. Log: "QA strategist failed to produce test-strategy.md"
 2. Test strategy is optional (feature flag controlled)
 3. If feature flag enabled and agent fails: retry once
 4. If retry fails: signal `needs-user-input` (skip test strategy / retry / abort)

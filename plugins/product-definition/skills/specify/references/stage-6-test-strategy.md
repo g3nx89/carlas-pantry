@@ -1,7 +1,7 @@
 ---
 stage: stage-6-test-strategy
 artifacts_written:
-  - specs/{FEATURE_DIR}/test-plan.md (conditional)
+  - specs/{FEATURE_DIR}/test-strategy.md (conditional)
 ---
 
 # Stage 6: Testability & Risk Assessment (Coordinator) — Optional
@@ -71,8 +71,8 @@ Design Brief: @specs/{FEATURE_DIR}/design-brief.md
 {IF mpa-edgecases*.md exists: Edge Cases: @specs/{FEATURE_DIR}/analysis/mpa-edgecases-parallel.md}
 {IF design-supplement.md exists: Design Supplement: @specs/{FEATURE_DIR}/design-supplement.md}
 
-Template: @$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md
-Output: specs/{FEATURE_DIR}/test-plan.md
+Template: @$CLAUDE_PLUGIN_ROOT/templates/test-strategy-template.md
+Output: specs/{FEATURE_DIR}/test-strategy.md
 
 Use Sequential Thinking (if available, 4 thoughts):
 1. Risk assessment — failure modes across 6 categories
@@ -113,7 +113,7 @@ flags:
 ## Step 6.7: Verify Output
 
 ```bash
-test -f "specs/{FEATURE_DIR}/test-plan.md" || echo "MISSING: test-plan.md"
+test -f "specs/{FEATURE_DIR}/test-strategy.md" || echo "MISSING: test-strategy.md"
 ```
 
 **If missing:** Re-run QA strategist (Step 6.4). If still missing: signal `needs-user-input`.
@@ -149,7 +149,7 @@ stage_number: 6
 status: completed | needs-user-input
 checkpoint: TEST_STRATEGY
 artifacts_written:
-  - specs/{FEATURE_DIR}/test-plan.md
+  - specs/{FEATURE_DIR}/test-strategy.md
 summary: "Test strategy: {N} risks ({C} critical), {T}/{TOTAL} ACs testable, {J} critical journeys, {E} edge cases."
 flags:
   risk_critical: {N}
@@ -172,7 +172,7 @@ Test strategy generated. {N} risks identified ({C} critical). {T}/{TOTAL} ACs te
 ## Self-Verification (MANDATORY before writing summary)
 
 BEFORE writing the summary file, verify:
-1. `specs/{FEATURE_DIR}/test-plan.md` exists (if not skipped)
+1. `specs/{FEATURE_DIR}/test-strategy.md` exists (if not skipped)
 2. Risk areas are populated (not placeholder values)
 3. Testability verification covers all ACs
 4. No individual test IDs in the output (UT-NNN, INT-NNN, etc.)

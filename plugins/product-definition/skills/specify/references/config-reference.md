@@ -38,7 +38,7 @@
 | `design-supplement.md` | Design analysis | (fixed name) |
 | `clarification-questions.md` | File-based clarification questions | (fixed name) |
 | `clarification-report.md` | Auto-resolve audit trail | (fixed name) |
-| `test-plan.md` | V-Model test strategy | (fixed name) |
+| `test-strategy.md` | V-Model test strategy | (fixed name) |
 | `figma_context.md` | Figma design context | (fixed name) |
 | `.specify-state.local.md` | Workflow state | (fixed name) |
 | `.specify.lock` | Session lock | (fixed name) |

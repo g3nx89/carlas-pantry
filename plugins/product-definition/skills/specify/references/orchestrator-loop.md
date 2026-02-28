@@ -153,7 +153,7 @@ summary: "Spec drafted: 12 user stories, self-critique 15/20. MPA-Challenge GREE
 
 ### Rule
 
-Detailed analysis belongs in **artifact files** (spec.md, test-plan.md, design-supplement.md), NOT in coordinator summaries. The orchestrator reads summaries for routing decisions, not for content review.
+Detailed analysis belongs in **artifact files** (spec.md, test-strategy.md, design-supplement.md), NOT in coordinator summaries. The orchestrator reads summaries for routing decisions, not for content review.
 
 ---
 

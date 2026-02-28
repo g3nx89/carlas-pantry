@@ -256,7 +256,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `specs/{FEATURE_DIR}/clarification-questions.md` | 4 | Clarification questions for offline editing |
 | `specs/{FEATURE_DIR}/clarification-report.md` | 4 | Auto-resolve audit trail and answer summary |
 | `specs/{FEATURE_DIR}/design-supplement.md` | 5 | Design analysis (MANDATORY) |
-| `specs/{FEATURE_DIR}/test-plan.md` | 6 | V-Model test strategy (optional) |
+| `specs/{FEATURE_DIR}/test-strategy.md` | 6 | V-Model test strategy (optional) |
 | `specs/{FEATURE_DIR}/REQUIREMENTS-INVENTORY.md` | 1 | Source requirements with REQ-NNN IDs (conditional, RTM enabled) |
 | `specs/{FEATURE_DIR}/rtm.md` | 2 | Forward traceability matrix REQ→US/AC (conditional, RTM enabled) |
 | `specs/{FEATURE_DIR}/analysis/mpa-challenge*.md` | 2 | MPA Challenge CLI dispatch report |

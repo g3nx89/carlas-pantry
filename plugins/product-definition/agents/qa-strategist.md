@@ -177,8 +177,8 @@ Feature Directory: {FEATURE_DIR}
 
 ## Output: Test Strategy Document
 
-Write to `{FEATURE_DIR}/test-plan.md` using template:
-`@$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md`
+Write to `{FEATURE_DIR}/test-strategy.md` using template:
+`@$CLAUDE_PLUGIN_ROOT/templates/test-strategy-template.md`
 
 ---
 
@@ -190,7 +190,7 @@ response:
   status: success | partial | error
 
   outputs:
-    - file: "{FEATURE_DIR}/test-plan.md"
+    - file: "{FEATURE_DIR}/test-strategy.md"
       action: created
       lines: {line_count}
 
