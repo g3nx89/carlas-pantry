@@ -27,17 +27,21 @@ limits:
   # REMOVED: clarification_iterations_max - No limit on clarification iterations
   # The workflow continues until ALL clarifications are resolved
 
-  # Maximum PAL rejection retries (Phase 5)
+  # Maximum CLI rejection retries (Stage 5)
   # After this many rejections, escalates to user decision
-  pal_rejection_retries_max: 2
+  cli_rejection_retries_max: 2
+
+  # Maximum iteration loop cycles before forcing a user checkpoint
+  # Prevents runaway Stage 3↔4 loops
+  max_iterations_before_checkpoint: 5
 
   # DEPRECATED: questions_per_batch — replaced by file-based clarification (v2.2.1)
   # Kept for backward compatibility; not used in file-based mode
   questions_per_batch: 4  # deprecated
 
-  # Lock file staleness threshold (hours)
-  # Locks older than this are considered stale and auto-removed
-  lock_staleness_hours: 2
+  # Lock stale timeout in minutes — locks older than this are auto-removed
+  # Used by Stage 1 pre-flight and checkpoint-protocol.md for lock management
+  lock_stale_timeout_minutes: 60
 
   # EXPLICIT: No limits on content generation
   # These are explicitly set to unlimited (null) for clarity
@@ -55,12 +59,12 @@ limits:
 thresholds:
   # Checklist validation (Phase 4) - percentage coverage
   checklist:
-    green: 85    # >= this: HIGH coverage, proceed to PAL
+    green: 85    # >= this: HIGH coverage, proceed to CLI evaluation
     yellow: 60   # >= this: MEDIUM coverage, proceed to clarifications
     # < yellow: LOW coverage, iterate with BA
 
-  # PAL Consensus (Phase 5) - points out of 20
-  pal:
+  # CLI Evaluation (Stage 5) - points out of 20
+  cli_eval:
     green: 16    # >= this: APPROVED
     yellow: 12   # >= this: CONDITIONAL (proceed with warnings)
     # < yellow: REJECTED (iterate or escalate)

@@ -14,7 +14,7 @@
 | `stage-6-test-strategy.md` | Dispatching Stage 6 — V-Model test strategy, AC traceability (optional, feature flag) |
 | `stage-7-completion.md` | Dispatching Stage 7 — lock release, completion report, next steps |
 | `checkpoint-protocol.md` | Any checkpoint — state update patterns and immutable decision rules |
-| `error-handling.md` | Any error condition — PAL failures, Figma failures, graceful degradation, recovery |
+| `error-handling.md` | Any error condition — CLI failures, Figma failures, graceful degradation, recovery |
 | `config-reference.md` | CLI dispatch usage — template variables, CLI patterns, scoring thresholds |
 | `cli-dispatch-patterns.md` | Stages 2, 4, 5 (CLI dispatch calls) — parameterized tri-CLI execution for Challenge, EdgeCases, Triangulation, Evaluation |
 | `figma-capture-protocol.md` | Stage 1 (Figma enabled) — connection selection, capture process, screenshot naming, error recovery |
@@ -25,22 +25,22 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `orchestrator-loop.md` | ~380 | Dispatch loop, variable defaults, iteration logic (Stage 3↔4), quality gates, stall detection |
-| `recovery-migration.md` | ~130 | Crash recovery procedures, v2→v3→v4→v5 state migration (loaded on-demand) |
-| `stage-1-setup.md` | ~400 | Inline setup: MCP check, pre-flight, lock, workspace, Figma capture, RTM inventory, state init |
-| `stage-2-spec-draft.md` | ~500 | BA spec draft, MPA-Challenge CLI dispatch, Gate 1 (Problem), Gate 2 (True Need), initial RTM |
-| `stage-3-checklist.md` | ~230 | Platform detect, checklist copy, BA validation, coverage scoring, RTM re-evaluation |
-| `stage-4-clarification.md` | ~480 | RTM disposition gate, MPA-EdgeCases CLI dispatch, clarification protocol, MPA-Triangulation CLI dispatch, spec update |
-| `stage-5-validation-design.md` | ~310 | CLI multi-stance evaluation (retry loop), design-brief-generator, gap-analyzer |
-| `stage-6-test-strategy.md` | ~250 | Feature flag check, QA strategist, AC coverage validation |
-| `stage-7-completion.md` | ~130 | Lock release, completion report, next steps |
-| `checkpoint-protocol.md` | ~75 | State update patterns, RTM disposition examples |
-| `error-handling.md` | ~165 | CLI/Figma/gate/design/QA failures, graceful degradation |
-| `config-reference.md` | ~235 | Template variables, limits, thresholds, feature flags, CLI dispatch params |
-| `cli-dispatch-patterns.md` | ~295 | Parameterized execution for 4 CLI dispatch integration points |
-| `figma-capture-protocol.md` | ~240 | Figma connection selection, capture process (ReAct), screenshot naming, error handling |
-| `clarification-protocol.md` | ~250 | File-based Q&A format, BA recommendations, answer parsing rules, state tracking |
-| `auto-resolve-protocol.md` | ~190 | Auto-resolve gate logic, classification levels, exclusion rules, report format |
+| `orchestrator-loop.md` | ~477 | Dispatch loop, variable defaults, template rendering, iteration logic (Stage 3↔4), quality gates, summary contract schema |
+| `recovery-migration.md` | ~185 | Crash recovery procedures, v2→v3→v4→v5 state migration (loaded on-demand) |
+| `stage-1-setup.md` | ~402 | Inline setup: MCP check, pre-flight, lock, workspace, Figma capture, RTM inventory, state init |
+| `stage-2-spec-draft.md` | ~310 | Pre-conditions, BA spec draft, RTM generation, MPA-Challenge CLI dispatch, gate-judge dispatch |
+| `stage-3-checklist.md` | ~228 | Pre-conditions, platform detect, checklist copy, BA validation, coverage scoring, RTM re-evaluation |
+| `stage-4-clarification.md` | ~532 | Pre-conditions, RTM disposition gate, MPA-EdgeCases CLI dispatch, clarification protocol, MPA-Triangulation, spec update |
+| `stage-5-validation-design.md` | ~317 | Pre-conditions, CLI multi-stance evaluation (retry loop), design-brief-generator, gap-analyzer |
+| `stage-6-test-strategy.md` | ~183 | Feature flag check, pre-conditions, QA strategist, AC coverage validation |
+| `stage-7-completion.md` | ~152 | Pre-conditions, lock release, completion report, next steps |
+| `checkpoint-protocol.md` | ~69 | State update patterns, lock stale timeout, RTM disposition examples |
+| `error-handling.md` | ~158 | CLI/Figma/gate/design/QA failures, internal reasoning fallback, graceful degradation |
+| `config-reference.md` | ~158 | Template variables, limits, thresholds, feature flags, CLI dispatch params |
+| `cli-dispatch-patterns.md` | ~408 | Parameterized execution for 4 CLI dispatch points, semantic dedup scheme, least-to-most synthesis |
+| `figma-capture-protocol.md` | ~249 | Figma connection selection, capture process (ReAct), screenshot naming, error handling |
+| `clarification-protocol.md` | ~248 | File-based Q&A format, BA recommendations, answer parsing rules, state tracking |
+| `auto-resolve-protocol.md` | ~199 | Auto-resolve gate logic, classification levels, exclusion rules, worked examples |
 
 ## Cross-References
 
@@ -67,7 +67,7 @@
 ### RTM Cross-References
 
 - `stage-1-setup.md` Step 1.9c loads `$CLAUDE_PLUGIN_ROOT/templates/requirements-inventory-template.md`
-- `stage-2-spec-draft.md` Step 2.1b loads `$CLAUDE_PLUGIN_ROOT/templates/rtm-template.md` and reads `REQUIREMENTS-INVENTORY.md`
+- `stage-2-spec-draft.md` Step 2.3 loads `$CLAUDE_PLUGIN_ROOT/templates/rtm-template.md` and reads `REQUIREMENTS-INVENTORY.md`
 - `stage-3-checklist.md` Step 3.3c re-evaluates `rtm.md` dispositions
 - `stage-4-clarification.md` Step 4.0a writes RTM disposition questions to `clarification-questions.md`; Step 4.3 parses RTM disposition answers; Step 4.5 creates new US for PENDING_STORY dispositions
 - `stage-7-completion.md` includes RTM metrics in completion report
@@ -86,16 +86,16 @@
 ## Step Numbering Convention
 
 All stage files use flat numbering `Step N.M` (e.g., `Step 2.1`, `Step 3.3`, `Step 5.5`).
-No sub-part numbering is needed (unlike refinement's Stage 3 which had A/B parts).
+Pre-condition validation uses `Step N.0`. Stage 4 uses suffix letters for conditional sub-steps: `Step 4.0a` (RTM disposition), `Step 4.0b` (Figma mock gaps).
 
 ## Structural Patterns
 
 All stage files (stages 1-7) follow this structure:
 1. YAML frontmatter with `stage` name and `artifacts_written` list
 2. **CRITICAL RULES** section at top (attention-favored position)
-3. Numbered steps for execution
-4. Summary Contract (YAML template)
-5. **Self-Verification** checklist (mandatory before writing summary)
-6. **CRITICAL RULES REMINDER** at bottom (attention-favored position)
+3. **Pre-condition validation** (Step X.0 — verify required inputs exist)
+4. Numbered steps for execution
+5. Summary Contract (YAML template)
+6. **Self-Verification** checklist (mandatory before writing summary) with failure consequences
 
 **Max-rules guidance:** Keep CRITICAL RULES sections to **5-7 rules maximum** per stage file.

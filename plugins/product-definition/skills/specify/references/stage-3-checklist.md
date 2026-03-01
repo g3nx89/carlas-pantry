@@ -17,6 +17,14 @@ artifacts_written:
 4. **NEVER interact with users directly**: signal `needs-user-input` for platform choice if ambiguous
 5. **Checklist template source**: Use `$CLAUDE_PLUGIN_ROOT/templates/spec-checklist-mobile.md` for mobile, `$CLAUDE_PLUGIN_ROOT/templates/spec-checklist.md` for generic
 
+## Step 3.0: Validate Pre-Conditions
+
+```bash
+test -f "specs/{FEATURE_DIR}/spec.md" || echo "BLOCKER: spec.md missing — Stage 2 must complete first"
+```
+
+**If BLOCKER found:** Set `status: failed`, `block_reason: "Pre-condition failed"`. Do not proceed.
+
 ## Step 3.1: Platform Auto-Detection
 
 Determine platform type from available context:
@@ -115,7 +123,7 @@ figma_mock_gaps:
 **If count == 0:** Set `flags.figma_mock_gaps_count: 0` — no action needed.
 
 This check is independent of the checklist coverage score. Figma mock gaps do NOT reduce coverage_pct —
-they are surfaced separately in Stage 4 (see stage-4-clarification.md Step 4.0).
+they are surfaced separately in Stage 4 (see stage-4-clarification.md Step 4.0b).
 
 ## Step 3.3c: RTM Coverage Re-Evaluation (Conditional)
 
@@ -216,9 +224,5 @@ BEFORE writing the summary file, verify:
 4. Platform type is recorded in state
 5. Summary YAML frontmatter has no placeholder values
 
-## CRITICAL RULES REMINDER
+**If ANY check fails:** Fix the issue. If unfixable: set `status: failed` with `block_reason` describing the failure.
 
-- Platform auto-detect first, ask user only if ambiguous
-- Coverage thresholds: 85% GREEN, 60% YELLOW, <60% RED
-- BA adds [NEEDS CLARIFICATION] markers for all gaps
-- NEVER interact with users directly

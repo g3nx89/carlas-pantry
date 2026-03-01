@@ -57,9 +57,9 @@
 
 | Setting | Path | Value |
 |---------|------|-------|
-| CLI rejection retries | `limits.pal_rejection_retries_max` | 2 |
+| CLI rejection retries | `limits.cli_rejection_retries_max` | 2 |
 | Questions per batch (deprecated) | `limits.questions_per_batch` | 4 (deprecated — file-based mode) |
-| Lock staleness hours | `limits.lock_staleness_hours` | 2 |
+| Lock stale timeout (minutes) | `limits.lock_stale_timeout_minutes` | 60 |
 | Max user stories | `limits.max_user_stories` | **null** (no limit) |
 | Max acceptance criteria | `limits.max_acceptance_criteria` | **null** (no limit) |
 | Max NFRs | `limits.max_nfrs` | **null** (no limit) |
@@ -71,8 +71,8 @@
 |---------|------|-------|
 | Checklist GREEN | `thresholds.checklist.green` | 85% |
 | Checklist YELLOW | `thresholds.checklist.yellow` | 60% |
-| PAL GREEN | `thresholds.pal.green` | 16/20 |
-| PAL YELLOW | `thresholds.pal.yellow` | 12/20 |
+| CLI eval GREEN | `thresholds.cli_eval.green` | 16/20 |
+| CLI eval YELLOW | `thresholds.cli_eval.yellow` | 12/20 |
 | Self-critique pass | `thresholds.self_critique.pass` | 16/20 |
 | Incremental gate problem min | `incremental_gates.gate_1_problem_quality.thresholds.green` | 4 |
 | Incremental gate true need min | `incremental_gates.gate_2_true_need.thresholds.green` | 4 |

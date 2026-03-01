@@ -81,8 +81,9 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 {IF stage has extra refs:}
 - {extra_ref}: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{extra_ref}
 
-## Prior Stage Summaries
-{CONTENTS OF specs/{FEATURE_DIR}/.stage-summaries/stage-*-summary.md}
+## Prior Stage Summaries (rolling window: Stage 2 baseline + 2 most recent)
+{CONTENTS OF specs/{FEATURE_DIR}/.stage-summaries/stage-2-summary.md — ALWAYS included as baseline}
+{CONTENTS OF the 2 most recent stage-*-summary.md files (by stage number)}
 
 ## State File (frontmatter only)
 {YAML FRONTMATTER OF specs/{FEATURE_DIR}/.specify-state.local.md}
@@ -92,11 +93,53 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
   write your summary with status: needs-user-input and describe what
   you need in flags.block_reason and flags.question_context.
 - You MUST write a summary file at specs/{FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md
-  with YAML frontmatter following the summary contract in SKILL.md.
+  with YAML frontmatter following the Summary Contract Schema below.
 - You MUST update the state file after completing your work.
 - You MUST run self-verification checks listed at the end of your stage file
   BEFORE writing your summary.
 """)
+```
+
+### Template Rendering
+
+The dispatch template uses `{IF condition:}` conditionals. When rendering, evaluate each condition and include or omit the block:
+
+**Fully resolved example** (Stage 4, CLI available, iteration 2):
+```
+You are a coordinator for the Feature Specify workflow.
+
+## Your Stage
+Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/stage-4-clarification.md
+
+## Context
+- Feature directory: specs/1-meal-planning
+- Feature name: Meal Planning
+- CLI available: true
+- Codex available: true
+- Gemini available: true
+- OpenCode available: false
+- Sequential Thinking available: true
+- Figma MCP available: false
+- Figma enabled: false
+- Entry type: re_entry_after_user_input
+- Iteration: 2
+
+## Shared References (load ONLY those listed for this stage)
+- Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/checkpoint-protocol.md
+- Error handling: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/error-handling.md
+- Config: @$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml
+- cli-dispatch-patterns: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli-dispatch-patterns.md
+
+## Prior Stage Summaries (rolling window: Stage 2 baseline + 2 most recent)
+{contents of stage-2-summary.md}
+{contents of stage-3-summary.md}
+{contents of stage-4-summary.md}
+
+## State File (frontmatter only)
+{YAML frontmatter}
+
+## CRITICAL RULES
+...
 ```
 
 ### ENTRY_TYPE Variable
@@ -264,12 +307,7 @@ IF RTM_ENABLED AND Stage 4 summary flags.rtm.remaining_unmapped > 0:
     Proceeding — these will be flagged in the completion report."
     LOG rtm_warning in state file
 
-NOTE: This check is intentionally NON-BLOCKING (notification only, does not halt).
-The disposition gate in Stage 4 (Step 4.0a) already gave the user a chance to
-resolve every UNMAPPED requirement. If any remain UNMAPPED here, it means the user
-chose not to answer those disposition questions — this is their conscious choice.
-Blocking again would create an infinite loop. The remaining UNMAPPED entries are
-reported in the Stage 7 completion report for future resolution.
+NOTE: This check is NON-BLOCKING. Stage 4 Step 4.0a already offered disposition for every UNMAPPED requirement — remaining UNMAPPED entries reflect the user's conscious choice and are reported in the Stage 7 completion report.
 ```
 
 ### After Stage 5 (Design Artifacts)
@@ -331,6 +369,20 @@ iterations:
     stage_4_questions: 0
 ```
 
+### Hard Iteration Ceiling
+
+```
+IF iteration_count >= max_iterations_before_checkpoint (config: limits.max_iterations_before_checkpoint, default 5):
+    FORCE user decision via AskUserQuestion:
+        question: "Coverage at {PCT}% after {N} iterations. Continue iterating or proceed?"
+        header: "Iteration"
+        options:
+          - label: "Proceed (Recommended)"
+            description: "Accept current coverage and move to Stage 5"
+          - label: "Continue iterating"
+            description: "Run another clarification cycle"
+```
+
 ### Stall Detection
 
 If coverage improvement < 5% between iterations:
@@ -379,3 +431,47 @@ ON RE-ENTRY after user answers:
 **Crash Recovery:** If summary file missing for stage N, check for artifacts. If found, reconstruct minimal summary. If not, ask user to retry or skip.
 
 **State Migration:** Chained migrations: v2→v3 (phase→stage), v3→v4 (file-based clarification), v4→v5 (RTM tracking). Each migration is additive — new fields get null/empty defaults.
+
+---
+
+## Summary Contract Schema
+
+All coordinator summaries MUST follow this YAML frontmatter structure:
+
+```yaml
+---
+stage: "{stage_name}"
+stage_number: {N}
+status: completed | needs-user-input | failed
+checkpoint: "{CHECKPOINT_NAME}"
+artifacts_written:
+  - "{path/to/artifact}"
+artifacts_for_next_stage:        # Optional — key artifacts the next coordinator needs
+  - "{path}"
+summary: "{1-2 sentence description, max 500 chars}"
+flags:
+  coverage_pct: {N}              # Stage 3 only
+  gaps_count: {N}                # Stage 3 only
+  cli_score: {N}                 # Stage 5 only
+  cli_decision: "{APPROVED|CONDITIONAL|REJECTED}"  # Stage 5 only
+  block_reason: null | "{reason}"
+  pause_type: null | "interactive" | "file_based"
+  next_action: null | "loop_clarify" | "proceed"
+  question_context:              # Present when pause_type = interactive
+    question: "{question text}"
+    header: "{short label, max 12 chars}"
+    options:
+      - label: "{option label}"
+        description: "{option description}"
+  next_action_map:               # Optional — maps option labels to next_action values
+    "{option label}": "loop_clarify" | "proceed"
+---
+
+## Context for Next Stage
+{What the next coordinator needs to know — max 1000 chars}
+```
+
+### Pause Type Schema
+
+- **`interactive`**: Orchestrator reads `question_context`, calls `AskUserQuestion`, then re-dispatches the stage or maps the answer via `next_action_map`.
+- **`file_based`**: Orchestrator notifies user that a clarification file has been written, waits for user to re-invoke after editing, then re-dispatches stage with `ENTRY_TYPE = "re_entry_after_user_input"`.

@@ -51,7 +51,7 @@ SPEC_DRAFT              -> 2
 CHECKLIST_CREATION      -> 3
 CHECKLIST_VALIDATION    -> 3
 CLARIFICATION           -> 4
-PAL_GATE                -> 5
+PAL_GATE                -> 5  # Legacy checkpoint name — preserved for v2 state migration
 DESIGN_FEEDBACK         -> 5
 TEST_STRATEGY           -> 6
 COMPLETE                -> 7

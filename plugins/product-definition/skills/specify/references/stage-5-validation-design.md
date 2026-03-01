@@ -23,6 +23,14 @@ artifacts_written:
 7. **NEVER interact with users directly**: signal `needs-user-input` in summary
 8. **Spec content inline**: NEVER pass local file paths to CLIs — embed spec content in prompt files
 
+## Step 5.0a: Validate Pre-Conditions
+
+```bash
+test -f "specs/{FEATURE_DIR}/spec.md" || echo "BLOCKER: spec.md missing"
+```
+
+**If BLOCKER found:** Set `status: failed`, `block_reason: "Pre-condition failed"`. Do not proceed.
+
 ## Step 5.0b: Prepare Inline Content for CLI Evaluation
 
 **Purpose:** External CLIs cannot access local files. Spec content MUST be embedded inline in prompt files.
@@ -57,9 +65,8 @@ Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli
 Write prompt files for each CLI at `specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-{cli}.md`.
 Embed `eval_content` inline — do NOT reference file paths.
 
-**Dispatch order:**
-1. gemini (`spec_evaluator_neutral`) — run first to establish neutral baseline
-2. codex (`spec_evaluator_for`) + opencode (`spec_evaluator_against`) — run in parallel after gemini completes
+**Dispatch order (fully parallel):**
+All 3 CLI evaluations run in parallel. The Least-to-Most synthesis protocol (reading shortest output first) prevents anchoring bias during synthesis.
 
 **Dispatch each CLI via Bash:**
 ```bash
@@ -306,13 +313,5 @@ BEFORE writing the summary file, verify:
 4. State file updated with stage 5 checkpoint data
 5. Summary YAML frontmatter has no placeholder values
 
-## CRITICAL RULES REMINDER
+**If ANY check fails:** Fix the issue. If unfixable: set `status: failed` with `block_reason` describing the failure.
 
-- CLI evaluation minimum 2 substantive responses — signal needs-user-input if < 2 (NEVER self-assess)
-- Spec content inline — NEVER pass file paths to external CLIs
-- No CLI substitution
-- design-brief.md is MANDATORY — NEVER skip
-- design-supplement.md is MANDATORY — NEVER skip
-- Verify BOTH files exist before writing summary
-- Retry max 2, then signal needs-user-input
-- NEVER interact with users directly

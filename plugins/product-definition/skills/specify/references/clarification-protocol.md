@@ -148,7 +148,7 @@ FOR each question Q:
             answer = user's text
             response_type = "custom"
             # Check if answer matches recommendation
-            IF answer matches option 1 text OR is blank:
+            IF answer matches option 1 text:
                 user_chose_recommended = true
             ELSE:
                 user_chose_recommended = false

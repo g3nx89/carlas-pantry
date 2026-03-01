@@ -14,6 +14,16 @@ artifacts_written:
 2. **State file MUST record `current_stage: 7`**: With `stage_status: "completed"` and timestamp.
 3. **All artifact paths in report must actually exist**: Verify before listing.
 
+## Step 7.0: Validate Pre-Conditions
+
+```bash
+test -f "specs/{FEATURE_DIR}/spec.md" || echo "BLOCKER: spec.md missing"
+test -f "specs/{FEATURE_DIR}/design-brief.md" || echo "BLOCKER: design-brief.md missing — Stage 5 must complete first"
+test -f "specs/{FEATURE_DIR}/design-supplement.md" || echo "BLOCKER: design-supplement.md missing — Stage 5 must complete first"
+```
+
+**If BLOCKER found:** Set `status: failed`, `block_reason: "Pre-condition failed"`. Do not proceed.
+
 ## Step 7.1: Generate Completion Report
 
 Collect metrics from state file and stage summaries:
@@ -25,7 +35,7 @@ Collect metrics from state file and stage summaries:
 | Metric | Value |
 |--------|-------|
 | Feature | {FEATURE_ID}: {FEATURE_NAME} |
-| PAL Score | {SCORE}/20 ({DECISION}) |
+| CLI Validation Score | {SCORE}/20 ({DECISION}) |
 | Checklist Coverage | {PCT}% |
 | Clarifications Answered | {N} |
 | Figma Integration | {enabled/disabled} ({SCREENS} screens) |
@@ -52,7 +62,7 @@ Collect metrics from state file and stage summaries:
 |------|-------|--------|
 | Problem Quality | {N}/4 | {GREEN/YELLOW/RED/skipped} |
 | True Need | {N}/4 | {GREEN/YELLOW/RED/skipped} |
-| PAL Consensus | {N}/20 | {APPROVED/CONDITIONAL/REJECTED/skipped} |
+| CLI Validation | {N}/20 | {APPROVED/CONDITIONAL/REJECTED/skipped} |
 | AC Test Coverage | {N}% | {status} |
 | RTM Disposition | {N}/{TOTAL} resolved | {PASS/FAIL} |
 
@@ -113,10 +123,10 @@ stage_number: 7
 status: completed
 checkpoint: COMPLETE
 artifacts_written: []
-summary: "Specification complete for {FEATURE_ID}. PAL: {SCORE}/20. Coverage: {PCT}%. {N} clarifications. {T} tests planned."
+summary: "Specification complete for {FEATURE_ID}. CLI eval: {SCORE}/20. Coverage: {PCT}%. {N} clarifications. {T} tests planned."
 flags:
   feature_id: "{FEATURE_ID}"
-  pal_score: {N|null}
+  cli_score: {N|null}
   coverage_pct: {N}
   clarifications_count: {N}
   test_count: {N|0}
@@ -138,8 +148,5 @@ BEFORE writing the summary file, verify:
 3. All artifact paths listed in completion report actually exist
 4. Summary YAML frontmatter has no placeholder values — all metrics populated
 
-## CRITICAL RULES REMINDER
+**If ANY check fails:** Fix the issue. If unfixable: set `status: failed` with `block_reason` describing the failure.
 
-- Lock MUST be released — stale locks block future invocations
-- State MUST be finalized with stage 7 and "completed" status
-- All artifact paths in report must actually exist

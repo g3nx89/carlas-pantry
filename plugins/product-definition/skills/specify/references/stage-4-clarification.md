@@ -8,8 +8,8 @@ artifacts_written:
   - specs/{FEATURE_DIR}/analysis/mpa-edgecases-parallel.md (conditional)
   - specs/{FEATURE_DIR}/analysis/mpa-edgecases.md (conditional)
   - specs/{FEATURE_DIR}/analysis/mpa-triangulation.md (conditional)
-  - design-handoff/figma-screen-briefs/FSB-*.md (conditional — Step 4.0, when figma mock gaps found)
-  - design-handoff/figma-briefs-index.md (conditional — Step 4.0.2, when user chooses "Create mocks first")
+  - design-handoff/figma-screen-briefs/FSB-*.md (conditional — Step 4.0b, when figma mock gaps found)
+  - design-handoff/figma-briefs-index.md (conditional — Step 4.0b.2, when user chooses "Create mocks first")
 ---
 
 # Stage 4: Edge Cases & Clarification (Coordinator)
@@ -25,8 +25,17 @@ artifacts_written:
 3. **File-based clarification**: Write ALL questions to `clarification-questions.md` — NO AskUserQuestion calls for clarification
 4. **Edge case severity boost**: 2+ models agree = MEDIUM->HIGH, 3/3 = HIGH->CRITICAL
 5. **CRITICAL/HIGH edge cases**: Auto-inject as clarification questions
-6. **NEVER interact with users directly**: Return `status: needs-user-input, pause_type: file_based` after writing question file
+6. **NEVER interact with users directly**: Return `status: needs-user-input, pause_type: file_based` after writing question file. **Exception:** Step 4.0b (Figma mock gaps) and Step 4.0a (RTM dispositions) use `pause_type: interactive` since they are decision gates, not clarification batches.
 7. **Spec updates additive only**: ONLY add/refine requirements, NEVER remove existing ones
+
+## Step 4.0: Validate Pre-Conditions
+
+```bash
+test -f "specs/{FEATURE_DIR}/spec.md" || echo "BLOCKER: spec.md missing"
+test -f "specs/{FEATURE_DIR}/spec-checklist.md" || echo "BLOCKER: checklist missing — Stage 3 must complete first"
+```
+
+**If BLOCKER found:** Set `status: failed`, `block_reason: "Pre-condition failed"`. Do not proceed.
 
 ## Re-Entry Handling
 
@@ -35,16 +44,16 @@ IF ENTRY_TYPE == "re_entry_after_user_input":
     # User has edited clarification-questions.md — parse and continue
     SKIP to Step 4.3 (Parse Answers)
 ELSE:
-    # First entry — run Step 4.0 then proceed to Step 4.1
-    PROCEED to Step 4.0
+    # First entry — run Step 4.0b then proceed to Step 4.1
+    PROCEED to Step 4.0b
 ```
 
-## Step 4.0: Figma Mock Gap Resolution (First Entry Only)
+## Step 4.0b: Figma Mock Gap Resolution (First Entry Only)
 
 **Runs only if `STATE.handoff_supplement.available == true` AND Stage 3 summary flag `figma_mock_gaps_count > 0`.**
 If either condition is false, skip directly to Step 4.1.
 
-### Step 4.0.1: Generate figma-screen-briefs for missing mocks
+### Step 4.0b.1: Generate figma-screen-briefs for missing mocks
 
 > FSB directory: read from `directories.figma_screen_briefs` in `@$CLAUDE_PLUGIN_ROOT/config/handoff-config.yaml`.
 > Use this value (let's call it `{FSB_DIR}`) everywhere below instead of hardcoded paths.
@@ -84,7 +93,7 @@ Read `figma_mock_gaps` from Stage 3 summary. For each item:
 
 Update `STATE.handoff_supplement.specify_briefs_count` with count of new briefs generated.
 
-### Step 4.0.2: Present Figma Mock Gaps to User
+### Step 4.0b.2: Present Figma Mock Gaps to User
 
 Signal `status: needs-user-input` with interactive question:
 
@@ -197,9 +206,14 @@ $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
 wait
 ```
 
-**Synthesize** with severity boost:
-- 2+ CLIs identify same edge case -> boost severity (MEDIUM->HIGH)
-- 3/3 CLIs identify -> boost severity (HIGH->CRITICAL)
+**Synthesize** with severity boost per this decision table:
+
+| CLI Agreement | Original Severity | Boosted Severity |
+|---------------|-------------------|------------------|
+| 2/3 CLIs agree | LOW | MEDIUM |
+| 2/3 CLIs agree | MEDIUM | HIGH |
+| 3/3 CLIs agree | MEDIUM | HIGH |
+| 3/3 CLIs agree | HIGH | CRITICAL |
 
 **Auto-inject** CRITICAL and HIGH edge cases as pending clarification questions:
 ```
@@ -349,8 +363,10 @@ wait
 
 Each CLI generates 2-4 additional questions not covered by BA.
 
-**Semantic deduplication** against existing questions (similarity threshold: 0.85):
-- Discard duplicates
+**Semantic deduplication** against existing questions using DUPLICATE/RELATED/UNIQUE classification (see `cli-dispatch-patterns.md` → Semantic Deduplication Scheme):
+- DUPLICATE → discard
+- RELATED → keep (probes different aspect)
+- UNIQUE → keep
 - Priority boost on cross-source agreement
 
 **If new unique questions found:** Add to `clarification-questions.md` and return to Step 4.2 pattern (file-based pause). Otherwise proceed.
@@ -512,13 +528,5 @@ BEFORE writing the summary file, verify:
 6. Summary YAML frontmatter has no placeholder values
 7. No previously answered questions were re-asked
 
-## CRITICAL RULES REMINDER
+**If ANY check fails:** Fix the issue. If unfixable: set `status: failed` with `block_reason` describing the failure.
 
-- No question limits — generate EVERYTHING needed
-- Never re-ask questions from user_decisions.clarifications
-- File-based clarification — NO AskUserQuestion calls for clarification questions (Step 4.0 is the only interactive step)
-- Edge case severity boost on cross-CLI agreement
-- CRITICAL/HIGH edge cases auto-inject as questions
-- Spec updates are additive only — NEVER remove requirements
-- Figma mock gaps: generate FSBs first, then present user choice (Step 4.0)
-- NEVER interact with users directly — except Step 4.0 via `status: needs-user-input`

@@ -15,7 +15,7 @@ artifacts_written:
 ## CRITICAL RULES (must follow — failure-prevention)
 
 1. **Pre-flight validation MUST pass**: If ANY required agent, skill, or template is MISSING, ABORT immediately.
-2. **Lock staleness threshold**: Only remove locks older than `limits.lock_staleness_hours` (default: 2 hours). NEVER remove fresh locks without user confirmation.
+2. **Lock staleness threshold**: Only remove locks older than `limits.lock_stale_timeout_minutes` (default: 60 minutes). NEVER remove fresh locks without user confirmation.
 3. **User decisions are IMMUTABLE**: If resuming, NEVER re-ask decisions recorded in `user_decisions`.
 4. **Figma is optional**: Never block the workflow if Figma is unavailable or user declines.
 5. **Feature ID uniqueness**: Always check existing branches and specs before assigning a number.
@@ -56,13 +56,18 @@ Validate all required components exist:
 
 ```bash
 # Check required agents
-test -f "$CLAUDE_PLUGIN_ROOT/agents/business-analyst.md" || echo "MISSING"
-test -f "$CLAUDE_PLUGIN_ROOT/agents/design-brief-generator.md" || echo "MISSING"
-test -f "$CLAUDE_PLUGIN_ROOT/agents/gap-analyzer.md" || echo "MISSING"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/business-analyst.md" || echo "MISSING: business-analyst"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/design-brief-generator.md" || echo "MISSING: design-brief-generator"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/gap-analyzer.md" || echo "MISSING: gap-analyzer"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/qa-strategist.md" || echo "MISSING: qa-strategist"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/gate-judge.md" || echo "MISSING: gate-judge"
 
 # Check required reference protocols
-test -f "$CLAUDE_PLUGIN_ROOT/skills/specify/references/figma-capture-protocol.md" || echo "MISSING"
-test -f "$CLAUDE_PLUGIN_ROOT/skills/specify/references/clarification-protocol.md" || echo "MISSING"
+test -f "$CLAUDE_PLUGIN_ROOT/skills/specify/references/figma-capture-protocol.md" || echo "MISSING: figma-capture-protocol"
+test -f "$CLAUDE_PLUGIN_ROOT/skills/specify/references/clarification-protocol.md" || echo "MISSING: clarification-protocol"
+
+# Check required config
+test -f "$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml" || echo "MISSING: specify-config.yaml"
 
 # Check required templates
 TEMPLATE_COUNT=$(ls "$CLAUDE_PLUGIN_ROOT/templates/prompts/"*.md 2>/dev/null | wc -l)
@@ -81,7 +86,7 @@ find specs/ -name ".specify.lock" -type f 2>/dev/null
 1. Read lock file content (timestamp and info)
 2. Calculate lock age
 
-**If lock age > `limits.lock_staleness_hours` (default: 2h):**
+**If lock age > `limits.lock_stale_timeout_minutes` (default: 60 min):**
 Remove lock file, continue.
 
 **If lock age <= threshold:**
@@ -132,7 +137,7 @@ Use AskUserQuestion:
     "options": [
       {"label": "Resume (Recommended)", "description": "Continue from Stage {N}: {NEXT_STEP}"},
       {"label": "Re-run Clarifications", "description": "Gather additional clarifications"},
-      {"label": "Re-run PAL Gate", "description": "Re-run multi-model consensus validation"},
+      {"label": "Re-run CLI Validation", "description": "Re-run multi-model consensus validation"},
       {"label": "Start Fresh", "description": "Discard all progress and begin new specification"}
     ]
   }]
@@ -140,7 +145,7 @@ Use AskUserQuestion:
 ```
 
 **Case C: Completed state exists**
-Use AskUserQuestion with options: Re-run Clarifications, Re-run PAL, View Status, Start New Feature.
+Use AskUserQuestion with options: Re-run Clarifications, Re-run CLI Validation, View Status, Start New Feature.
 
 **Case D: No arguments AND no state exists**
 Inform: "No feature description provided and no existing workflow found."
@@ -153,7 +158,7 @@ Ask: Resume Existing or Create New Workflow.
 
 **If WORKFLOW_MODE = NEW**: `RESUME_CONTEXT = ""` (empty)
 
-**If WORKFLOW_MODE in {RESUME, RERUN_CLARIFY, RERUN_PAL}**:
+**If WORKFLOW_MODE in {RESUME, RERUN_CLARIFY, RERUN_CLI_VALIDATION}**:
 1. Read STATE_FILE YAML frontmatter
 2. Load template: `@$CLAUDE_PLUGIN_ROOT/templates/prompts/resume-context-builder.md`
 3. Populate with state data
@@ -395,9 +400,3 @@ BEFORE writing the summary file, verify:
 5. If RTM enabled: `REQUIREMENTS-INVENTORY.md` exists with confirmed requirements
 6. Summary YAML frontmatter has no placeholder values
 
-## CRITICAL RULES REMINDER
-
-- Pre-flight validation MUST pass before proceeding
-- Lock staleness threshold from config — never remove fresh locks without confirmation
-- Resumed user decisions are IMMUTABLE
-- Figma is optional — never block the workflow

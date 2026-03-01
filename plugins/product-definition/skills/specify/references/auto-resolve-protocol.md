@@ -166,9 +166,34 @@ After running the auto-resolve gate:
 4. Inferred questions are presented to user (not silently resolved)
 5. Report file has valid YAML frontmatter with accurate counts
 
-## CRITICAL RULES REMINDER
+## Worked Examples
 
-1. High confidence only — when in doubt, present to user
-2. Never auto-resolve subjective questions
-3. Citation required for every auto-resolution
-4. User can always override auto-resolved answers
+### Example 1: AUTO_RESOLVED — Explicit Answer in Input
+
+**Question:** "What authentication method should the app use?"
+**Source search:** User input contains: "Use OAuth2 with Google and Apple sign-in."
+**Classification:** AUTO_RESOLVED
+**Citation:** user_input: "Use OAuth2 with Google and Apple sign-in." (paragraph 3)
+**Rationale:** Explicit, unambiguous statement directly answering the question.
+
+### Example 2: INFERRED — Partial Support
+
+**Question:** "Should the app support offline mode?"
+**Source search:** User input says: "Users may be in areas with poor connectivity."
+**Classification:** INFERRED
+**Citation:** user_input: "Users may be in areas with poor connectivity." — inferred, not explicit
+**Rationale:** Implies offline support is needed, but doesn't explicitly require it. Present to user with the inference note.
+
+### Example 3: REQUIRES_USER — Exclusion Rule Triggered
+
+**Question:** "Which data retention policy should apply: 30 days or 90 days?"
+**Source search:** No mention in any source document.
+**Classification:** REQUIRES_USER
+**Rationale:** This is a trade-off question (two valid options with different costs) — excluded from auto-resolve regardless of source matches.
+
+### Example 4: REQUIRES_USER — Conflicting Sources
+
+**Question:** "Should error messages show technical details?"
+**Source search:** User input says "Show helpful error messages." Research report says "Never expose internal errors to users."
+**Classification:** REQUIRES_USER
+**Rationale:** Two sources disagree on the level of detail. Conflicting sources trigger exclusion rule #5.

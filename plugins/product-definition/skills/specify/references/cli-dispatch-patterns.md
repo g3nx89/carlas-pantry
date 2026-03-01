@@ -43,11 +43,37 @@ FOR EACH cli IN integration.models:
     CAPTURE: output = read specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-{CLI}.md
 
 SYNTHESIZE:
-    CALL Task(subagent_type="general-purpose", model="haiku") with:
+    CALL Task(subagent_type="general-purpose", model="sonnet") with:
         inputs: [all captured outputs from CLIs that succeeded]
         strategy: union_with_dedup (for analysis) or weighted_score (for evaluation)
+        dedup_scheme: DUPLICATE/RELATED/UNIQUE (see Semantic Deduplication below)
+        read_order: shortest output first (Least-to-Most protocol)
         Output: merged findings written to specs/{FEATURE_DIR}/analysis/{output_file}
+
+    POST-SYNTHESIS VALIDATION:
+        Count findings in merged output
+        IF finding_count == 0 AND any CLI succeeded: flag as synthesis error, re-run
+        IF finding_count > (sum of input findings): flag as hallucination, re-run
+
+    NOTE: Integration 3 (Triangulation) uses model="haiku" — its synthesis is simpler
+    (question dedup only, no severity analysis). All other integrations use sonnet.
 ```
+
+### Least-to-Most Synthesis Protocol
+
+When synthesizing CLI outputs, read shortest output first to build a baseline, then layer unique findings from each subsequent output. This prevents anchoring on the first-read model's framing.
+
+### Semantic Deduplication Scheme
+
+Replace numeric similarity thresholds with a categorical classification:
+
+| Classification | Criteria | Action |
+|---------------|----------|--------|
+| **DUPLICATE** | Same finding, same recommendation, different wording | Merge: keep the more detailed version |
+| **RELATED** | Same topic area but different aspects or recommendations | Keep both, group under shared heading |
+| **UNIQUE** | No counterpart in other CLI outputs | Keep as-is |
+
+Apply this scheme in all synthesis steps. The synthesis agent classifies each pair, then merges DUPLICATEs and groups RELATEDs.
 
 ### CLI Failure Handling
 
@@ -244,13 +270,14 @@ Focus on questions that:
 
 ### Semantic Deduplication
 
+Apply the DUPLICATE/RELATED/UNIQUE classification scheme (see Execution Template above):
+
 ```
 FOR EACH new_question FROM CLIs:
-    COMPARE against existing_questions (similarity check)
-    IF similarity > 0.85:
-        DISCARD as duplicate
-    ELSE:
-        ADD to additional_questions
+    CLASSIFY against existing_questions:
+        DUPLICATE → discard (same question, different wording)
+        RELATED  → keep (same topic but probes a different aspect)
+        UNIQUE   → keep (no counterpart in existing questions)
 
 PRIORITY BOOST:
     All 3 CLIs agree (BA + all CLIs) → CRITICAL
@@ -268,7 +295,7 @@ Write to: `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md`
 
 **Config path:** `cli_dispatch.integrations.evaluation`
 **Trigger:** After spec is finalized (post-clarification), before design artifact generation
-**Purpose:** Multi-stance evaluation of spec quality — replaces PAL Consensus
+**Purpose:** Multi-stance evaluation of spec quality
 
 ### CLI Assignments
 
@@ -278,20 +305,18 @@ Write to: `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md`
 | codex | `spec_evaluator_for` | advocate | Articulate genuine strengths (forced stance) |
 | opencode | `spec_evaluator_against` | challenger | Surface every weakness and gap |
 
-### Dispatch Order (Sequential Neutral-First)
+### Dispatch Order (Fully Parallel)
 
-Integration 4 uses a **sequential-then-parallel** pattern, NOT the generic parallel loop from the top of this file.
-This prevents anchoring — the neutral baseline must be set before stances are applied.
+All 3 CLI evaluations run in parallel. The Least-to-Most synthesis protocol (reading shortest output first) prevents anchoring bias during synthesis.
 
 ```bash
-# Step 1: Run gemini (neutral) first — wait for completion
+# Run all 3 evaluators in parallel
 $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --cli gemini --role spec_evaluator_neutral \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-gemini.md \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/evaluation-gemini.md \
-  --timeout 120
+  --timeout 120 &
 
-# Step 2: Run codex (advocate) + opencode (challenger) in parallel
 $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --cli codex --role spec_evaluator_for \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-codex.md \
@@ -304,7 +329,7 @@ $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/evaluation-opencode.md \
   --timeout 120 &
 
-wait  # collect stance results
+wait  # collect all results
 ```
 
 ### Content Delivery (CRITICAL)
@@ -349,7 +374,7 @@ Each CLI evaluates 5 dimensions (4 pts each, 20 total):
 
 ### Substantive Response Validation
 
-Exclude responses that match these patterns (same as PAL response validation):
+Exclude responses that match these patterns:
 - Response length < 50 words
 - All 5 dimension scores are identical
 - Contains "cannot access" / "file not found" / "unable to read" / "no file provided"

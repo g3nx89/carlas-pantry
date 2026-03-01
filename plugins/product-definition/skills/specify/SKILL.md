@@ -1,6 +1,6 @@
 ---
 name: feature-specify
-description: Create or update feature specifications through guided analysis with Figma integration, CLI multi-stance validation, and V-Model test strategy
+description: This skill should be used when the user asks to "create a feature spec", "specify a feature", "write a specification", or "define feature requirements". Creates or updates feature specifications through guided analysis with Figma integration, CLI multi-stance validation, and V-Model test strategy.
 version: 1.2.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Bash(command:*)", "Bash(wait:*)", "Task", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
 ---
@@ -11,14 +11,23 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 
 **This workflow is resumable and resilient.** Progress is preserved in state files. User decisions are NEVER lost.
 
+### When NOT to Use
+
+- **Too simple**: If the feature is a single-line bug fix or trivial tweak, skip this skill. Minimum complexity: 2+ user stories or cross-cutting concerns.
+- **Missing draft**: This skill needs a feature description (even rough). If you have nothing, use `/product-definition:refine` first to build a PRD (Product Requirements Document).
+- **Partial re-run**: To re-run only clarification or validation, resume the existing workflow — do not invoke a new `/specify`.
+- **Prerequisites**: If Figma designs exist, run `/product-definition:design-handoff` first for best results.
+
 ---
+
+> **Convention:** Capitalized MUST, NEVER, and ALWAYS indicate mandatory requirements per RFC 2119.
 
 ## CRITICAL RULES (High Attention Zone — Start)
 
 ### Core Workflow Rules
 1. **State Preservation**: ALWAYS checkpoint after user decisions via state file update
 2. **Resume Compliance**: NEVER re-ask questions from `user_decisions` — they are IMMUTABLE
-3. **Delegation Pattern**: Complex analysis → specialized agents (`business-analyst`, `design-brief-generator`, `gap-analyzer`, `qa-strategist`)
+3. **Delegation Pattern**: Complex analysis → specialized agents (BA = Business Analyst: `business-analyst`, `design-brief-generator`, `gap-analyzer`, `qa-strategist`)
 4. **Progressive Disclosure**: Load templates ONLY when stage reached (reference via `@$CLAUDE_PLUGIN_ROOT/templates/prompts/`)
 5. **File-Based Clarification**: All clarification questions written to `clarification-questions.md` for offline editing — NO AskUserQuestion for clarification batches
 6. **BA Recommendation**: First option MUST be "(Recommended)" with rationale
@@ -31,54 +40,34 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 11. **Design Brief MANDATORY**: `design-brief.md` MUST be generated for EVERY specification. NEVER skip.
 12. **Design Supplement MANDATORY**: `design-supplement.md` MUST be generated for EVERY specification. NEVER skip.
 13. **No Question Limits**: There is NO maximum on clarification questions — ask EVERYTHING needed for complete spec.
-14. **No Story Limits**: There is NO maximum on user stories, acceptance criteria, or NFRs — capture ALL requirements.
+14. **No Story Limits**: There is NO maximum on user stories, acceptance criteria, or NFRs (Non-Functional Requirements) — capture ALL requirements.
 15. **No Iteration Limits**: Continue clarification loops until COMPLETE, not until a counter reaches max.
 
 ### CLI Dispatch Rules
 16. **CLI Evaluation Minimum**: Evaluation requires **minimum 2 substantive responses**. If < 2 → signal `needs-user-input` (NEVER self-assess).
 17. **No CLI Substitution**: If a CLI dispatch fails, **DO NOT** substitute with another CLI. Tri-CLI dispatch is for variety — substituting defeats the purpose.
-17b. **Spec Content Inline**: NEVER pass local file paths to CLI dispatch prompt files. Embed spec content inline. External CLIs cannot read local files.
-18. **User Notification MANDATORY**: When ANY CLI fails or is unavailable, **ALWAYS** notify user.
+18. **Spec Content Inline**: NEVER pass local file paths to CLI dispatch prompt files. Embed spec content inline. External CLIs cannot read local files.
+19. **User Notification MANDATORY**: When ANY CLI fails or is unavailable, **ALWAYS** notify user.
 
 ### Graceful Degradation
-19. **CLI Availability Check**: Before dispatching CLI, check if `scripts/dispatch-cli-agent.sh` is executable and at least one CLI binary is in PATH
-20. **Fallback Behavior**: If CLI unavailable, skip Challenge, EdgeCases, Triangulation, and Evaluation steps — proceed with internal reasoning
-21. **OpenCode for Variety**: CLI dispatch includes OpenCode (Grok) for contrarian perspective. Continue gracefully if unavailable.
+20. **CLI Availability Check**: Before dispatching CLI, check if `scripts/dispatch-cli-agent.sh` is executable and at least one CLI binary is in PATH
+21. **Fallback Behavior**: If CLI unavailable, skip Challenge, EdgeCases, Triangulation, and Evaluation steps — proceed with internal reasoning
+22. **OpenCode for Variety**: CLI dispatch includes OpenCode (Grok) for contrarian perspective. Continue gracefully if unavailable.
 
 ### Orchestrator Delegation Rules
-22. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
-23. **Stage 1 runs inline** — all other stages are coordinator-delegated
-24. **Iteration loop owned by orchestrator** — Stage 3 <-> Stage 4 until coverage >= 85% or user forces proceed
-25. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty (see `orchestrator-loop.md` → Variable Defaults)
-26. **Quality gates**: Orchestrator performs lightweight quality checks after Stages 2, 4, and 5 — non-blocking, notify user of issues
-27. **Summary size limits**: Coordinator summaries max 500 chars (YAML `summary` field), 1000 chars (Context for Next Stage body). Detailed analysis in artifact files, not summaries.
-28. **RTM Disposition Gate**: Zero UNMAPPED requirements before proceeding past Stage 4. Every source requirement must have a conscious disposition (COVERED, PARTIAL, DEFERRED, or REMOVED).
+23. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
+24. **Stage 1 runs inline** — all other stages are coordinator-delegated
+25. **Iteration loop owned by orchestrator** — Stage 3 <-> Stage 4 until coverage >= 85% or user forces proceed
+26. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty (see `orchestrator-loop.md` → Variable Defaults)
+27. **Quality gates**: Orchestrator performs lightweight quality checks after Stages 2, 4, and 5 — non-blocking, notify user of issues
+28. **Summary size limits**: Coordinator summaries max 500 chars (YAML `summary` field), 1000 chars (Context for Next Stage body). Detailed analysis in artifact files, not summaries.
+29. **RTM (Requirements Traceability Matrix) Disposition Gate**: Stage 4 Step 4.0a BLOCKS on UNMAPPED/PENDING_STORY requirements. Post-Stage-4 orchestrator check is NON-BLOCKING (notification only, reported in Stage 7).
 
 ---
 
 ## Configuration Reference
 
-**Load configuration from:** `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
-
-| Setting | Path | Default |
-|---------|------|---------|
-| Clarification questions | `limits.max_clarification_questions` | **null** (no limit) |
-| Clarification mode | `clarification.mode` | `file_based` |
-| Auto-resolve enabled | `clarification.auto_resolve.enabled` | `true` |
-| User stories | `limits.max_user_stories` | **null** (no limit) |
-| NFRs | `limits.max_nfrs` | **null** (no limit) |
-| CLI rejection retries max | `limits.pal_rejection_retries_max` | 2 |
-| Checklist GREEN threshold | `thresholds.checklist.green` | 85% |
-| Checklist YELLOW threshold | `thresholds.checklist.yellow` | 60% |
-| CLI eval GREEN threshold | `thresholds.pal.green` | 16/20 |
-| CLI eval YELLOW threshold | `thresholds.pal.yellow` | 12/20 |
-| Incremental gates enabled | `feature_flags.enable_incremental_gates` | true |
-| Test strategy enabled | `feature_flags.enable_test_strategy` | true |
-| Design brief skip allowed | `design_artifacts.skip_allowed` | **false** |
-| RTM tracking enabled | `feature_flags.enable_rtm_tracking` | true |
-| RTM inventory template | `rtm.inventory_extraction.template` | `requirements-inventory-template.md` |
-| RTM output file | `rtm.output.rtm_file` | `rtm.md` |
-| RTM gate-blocking dispositions | `rtm.dispositions.gate_blocking` | `[UNMAPPED, PENDING_STORY]` |
+All limits, thresholds, and feature flags: `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
 
 ---
 
@@ -88,7 +77,7 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 $ARGUMENTS
 ```
 
-You **MUST** consider the user input before proceeding (if not empty).
+Consider user input before proceeding (if non-empty).
 
 ---
 
@@ -103,7 +92,7 @@ You **MUST** consider the user input before proceeding (if not empty).
                                 |
 +-------------------------------v-----------------------------------+
 |  Stage 2 (Coordinator): SPEC DRAFT & GATES + INITIAL RTM          |
-|  BA agent, MPA-Challenge CLI dispatch, incremental gates,          |
+|  BA agent, MPA (Multi-Perspective Analysis) Challenge CLI dispatch,|
 |  initial rtm.md generation (if RTM enabled)                        |
 +-------------------------------+-----------------------------------+
                                 |
@@ -172,45 +161,13 @@ Write summary to: `specs/{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`
 
 ## Summary Contract
 
-All coordinator summaries follow this convention:
-
 **Path:** `specs/{FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md`
 
-```yaml
----
-stage: "{stage_name}"
-stage_number: {N}
-status: completed | needs-user-input | failed
-checkpoint: "{CHECKPOINT_NAME}"
-artifacts_written:
-  - "{path/to/artifact}"
-summary: "{1-2 sentence description of what happened}"
-flags:
-  coverage_pct: {N}              # Stage 3 only
-  gaps_count: {N}                # Stage 3 only
-  cli_score: {N}                 # Stage 5 only
-  cli_decision: "{APPROVED|CONDITIONAL|REJECTED}"  # Stage 5 only
-  block_reason: null | "{reason}"
-  pause_type: null | "interactive" | "file_based"
-  next_action: null | "loop_checklist" | "proceed"
-  question_context:              # Present when pause_type = interactive
-    question: "{question text}"
-    header: "{short label, max 12 chars}"
-    options:
-      - label: "{option label}"
-        description: "{option description}"
-  next_action_map:               # Optional — maps option labels to next_action values
-    "{option label}": "loop_checklist" | "proceed"
----
+**Status enum:** `completed` | `needs-user-input` | `failed`
 
-## Context for Next Stage
-{What the next coordinator needs to know}
-```
+**Key fields:** `stage`, `stage_number`, `status`, `checkpoint`, `artifacts_written`, `summary` (max 500 chars), `flags` (stage-specific metrics + `block_reason`, `pause_type`, `next_action`).
 
-### Pause Type Schema
-
-- `interactive`: orchestrator reads `question_context`, calls `AskUserQuestion`, then re-dispatches the stage or maps the answer via `next_action_map`
-- `file_based`: orchestrator notifies user that a clarification file has been written, waits for user to re-invoke after editing, then re-dispatches stage with `re_entry_after_user_input`
+**Full YAML schema and pause type reference:** see `orchestrator-loop.md` → Summary Contract Schema.
 
 ---
 
@@ -290,7 +247,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 
 ## CRITICAL RULES (High Attention Zone — End)
 
-Rules 1-28 above MUST be followed. Key reminders:
+Rules 1-29 above MUST be followed. Key reminders:
 - Coordinators NEVER talk to users directly
 - Orchestrator owns the iteration loop (Stage 3 <-> Stage 4)
 - Stage 1 is inline, all others are coordinator-delegated
@@ -298,4 +255,4 @@ Rules 1-28 above MUST be followed. Key reminders:
 - No artificial question/story/iteration limits
 - design-brief.md and design-supplement.md are MANDATORY — NEVER skip
 - Quality gates after Stages 2, 4, and 5 — non-blocking but user-notified
-- CLI dispatch replaces PAL MCP — `CLI_AVAILABLE` replaces `PAL_AVAILABLE` everywhere
+- `CLI_AVAILABLE` gates all multi-model analysis steps

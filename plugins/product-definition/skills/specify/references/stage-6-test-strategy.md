@@ -179,11 +179,5 @@ BEFORE writing the summary file, verify:
 5. State file updated with stage 6 checkpoint data
 6. Summary YAML frontmatter has no placeholder values
 
-## CRITICAL RULES REMINDER
+**If ANY check fails:** Fix the issue. If unfixable: set `status: failed` with `block_reason` describing the failure.
 
-- Feature flag check first — skip entirely if disabled
-- Required inputs: spec.md AND design-brief.md must exist
-- Testability verification for every AC — flag non-testable ACs
-- No individual test IDs — categories and levels only
-- No implementation references
-- NEVER interact with users directly

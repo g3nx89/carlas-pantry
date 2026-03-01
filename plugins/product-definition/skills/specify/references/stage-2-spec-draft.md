@@ -20,6 +20,15 @@ artifacts_written:
 5. **If gates require BA revision**: re-invoke BA then re-run gates (coordinator-internal loop)
 6. **NEVER interact with users directly**: signal `needs-user-input` in summary for orchestrator
 
+## Step 2.0: Validate Pre-Conditions
+
+```bash
+test -f "specs/{FEATURE_DIR}/.specify-state.local.md" || echo "BLOCKER: state file missing"
+test -f "specs/{FEATURE_DIR}/spec.md" || echo "BLOCKER: spec template missing"
+```
+
+**If BLOCKER found:** Set `status: failed`, `block_reason: "Pre-condition failed"`. Do not proceed.
+
 ## Step 2.1: Launch BA Agent
 
 Dispatch BA agent via `Task(subagent_type="general-purpose")`:
@@ -59,7 +68,9 @@ IF figma context provided: Correlate designs with requirements, add @FigmaRef an
 IF requirements inventory provided: Ensure every REQ-NNN is addressed in user stories, add @RTMRef annotations.
 ```
 
-Agent uses Sequential Thinking (if available) for 8 phases: problem framing → JTBD → requirements → context → stakeholders → specification → story splitting → self-critique.
+Use Sequential Thinking (if available) for 8 phases: problem framing → JTBD → requirements → context → stakeholders → specification → story splitting → self-critique.
+
+**Note:** `{RESUME_CONTEXT}` is sourced from the orchestrator (Stage 1 Step 1.5). Empty on first run, populated with state data on resume.
 
 ## Step 2.2: Parse BA Response
 
@@ -70,11 +81,11 @@ Extract from agent output:
 - `problem_statement_quality`: assessment
 - `true_need_confidence`: low/medium/high
 
-## Step 2.1b: Generate Initial RTM (Conditional)
+## Step 2.3: Generate Initial RTM (Conditional)
 
 **Check:** `RTM_ENABLED == true` (from Stage 1 summary flags)
 
-**If RTM disabled:** Skip entirely, proceed to Step 2.3.
+**If RTM disabled:** Skip entirely, proceed to Step 2.4.
 
 **If RTM enabled:**
 
@@ -101,7 +112,7 @@ Extract from agent output:
 8. Populate Section 15 in `specs/{FEATURE_DIR}/spec.md` with summary metrics
 9. Populate backward trace: scan for US-NNN entries not traced from any REQ (scope creep detection — informational only)
 
-## Step 2.3: MPA-Challenge CLI Dispatch
+## Step 2.4: MPA-Challenge CLI Dispatch
 
 **Check:** `cli_dispatch.integrations.challenge.enabled` in config
 
@@ -173,15 +184,15 @@ flags:
 
 Write report: `specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md`
 
-**If disabled OR CLI_AVAILABLE = false:** Skip, proceed to Step 2.4.
+**If disabled OR CLI_AVAILABLE = false:** Skip, proceed to Step 2.5.
 
-## Step 2.4: Gate 1 — Problem Quality
+## Step 2.5: Gate 1 — Problem Quality
 
 **Check:** `feature_flags.enable_incremental_gates` in config
 
 **If enabled:**
 
-Auto-evaluate 4 criteria:
+Dispatch `gate-judge` agent via `Task(subagent_type="general-purpose")` to evaluate 4 criteria:
 1. Problem statement is specific (not generic)
 2. Target persona is clearly identified
 3. Impact/pain point is measurable or observable
@@ -203,11 +214,11 @@ Options: "Needs refinement" | "Proceed anyway"
 
 **If user wants refinement:** Re-invoke BA with gate feedback (coordinator-internal loop).
 
-## Step 2.5: Gate 2 — True Need
+## Step 2.6: Gate 2 — True Need
 
 **If incremental gates enabled:**
 
-Auto-evaluate 4 criteria:
+Dispatch `gate-judge` agent via `Task(subagent_type="general-purpose")` to evaluate 4 criteria:
 1. True need differs from stated request (root cause found)
 2. Stakeholder motivations are documented
 3. Success criteria are defined
@@ -215,7 +226,7 @@ Auto-evaluate 4 criteria:
 
 Same GREEN/YELLOW/RED logic as Gate 1.
 
-## Step 2.6: Checkpoint
+## Step 2.7: Checkpoint
 
 Update state file:
 ```yaml
@@ -295,10 +306,5 @@ BEFORE writing the summary file, verify:
 4. State file updated with stage 2 checkpoint data
 5. Summary YAML frontmatter has no placeholder values
 
-## CRITICAL RULES REMINDER
+**If ANY check fails:** Fix the issue. If unfixable: set `status: failed` with `block_reason` describing the failure.
 
-- BA recommendation: first option = "(Recommended)"
-- No limits on user stories, ACs, or NFRs
-- CLI Challenge completes before gates
-- Gates: GREEN proceed, YELLOW/RED signal needs-user-input
-- NEVER interact with users directly

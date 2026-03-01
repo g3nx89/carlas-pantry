@@ -122,10 +122,21 @@ When tools are unavailable at startup (detected in Stage 1):
 
 ### CLI Dispatch Unavailable
 - Notify user: "CLI dispatch unavailable. Challenge, EdgeCase, Triangulation, and Evaluation steps will be skipped."
-- `CLI_AVAILABLE = false` — set in state file
+- Set `CLI_AVAILABLE = false` in state file
 - Skip CLI Challenge in Stage 2
 - Skip CLI EdgeCases and Triangulation in Stage 4
 - Skip CLI Evaluation in Stage 5 — use internal quality gates instead
+
+### Internal Reasoning Fallback
+
+When CLI dispatch is unavailable, replace each integration with internal reasoning:
+
+| Integration | CLI Purpose | Internal Fallback |
+|-------------|------------|-------------------|
+| Challenge (Stage 2) | 3 models challenge assumptions | Self-critique: challenge own assumptions, list 3 alternative framings |
+| EdgeCases (Stage 4) | 3 models mine edge cases | Checklist-based: walk through error/boundary/security/a11y categories systematically |
+| Triangulation (Stage 4) | 3 models generate questions | Internal questions: generate 3-5 questions from technical, coverage, and contrarian lenses |
+| Evaluation (Stage 5) | 3 models evaluate spec quality | Internal rubric: score 5 dimensions + set `status: needs-user-input` to let user confirm quality |
 
 ### Sequential Thinking Unavailable
 - Notify user: "Sequential Thinking unavailable. Using internal reasoning."
