@@ -23,6 +23,7 @@
 | `quality-gates.md` | After Stage 3 and Stage 5 -- structural validation (blocking) and quality checks (non-blocking), rounds-digest template |
 | `thinkdeep-templates.md` | Stage 3 Part A ThinkDeep execution -- PROBLEM_CONTEXT, step content templates, findings templates |
 | `artifact-schemas.md` | Structural validation and artifact writing -- canonical formats for QUESTIONS and validation files |
+| `stage-7-retrospective.md` | Dispatching Stage 7 -- KPI report card, transcript extraction, retrospective narrative |
 
 ## File Sizes
 
@@ -47,6 +48,7 @@
 | `quality-gates.md` | ~155 | Structural validation, quality checks, rounds-digest template |
 | `thinkdeep-templates.md` | ~95 | PROBLEM_CONTEXT, perspective step content, findings templates |
 | `artifact-schemas.md` | ~100 | Canonical formats for QUESTIONS and response-validation files |
+| `stage-7-retrospective.md` | ~234 | KPI report card, transcript extraction, writer dispatch, summary contract |
 
 ## Cross-References
 
@@ -80,7 +82,7 @@
 
 ### Orchestrator -> Stage Files
 
-- `orchestrator-loop.md` references all 6 stage files in dispatch order
+- `orchestrator-loop.md` references all 7 stage files in dispatch order
 - `orchestrator-loop.md` references `recovery-migration.md` for crash recovery and state migration
 - `orchestrator-loop.md` references `checkpoint-protocol.md` for state update patterns
 
@@ -97,6 +99,7 @@
 - `stage-3-analysis-questions.md` references `$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md` (parametric template dispatched per member)
 - Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/requirements-question-synthesis.md`, `requirements-prd-generator.md`
 - Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/research-discovery-*.md`
+- `stage-7-retrospective.md` references `$CLAUDE_PLUGIN_ROOT/agents/definition-retrospective-writer.md` for narrative composition
 - Stage files reference templates at `$CLAUDE_PLUGIN_ROOT/templates/`
 
 ## Step Numbering Convention
@@ -108,7 +111,7 @@
 
 ## Structural Patterns
 
-All stage files (stages 1-6) follow this structure:
+All stage files (stages 1-7) follow this structure:
 1. YAML frontmatter with `stage` name and `artifacts_written` list
 2. **Critical Rules** section at top (attention-favored position)
 3. Numbered steps for execution

@@ -1,7 +1,7 @@
 # Design Handoff Configuration
 # Plugin: product-definition | Skill: design-handoff
 
-version: "1.0.0"
+version: "1.1.0"
 last_updated: "2026-02-22"
 
 # =============================================================================
@@ -198,6 +198,7 @@ model_assignments:
   sonnet:
     - "handoff-figma-preparer"              # Stage 2, 3.5: Figma preparation + design extension (loads figma-console-mastery)
     - "handoff-gap-analyzer"                # Stage 3: Gap detection + missing screen detection, figma-console
+    - "definition-retrospective-writer"     # RETRO: Retrospective narrative composition (shared agent)
   opus:
     - "handoff-judge"                       # Default model. Per-checkpoint `model` keys in judge.checkpoints override this (sonnet for 3J, 5J).
 
@@ -220,3 +221,24 @@ templates:
   supplement: "$CLAUDE_PLUGIN_ROOT/templates/handoff-supplement-template.md"
   screen: "$CLAUDE_PLUGIN_ROOT/templates/handoff-screen-template.md"
   manifest: "$CLAUDE_PLUGIN_ROOT/templates/handoff-manifest-template.md"
+
+# =============================================================================
+# RETROSPECTIVE
+# =============================================================================
+
+retrospective:
+  enabled: true
+  transcript_analysis:
+    enabled: true
+    transcript_dir: null          # Auto-detect from ~/.claude/projects/ if null
+    max_errors_extracted: 20
+    max_file_paths_extracted: 50
+    extract_token_budget: 3000
+  sections:
+    timeline: true
+    what_worked: true
+    what_didnt_work: true
+    stage_breakdown: true
+    tool_analysis: true
+    recommendations: true
+    raw_metrics: true

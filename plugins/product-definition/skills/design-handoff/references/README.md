@@ -18,9 +18,10 @@
 | `judge-protocol.md` | 2J,3J,3.5J,5J | 251 | Shared judge dispatch, 4 checkpoint rubrics, model selection | Every judge checkpoint |
 | `state-schema.md` | All | 271 | YAML state schema, init template, resume protocol | State creation, crash recovery |
 | `gap-category-examples.md` | 3 (agent) | 85 | Gap category calibration examples (6 tables) | Agent dispatch only (never coordinator) |
+| `retrospective-protocol.md` | RETRO | 243 | KPI report card, transcript extraction, retrospective narrative | RETRO stage dispatch |
 | `README.md` | — | 66 | This file — reference index | Orientation |
 
-**Total:** ~2802 lines across 10 reference files
+**Total:** ~3045 lines across 11 reference files
 
 ---
 
@@ -36,6 +37,7 @@
 | `design-extension.md` | `judge-protocol.md` | Stage 3.5J checkpoint criteria |
 | `output-assembly.md` | `judge-protocol.md` | Stage 5J checkpoint criteria |
 | `gap-analysis.md` | `gap-category-examples.md` | Agent-only calibration examples (extracted for context efficiency) |
+| `retrospective-protocol.md` | `state-schema.md` | State update on completion (sets `current_stage = "complete"`) |
 
 ---
 
@@ -51,6 +53,7 @@
 | `agents/handoff-figma-preparer.md` | Agent | `figma-preparation.md` (Stage 2), `design-extension.md` (Stage 3.5) |
 | `agents/handoff-gap-analyzer.md` | Agent | `gap-analysis.md` (Stage 3 dispatch) |
 | `agents/handoff-judge.md` | Agent | `judge-protocol.md` (all checkpoints) |
+| `agents/definition-retrospective-writer.md` | Agent | `retrospective-protocol.md` (RETRO stage) |
 | `templates/figma-screen-brief-template.md` | Template | `gap-analysis.md` (Stage 3 FSB generation) |
 | `figma-console-mastery` (meta-skills plugin) | Skill | Loaded by `handoff-figma-preparer` agent for Figma operation recipes |
 
@@ -60,7 +63,8 @@
 
 ```
 1 (setup) → 2 (figma-prep) → 2J (judge) → 3 (gaps) → 3J (judge)
-  → [3.5 (extend) → 3.5J (judge)] → 4 (dialog) → 5 (output) → 5:supplement_written → 5J (judge) → complete
+  → [3.5 (extend) → 3.5J (judge)] → 4 (dialog) → 5 (output) → 5:supplement_written → 5J (judge)
+  → [RETRO (retrospective)] → complete
 ```
 
 Stages 3.5/3.5J are conditional — only run if Stage 3 detects missing screens.

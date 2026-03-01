@@ -20,7 +20,7 @@ IF state.current_stage exists AND status != "completed":
 OTHERWISE:
     START from Stage 1
 
-FOR each stage in dispatch order [1, 2, 3, 4, 5, 6]:
+FOR each stage in dispatch order [1, 2, 3, 4, 5, 6, 7]:
     IF stage already completed in this round (check stage summaries):
         SKIP
 
@@ -46,7 +46,7 @@ FOR each stage in dispatch order [1, 2, 3, 4, 5, 6]:
 
 ## Coordinator Dispatch
 
-For stages 2-6, dispatch a coordinator subagent using the **per-stage dispatch profile** from config (`token_budgets.stage_dispatch_profiles`). Each stage loads ONLY the shared references it needs.
+For stages 2-7, dispatch a coordinator subagent using the **per-stage dispatch profile** from config (`token_budgets.stage_dispatch_profiles`). Each stage loads ONLY the shared references it needs.
 
 ### Stage Dispatch Profiles
 
@@ -57,6 +57,7 @@ For stages 2-6, dispatch a coordinator subagent using the **per-stage dispatch p
 | 4 (Response) | checkpoint-protocol, error-handling | Yes | consensus-call-pattern |
 | 5 (Validation) | checkpoint-protocol, error-handling | Yes | consensus-call-pattern |
 | 6 (Completion) | checkpoint-protocol | No | -- |
+| 7 (Retrospective) | checkpoint-protocol | Yes | -- |
 
 ### Dispatch Profiles
 
@@ -397,7 +398,7 @@ ON REINVOCATION:
         stage = state.pause_stage
         CLEAR waiting_for_user
         DISPATCH stage coordinator (it will detect the user's input)
-    ELSE IF current_stage < 6 AND phase_status != "completed":
+    ELSE IF current_stage <= 7 AND phase_status != "completed":
         # Check for persisted reflection context (crash recovery for RED loop)
         IF current_stage == 3 AND file exists requirements/.stage-summaries/reflection-round-{current_round}.md:
             LOAD REFLECTION_CONTEXT from that file

@@ -10,13 +10,13 @@
 ```
 READ state file -> determine current_stage and stage_status
 
-IF state exists AND current_stage < 7 AND stage_status != "completed":
+IF state exists AND current_stage <= 8 AND stage_status != "completed":
     RESUME from current_stage
 
 OTHERWISE:
     START from Stage 1
 
-FOR each stage in dispatch order [1, 2, 3, 4, 5, 6, 7]:
+FOR each stage in dispatch order [1, 2, 3, 4, 5, 6, 7, 8]:
     IF stage already completed (check stage summaries):
         SKIP
 
@@ -36,7 +36,7 @@ FOR each stage in dispatch order [1, 2, 3, 4, 5, 6, 7]:
 
 ## Coordinator Dispatch
 
-For stages 2-7, dispatch a coordinator subagent using the per-stage dispatch profile.
+For stages 2-8, dispatch a coordinator subagent using the per-stage dispatch profile.
 
 ### Stage Dispatch Profiles
 
@@ -48,6 +48,7 @@ For stages 2-7, dispatch a coordinator subagent using the per-stage dispatch pro
 | 5 (Validation & Design) | checkpoint-protocol, error-handling | Yes | config-reference (CLI dispatch params) |
 | 6 (Test Strategy) | checkpoint-protocol, error-handling | Yes | — |
 | 7 (Completion) | checkpoint-protocol | No | — |
+| 8 (Retrospective) | checkpoint-protocol | Yes | — |
 
 ### Dispatch Template
 

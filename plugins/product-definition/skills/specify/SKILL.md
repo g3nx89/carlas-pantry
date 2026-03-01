@@ -1,7 +1,7 @@
 ---
 name: feature-specify
 description: This skill should be used when the user asks to "create a feature spec", "specify a feature", "write a specification", or "define feature requirements". Creates or updates feature specifications through guided analysis with Figma integration, CLI multi-stance validation, and V-Model test strategy.
-version: 1.2.0
+version: 1.3.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Bash(command:*)", "Bash(wait:*)", "Task", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
 ---
 
@@ -123,6 +123,11 @@ Consider user input before proceeding (if non-empty).
 +-------------------------------v-----------------------------------+
 |  Stage 7 (Coordinator): COMPLETION                                 |
 |  Lock release, completion report, next steps                       |
++-------------------------------+-----------------------------------+
+                                |
++-------------------------------v-----------------------------------+
+|  Stage 8 (Coordinator): RETROSPECTIVE                              |
+|  KPI report card, transcript analysis, narrative composition       |
 +-------------------------------------------------------------------+
 ```
 
@@ -139,6 +144,7 @@ Consider user input before proceeding (if non-empty).
 | 5 | CLI Validation & Design | Coordinator | `references/stage-5-validation-design.md` | CLI_GATE | Yes (if eval REJECTED) | CLI optional; design MANDATORY |
 | 6 | Testability & Risk Assessment | Coordinator | `references/stage-6-test-strategy.md` | TEST_STRATEGY | Yes (if testability gaps) | Yes (feature flag) |
 | 7 | Completion | Coordinator | `references/stage-7-completion.md` | COMPLETE | No | No |
+| 8 | Retrospective | Coordinator | `references/stage-8-retrospective.md` | RETROSPECTIVE | No | No |
 
 ---
 
@@ -182,7 +188,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 
 **Top-level fields:**
 - `schema_version`: 5
-- `current_stage`: 1-7
+- `current_stage`: 1-8
 - `feature_id`: "{NUMBER}-{SHORT_NAME}"
 - `feature_name`: "{FEATURE_NAME}"
 - `rtm_enabled`: `true | false | null` (null = not yet decided)
@@ -202,6 +208,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `gap-analyzer` | 5 | Design analysis and recommendations | sonnet |
 | `qa-strategist` | 6 | V-Model test strategy generation | sonnet |
 | `gate-judge` | 2 | Incremental quality gate evaluation | sonnet |
+| `definition-retrospective-writer` | 8 | Retrospective narrative composition | sonnet |
 
 ## Output Artifacts
 
@@ -219,6 +226,8 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `specs/{FEATURE_DIR}/analysis/mpa-challenge*.md` | 2 | MPA Challenge CLI dispatch report |
 | `specs/{FEATURE_DIR}/analysis/mpa-edgecases*.md` | 4 | MPA Edge Cases CLI dispatch report |
 | `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md` | 4 | MPA Triangulation report |
+| `specs/{FEATURE_DIR}/.specify-report-card.local.md` | 8 | KPI report card |
+| `specs/{FEATURE_DIR}/retrospective.md` | 8 | Retrospective narrative |
 
 ---
 
@@ -242,6 +251,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `references/figma-capture-protocol.md` | Figma connection, capture, screenshot naming | Stage 1 (Figma enabled) |
 | `references/clarification-protocol.md` | File-based Q&A, BA recommendations, answer parsing | Stage 4 (clarification dispatch) |
 | `references/auto-resolve-protocol.md` | Auto-resolve gate, classification, citation rules | Stage 4 (pre-question-file generation) |
+| `references/stage-8-retrospective.md` | Retrospective protocol, KPI definitions | Dispatching Stage 8 |
 
 ---
 
@@ -250,7 +260,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 Rules 1-29 above MUST be followed. Key reminders:
 - Coordinators NEVER talk to users directly
 - Orchestrator owns the iteration loop (Stage 3 <-> Stage 4)
-- Stage 1 is inline, all others are coordinator-delegated
+- Stage 1 is inline, all others (2-8) are coordinator-delegated
 - State file user_decisions are IMMUTABLE
 - No artificial question/story/iteration limits
 - design-brief.md and design-supplement.md are MANDATORY — NEVER skip

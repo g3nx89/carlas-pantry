@@ -12,7 +12,7 @@
 ---
 
 # Version tracking
-version: "2.3.0"
+version: "2.4.0"
 last_updated: "2026-01-26"
 
 # =============================================================================
@@ -476,6 +476,7 @@ sadd_patterns:
     sonnet:
       - "gate-judge"
       - "qa-strategist"  # V-Model test strategy generation
+      - "definition-retrospective-writer"  # Stage 8: Retrospective narrative (shared agent)
 
   # ─────────────────────────────────────────────────────────────
   # Gate Evaluation
@@ -961,6 +962,11 @@ skill_orchestrator:
         - "checkpoint-protocol"
       config_yaml: false
       extra_refs: []
+    stage_8_retrospective:
+      shared_refs:
+        - "checkpoint-protocol"
+      config_yaml: true
+      extra_refs: []
 
   # ─────────────────────────────────────────────────────────────
   # ITERATION CONTROL
@@ -979,4 +985,25 @@ skill_orchestrator:
   coordinator_prompt_max: 8000  # Max tokens for coordinator prompt (approximate)
   max_summary_length: 500       # Max chars for YAML summary field
   max_context_for_next_stage: 1000  # Max chars for Context body in summary file
+
+# =============================================================================
+# RETROSPECTIVE (Stage 8)
+# =============================================================================
+
+retrospective:
+  enabled: true
+  transcript_analysis:
+    enabled: true
+    transcript_dir: null          # Auto-detect from ~/.claude/projects/ if null
+    max_errors_extracted: 20
+    max_file_paths_extracted: 50
+    extract_token_budget: 3000
+  sections:
+    timeline: true
+    what_worked: true
+    what_didnt_work: true
+    stage_breakdown: true
+    tool_analysis: true
+    recommendations: true
+    raw_metrics: true
 

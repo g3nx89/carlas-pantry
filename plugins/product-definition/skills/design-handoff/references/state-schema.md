@@ -13,7 +13,7 @@
 schema_version: 1
 checksum: string                # SHA-256 of YAML body (excluding checksum field itself)
 workflow_mode: "guided" | "quick" | "batch"
-current_stage: "1" | "2" | "2:circuit_breaker" | "2J" | "3" | "3J" | "3.5" | "3.5J" | "4" | "5" | "5:supplement_written" | "5J" | "complete"
+current_stage: "1" | "2" | "2:circuit_breaker" | "2J" | "3" | "3J" | "3.5" | "3.5J" | "4" | "5" | "5:supplement_written" | "5J" | "retrospective" | "complete"
 started_at: "ISO-8601"
 last_updated: "ISO-8601"
 
@@ -142,13 +142,15 @@ Extension status flow:
   pending → error (creation failed)
 
 Stage flow:
-  1 → 2 → 2J → 3 → 3J → [3.5 → 3.5J] → 4 → 5 → 5:supplement_written → 5J → complete
+  1 → 2 → 2J → 3 → 3J → [3.5 → 3.5J] → 4 → 5 → 5:supplement_written → 5J → [retrospective] → complete
                            (conditional)
 
   2:circuit_breaker — Screen loop halted due to consecutive MCP failures.
                       Resume checks figma-console connectivity before re-entering loop.
   5:supplement_written — HANDOFF-SUPPLEMENT.md written, manifest not yet updated.
                          Resume from Step 5.6 (skip supplement regeneration).
+  retrospective — Retrospective protocol in progress. Lock already released.
+                   Resume re-dispatches retrospective coordinator.
   complete — terminal state. Lock released, all artifacts finalized.
              Resume protocol detects "complete" and skips all stages.
 ```
@@ -232,6 +234,7 @@ On re-invocation:
 2. Read state file → verify checksum integrity (halt on mismatch)
 3. Determine `current_stage`
 4. **If `current_stage == "complete"`:** Notify designer: "Handoff already complete. Re-run to start a new handoff." STOP.
+4a. **If `current_stage == "retrospective"`:** Lock is already released. Re-dispatch retrospective coordinator (`references/retrospective-protocol.md`). On completion, set `current_stage = "complete"`.
 5. **If `current_stage == "5:supplement_written"`:** Resume from Step 5.6 (manifest update). Skip supplement regeneration.
 6. **If `current_stage == "2:circuit_breaker"`:** Screen loop was halted due to consecutive MCP failures. Verify figma-console connectivity (`figma_get_status`). If available: reset `current_stage` to `"2"`, re-enter screen loop from next pending screen. If unavailable: notify designer "figma-console still unavailable" and STOP.
 7. For Stage 2 resume: find first screen with `status != "prepared"` and `status != "blocked"`
@@ -247,11 +250,20 @@ On re-invocation:
 After Stage 5J passes, execute these steps to finalize the workflow:
 
 ```
-1. SET current_stage = "complete"
+1. DELETE lock file: design-handoff/.handoff-lock
 2. SET last_updated = NOW()
-3. DELETE lock file: design-handoff/.handoff-lock
-4. APPEND to Progress Log: "## Workflow Complete\n- Completed: {ISO_NOW}\n- Artifacts: HANDOFF-SUPPLEMENT.md, handoff-manifest.md"
-5. Recompute checksum and WRITE state file (atomic)
+3. APPEND to Progress Log: "## Lock Released\n- Released: {ISO_NOW}\n- Artifacts: HANDOFF-SUPPLEMENT.md, handoff-manifest.md"
+4. Recompute checksum and WRITE state file (atomic)
+
+5. READ config -> retrospective.enabled
+   IF retrospective.enabled:
+       SET current_stage = "retrospective"
+       WRITE state file (atomic)
+       DISPATCH coordinator with references/retrospective-protocol.md
+       (Coordinator sets current_stage = "complete" upon completion)
+   ELSE:
+       SET current_stage = "complete"
+       WRITE state file (atomic)
 ```
 
 The `"complete"` stage is terminal. No further stages dispatch. On re-invocation, the resume protocol detects `current_stage == "complete"` and stops with a notification.

@@ -4,7 +4,7 @@
 # Plugin: product-definition
 # Skill: refinement (migrated from /product-definition:requirements command)
 
-version: "3.1.0"
+version: "3.2.0"
 last_updated: "2026-02-28"
 
 # =============================================================================
@@ -593,6 +593,10 @@ token_budgets:
       timeout_minutes: 5
       shared_refs: ["checkpoint-protocol.md"]
       config_yaml: false  # Completion only -- no PAL, no error recovery needed
+    stage_7:
+      timeout_minutes: 10
+      shared_refs: ["checkpoint-protocol.md"]
+      config_yaml: true   # Needs retrospective config section
 
   # Per-source content limits when injecting into coordinator context
   per_source:
@@ -707,3 +711,24 @@ templates:
   questions: "$CLAUDE_PLUGIN_ROOT/templates/questions-template.md"
   decision_log: "$CLAUDE_PLUGIN_ROOT/templates/decision-log-template.md"
   panel_config: "$CLAUDE_PLUGIN_ROOT/templates/.panel-config-template.local.md"
+
+# =============================================================================
+# RETROSPECTIVE (Stage 7)
+# =============================================================================
+
+retrospective:
+  enabled: true
+  transcript_analysis:
+    enabled: true
+    transcript_dir: null          # Auto-detect from ~/.claude/projects/ if null
+    max_errors_extracted: 20
+    max_file_paths_extracted: 50
+    extract_token_budget: 3000
+  sections:
+    timeline: true
+    what_worked: true
+    what_didnt_work: true
+    stage_breakdown: true
+    tool_analysis: true
+    recommendations: true
+    raw_metrics: true

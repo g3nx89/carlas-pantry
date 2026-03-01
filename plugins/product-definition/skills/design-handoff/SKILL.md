@@ -10,7 +10,7 @@ description: >-
   not expressible in Figma), and figma-screen-briefs/ (structured specs for
   missing screens, ready for a figma-console agent to execute).
   Figma file is the visual source of truth.
-version: 1.0.0
+version: 1.1.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(mkdir:*)", "Bash(rm:*)", "Task", "mcp__figma-console__figma_take_screenshot", "mcp__figma-console__figma_capture_screenshot", "mcp__figma-console__figma_audit_design_system", "mcp__figma-console__figma_get_selection", "mcp__figma-console__figma_search_components", "mcp__figma-console__figma_get_variables", "mcp__figma-console__figma_get_styles", "mcp__figma-console__figma_get_status", "mcp__figma-console__figma_get_file_for_plugin", "mcp__figma-console__figma_get_component_for_development"]
 ---
 
@@ -75,6 +75,7 @@ $ARGUMENTS
 | 4 | Designer Dialog | **Orchestrator** | `references/designer-dialog.md` | Yes (per screen) | Runs |
 | 5 | Output Assembly | **Inline** | `references/output-assembly.md` | No | Minimal (no manifest) |
 | 5J | Supplement Quality | Agent (judge) | `references/judge-protocol.md` | On NEEDS_FIX | Runs |
+| RETRO | Retrospective | Coordinator | `references/retrospective-protocol.md` | No | Runs |
 | — | Completion | **Inline** | `references/state-schema.md` | No | Runs |
 
 ---
@@ -221,8 +222,9 @@ Stage 2's per-screen loop generates significant context. To prevent late-loop qu
 | `handoff-figma-preparer` | 2, 3.5 | sonnet | Figma file preparation + design extension (loads figma-console-mastery) |
 | `handoff-gap-analyzer` | 3 | sonnet | Gap detection + missing screen detection via figma-console |
 | `handoff-judge` | 2J, 3J, 3.5J, 5J | opus / sonnet (per checkpoint) | LLM-as-judge at critical stage boundaries |
+| `definition-retrospective-writer` | RETRO | sonnet | Retrospective narrative composition |
 
-**Key output artifacts:** `HANDOFF-SUPPLEMENT.md` (final), `handoff-manifest.md` (structural inventory), `gap-report.md` (working), `figma-screen-briefs/FSB-*.md` (structured briefs for missing screens — give to figma-console agent to create them), `screenshots/` (visual diffs), `judge-verdicts/` (quality gate records).
+**Key output artifacts:** `HANDOFF-SUPPLEMENT.md` (final), `handoff-manifest.md` (structural inventory), `gap-report.md` (working), `figma-screen-briefs/FSB-*.md` (structured briefs for missing screens — give to figma-console agent to create them), `screenshots/` (visual diffs), `judge-verdicts/` (quality gate records), `retrospective.md` (workflow retrospective), `.handoff-report-card.local.md` (KPI metrics).
 
 ---
 
@@ -241,6 +243,7 @@ Stage 2's per-screen loop generates significant context. To prevent late-loop qu
 | `references/gap-category-examples.md` | Gap category calibration examples (6 tables) | Stage 3 agent dispatch only |
 | `references/README.md` | File index, cross-references | Orientation |
 | `templates/figma-screen-brief-template.md` | Template for FSB files generated in Stage 3 for missing screens | Stage 3 brief generation |
+| `references/retrospective-protocol.md` | Retrospective protocol, KPI definitions | RETRO stage dispatch |
 
 ---
 

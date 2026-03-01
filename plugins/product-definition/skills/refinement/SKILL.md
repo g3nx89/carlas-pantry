@@ -1,7 +1,7 @@
 ---
 name: feature-refinement
 description: "Transform rough product drafts into finalized PRDs through iterative Q&A. Use when user asks to 'refine requirements', 'generate a PRD', 'create product requirements', 'iterate on PRD', or 'requirements Q&A'."
-version: 3.1.0
+version: 3.2.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking", "mcp__tavily__tavily_search", "mcp__Ref__ref_search_documentation", "mcp__Ref__ref_read_url"]
 ---
 
@@ -45,7 +45,7 @@ Guided PRD generation through iterative clarification with offline file-based Q&
 21. **If Research MCP unavailable**: Fall back to manual research flow in Stage 2
 
 ### Orchestrator Delegation Rules
-22. **Coordinator delegation boundary**: Stages 2-6 coordinators never interact with users directly -- set `status: needs-user-input` in summary; orchestrator mediates all prompts via AskUserQuestion. Stage 1 runs inline and uses AskUserQuestion directly.
+22. **Coordinator delegation boundary**: Stages 2-7 coordinators never interact with users directly -- set `status: needs-user-input` in summary; orchestrator mediates all prompts via AskUserQuestion. Stage 1 runs inline and uses AskUserQuestion directly.
 23. **Stage 1 runs inline** -- all other stages are coordinator-delegated. Panel Builder is dispatched as a subagent from Stage 1 (not a coordinator).
 24. **Iteration loop owned by orchestrator** -- coordinators report `flags.next_action`, orchestrator decides control flow
 25. **Reflexion on RED loops**: When Stage 5 validation is RED and loops back to Stage 3, orchestrator generates REFLECTION_CONTEXT from Stage 4+5 summaries and passes it to the Stage 3 coordinator
@@ -128,6 +128,11 @@ Panel composition is set in Stage 1 via the Panel Builder and persisted in `requ
 +-------------------------------v-----------------------------------+
 |  Stage 6 (Coordinator): COMPLETION                               |
 |  Release lock, completion report, next steps                     |
++-------------------------------+-----------------------------------+
+                                |
++-------------------------------v-----------------------------------+
+|  Stage 7 (Coordinator): RETROSPECTIVE                            |
+|  KPI report card, transcript analysis, narrative composition     |
 +-------------------------------------------------------------------+
 ```
 
@@ -143,6 +148,7 @@ Panel composition is set in Stage 1 via the Panel Builder and persisted in `requ
 | 4 | Response & Gaps | Coordinator | `references/stage-4-response-analysis.md` | RESPONSE_ANALYSIS | Yes (exit_cli) |
 | 5 | Validation & PRD | Coordinator | `references/stage-5-validation-generation.md` | VALIDATION_PRD | No |
 | 6 | Completion | Coordinator | `references/stage-6-completion.md` | COMPLETE | No |
+| 7 | Retrospective | Coordinator | `references/stage-7-retrospective.md` | RETROSPECTIVE | No |
 
 ---
 
@@ -176,7 +182,7 @@ Full schema, examples, and Interactive Pause Schema: `references/summary-contrac
 **State file:** `requirements/.requirements-state.local.md` (schema version 2, YAML frontmatter)
 **Lock file:** `requirements/.requirements-lock`
 
-Key fields: `current_stage` (1-6), `current_round`, `analysis_mode`, `prd_mode`, `mcp_availability`, `waiting_for_user`. User decisions under `user_decisions` are immutable. Full schema initialized from template at `$CLAUDE_PLUGIN_ROOT/templates/.requirements-state-template.local.md`.
+Key fields: `current_stage` (1-7), `current_round`, `analysis_mode`, `prd_mode`, `mcp_availability`, `waiting_for_user`. User decisions under `user_decisions` are immutable. Full schema initialized from template at `$CLAUDE_PLUGIN_ROOT/templates/.requirements-state-template.local.md`.
 
 ---
 
@@ -192,6 +198,7 @@ Key fields: `current_stage` (1-6), `current_round`, `analysis_mode`, `prd_mode`,
 | `research-discovery-ux` | 2 | UX research questions |
 | `research-discovery-technical` | 2 | Viability research |
 | `research-question-synthesis` | 2 | Synthesize research agenda |
+| `definition-retrospective-writer` | 7 | Retrospective narrative composition |
 
 > **Model assignments** are configured in `config/requirements-config.yaml` under `panel.builder.model`, `panel.member_model`, `panel.synthesis.model`, and `prd.model`. Agent frontmatter also specifies the model.
 
@@ -213,6 +220,8 @@ Key fields: `current_stage` (1-6), `current_round`, `analysis_mode`, `prd_mode`,
 | `requirements/analysis/response-validation-round-{N}.md` | 4 | Consensus validation results |
 | `requirements/research/RESEARCH-AGENDA.md` | 2 | Research questions |
 | `requirements/research/research-synthesis.md` | 2 | Research findings |
+| `requirements/.refinement-report-card.local.md` | 7 | KPI report card |
+| `requirements/retrospective.md` | 7 | Retrospective narrative |
 
 ---
 
@@ -240,6 +249,7 @@ Key fields: `current_stage` (1-6), `current_round`, `analysis_mode`, `prd_mode`,
 | `references/thinkdeep-templates.md` | PROBLEM_CONTEXT, step content, findings templates | Stage 3 Part A ThinkDeep execution |
 | `references/artifact-schemas.md` | Canonical formats for runtime artifacts | Structural validation, artifact writing |
 | `references/README.md` | Reference file index, sizes, cross-references | Skill maintenance and onboarding |
+| `references/stage-7-retrospective.md` | Retrospective protocol, KPI definitions | Dispatching Stage 7 |
 
 > **Note:** No `examples/` directory exists. All working files (`QUESTIONS-*.md`, `PRD.md`, summaries) are generated at runtime in the user's `requirements/` directory.
 
@@ -248,7 +258,7 @@ Key fields: `current_stage` (1-6), `current_round`, `analysis_mode`, `prd_mode`,
 ## Critical Rules (High Attention Zone -- End)
 
 Rules 1-27 above apply. Key reminders:
-- Stages 2-6 coordinators never interact with users directly; Stage 1 runs inline and uses AskUserQuestion directly
+- Stages 2-7 coordinators never interact with users directly; Stage 1 runs inline and uses AskUserQuestion directly
 - Orchestrator owns the iteration loop
 - State file user_decisions are immutable
 - No artificial question limits -- generate all needed for complete PRD

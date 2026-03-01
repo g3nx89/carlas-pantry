@@ -222,11 +222,20 @@ On `needs_fix` (fix_type: `re_assemble`): re-run only affected Step 5.x, re-judg
 After Stage 5J passes, finalize the workflow:
 
 ```
-1. SET STATE.current_stage = "complete"
+1. DELETE lock file: design-handoff/.handoff-lock
 2. SET STATE.last_updated = NOW()
-3. DELETE lock file: design-handoff/.handoff-lock
-4. APPEND to Progress Log: "## Workflow Complete\n- Completed: {ISO_NOW}\n- Artifacts: HANDOFF-SUPPLEMENT.md, handoff-manifest.md"
-5. Recompute checksum and WRITE state file (atomic: write .tmp then rename)
+3. APPEND to Progress Log: "## Lock Released\n- Released: {ISO_NOW}\n- Artifacts: HANDOFF-SUPPLEMENT.md, handoff-manifest.md"
+4. Recompute checksum and WRITE state file (atomic: write .tmp then rename)
+
+5. READ config -> retrospective.enabled
+   IF retrospective.enabled:
+       SET STATE.current_stage = "retrospective"
+       WRITE state file (atomic)
+       DISPATCH coordinator with references/retrospective-protocol.md
+       (Coordinator sets current_stage = "complete" upon completion)
+   ELSE:
+       SET STATE.current_stage = "complete"
+       WRITE state file (atomic)
 ```
 
 On re-invocation with `current_stage == "complete"`: notify designer "Handoff already complete" and STOP. No stages dispatch.

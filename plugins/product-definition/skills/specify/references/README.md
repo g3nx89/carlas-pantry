@@ -20,6 +20,7 @@
 | `figma-capture-protocol.md` | Stage 1 (Figma enabled) — connection selection, capture process, screenshot naming, error recovery |
 | `clarification-protocol.md` | Stage 4 (clarification dispatch) — file-based Q&A, BA recommendations, answer parsing |
 | `auto-resolve-protocol.md` | Stage 4 (pre-question generation) — auto-resolve gate, classification, citation rules, exclusion rules |
+| `stage-8-retrospective.md` | Dispatching Stage 8 — KPI report card, transcript extraction, retrospective narrative |
 
 ## File Sizes
 
@@ -41,6 +42,7 @@
 | `figma-capture-protocol.md` | ~249 | Figma connection selection, capture process (ReAct), screenshot naming, error handling |
 | `clarification-protocol.md` | ~248 | File-based Q&A format, BA recommendations, answer parsing rules, state tracking |
 | `auto-resolve-protocol.md` | ~199 | Auto-resolve gate logic, classification levels, exclusion rules, worked examples |
+| `stage-8-retrospective.md` | ~239 | KPI report card, transcript extraction, writer dispatch, summary contract |
 
 ## Cross-References
 
@@ -55,7 +57,7 @@
 
 ### Orchestrator → Stage Files
 
-- `orchestrator-loop.md` references all 7 stage files in dispatch order
+- `orchestrator-loop.md` references all 8 stage files in dispatch order
 - `orchestrator-loop.md` references `recovery-migration.md` for crash recovery and state migration
 - `orchestrator-loop.md` performs quality checks after Stages 2, 4, and 5
 
@@ -82,6 +84,7 @@
 - Stage files reference templates at `$CLAUDE_PLUGIN_ROOT/templates/prompts/`
 - Stage files reference analysis templates at `$CLAUDE_PLUGIN_ROOT/templates/analysis/`
 - Stage 6 references `$CLAUDE_PLUGIN_ROOT/agents/qa-references/sequential-thinking-templates.md`
+- `stage-8-retrospective.md` references `$CLAUDE_PLUGIN_ROOT/agents/definition-retrospective-writer.md` for narrative composition
 
 ## Step Numbering Convention
 
@@ -90,7 +93,7 @@ Pre-condition validation uses `Step N.0`. Stage 4 uses suffix letters for condit
 
 ## Structural Patterns
 
-All stage files (stages 1-7) follow this structure:
+All stage files (stages 1-8) follow this structure:
 1. YAML frontmatter with `stage` name and `artifacts_written` list
 2. **CRITICAL RULES** section at top (attention-favored position)
 3. **Pre-condition validation** (Step X.0 — verify required inputs exist)
