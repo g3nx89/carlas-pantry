@@ -32,7 +32,7 @@ claude plugins enable product-planning
 
 ## Architecture
 
-### Workflow Phases (9 + Phases 6b, 8b)
+### Workflow Phases (10 + Phases 6b, 8b)
 
 The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includes both feature planning AND test strategy. The orchestrator delegates phases to coordinator subagents via `Task(general-purpose)`. Each coordinator reads a self-contained per-phase instruction file and communicates results through standardized summary files. See `skills/plan/references/orchestrator-loop.md` for dispatch logic.
 
@@ -62,6 +62,8 @@ The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includ
 │  Phase 8b: Asset Consolidation ─────────→ asset-manifest.md     │
 │       ↓                                                          │
 │  Phase 9: Task Generation & Completion ─→ tasks.md (TDD)        │
+│       ↓                                                          │
+│  Phase 10: Retrospective ──────────────→ retrospective.md       │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -86,6 +88,7 @@ The skill `skills/plan/SKILL.md` orchestrates a multi-phase workflow that includ
 | 8 | Test Coverage | Coverage validation, CLI Consensus scoring |
 | 8b | Asset Consolidation | Identify non-code assets, generate manifest, user validation |
 | 9 | Task Generation | TDD-structured tasks with test refs, clarification loop |
+| 10 | Retrospective | KPI report card, narrative retrospective, auto-commit |
 
 ### Analysis Mode Hierarchy
 
@@ -123,7 +126,7 @@ Phases 6 and 8 dispatch CLIs with stance-differentiated scoring prompts (advocat
 
 State is persisted in `{FEATURE_DIR}/.planning-state.local.md` (YAML frontmatter + markdown). The workflow is resumable — user decisions are immutable and never re-asked.
 
-Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → EXPERT_REVIEW → TEST_STRATEGY → TEST_COVERAGE_VALIDATION → ASSET_CONSOLIDATION → COMPLETION
+Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → EXPERT_REVIEW → TEST_STRATEGY → TEST_COVERAGE_VALIDATION → ASSET_CONSOLIDATION → COMPLETION → RETROSPECTIVE
 
 State file version 2 adds `phase_summaries` tracking and `orchestrator` metadata. v1 files are auto-migrated on resume.
 
@@ -277,6 +280,8 @@ All limits, thresholds, and settings are in `config/planning-config.yaml`.
 | `test-cases/e2e/` | E2E scenario scripts |
 | `test-cases/uat/` | UAT scripts (Given-When-Then) |
 | `asset-manifest.md` | Non-code asset manifest (Phase 8b, optional) |
+| `retrospective.md` | Planning retrospective with KPIs, timeline, and recommendations |
+| `.planning-report-card.local.md` | Machine-readable KPI Report Card (local, not committed) |
 | `.phase-summaries/*.md` | Inter-phase coordinator summary files |
 
 ## File Naming Conventions

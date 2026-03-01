@@ -17,7 +17,7 @@ BUILD dispatch_table from SKILL.md Phase Dispatch Table
 IF state.deep_reasoning AND state.deep_reasoning.pending_escalation:
   HANDLE_PENDING_ESCALATION(state)  # delegated to deep-reasoning-dispatch-pattern.md
 
-FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 8b, 9]:
+FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 8b, 9, 10]:
   IF phase IN state.completed_phases: SKIP (already done)
   IF phase requires feature_flag AND flag disabled in config: SKIP
   IF phase requires analysis_mode AND current mode not in phase.modes: SKIP
@@ -239,6 +239,12 @@ After Phase 9 completes, the orchestrator presents a completion menu (gated by `
 
 See `phase-9-completion.md` Step 9.13 for the definitive menu options and handler implementations. The six options are: **Review**, **Expert**, **Simplify**, **GitHub**, **Commit**, **Quit**. The orchestrator relays the user's choice and executes the corresponding handler from that file.
 
+### Post-Phase-9 to Phase-10 Sequencing
+
+Phase 10 (Retrospective) runs after Phase 9 fully resolves — including after the
+`a5_post_planning_menu` round-trip completes. Phase 10 runs post-lock (released in
+Phase 9 Step 9.12) and requires no lock operations.
+
 ## On-Demand: Circuit Breaker Pattern
 
 Provides a generic retry-with-escalation mechanism used by multiple strategies (S8, S9, S13).
@@ -273,6 +279,7 @@ ON resume, IF state.version == 1 OR state.version is missing:
   3. ADD missing timestamps: expert_review_completed, test_strategy_completed, test_coverage_completed, asset_consolidation_completed (all null)
   4. SET version: 2, WRITE state, LOG "Migrated v1 to v2"
   5. Reconstruct phase_summaries from existing checkpoint data (v1 sessions may lack summaries — OK)
+  6. IF retrospective_completed_at is absent: ADD null (Phase 10 forward-compat)
 ```
 
 Non-breaking: all existing v1 fields are preserved.

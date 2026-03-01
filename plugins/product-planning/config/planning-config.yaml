@@ -818,6 +818,7 @@ state:
     - TEST_COVERAGE_VALIDATION  # Phase 8: Coverage validation
     - ASSET_CONSOLIDATION       # Phase 8b: Asset manifest generation
     - COMPLETION
+    - RETROSPECTIVE             # Phase 10: Planning retrospective
 
   # User decisions are immutable once saved
   immutable_fields:
@@ -1891,3 +1892,31 @@ deep_reasoning_escalation:
     - name: "Google Deep Think"
       interface: "AI Studio / Gemini Advanced"
       latency: "2-10 min"
+
+# =============================================================================
+# RETROSPECTIVE (Phase 10)
+# =============================================================================
+retrospective:
+  enabled: true
+  transcript_analysis:
+    enabled: true
+    transcript_dir: null
+    max_errors_extracted: 20
+    max_file_paths_extracted: 50
+    extract_token_budget: 3000
+  auto_commit:
+    enabled: true
+    message_template: "docs({feature_name}): add planning retrospective"
+    exclude_patterns:
+      - ".planning-report-card.local.md"
+      - "transcript-extract.json"
+      - ".planning-state.local.md"
+      - ".phase-summaries/"
+  sections:
+    timeline: true
+    what_worked: true
+    what_didnt_work: true
+    phase_breakdown: true
+    tool_analysis: true
+    recommendations: true
+    raw_metrics: true

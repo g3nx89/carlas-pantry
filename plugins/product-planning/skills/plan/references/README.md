@@ -28,6 +28,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `phase-8-coverage.md` | Debugging test coverage validation |
 | `phase-8b-asset-consolidation.md` | Debugging asset discovery, manifest generation, or user validation |
 | `phase-9-completion.md` | Debugging task generation or completion |
+| `phase-10-retrospective.md` | Debugging retrospective generation or KPI computation |
 | `thinkdeep-prompts.md` | Customizing deep analysis perspective prompts (CLI dispatch) |
 | `validation-rubric.md` | Understanding Phase 6 plan validation scoring (CLI Consensus) |
 | `coverage-validation-rubric.md` | Understanding Phase 8 test coverage validation (CLI Consensus) |
@@ -81,6 +82,10 @@ Each CLI role runs all available CLIs (Gemini, Codex, OpenCode) in parallel via 
 1. Read `judge-gate-rubrics.md` for scoring criteria
 2. Read `adaptive-strategy-logic.md` if strategy selection fails
 
+### Debugging the Retrospective
+1. Read `phase-10-retrospective.md` for KPI definitions and writer dispatch
+2. Check `config/planning-config.yaml` `retrospective:` section for gates and auto-commit
+
 ### Modifying the Workflow
 1. Read `phase-workflows.md` for the navigational index
 2. Read the specific per-phase file for detailed instructions
@@ -106,6 +111,7 @@ Each CLI role runs all available CLIs (Gemini, Codex, OpenCode) in parallel via 
 | `phase-8-coverage.md` | ~162 | Test coverage validation |
 | `phase-8b-asset-consolidation.md` | ~256 | Asset discovery, manifest generation |
 | `phase-9-completion.md` | ~695 | Task generation, TDD structuring, completion menu |
+| `phase-10-retrospective.md` | ~280 | Planning retrospective, KPI report card, writer dispatch |
 | `research-mcp-patterns.md` | ~293 | Research MCP server usage guide |
 | `judge-gate-rubrics.md` | ~308 | Gate evaluation criteria |
 | `self-critique-template.md` | ~143 | Agent verification template (phase-aware thresholds) |
@@ -184,3 +190,4 @@ Config: `planning-config.yaml` `requirements_context:` section.
 - `phase-8b-asset-consolidation.md` feeds `asset-manifest.md` into Phase 9 for Phase 0 task generation
 - `phase-3-clarification.md` produces `requirements-anchor.md` directly read by Phases 4, 5, 6, 6b (prefer-anchor-over-spec fallback); other phases receive requirements context indirectly via orchestrator dispatch digest
 - `orchestrator-loop.md` injects requirements digest (from state) into every coordinator dispatch prompt
+- `phase-10-retrospective.md` dispatches `planning-retrospective-writer` agent; reads all prior phase summaries

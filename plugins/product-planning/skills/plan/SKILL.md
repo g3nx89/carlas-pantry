@@ -61,7 +61,7 @@ Transform feature specifications into actionable implementation plans with integ
 
 | Term | Definition |
 |------|-----------|
-| Phase | Numbered workflow step (1-9, plus 6b, 8b) |
+| Phase | Numbered workflow step (1-10, plus 6b, 8b) |
 | Coordinator | Dispatched subagent that executes a phase |
 | Dispatch | Sending a coordinator via `Task(general-purpose)` with a phase prompt |
 | Summary | 30-80 line result file written by coordinator to `.phase-summaries/` |
@@ -139,7 +139,11 @@ Graceful degradation: If CLIs are unavailable, fall back to Standard/Rapid modes
 │       ↓                                                         │
 │  ┌─────────┐                                                    │
 │  │ Phase 9 │ Completion                                         │
-│  └─────────┘                                                    │
+│  └────┬────┘                                                    │
+│       ↓                                                         │
+│  ┌──────────┐                                                   │
+│  │ Phase 10 │ Retrospective ──────────→ retrospective.md        │
+│  └──────────┘                                                   │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -165,6 +169,7 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for ~78% o
 | 8 | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | — | TEST_COVERAGE_VALIDATION | `cli_*` | test-plan.md, spec.md, test-strategy.md | `∥` |
 | 8b | `phase-8b-asset-consolidation.md` | phase-8 | Validate manifest | — | ASSET_CONSOLIDATION | — | spec.md, design.md, plan.md, test-plan.md, research.md, expert-review.md | `∥` |
 | 9 | `phase-9-completion.md` | phase-4, phase-6, phase-7, phase-8, phase-8b | Clarify tasks | taskauditor | COMPLETION | `st_task_decomp`, `a5_post_menu`, `cli_*`, `dev_skills` | spec.md, plan.md, design.md, test-plan.md, test-cases/*, asset-manifest.md | — |
+| 10 | `phase-10-retrospective.md` | phase-1 through phase-9 | None | — | RETROSPECTIVE | — | `.planning-state.local.md` | — |
 
 All phase files are in `$CLAUDE_PLUGIN_ROOT/skills/plan/references/`. Delegation: Phase 1 inline, Phase 3 conditional (inline for Standard/Rapid), all others coordinator.
 
@@ -292,6 +297,8 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 | `.phase-summaries/` | Inter-phase coordinator summary files |
 | `data-model.md` | Entity definitions (optional) |
 | `contract.md` | API contracts (optional) |
+| `retrospective.md` | Planning retrospective with KPIs, timeline, and recommendations |
+| `.planning-report-card.local.md` | Machine-readable KPI Report Card (local, not committed) |
 
 ### Additional Resources
 

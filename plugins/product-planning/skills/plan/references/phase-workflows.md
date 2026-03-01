@@ -19,6 +19,7 @@
 | 8 | phase-8-coverage.md | ~162 | Coordinator | Coverage validation |
 | 8b | phase-8b-asset-consolidation.md | ~256 | Coordinator | Asset discovery, manifest generation |
 | 9 | phase-9-completion.md | ~695 | Coordinator | Task generation, completion |
+| 10 | phase-10-retrospective.md | ~280 | Coordinator | Planning retrospective, KPI report card |
 
 ## Cross-Reference: Existing Reference Files Used by Phases
 
