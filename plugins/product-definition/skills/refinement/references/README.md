@@ -4,21 +4,25 @@
 
 | File | Read When... |
 |------|--------------|
-| `orchestrator-loop.md` | Start of orchestration — dispatch loop, variable defaults, quality gates, reflexion, iteration logic |
-| `recovery-migration.md` | On crash or v1 state detected — crash recovery procedures, v1→v2 state migration |
-| `stage-1-setup.md` | Stage 1 inline execution — init, MCP check, workspace, mode selection |
-| `stage-2-research.md` | Dispatching Stage 2 — research agenda generation and synthesis |
-| `stage-3-analysis-questions.md` | Dispatching Stage 3 — ThinkDeep, section decomposition, MPA agents, question generation |
-| `stage-4-response-analysis.md` | Dispatching Stage 4 — response parsing, gap analysis, iteration decision |
-| `stage-5-validation-generation.md` | Dispatching Stage 5 — PRD readiness validation and generation |
-| `stage-6-completion.md` | Dispatching Stage 6 — completion report, lock release, next steps |
-| `checkpoint-protocol.md` | Any checkpoint — state update patterns and immutable decision rules |
-| `error-handling.md` | Any error condition — PAL failures, graceful degradation, recovery |
-| `config-reference.md` | PAL tool usage — template variables, PAL patterns, scoring thresholds |
-| `option-generation-reference.md` | Stage 3 question gen — option format, scoring algorithm, merging logic |
-| `panel-builder-protocol.md` | Stage 1 panel composition — domain detection, presets, perspective registry, validation rules |
-| `consensus-call-pattern.md` | Stages 4 and 5 consensus — shared model resolution, multi-step execution, unanimity check |
-| `research-mcp-reference.md` | Dispatching Stage 2 with research MCP available — tool selection decision tree, query patterns, cost management, anti-patterns |
+| `orchestrator-loop.md` | Start of orchestration -- dispatch loop, variable defaults, quality gates, reflexion, iteration logic |
+| `recovery-migration.md` | On crash or v1 state detected -- crash recovery procedures, v1→v2 state migration |
+| `stage-1-setup.md` | Stage 1 inline execution -- init, MCP check, workspace, mode selection |
+| `stage-2-research.md` | Dispatching Stage 2 -- research agenda generation and synthesis |
+| `stage-3-analysis-questions.md` | Dispatching Stage 3 -- ThinkDeep, section decomposition, MPA agents, question generation |
+| `stage-4-response-analysis.md` | Dispatching Stage 4 -- response parsing, gap analysis, iteration decision |
+| `stage-5-validation-generation.md` | Dispatching Stage 5 -- PRD readiness validation and generation |
+| `stage-6-completion.md` | Dispatching Stage 6 -- completion report, lock release, next steps |
+| `checkpoint-protocol.md` | Any checkpoint -- state update patterns and immutable decision rules |
+| `error-handling.md` | Any error condition -- PAL failures, graceful degradation, recovery |
+| `config-reference.md` | PAL tool usage -- template variables, PAL patterns, scoring thresholds |
+| `option-generation-reference.md` | Stage 3 question gen -- option format, scoring algorithm, merging logic |
+| `panel-builder-protocol.md` | Stage 1 panel composition -- domain detection, presets, perspective registry, validation rules |
+| `consensus-call-pattern.md` | Stages 4 and 5 consensus -- shared model resolution, multi-step execution, unanimity check |
+| `research-mcp-reference.md` | Dispatching Stage 2 with research MCP available -- tool selection decision tree, query patterns, cost management, anti-patterns |
+| `summary-contract.md` | Coordinator dispatch and summary writing -- YAML schema, interactive pause protocol, examples |
+| `quality-gates.md` | After Stage 3 and Stage 5 -- structural validation (blocking) and quality checks (non-blocking), rounds-digest template |
+| `thinkdeep-templates.md` | Stage 3 Part A ThinkDeep execution -- PROBLEM_CONTEXT, step content templates, findings templates |
+| `artifact-schemas.md` | Structural validation and artifact writing -- canonical formats for QUESTIONS and validation files |
 
 ## File Sizes
 
@@ -39,6 +43,10 @@
 | `panel-builder-protocol.md` | ~200 | Domain detection, presets, perspective registry, panel validation |
 | `consensus-call-pattern.md` | ~90 | Shared PAL Consensus call workflow (model resolution, execution, unanimity) |
 | `research-mcp-reference.md` | ~200 | Research MCP decision tree, query patterns, anti-patterns, cost management |
+| `summary-contract.md` | ~95 | Summary YAML schema, interactive pause protocol, examples |
+| `quality-gates.md` | ~155 | Structural validation, quality checks, rounds-digest template |
+| `thinkdeep-templates.md` | ~95 | PROBLEM_CONTEXT, perspective step content, findings templates |
+| `artifact-schemas.md` | ~100 | Canonical formats for QUESTIONS and response-validation files |
 
 ## Cross-References
 
@@ -46,7 +54,7 @@
 
 - All stage files reference `checkpoint-protocol.md` for state updates
 - All stage files reference `error-handling.md` for failure recovery
-- `stage-1-setup.md` references `panel-builder-protocol.md` for panel composition (Step 1.7.5)
+- `stage-1-setup.md` references `panel-builder-protocol.md` for panel composition (Step 1.8)
 - `stage-3-analysis-questions.md` references `option-generation-reference.md` for scoring algorithms
 - `stage-3-analysis-questions.md` references `config-reference.md` for ThinkDeep PAL patterns
 - `stage-4-response-analysis.md` references `config-reference.md` for Consensus PAL patterns
@@ -60,6 +68,15 @@
 - `stage-5-validation-generation.md` summary `flags.dimension_scores`, `flags.weak_dimensions`, `flags.strong_dimensions` -> consumed by `orchestrator-loop.md` REFLECTION_CONTEXT template
 - `orchestrator-loop.md` persists REFLECTION_CONTEXT to `requirements/.stage-summaries/reflection-round-{N}.md` for crash recovery
 - `orchestrator-loop.md` passes REFLECTION_CONTEXT to `stage-3-analysis-questions.md` coordinator, which passes it to MPA agents
+
+### Extracted Reference Files
+
+- `orchestrator-loop.md` references `quality-gates.md` for post-stage validation checks
+- `orchestrator-loop.md` references `summary-contract.md` via dispatch template
+- `stage-3-analysis-questions.md` references `thinkdeep-templates.md` for PAL ThinkDeep call templates
+- `quality-gates.md` references `artifact-schemas.md` structural validation rules
+- `quality-gates.md` references `config/requirements-config.yaml` for thresholds
+- `SKILL.md` references `summary-contract.md` for full schema (summary section is a pointer)
 
 ### Orchestrator -> Stage Files
 
@@ -93,10 +110,10 @@
 
 All stage files (stages 1-6) follow this structure:
 1. YAML frontmatter with `stage` name and `artifacts_written` list
-2. **CRITICAL RULES** section at top (attention-favored position)
+2. **Critical Rules** section at top (attention-favored position)
 3. Numbered steps for execution
 4. Summary Contract (YAML template)
 5. **Self-Verification** checklist (mandatory before writing summary)
-6. **CRITICAL RULES REMINDER** at bottom (attention-favored position)
+6. **Critical Rules Reminder** at bottom (attention-favored position)
 
-**Max-rules guidance:** Keep CRITICAL RULES sections to **5-7 rules maximum** per stage file. More than 7 rules dilutes the attention benefit of the bookend pattern.
+**Max-rules guidance:** Keep Critical Rules sections to **5-7 rules maximum** per stage file. More than 7 rules dilutes the attention benefit of the bookend pattern.

@@ -2,7 +2,7 @@
 
 > Shared reference for all stages in the Requirements Refinement workflow.
 
-**After EVERY stage completes, you MUST:**
+**After every stage completes, you must:**
 
 ## 1. Update State File
 
@@ -37,7 +37,7 @@ Append to the markdown body (below YAML frontmatter) of `requirements/.requireme
 
 ## 4. Write Stage Summary
 
-Write to `requirements/.stage-summaries/stage-{N}-summary.md` with YAML frontmatter following the summary contract in SKILL.md.
+Write to `requirements/.stage-summaries/stage-{N}-summary.md` with YAML frontmatter following `references/summary-contract.md`.
 
 ## 5. User Decisions (IMMUTABLE)
 
@@ -47,4 +47,4 @@ user_decisions:
   {decision_key}_timestamp: "{ISO_TIMESTAMP}"
 ```
 
-**CRITICAL:** Once a user decision is recorded, it is IMMUTABLE. Never re-ask questions that have been answered.
+**Critical:** Once a user decision is recorded, it is immutable. Never re-ask questions that have been answered.

@@ -1,42 +1,42 @@
 ---
 name: feature-refinement
-description: Transform rough product drafts into finalized PRDs through iterative Q&A
-version: 3.0.0
+description: "Transform rough product drafts into finalized PRDs through iterative Q&A. Use when user asks to 'refine requirements', 'generate a PRD', 'create product requirements', 'iterate on PRD', or 'requirements Q&A'."
+version: 3.1.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking", "mcp__tavily__tavily_search", "mcp__Ref__ref_search_documentation", "mcp__Ref__ref_read_url"]
 ---
 
-# Requirements Refinement Skill — Lean Orchestrator
+# Requirements Refinement Skill -- Lean Orchestrator
 
 Guided PRD generation through iterative clarification with offline file-based Q&A.
 
-**This workflow is resumable and resilient.** Progress is preserved in state files. User decisions are NEVER lost.
+**This workflow is resumable and resilient.** Progress is preserved in state files. User decisions are never lost.
 
 ---
 
-## CRITICAL RULES (High Attention Zone — Start)
+## Critical Rules (High Attention Zone -- Start)
 
 ### Core Workflow Rules
-1. **State Preservation**: ALWAYS checkpoint after user decisions via state file update
-2. **Resume Compliance**: NEVER re-ask questions from `user_decisions` — they are IMMUTABLE
+1. **State Preservation**: Checkpoint after user decisions via state file update
+2. **Resume Compliance**: Never re-ask questions from `user_decisions` -- they are immutable
 3. **Delegation Pattern**: Complex analysis uses MPA agents + PAL + Sequential Thinking
-4. **PRD Unique**: Only ONE PRD.md exists — extend if present, don't recreate
-5. **User Choice**: ALWAYS ask user for analysis mode preference (Complete/Advanced/Standard/Rapid)
+4. **PRD Unique**: Only one PRD.md exists -- extend if present, do not recreate
+5. **User Choice**: Ask user for analysis mode preference (Complete/Advanced/Standard/Rapid)
 6. **File-Based Q&A**: Questions are written to files for offline user response
-7. **Lock Protocol**: Always acquire lock at start, release at completion
+7. **Lock Protocol**: Acquire lock at start, release at completion
 8. **Config Reference**: All limits and thresholds from `@$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml`
-9. **No Technical Content**: PRD must NOT contain APIs, architecture, implementation details
+9. **No Technical Content**: PRD must not contain APIs, architecture, implementation details
 10. **Git Guidance**: Suggest commits at each checkpoint for traceability
 
 ### Mandatory Requirements
-11. **PRD EXTEND Mode**: If PRD.md exists, analyze and extend — NEVER recreate from scratch
+11. **PRD EXTEND Mode**: If PRD.md exists, analyze and extend -- never recreate from scratch
 12. **Research Discovery Optional**: At 2 moments (pre-first round via Stage 2, pre-subsequent rounds via Stage 4 `loop_research`)
 13. **No Question Limits**: Continue iterations until PRD is complete, not until a counter reaches max
 14. **grok-4 for Variety**: PAL Consensus and ThinkDeep include `x-ai/grok-4` for additional variety
 
 ### PAL/Model Failure Rules
-15. **PAL Consensus Minimum**: Consensus requires **minimum 2 model perspectives** before synthesis is meaningful. If < 2 models available after failures, FAIL and notify user
-16. **No Model Substitution**: If a ThinkDeep model fails, DO NOT substitute. Continue with remaining models
-17. **User Notification MANDATORY**: When ANY PAL model fails, ALWAYS notify user
+15. **PAL Consensus Minimum**: Consensus requires minimum 2 model perspectives. If < 2 available after failures, FAIL and notify user
+16. **No Model Substitution**: If a ThinkDeep model fails, do not substitute. Continue with remaining models
+17. **User Notification**: When any PAL model fails, notify user
 
 ### Graceful Degradation
 18. **MCP Availability Check**: Before using PAL/Sequential Thinking/Research MCP, check if tools are available
@@ -45,12 +45,12 @@ Guided PRD generation through iterative clarification with offline file-based Q&
 21. **If Research MCP unavailable**: Fall back to manual research flow in Stage 2
 
 ### Orchestrator Delegation Rules
-22. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
-23. **Stage 1 runs inline** — all other stages are coordinator-delegated
-24. **Iteration loop owned by orchestrator** — coordinators report `flags.next_action`, orchestrator decides control flow
-25. **Reflexion on RED loops**: When Stage 5 validation is RED and loops back to Stage 3, orchestrator MUST generate REFLECTION_CONTEXT from Stage 4+5 summaries and pass it to the Stage 3 coordinator
-26. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty for required variables (see `orchestrator-loop.md` -> Variable Defaults)
-27. **Quality gates**: Orchestrator performs lightweight quality checks after Stage 3 (question coverage) and Stage 5 (PRD completeness) — non-blocking, notify user of issues
+22. **Coordinator delegation boundary**: Stages 2-6 coordinators never interact with users directly -- set `status: needs-user-input` in summary; orchestrator mediates all prompts via AskUserQuestion. Stage 1 runs inline and uses AskUserQuestion directly.
+23. **Stage 1 runs inline** -- all other stages are coordinator-delegated. Panel Builder is dispatched as a subagent from Stage 1 (not a coordinator).
+24. **Iteration loop owned by orchestrator** -- coordinators report `flags.next_action`, orchestrator decides control flow
+25. **Reflexion on RED loops**: When Stage 5 validation is RED and loops back to Stage 3, orchestrator generates REFLECTION_CONTEXT from Stage 4+5 summaries and passes it to the Stage 3 coordinator
+26. **Variable defaults**: Every coordinator dispatch variable has a defined fallback -- never pass null or empty for required variables (see `orchestrator-loop.md` -> Variable Defaults)
+27. **Quality gates**: Orchestrator performs quality checks after Stage 3 and Stage 5 -- see `references/quality-gates.md`
 
 ---
 
@@ -60,7 +60,7 @@ Guided PRD generation through iterative clarification with offline file-based Q&
 
 | Setting | Path | Default |
 |---------|------|---------|
-| Max rounds | `limits.max_rounds` | 100 |
+| Max rounds | `limits.max_rounds` | 10 |
 | Max questions total | `limits.max_questions_total` | **No limit** |
 | Min completion rate | `scoring.completion.required` | **100%** |
 | PRD readiness GREEN | `scoring.prd_readiness.ready` | See config |
@@ -75,20 +75,20 @@ Guided PRD generation through iterative clarification with offline file-based Q&
 $ARGUMENTS
 ```
 
-You **MUST** consider the user input before proceeding (if not empty).
+Consider user input before proceeding. Mandatory when non-empty.
 
 ---
 
 ## Analysis Modes
 
-| Mode | Panel | ThinkDeep | ST | Consensus | MCP Required |
-|------|-------|-----------|----|-----------|--------------|
-| Complete | Configured (2-5 members) | 27 calls (3×3×3) | Yes | Yes | Yes |
-| Advanced | Configured (2-5 members) | 18 calls (2×3×3) | No | No | Yes |
+| Mode | Panel | ThinkDeep (P x M x S calls) | ST | Consensus | MCP Required |
+|------|-------|------------------------------|-----|-----------|--------------|
+| Complete | Configured (2-5 members) | 3 x 3 x 3 = 27 | Yes | Yes | Yes |
+| Advanced | Configured (2-5 members) | 2 x 3 x 3 = 18 | No | No | Yes |
 | Standard | Configured (2-5 members) | 0 | No | No | No |
 | Rapid | Single agent (product-strategist) | 0 | No | No | No |
 
-Panel composition is set in Stage 1 via the Panel Builder and persisted in `requirements/.panel-config.local.md`. Users validate the panel before question generation begins.
+Panel composition is set in Stage 1 via the Panel Builder and persisted in `requirements/.panel-config.local.md`.
 
 ---
 
@@ -154,7 +154,7 @@ The orchestrator manages dispatch, iteration, user pauses, crash recovery, and s
 
 ---
 
-## Stage 1 — Inline Execution
+## Stage 1 -- Inline Execution
 
 Execute Stage 1 directly (no coordinator dispatch). Read and follow:
 `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/stage-1-setup.md`
@@ -165,159 +165,35 @@ Write summary to: `requirements/.stage-summaries/stage-1-summary.md`
 
 ## Summary Contract
 
-All coordinator summaries follow this convention:
+All coordinator summaries use YAML frontmatter at `requirements/.stage-summaries/stage-{N}-summary.md`.
 
-**Path:** `requirements/.stage-summaries/stage-{N}-summary.md`
-
-```yaml
----
-stage: "{stage_name}"
-stage_number: {N}
-status: completed | needs-user-input | failed
-checkpoint: "{CHECKPOINT_NAME}"
-artifacts_written:
-  - "{path/to/artifact}"
-summary: "{1-2 sentence description of what happened}"
-flags:
-  round_number: {N}
-  analysis_mode: "{mode}"
-  questions_count: {N}           # Stage 3 only
-  thinkdeep_calls: {N}           # Stage 3 only (0 if skipped)
-  thinkdeep_completion_pct: {N}  # Stage 3 only (actual/expected %)
-  block_reason: null | "{reason}"
-  pause_type: null | "exit_cli" | "interactive"
-  next_action: null | "loop_questions" | "loop_research" | "proceed"
----
-
-## Context for Next Stage
-{What the next coordinator needs to know}
-```
-
-### Example (filled Stage 3 summary)
-
-```yaml
----
-stage: "analysis-questions"
-stage_number: 3
-status: completed
-checkpoint: ANALYSIS_QUESTIONS
-artifacts_written:
-  - requirements/analysis/thinkdeep-insights.md
-  - requirements/analysis/questions-product-strategist.md
-  - requirements/analysis/questions-ux-researcher.md
-  - requirements/analysis/questions-functional-analyst.md
-  - requirements/working/QUESTIONS-001.md
-summary: "Generated 14 questions across 3 panel members (product-focused) with ThinkDeep insights from 27 calls"
-flags:
-  round_number: 1
-  questions_count: 14
-  analysis_mode: "complete"
-  panel_preset: "product-focused"
-  panel_members_count: 3
-  panel_member_ids: ["product-strategist", "ux-researcher", "functional-analyst"]
-  thinkdeep_calls: 27
-  thinkdeep_completion_pct: 100
----
-
-## Context for Next Stage
-Round 1 generated 14 questions covering all 10 PRD sections. ThinkDeep convergent
-insight: all 3 models flagged revenue model uncertainty as CRITICAL priority.
-3 CRITICAL questions, 5 HIGH, 6 MEDIUM. User must fill QUESTIONS-001.md.
-```
-
-### Interactive Pause Schema
-
-When coordinators need user input, they encode the question in `flags` for the orchestrator to relay via `AskUserQuestion`:
-
-```yaml
-flags:
-  pause_type: "interactive" | "exit_cli"
-  block_reason: "{human-readable reason for pause}"
-  question_context:           # Present when pause_type = interactive
-    question: "{question text}"
-    header: "{short label, max 12 chars}"
-    options:
-      - label: "{option label}"
-        description: "{option description}"
-  next_action_map:            # Optional — maps option labels to next_action values
-    "{option label}": "loop_questions" | "loop_research" | "proceed"
-```
-
-- `exit_cli`: orchestrator updates state, displays `block_reason`, and TERMINATES (user works offline)
-- `interactive`: orchestrator reads `question_context`, calls `AskUserQuestion`, then re-dispatches the stage or maps the answer via `next_action_map`
+Full schema, examples, and Interactive Pause Schema: `references/summary-contract.md`
 
 ---
 
 ## State Management
 
-**State file:** `requirements/.requirements-state.local.md`
-**Schema version:** 2
+**State file:** `requirements/.requirements-state.local.md` (schema version 2, YAML frontmatter)
 **Lock file:** `requirements/.requirements-lock`
 
-State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE.
-
-**Top-level fields:**
-- `schema_version`: 2
-- `current_stage`: 1-6
-- `current_round`: N
-- `waiting_for_user`: true/false
-- `pause_stage`: N (set when `waiting_for_user: true`)
-- `analysis_mode`: complete/advanced/standard/rapid
-- `prd_mode`: NEW/EXTEND
-- `mcp_availability`: `{pal_available: bool, st_available: bool, research_mcp: {tavily: bool, ref: bool}}`
-- `user_decisions`: immutable decision log (keys like `analysis_mode_round_1`, `research_decision_round_1`)
-- `model_failures`: array of `{model, stage, operation, error, timestamp, action_taken}`
-
-**Nested structures (written by coordinators):**
-
-```yaml
-rounds:
-  - round_number: 1
-    analysis_mode: "complete"
-    questions_file: "working/QUESTIONS-001.md"
-    questions_count: 14
-    generated_at: "{timestamp}"
-    stage_3_completed: true
-    stage_4_completed: true
-
-phases:
-  research:
-    status: completed
-    reports_analyzed: 3
-    consensus_findings: 5
-    research_gaps: 2
-    st_used: true
-  response_analysis:
-    status: completed
-    round: 1
-    completion_rate: 100
-    gaps_found: 3
-  validation:
-    status: completed
-    mode: "pal_consensus"
-    score: 17
-    decision: "READY"
-  prd_generation:
-    status: completed
-    prd_mode: "NEW"
-    sections_generated: 10
-    sections_extended: 0
-```
+Key fields: `current_stage` (1-6), `current_round`, `analysis_mode`, `prd_mode`, `mcp_availability`, `waiting_for_user`. User decisions under `user_decisions` are immutable. Full schema initialized from template at `$CLAUDE_PLUGIN_ROOT/templates/.requirements-state-template.local.md`.
 
 ---
 
 ## Agent References
 
-| Agent | Stage | Purpose | Model |
-|-------|-------|---------|-------|
-| `requirements-panel-builder` | 1 | Analyze draft and compose MPA panel | sonnet |
-| `requirements-panel-member` (template) | 3 | Parametric template — dispatched once per panel member | sonnet |
-| `requirements-question-synthesis` | 3 | Merge N panel outputs into QUESTIONS file | opus |
-| `requirements-prd-generator` | 5 | Generate/extend PRD | opus |
-| `research-discovery-business` | 2 | Strategic research questions | sonnet |
-| `research-discovery-ux` | 2 | UX research questions | sonnet |
-| `research-discovery-technical` | 2 | Viability research | sonnet |
-| `research-question-synthesis` | 2 | Synthesize research agenda | opus |
+| Agent | Stage | Purpose |
+|-------|-------|---------|
+| `requirements-panel-builder` | 1 | Analyze draft and compose MPA panel |
+| `requirements-panel-member` (template) | 3 | Parametric template -- dispatched once per panel member |
+| `requirements-question-synthesis` | 3 | Merge N panel outputs into QUESTIONS file |
+| `requirements-prd-generator` | 5 | Generate/extend PRD |
+| `research-discovery-business` | 2 | Strategic research questions |
+| `research-discovery-ux` | 2 | UX research questions |
+| `research-discovery-technical` | 2 | Viability research |
+| `research-question-synthesis` | 2 | Synthesize research agenda |
+
+> **Model assignments** are configured in `config/requirements-config.yaml` under `panel.builder.model`, `panel.member_model`, `panel.synthesis.model`, and `prd.model`. Agent frontmatter also specifies the model.
 
 > **Dynamic Panel:** Panel members are not hardcoded agents. The `requirements-panel-member.md` template is dispatched via `Task(general-purpose)` with variables injected from the panel config (`requirements/.panel-config.local.md`). Available perspectives are defined in `config/requirements-config.yaml` -> `panel.available_perspectives`.
 
@@ -359,16 +235,22 @@ phases:
 | `references/panel-builder-protocol.md` | Domain detection, presets, panel validation | Stage 1 panel composition |
 | `references/consensus-call-pattern.md` | Shared PAL Consensus call workflow | Stages 4 and 5 consensus |
 | `references/research-mcp-reference.md` | Research MCP tool selection, query patterns, cost management | Dispatching Stage 2 with research MCP available |
+| `references/summary-contract.md` | Summary YAML schema, interactive pause protocol | Coordinator dispatch and summary writing |
+| `references/quality-gates.md` | Structural validation, quality checks, rounds-digest | After Stage 3 and Stage 5 |
+| `references/thinkdeep-templates.md` | PROBLEM_CONTEXT, step content, findings templates | Stage 3 Part A ThinkDeep execution |
+| `references/artifact-schemas.md` | Canonical formats for runtime artifacts | Structural validation, artifact writing |
+| `references/README.md` | Reference file index, sizes, cross-references | Skill maintenance and onboarding |
+
+> **Note:** No `examples/` directory exists. All working files (`QUESTIONS-*.md`, `PRD.md`, summaries) are generated at runtime in the user's `requirements/` directory.
 
 ---
 
-## CRITICAL RULES (High Attention Zone — End)
+## Critical Rules (High Attention Zone -- End)
 
-Rules 1-27 above MUST be followed. Key reminders:
-- Coordinators NEVER talk to users directly
+Rules 1-27 above apply. Key reminders:
+- Stages 2-6 coordinators never interact with users directly; Stage 1 runs inline and uses AskUserQuestion directly
 - Orchestrator owns the iteration loop
-- Stage 1 is inline, all others are coordinator-delegated
-- State file user_decisions are IMMUTABLE
-- No artificial question limits — generate ALL needed for complete PRD
-- RED validation loops MUST include REFLECTION_CONTEXT for Stage 3
-- Quality gates after Stage 3 and Stage 5 — non-blocking but user-notified
+- State file user_decisions are immutable
+- No artificial question limits -- generate all needed for complete PRD
+- RED validation loops must include REFLECTION_CONTEXT for Stage 3
+- Quality gates after Stage 3 and Stage 5 -- non-blocking but user-notified

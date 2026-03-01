@@ -81,7 +81,7 @@ Panel config files (`requirements/.panel-config.local.md`) use `version: 1`.
 If a future schema change is needed, add migration logic here.
 
 **Current expectations:**
-- `version: 1` — members array with `id`, `role`, `perspective_name`, `question_prefix`, `weight`, `focus_areas`, `prd_section_targets`, `analysis_steps` (step_1-5), `domain_guidance`
+- `version: 1` -- members array with `id`, `role`, `perspective_name`, `question_prefix`, `weight`, `focus_areas`, `prd_section_targets`, `analysis_steps` (step_1-5), `domain_guidance`
 - Top-level fields: `preset`, `domain`, `created`, `updated`
 
 **If panel config is missing or corrupt during resume:**

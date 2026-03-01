@@ -3,19 +3,20 @@ stage: stage-1-setup
 artifacts_written:
   - requirements/.requirements-state.local.md
   - requirements/.requirements-lock
-  - requirements/.panel-config.local.md (conditional — absent in rapid mode)
+  - requirements/.panel-config.local.md (conditional -- absent in rapid mode)
   - requirements/.stage-summaries/stage-1-summary.md
 ---
 
 # Stage 1: Setup & Initialization (Inline)
 
-> This stage runs inline in the orchestrator — no coordinator dispatch.
+> This stage runs inline in the orchestrator -- no coordinator dispatch.
+> **Delegation note:** Stage 1 is the only stage that uses AskUserQuestion directly (per Rule 22). All other stages communicate user needs via `status: needs-user-input` in their summary.
 
-## CRITICAL RULES (must follow — failure-prevention)
+## Critical Rules
 
-1. **Pre-flight validation MUST pass**: If ANY required agent or config file is MISSING, ABORT immediately. Do NOT proceed with partial setup.
-2. **Lock staleness threshold**: Only remove locks older than `state.lock_staleness_hours` (default: 2 hours). NEVER remove fresh locks without user confirmation.
-3. **User decisions are IMMUTABLE**: If resuming, NEVER re-ask mode selection recorded in `user_decisions`.
+1. **Pre-flight validation**: If any required agent or config file is missing, abort immediately. Do not proceed with partial setup.
+2. **Lock staleness threshold**: Only remove locks older than `state.lock_staleness_hours` (default: 2 hours). Never remove fresh locks without user confirmation.
+3. **User decisions are immutable**: If resuming, never re-ask mode selection recorded in `user_decisions`.
 
 ## Step 1.1: MCP Availability Check
 
@@ -27,8 +28,9 @@ CHECK PAL tools:
 - If fails: PAL_AVAILABLE = false
 
 CHECK Sequential Thinking:
-- Try invoking mcp__sequential-thinking__sequentialthinking with a simple thought
-- If fails: ST_AVAILABLE = false
+- Check if mcp__sequential-thinking__sequentialthinking appears in available tools
+- Do not invoke for detection -- tool-list check is sufficient
+- If not found: ST_AVAILABLE = false
 
 CHECK Research MCP (for auto-research in Stage 2):
 - Check if mcp__tavily__tavily_search is available -> RESEARCH_MCP_TAVILY = true/false
@@ -45,26 +47,26 @@ CHECK Research MCP (for auto-research in Stage 2):
 - Notify user: "Tavily MCP available. Auto-research will be offered in Stage 2."
 
 **If RESEARCH_MCP_TAVILY = false AND RESEARCH_MCP_REF = false:**
-- (No notification needed — manual research flow is the default)
+- (No notification needed -- manual research flow is the default)
 
-## Step 1.2: Pre-flight Validation (MUST PASS)
+## Step 1.2: Pre-flight Validation (Must Pass)
 
 Validate all required components exist:
 
 ```bash
-# Check required agents — panel system
+# Check required agents -- panel system
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-builder.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-question-synthesis.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/requirements-prd-generator.md" || echo "MISSING"
 
-# Check required agents — research discovery (used in Stage 2)
+# Check required agents -- research discovery (used in Stage 2)
 test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-business.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-ux.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-technical.md" || echo "MISSING"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/research-question-synthesis.md" || echo "MISSING"
 
-# Check required references — panel builder protocol
+# Check required references -- panel builder protocol
 test -f "$CLAUDE_PLUGIN_ROOT/skills/refinement/references/panel-builder-protocol.md" || echo "MISSING"
 
 # Check required config
@@ -119,37 +121,23 @@ test -f requirements/PRD.md && echo "PRD_EXISTS=true" || echo "PRD_EXISTS=false"
 
 **If state file found:**
 Parse YAML frontmatter, determine current_stage and phase_status.
-Check for schema_version — if v1, migrate per orchestrator-loop.md.
+Check for schema_version -- if v1, migrate per orchestrator-loop.md.
 
 **If PRD.md exists:** PRD_MODE = "EXTEND"
 **If PRD.md does NOT exist:** PRD_MODE = "NEW"
 
-**Case A: User provided draft filename AND no state exists**
-WORKFLOW_MODE = NEW, proceed to Step 1.6
+**Decision table:**
 
-**Case B: State exists with waiting_for_user: true**
-Check for filled QUESTIONS file or research reports.
-Resume to appropriate stage (handled by orchestrator).
+| Condition | Draft Provided | State Exists | PRD Exists | Action |
+|-----------|---------------|-------------|------------|--------|
+| A | Yes | No | -- | WORKFLOW_MODE = NEW, proceed to Step 1.6 |
+| B | -- | Yes (waiting_for_user) | -- | Resume to pause_stage (handled by orchestrator) |
+| C | -- | No | Yes | Ask user: Extend / Regenerate / Review sections |
+| D | No | No | No | Display template instructions, EXIT |
 
-**Case C: PRD.md exists AND no state exists**
-Use AskUserQuestion directly (Stage 1 runs inline):
-```json
-{
-  "questions": [{
-    "question": "An existing PRD.md was found but no workflow state. How would you like to proceed?",
-    "header": "PRD Mode",
-    "multiSelect": false,
-    "options": [
-      {"label": "Extend incomplete sections (Recommended)", "description": "Analyze PRD for gaps and generate questions for missing content"},
-      {"label": "Regenerate entire PRD", "description": "Start fresh PRD generation from draft"},
-      {"label": "Review specific sections", "description": "Choose which sections to improve"}
-    ]
-  }]
-}
-```
+**Case C prompt:** Use AskUserQuestion with options: "Extend incomplete sections (Recommended)", "Regenerate entire PRD", "Review specific sections".
 
-**Case D: No arguments AND no state AND no PRD**
-Inform user:
+**Case D message:**
 ```
 No draft provided and no existing workflow found.
 To start:
@@ -207,7 +195,7 @@ prd_mode: {NEW|EXTEND}" > requirements/.requirements-lock
 - --mode=advanced -> ANALYSIS_MODE = "advanced"
 - --mode=standard -> ANALYSIS_MODE = "standard"
 - --mode=rapid -> ANALYSIS_MODE = "rapid"
-If flag found, skip to Step 1.8.
+If flag found, skip to Step 1.9.
 
 **If PAL_AVAILABLE = false:**
 Only offer Standard and Rapid modes.
@@ -245,16 +233,16 @@ Use AskUserQuestion:
 }
 ```
 
-## Step 1.7.5: Panel Composition
+## Step 1.8: Panel Composition
 
-**Purpose:** Build the MPA panel — the set of specialist perspectives that will generate questions.
+**Purpose:** Build the MPA panel -- the set of specialist perspectives that will generate questions.
 
 ```
 IF ANALYSIS_MODE = rapid:
     → Panel fixed to single panelist (product-strategist default)
     → Skip Panel Builder dispatch
     → Set PANEL_CONFIG_PATH = null (use default single-agent mode)
-    → Proceed to Step 1.8
+    → Proceed to Step 1.9
 
 IF ANALYSIS_MODE in {standard, advanced, complete}:
     → Continue to panel composition below
@@ -284,7 +272,7 @@ Read panel config, display summary to user via AskUserQuestion:
 }
 ```
 
-- **"Use existing panel":** Set `PANEL_CONFIG_PATH = "requirements/.panel-config.local.md"`, skip to Step 1.8
+- **"Use existing panel":** Set `PANEL_CONFIG_PATH = "requirements/.panel-config.local.md"`, skip to Step 1.9
 - **"Reconfigure":** Continue to step 3
 
 ### 2b. If No Panel Config Exists
@@ -321,9 +309,24 @@ Analyze the draft, detect domain signals, and propose a panel.
 ### 3.1 Panel Builder Failure Fallback
 
 **If Panel Builder dispatch fails** (no summary produced, crash, or timeout):
-1. Notify user: "Panel Builder failed. Falling back to default preset."
-2. Use default preset from config (`panel.default_preset`, default: `product-focused`)
-3. Build panel config directly from `config/requirements-config.yaml` -> `panel.presets.{default_preset}` + `panel.available_perspectives`
+1. Notify user: "Panel Builder failed."
+2. Present preset selection via AskUserQuestion:
+```json
+{
+  "questions": [{
+    "question": "Panel Builder could not analyze the draft. Select a panel preset:",
+    "header": "Fallback",
+    "multiSelect": false,
+    "options": [
+      {"label": "Product-focused (Recommended)", "description": "Product Strategist + UX Researcher + Functional Analyst"},
+      {"label": "Consumer", "description": "Product Strategist + UX Researcher + Growth Specialist"},
+      {"label": "Marketplace", "description": "Product Strategist + UX Researcher + Marketplace Dynamics + Growth"},
+      {"label": "Enterprise", "description": "Product Strategist + UX Researcher + Compliance & Regulatory"}
+    ]
+  }]
+}
+```
+3. Build panel config from selected preset + `panel.available_perspectives`
 4. Write panel config to `requirements/.panel-config.local.md` using the template
 5. Skip steps 4-7, proceed to step 8 (Finalize Panel)
 
@@ -409,7 +412,7 @@ user_decisions:
 
 ---
 
-## Step 1.8: State Initialization (CHECKPOINT)
+## Step 1.9: State Initialization (CHECKPOINT)
 
 Create `requirements/.requirements-state.local.md` from template at `$CLAUDE_PLUGIN_ROOT/templates/.requirements-state-template.local.md`.
 
@@ -437,7 +440,7 @@ user_decisions:
 
 **Git Suggestion:**
 ```
-git add requirements/
+git add requirements/.requirements-state.local.md requirements/.requirements-lock requirements/.panel-config.local.md
 git commit -m "wip(req): initialize requirements structure"
 ```
 
@@ -454,7 +457,7 @@ checkpoint: SETUP
 artifacts_written:
   - requirements/.requirements-state.local.md
   - requirements/.requirements-lock
-  - requirements/.panel-config.local.md  # conditional — absent in rapid mode
+  - requirements/.panel-config.local.md  # conditional -- absent in rapid mode
 summary: "Initialized workspace in {PRD_MODE} mode with {ANALYSIS_MODE} analysis, {N}-member panel ({PRESET_NAME})"
 flags:
   analysis_mode: "{ANALYSIS_MODE}"
@@ -470,17 +473,16 @@ flags:
 ---
 ```
 
-## Self-Verification (MANDATORY before writing summary)
+## Self-Verification (Mandatory before writing summary)
 
-BEFORE writing the summary file, verify:
+Before writing the summary file, verify:
 1. `requirements/.requirements-state.local.md` exists with `schema_version: 2`
 2. `requirements/.requirements-lock` exists with timestamp
 3. All workspace directories created (`working/`, `research/`, `analysis/`, `.stage-summaries/`)
 4. `analysis_mode` is one of: `complete`, `advanced`, `standard`, `rapid`
 5. Summary YAML frontmatter has no placeholder values
+6. **Reasoning quality**: if panel mode (not rapid), panel has 2-5 members with distinct perspective names
 
-## CRITICAL RULES REMINDER
+## Critical Rules Reminder
 
-- Pre-flight validation MUST pass before proceeding
-- Lock staleness threshold from config — never remove fresh locks without confirmation
-- Resumed user decisions are IMMUTABLE
+Rules 1-3 above apply. Key: pre-flight validation must pass, fresh locks require confirmation, user decisions are immutable.

@@ -8,11 +8,11 @@ artifacts_written:
 
 > This stage finalizes the workflow: lock release, completion report, and next steps.
 
-## CRITICAL RULES (must follow — failure-prevention)
+## Critical Rules
 
-1. **Lock MUST be released**: Remove `requirements/.requirements-lock` before completing. A stale lock blocks future workflow invocations.
-2. **Completion report MUST have no placeholder values**: All `{N}`, `{M}`, `{S}` must be populated from state and summaries.
-3. **State MUST be finalized**: Set `current_stage: 6` and `stage_status: "completed"` with timestamp.
+1. **Lock must be released**: Remove `requirements/.requirements-lock` before completing. A stale lock blocks future invocations.
+2. **Completion report has no placeholder values**: All `{N}`, `{M}`, `{S}` must be populated from state and summaries.
+3. **State must be finalized**: Set `current_stage: 6` and `stage_status: "completed"` with timestamp.
 
 ## Step 6.1: Generate Completion Report
 
@@ -84,7 +84,7 @@ completed_at: "{ISO_DATE}"
 3. **Create feature specifications** for implementation
 
 ### Git Commands:
-git add requirements/
+git add requirements/PRD.md requirements/decision-log.md requirements/completion-report.md requirements/.requirements-state.local.md
 git commit -m "prd(req): PRD complete"
 git tag prd-v{VERSION}.0.0
 git push origin main --tags
@@ -108,16 +108,15 @@ flags:
 ---
 ```
 
-## Self-Verification (MANDATORY before writing summary)
+## Self-Verification (Mandatory before writing summary)
 
-BEFORE writing the summary file, verify:
+Before writing the summary file, verify:
 1. `requirements/completion-report.md` exists and has populated metrics (no `{N}` placeholders)
 2. Lock file has been removed (`requirements/.requirements-lock` does NOT exist)
 3. State file has `current_stage: 6` and `stage_status: "completed"`
 4. Summary YAML frontmatter has no placeholder values
+5. **Reasoning quality**: completion metrics are internally consistent (total_questions >= total_rounds, validation_score matches Stage 5 summary)
 
-## CRITICAL RULES REMINDER
+## Critical Rules Reminder
 
-- Lock MUST be released — stale locks block future invocations
-- Completion report MUST have no placeholder values
-- State MUST be finalized with stage 6 and "completed" status
+Rules 1-3 above apply. Key: lock must be released, completion report has no placeholders, state must be finalized.

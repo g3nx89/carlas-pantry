@@ -48,7 +48,7 @@ mcp__pal__consensus(
 )
 
 # Step 3 (if 3 models): Process second model's response
-# (if 2 models: this step becomes the synthesis — set next_step_required: false)
+# (if 2 models: this step becomes the synthesis -- set next_step_required: false)
 mcp__pal__consensus(
   step: "Notes on gpt-5.2 (for) response",
   step_number: 3,
@@ -78,8 +78,43 @@ IF all models agree on assessment (unanimous recommendation)
     LOG unanimity_warning in output artifact
     ADD note: "Unanimity warning: all models converged without dissent.
      Consider whether issues may have been overlooked due to sycophantic agreement."
-    (Non-blocking — proceed normally)
+    (Non-blocking -- proceed normally)
 ```
+
+## Score Aggregation
+
+When multiple models produce per-dimension scores:
+
+```
+IF 3 models scored:
+    USE median of 3 scores per dimension
+IF 2 models scored:
+    USE average of 2 scores per dimension
+IF any dimension has divergence >= 2 points between models:
+    FLAG as "high-divergence" in output artifact
+    Note: "Models disagree on {dimension}: scores {list}. Review recommended."
+```
+
+---
+
+## Stance-Violation Detector
+
+After synthesis, check for sycophantic agreement:
+
+```
+FOR each model:
+    COUNT dimensions where model's stance matches its actual scoring behavior:
+    - "against" stance should score at least 2 dimensions strictly (score <= 2)
+    - "for" stance should score at least 2 dimensions generously (score >= 3)
+
+IF "against" model scores similarly to "for" model on 3+ dimensions:
+    FLAG: "Stance violation detected: {against_model} scored similarly to {for_model}.
+           May indicate sycophantic agreement. Consider re-running with explicit
+           challenge prompt."
+    (Non-blocking -- log and proceed)
+```
+
+---
 
 ## Error Handling
 

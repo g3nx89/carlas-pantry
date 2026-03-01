@@ -59,76 +59,23 @@ For each identified question:
    +-------------------------------------------------------------+
 ```
 
-## 2. Recommendation Scoring Algorithm
+## 2. Recommendation Scoring -- Behavioral Anchors
 
-```
-RECOMMENDATION SCORING (per option):
+Use behavioral anchors to assign star ratings. Assess each option holistically rather than summing sub-scores.
 
-1. PRD_COMPLETENESS_SCORE (0-25 points)
-   - Does this option provide clear PRD content? (+5)
-   - Does it resolve ambiguity in the draft? (+5)
-   - Does it define clear boundaries (is/is not)? (+5)
-   - Does it enable measurable success criteria? (+5)
-   - Does it avoid technical implementation details? (+5)
+| Stars | Behavioral Anchor |
+|-------|-------------------|
+| 5 | Convergent ThinkDeep insight + industry best practice. Clear PRD content. Low risk. In Standard/Rapid mode (no ThinkDeep): industry best practice with strong PRD coverage and low risk. |
+| 4 | Strong approach with one known trade-off. Addresses most panel concerns. |
+| 3 | Viable with 2+ trade-offs. Acceptable if context-specific. |
+| 2 | Significant gaps in PRD coverage. Notable risks. |
+| 1 | Does not address the question's uncertainty. |
 
-2. THINKDEEP_ALIGNMENT_SCORE (0-25 points)
-   +------------------------------------------------------------+
-   | MPA agents have ThinkDeep insights when scoring options:    |
-   |                                                             |
-   | - Competitive: Does it address market gaps identified by    |
-   |   ThinkDeep? (+8)                                           |
-   |                                                             |
-   | - Risk: Does it mitigate risks flagged by all 3 models? (+8)|
-   |                                                             |
-   | - Contrarian: Does it survive devil's advocate challenges   |
-   |   raised in ThinkDeep? (+9)                                 |
-   +------------------------------------------------------------+
+**Rule:** Exactly ONE option per question gets "(Recommended)" label.
 
-3. MULTI_PERSPECTIVE_SCORE (0-25 points)
-   Distributed across panel members based on their configured weights:
-
-   FOR each member in PANEL_CONFIG.members:
-     - {member.perspective_name} alignment: +(25 * member.weight) points
-
-   Example with 3 members (weights 0.35, 0.35, 0.30):
-     - Product Strategy alignment: +8.75
-     - User Experience alignment: +8.75
-     - Functional Analysis alignment: +7.50
-     Total: 25 points
-
-   Example with 4 members (weights 0.30, 0.30, 0.20, 0.20):
-     - Product Strategy alignment: +7.5
-     - User Experience alignment: +7.5
-     - Domain Expert alignment: +5.0
-     - Growth & Retention alignment: +5.0
-     Total: 25 points
-
-4. INDUSTRY_PRACTICE_SCORE (0-25 points)
-   - Follows established patterns? (+10)
-   - Proven in similar products? (+10)
-   - Sustainable long-term? (+5)
-
-TOTAL SCORE -> STAR RATING:
-   See config -> scoring.star_rating.*
-
-   90-100: 5 stars (Recommended)
-   75-89:  4 stars
-   60-74:  3 stars
-   40-59:  2 stars
-   0-39:   1 star
-
-RULE: Exactly ONE option per question gets "(Recommended)" label
-
-THINKDEEP INTEGRATION RULES:
------------------------------------------------------------------
-- If ThinkDeep CONVERGENT (all 3 models agree on a risk):
-  -> Option that mitigates it gets +5 bonus
-  -> Option that ignores it gets -5 penalty
-
-- If ThinkDeep DIVERGENT (models disagree):
-  -> Generate options representing EACH model's perspective
-  -> Let user decide based on their context
-```
+**ThinkDeep integration rules:**
+- If ThinkDeep CONVERGENT (all 3 models agree on a risk): option that mitigates it gets +1 star bonus; option that ignores it gets -1 star penalty
+- If ThinkDeep DIVERGENT (models disagree): generate options representing each model's perspective; let user decide based on their context
 
 ## 3. Synthesis Merging Logic
 
@@ -160,7 +107,7 @@ MERGED QUESTION: "What is the primary revenue model?"
     D) Usage-based pricing - from BO
     E) Other (custom answer)
 
-MULTI-PERSPECTIVE CONTEXT (dynamic — one line per panel member):
+MULTI-PERSPECTIVE CONTEXT (dynamic -- one line per panel member):
   [target] Product Strategy: "Recurring revenue enables predictable growth"
   [user] User Experience: "Subscription fatigue is real - consider value perception"
   [magnifier] Functional Analysis: "Usage-based requires metering workflows"
@@ -237,7 +184,7 @@ This is the complete format for questions in `QUESTIONS-{NNN}.md`:
 
 ## 6. Question Generation Pipeline (Design Overview)
 
-> This section is design documentation — not needed during execution.
+> This section is design documentation -- not needed during execution.
 > Included for understanding the end-to-end flow.
 
 ```

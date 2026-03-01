@@ -1,10 +1,10 @@
 # Requirements Refinement Configuration
-# Version: 3.0.0
+# Version: 3.1.0
 #
 # Plugin: product-definition
 # Skill: refinement (migrated from /product-definition:requirements command)
 
-version: "3.0.0"
+version: "3.1.0"
 last_updated: "2026-02-28"
 
 # =============================================================================
@@ -573,21 +573,26 @@ token_budgets:
   # Orchestrator MUST only load listed references for each stage
   stage_dispatch_profiles:
     stage_2:
+      timeout_minutes: 15
       shared_refs: ["checkpoint-protocol.md", "error-handling.md"]
-      config_yaml: false  # Only needs research_discovery section — stage file has it inline
+      config_yaml: false  # Only needs research_discovery section -- stage file has it inline
     stage_3:
+      timeout_minutes: 30
       shared_refs: ["checkpoint-protocol.md", "error-handling.md"]
       config_yaml: true   # Needs PAL config, scoring thresholds
       extra_refs: ["option-generation-reference.md"]
     stage_4:
+      timeout_minutes: 15
       shared_refs: ["checkpoint-protocol.md", "error-handling.md"]
       config_yaml: true   # Needs PAL Consensus config, completion thresholds
     stage_5:
+      timeout_minutes: 20
       shared_refs: ["checkpoint-protocol.md", "error-handling.md"]
       config_yaml: true   # Needs PAL Consensus config, readiness thresholds
     stage_6:
+      timeout_minutes: 5
       shared_refs: ["checkpoint-protocol.md"]
-      config_yaml: false  # Completion only — no PAL, no error recovery needed
+      config_yaml: false  # Completion only -- no PAL, no error recovery needed
 
   # Per-source content limits when injecting into coordinator context
   per_source:
@@ -597,6 +602,7 @@ token_budgets:
     stage_summary: 1000        # Per individual summary
     stage_summaries_total: 3000 # All prior summaries combined
     state_file: 1500
+    reflection_context: 1500     # Max tokens for REFLECTION_CONTEXT passed to Stage 3
 
   # Per-agent limits for MPA agents
   per_agent:
@@ -648,7 +654,7 @@ git:
 # =============================================================================
 
 limits:
-  max_rounds: 100  # Circuit breaker - ask user to proceed after 100
+  max_rounds: 10   # Circuit breaker - ask user to proceed after 10 (soft warning at 5)
   # NO LIMIT on questions - generate ALL necessary for complete PRD
   max_questions_total: null      # No artificial limit
   max_questions_per_round: null  # No artificial limit per round
@@ -676,7 +682,14 @@ scoring:
 
   # ThinkDeep Completion (Stage 3 Quality Gate)
   thinkdeep_completion:
-    minimum_pct: 60  # Warn user if actual ThinkDeep calls < this % of expected
+    minimum_pct: 60          # Warn user if actual ThinkDeep calls < this % of expected
+    auto_downgrade_pct: 40   # Auto-downgrade to Standard if completion < this %
+    shallow_signal_min_findings: 2  # Skip Steps 2-3 if Step 1 returns < this many specific findings
+
+  # Stagnation Detection (Orchestrator Reflexion Loop)
+  stagnation:
+    min_improvement_points: 2  # Minimum score improvement over last 2 RED rounds to avoid stagnation
+    check_after_round: 3       # Only check stagnation after this many rounds
 
   # Completion Rate Thresholds (Stage 4: Response Analysis)
   completion:

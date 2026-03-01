@@ -10,19 +10,19 @@ artifacts_written:
 > On first entry, it presents the questions file and exits for offline response.
 > On re-entry (after user fills answers), it parses and analyzes responses.
 
-## CRITICAL RULES (must follow — failure-prevention)
+## Critical Rules
 
-1. **ENTRY_TYPE determines behavior**: If `ENTRY_TYPE` context variable is `"re_entry_after_user_input"`, skip directly to Step 4.3. If `"first_entry"`, start at Step 4.2. NEVER confuse entry points.
-2. **100% completion REQUIRED**: All questions MUST be answered. Do NOT proceed to gap analysis with unanswered questions.
-3. **Consensus requires minimum 2 models**: If < 2 PAL models available, FAIL and notify user — do NOT attempt Consensus.
-4. **next_action MUST be set**: Summary MUST include `flags.next_action` with one of: `loop_questions`, `loop_research`, `proceed`.
+1. **ENTRY_TYPE determines behavior**: If `"re_entry_after_user_input"`, skip to Step 4.3. If `"first_entry"`, start at Step 4.2. Never confuse entry points.
+2. **100% completion required**: All questions must be answered. Do not proceed to gap analysis with unanswered questions.
+3. **Consensus requires minimum 2 models**: If < 2 PAL models available, fail and notify user.
+4. **next_action must be set**: Summary must include `flags.next_action` with one of: `loop_questions`, `loop_research`, `proceed`.
 
 ## Step 4.1: Determine Entry Point
 
 Check the `ENTRY_TYPE` context variable provided by the orchestrator:
 - If `ENTRY_TYPE: "re_entry_after_user_input"` -> Re-entry (Step 4.3)
 - If `ENTRY_TYPE: "first_entry"` -> First entry (Step 4.2)
-- **Fallback** (if ENTRY_TYPE not provided): Check state — if `waiting_for_user: true` AND `pause_stage: 4` -> Re-entry, otherwise -> First entry
+- **Fallback** (if ENTRY_TYPE not provided): Check state -- if `waiting_for_user: true` AND `pause_stage: 4` -> Re-entry, otherwise -> First entry
 
 ## Step 4.2: Present Questions and Pause (First Entry)
 
@@ -73,14 +73,14 @@ if [ "$SELECTION_COUNT" -lt "$QUESTION_COUNT" ]; then
 fi
 ```
 
-**MANDATORY validation checks (ALL must pass):**
-1. File MUST exist
-2. Frontmatter MUST be present with metadata
-3. Each Q-XXX MUST have question text and 3+ checkbox options
-4. Each question MUST have at least one `[x]` selection
+**Mandatory validation checks (all must pass):**
+1. File must exist
+2. Frontmatter must be present with metadata
+3. Each Q-XXX must have question text and 3+ checkbox options
+4. Each question must have at least one `[x]` selection
 5. No corrupted checkbox patterns
 
-**On validation failure:** Report issues, set `status: needs-user-input` with `pause_type: interactive` asking user to fix. Do NOT proceed with partial data.
+**On validation failure:** Report issues, set `status: needs-user-input` with `pause_type: interactive` asking user to fix. Do not proceed with partial data.
 
 ## Step 4.4: Parse Responses
 
@@ -161,15 +161,19 @@ Output: `requirements/analysis/response-validation-round-{N}.md`
 
 ### If ANALYSIS_MODE in ["advanced", "standard", "rapid"] OR PAL unavailable:
 
-Skip PAL validation — use direct gap analysis based on PRD section mapping.
+Skip PAL validation -- use direct gap analysis based on PRD section mapping.
 
 ## Step 4.7: Determine Next Action
 
-**If significant gaps remain:**
+**Gap significance thresholds:**
+- SIGNIFICANT = 2+ required PRD sections MISSING OR 1+ CRITICAL gap unresolved
+- MINIMAL = all required sections at PARTIAL/COMPLETE, no CRITICAL gaps
+
+**If gaps are SIGNIFICANT:**
 Set `status: needs-user-input` with `pause_type: interactive`:
 ```yaml
 flags:
-  block_reason: "Gaps found — ask user how to proceed"
+  block_reason: "Gaps found -- ask user how to proceed"
   question_context:
     question: "Gap analysis found {N} areas needing clarification. How to proceed?"
     header: "Gaps"
@@ -186,7 +190,7 @@ flags:
     "Proceed to PRD anyway": "proceed"
 ```
 
-**If gaps are minimal:**
+**If gaps are MINIMAL:**
 Set `flags.next_action: proceed`
 
 ## Step 4.8: Update State (CHECKPOINT)
@@ -226,18 +230,16 @@ flags:
 ---
 ```
 
-## Self-Verification (MANDATORY before writing summary)
+## Self-Verification (Mandatory before writing summary)
 
-BEFORE writing the summary file, verify:
+Before writing the summary file, verify:
 1. If re-entry: all questions have `[x]` selections (100% completion)
-2. `flags.next_action` is set to one of the three valid values — NEVER null on completed status
+2. `flags.next_action` is set to one of the three valid values -- never null on completed status
 3. If PAL Consensus ran: `requirements/analysis/response-validation-round-{N}.md` exists
 4. State file was updated with `current_stage: 4`
 5. Summary YAML frontmatter has no placeholder values
+6. **Reasoning quality**: gap descriptions reference specific PRD sections (not generic "needs more detail")
 
-## CRITICAL RULES REMINDER
+## Critical Rules Reminder
 
-- ENTRY_TYPE determines first-entry vs re-entry — never confuse the two
-- 100% completion required — do not proceed with unanswered questions
-- Consensus requires minimum 2 models
-- next_action MUST always be set in summary flags
+Rules 1-4 above apply. Key: ENTRY_TYPE determines behavior, 100% completion required, consensus needs 2+ models, next_action must be set.

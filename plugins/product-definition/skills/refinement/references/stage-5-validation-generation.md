@@ -9,13 +9,13 @@ artifacts_written:
 
 > This stage validates PRD readiness and generates/extends the PRD.
 
-## CRITICAL RULES (must follow — failure-prevention)
+## Critical Rules
 
-1. **RED validation = NO PRD generation**: If validation score < `conditional` threshold, set `flags.next_action: "loop_questions"` and STOP. Do NOT generate PRD.
-2. **Technical content MUST be filtered**: PRD MUST NOT contain any forbidden technical keywords. Scan and remove BEFORE finalizing.
-3. **EXTEND mode preserves existing sections**: NEVER overwrite complete sections in existing PRD. Only add/update incomplete sections.
-4. **Consensus requires minimum 2 models**: If < 2 PAL models available after failures, FAIL and notify user.
-5. **All file paths MUST be absolute** in PAL `relevant_files` parameter.
+1. **RED validation = no PRD generation**: If validation score < `conditional` threshold, set `flags.next_action: "loop_questions"` and stop.
+2. **Technical content filtered**: PRD must not contain any forbidden technical keywords. Scan and remove before finalizing.
+3. **EXTEND mode preserves existing sections**: Never overwrite complete sections. Only add/update incomplete sections.
+4. **Consensus requires minimum 2 models**: If < 2 PAL models available after failures, fail and notify user.
+5. **Absolute paths only** in PAL `relevant_files` parameter.
 
 ## Step 5.1: Validation Level Selection
 
@@ -86,12 +86,12 @@ DIMENSION CHECKLIST (score 1-4 each):
 6. Feature Inventory - Is scope clear (what's in/out)?
 7. No Technical Content - Is PRD free of implementation details? (MUST be 4/4)
 
-SCORING PROTOCOL (MANDATORY — evidence before score):
+SCORING PROTOCOL (MANDATORY -- evidence before score):
 For EACH dimension above:
   1. FIRST cite specific evidence from the answered questions (quote or reference Q-IDs)
   2. THEN identify what is missing or weak for that dimension
   3. ONLY THEN assign the 1-4 score with a one-line justification
-Do NOT assign scores without citing evidence — unjustified scores are unreliable.
+Do NOT assign scores without citing evidence -- unjustified scores are unreliable.
 
 MY INITIAL FINDINGS:
 - Questions answered: {N}/{TOTAL}
@@ -105,8 +105,30 @@ Recommendation: READY (>=16), CONDITIONAL (12-15), or NOT READY (<12).
 
 **Step 1 findings:** `"Initial assessment: {N}/{TOTAL} questions answered. Gaps: {list}. Contradictions: {list}."`
 
-### If Single model / Internal validation:
-Perform internal evaluation using the same 7 dimensions. Score 1-4 each.
+### If Single Model / Internal Validation:
+
+Perform internal evaluation using the same 7 dimensions with structured chain-of-thought:
+
+```
+FOR each dimension in [product_definition, target_users, problem_validation,
+                        value_proposition, workflow_coverage, feature_inventory,
+                        no_technical_content]:
+    1. EVIDENCE GATHERING: Cite specific Q-IDs and user decisions that inform this dimension
+       Example: "Q-PSQ001 (selected: SaaS subscription), Q-UXQ003 (selected: power users)"
+    2. GAP IDENTIFICATION: What is still missing or weak for this dimension?
+       Example: "No anti-persona defined. Secondary persona vague."
+    3. SCORE with behavioral anchor:
+       1 = missing (no coverage from answered questions)
+       2 = stated (mentioned but not bounded or measurable)
+       3 = bounded (clear scope with constraints)
+       4 = bounded + measurable (clear scope with success metrics)
+    4. ONE-LINE justification referencing evidence
+
+CALCULATE total: raw_sum = sum of all 7 dimension scores (max 28)
+SCALE to /20: score_20 = (raw_sum / 28) * 20
+```
+
+**Score aggregation for consensus:** See `consensus-call-pattern.md`.
 
 ### If Skip validation:
 Proceed to Step 5.4 with warning: "PRD generated without validation gate"
@@ -129,7 +151,7 @@ flags:
   validation_score: {N}
   next_action: "loop_questions"
 ```
-Do NOT proceed to PRD generation. Orchestrator will loop back to Stage 3.
+Do not proceed to PRD generation. Orchestrator will loop back to Stage 3.
 
 ## Step 5.4: Launch PRD Generator
 
@@ -225,19 +247,17 @@ flags:
 ---
 ```
 
-## Self-Verification (MANDATORY before writing summary)
+## Self-Verification (Mandatory before writing summary)
 
-BEFORE writing the summary file, verify:
+Before writing the summary file, verify:
 1. If validation passed: `requirements/PRD.md` exists and is non-empty
 2. If validation passed: `requirements/decision-log.md` exists
 3. PRD does NOT contain any forbidden technical keywords (run scan)
 4. If RED validation: PRD was NOT generated and `flags.next_action` = `"loop_questions"`
 5. State file was updated with `current_stage: 5`
 6. Summary YAML frontmatter has no placeholder values
+7. **Reasoning quality**: each dimension score cites evidence (Q-ID or decision key)
 
-## CRITICAL RULES REMINDER
+## Critical Rules Reminder
 
-- RED validation = NO PRD generation — loop back to Stage 3
-- Technical content MUST be filtered from PRD
-- EXTEND mode preserves existing complete sections
-- Consensus requires minimum 2 models
+Rules 1-5 above apply. Key: RED = no PRD generation (loop back), technical content must be filtered, EXTEND preserves existing sections, consensus needs 2+ models.

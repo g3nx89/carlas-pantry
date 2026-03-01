@@ -26,6 +26,15 @@ FOR each stage in dispatch order [1, 2, 3, 4, 5, 6]:
 
     IF stage == 1:
         EXECUTE inline (read stage-1-setup.md, execute directly)
+    ELSE IF stage == 3 AND ANALYSIS_MODE in {complete, advanced}:
+        ## Stage 3 Sub-Coordinator Split (F-016)
+        DISPATCH 3A coordinator (ThinkDeep only -- reads stage-3-analysis-questions.md Part A)
+        READ 3A summary, HANDLE status
+        DISPATCH 3B coordinator (MPA only -- reads stage-3-analysis-questions.md Part B)
+        READ 3B summary, HANDLE status
+    ELSE IF stage == 3 AND ANALYSIS_MODE in {standard, rapid}:
+        DISPATCH single coordinator (Part B only -- skips ThinkDeep)
+        READ coordinator summary, HANDLE status
     ELSE:
         DISPATCH coordinator (see Coordinator Dispatch below)
 
@@ -47,9 +56,13 @@ For stages 2-6, dispatch a coordinator subagent using the **per-stage dispatch p
 | 3 (Analysis) | checkpoint-protocol, error-handling | Yes | option-generation-reference |
 | 4 (Response) | checkpoint-protocol, error-handling | Yes | consensus-call-pattern |
 | 5 (Validation) | checkpoint-protocol, error-handling | Yes | consensus-call-pattern |
-| 6 (Completion) | checkpoint-protocol | No | — |
+| 6 (Completion) | checkpoint-protocol | No | -- |
 
-### Dispatch Template
+### Dispatch Profiles
+
+Select the appropriate profile based on dispatch context. Each profile is self-contained.
+
+#### Profile A: First-Round Dispatch (no reflection, no prior summaries)
 
 ```
 Task(subagent_type="general-purpose", prompt="""
@@ -65,57 +78,60 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{STAGE_FILE}
 - Current round: {ROUND_NUMBER}
 - PAL available: {PAL_AVAILABLE}
 - Sequential Thinking available: {ST_AVAILABLE}
-- Entry type: {ENTRY_TYPE}  # "first_entry" or "re_entry_after_user_input"
-- Panel config: {PANEL_CONFIG_PATH}  # null if rapid mode, path to .panel-config.local.md otherwise
-- Research MCP available: {RESEARCH_MCP_AVAILABLE}  # true if Tavily detected
+- Entry type: {ENTRY_TYPE}
+- Panel config: {PANEL_CONFIG_PATH}
+- Research MCP available: {RESEARCH_MCP_AVAILABLE}
 
-{IF REFLECTION_CONTEXT is non-empty (Stage 3 re-dispatch after RED validation):}
-## Reflection from Previous Round
-{REFLECTION_CONTEXT}
+## Shared References
+{SHARED_REFS_FOR_STAGE}
 
-## Shared References (load ONLY those listed for this stage)
-{IF stage needs checkpoint-protocol:}
-- Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/checkpoint-protocol.md
-{IF stage needs error-handling:}
-- Error handling: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/error-handling.md
-{IF stage needs config YAML:}
-- Config: @$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml
-{IF stage has extra refs:}
-- {extra_ref}: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{extra_ref}
+## State File (frontmatter only)
+{YAML FRONTMATTER OF requirements/.requirements-state.local.md}
 
+## Rules
+- Do not interact with users directly. Use status: needs-user-input with flags.block_reason.
+- Write summary to requirements/.stage-summaries/stage-{N}-summary.md per `references/summary-contract.md`.
+- Update state file after completing work.
+- Run self-verification checks before writing summary.
+""")
+```
+
+#### Profile B: Subsequent-Round Dispatch (prior summaries, no reflection)
+
+Same as Profile A, plus:
+
+```
 ## Prior Stage Summaries
 {IF current_round <= compaction.rounds_before_compaction:}
   {CONTENTS OF requirements/.stage-summaries/stage-*-summary.md}
 {ELSE:}
   {CONTENTS OF requirements/.stage-summaries/rounds-digest.md}
   {CONTENTS OF current round stage summaries only}
+```
 
-## State File (frontmatter only — omit workflow log for context efficiency)
-{YAML FRONTMATTER OF requirements/.requirements-state.local.md}
+#### Profile C: Reflection Dispatch (prior summaries + REFLECTION_CONTEXT)
 
-## CRITICAL RULES
-- You MUST NOT interact with users directly. If you need user input,
-  write your summary with status: needs-user-input and describe what
-  you need in flags.block_reason.
-- You MUST write a summary file at requirements/.stage-summaries/stage-{N}-summary.md
-  with YAML frontmatter following the summary contract in SKILL.md.
-- You MUST update the state file after completing your work.
-- You MUST run self-verification checks listed at the end of your stage file
-  BEFORE writing your summary.
-""")
+Same as Profile B, plus:
+
+```
+## Reflection from Previous Round
+{REFLECTION_CONTEXT}
+
+## Prior Reflection Accountability
+{REFLECTION_DIFF from cross-round reflection analysis}
 ```
 
 ### ENTRY_TYPE Variable
 
 Set `ENTRY_TYPE` based on orchestrator state:
-- `"re_entry_after_user_input"` — when `waiting_for_user` was true and user has returned
-- `"first_entry"` — all other cases
+- `"re_entry_after_user_input"` -- when `waiting_for_user` was true and user has returned
+- `"first_entry"` -- all other cases
 
 This eliminates ambiguity for Stage 4 (present questions vs parse answers) and Stage 2 (research agenda vs synthesis).
 
 ### Variable Defaults
 
-Every dispatch variable MUST have a defined fallback to prevent malformed coordinator prompts:
+Every dispatch variable must have a defined fallback to prevent malformed coordinator prompts:
 
 | Variable | Default | Rationale |
 |----------|---------|-----------|
@@ -124,10 +140,11 @@ Every dispatch variable MUST have a defined fallback to prevent malformed coordi
 | `ST_AVAILABLE` | `false` | Assume unavailable; coordinators use internal reasoning as fallback |
 | `REFLECTION_CONTEXT` | `""` (empty) | First round or non-RED re-entry; Stage 3 checks presence before using |
 | `ROUND_NUMBER` | `1` | First invocation default |
-| `ANALYSIS_MODE` | `"standard"` | Safest mode — no MCP dependency |
+| `ANALYSIS_MODE` | `"standard"` | Safest mode -- no MCP dependency |
 | `PRD_MODE` | `"NEW"` | Default to new PRD creation |
 | `PANEL_CONFIG_PATH` | `null` | null = rapid mode (single agent); otherwise path to `.panel-config.local.md` |
 | `RESEARCH_MCP_AVAILABLE` | `false` | Assume unavailable; Stage 2 falls back to manual research |
+| `TIMEOUT_MINUTES` | Per-stage from config `stage_dispatch_profiles` | Coordinators self-enforce soft timeout |
 
 **Precedence rule:** State file values always override defaults. Apply defaults only when the variable has no value in state AND was not explicitly set by a prior stage.
 
@@ -192,60 +209,9 @@ Check `flags.pause_type`:
 
 ## Quality Gate Protocol
 
-After stages that produce user-facing artifacts, the orchestrator performs a lightweight quality check
-on the coordinator's output. This supplements the coordinator's internal self-verification.
+**Full protocol:** `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/quality-gates.md`
 
-### After Stage 3 (Questions Generated)
-
-```
-READ requirements/working/QUESTIONS-{NNN}.md
-
-QUALITY CHECKS:
-1. Section coverage: every required PRD section (from config -> prd.sections where required=true)
-   has at least 1 question targeting it
-2. Option distinctness: spot-check 3 random questions — options should represent
-   genuinely different approaches, not minor variations of the same idea
-3. Priority balance: at least 1 CRITICAL question exists; not all questions are MEDIUM
-4. ThinkDeep completion (if mode in {complete, advanced}):
-   READ flags.thinkdeep_completion_pct from Stage 3 summary
-   READ flags.thinkdeep_calls and flags.thinkdeep_expected from Stage 3 summary
-   READ minimum_pct from config -> scoring.thinkdeep_completion.minimum_pct
-   IF thinkdeep_completion_pct < minimum_pct:
-     WARN: "ThinkDeep analysis significantly degraded: {thinkdeep_calls}/{thinkdeep_expected}
-            calls succeeded ({thinkdeep_completion_pct}%). Question quality may be reduced
-            compared to full {ANALYSIS_MODE} mode. Consider re-running with Standard mode
-            if PAL issues persist."
-
-IF issues found:
-    LOG quality_warnings in state file
-    ADD flags.quality_warnings to Stage 3 summary (append, don't overwrite)
-    NOTIFY user: "Quality note: {issue}. Questions are still usable."
-    (Do NOT block — proceed to Stage 4)
-```
-
-### After Stage 5 (PRD Generated)
-
-```
-IF flags.validation_decision in ["READY", "CONDITIONAL"]:
-    READ requirements/PRD.md
-
-    QUALITY CHECKS:
-    1. Section completeness: all required sections are present and non-empty
-       EXCEPTION: "Executive Summary" is a synthesis section generated last —
-       exclude it from this check (its absence is not a quality issue)
-    2. Technical filter: quick grep for top 5 forbidden keywords
-       (API, backend, database, architecture, implementation)
-    3. Decision traceability: requirements/decision-log.md exists and is non-empty
-
-    IF issues found:
-        LOG quality_warnings in state file
-        NOTIFY user before proceeding to Stage 6:
-            "Quality note: {issues}. Review PRD.md before finalizing."
-```
-
-**Design rationale:** These checks are non-blocking to avoid halting the workflow for minor issues.
-The user is notified and can address issues after completion. Critical issues (RED validation, missing PRD)
-are already caught by Stage 5's validation logic.
+After Stage 3 and Stage 5, the orchestrator performs structural validation (blocking) and quality checks (non-blocking). Load the quality-gates reference for detailed check procedures.
 
 ---
 
@@ -278,7 +244,38 @@ If Stage 5 validation result is RED (score < config -> `scoring.prd_readiness.co
 IF flags.validation_decision == "NOT_READY":
     INCREMENT state.current_round
 
-    ## REFLEXION STEP — generate reflection before re-dispatching Stage 3
+    ## STAGNATION CHECK (before generating reflection)
+    IF current_round >= config -> scoring.stagnation.check_after_round (default: 3):
+        READ validation scores from last 2 RED rounds
+        IF score has NOT improved by >= config -> scoring.stagnation.min_improvement_points (default: 2) over last 2 RED rounds:
+            Present user decision via AskUserQuestion:
+            - "Force PRD generation with current information"
+            - "Change analysis approach (try different mode or panel)"
+            - "Continue with another round"
+            IF user chooses "Force PRD": DISPATCH Stage 5 with flags.skip_validation = true
+            IF user chooses "Change approach": ask for new mode, re-dispatch Stage 3
+            IF user chooses "Continue": proceed to REFLEXION STEP below
+
+    ## REFLEXION STEP -- generate reflection before re-dispatching Stage 3
+
+    ### Prior Reflection Accountability (if round >= 3)
+    IF prior reflection file exists at requirements/.stage-summaries/reflection-round-{N-1}.md:
+        READ prior reflection recommendations
+        FOR each recommendation:
+            Classify as:
+            - "addressed-improved": recommendation was followed AND score improved in that dimension
+            - "addressed-no-improvement": recommendation was followed but dimension score unchanged
+            - "not-addressed": recommendation was NOT followed in the latest round
+        Build REFLECTION_DIFF table:
+        | Recommendation | Status | Evidence |
+        |---------------|--------|----------|
+        | Focus on workflows | addressed-improved | workflow_coverage: 2 -> 3 |
+        | Deeper persona options | not-addressed | target_users: 2 -> 2 |
+
+        IF 2+ recommendations have status "not-addressed" for 2 consecutive rounds:
+            ESCALATE: Include in REFLECTION_CONTEXT as "PERSISTENT BLIND SPOTS"
+            Notify user: "These areas have not improved despite reflection: {list}"
+
     READ Stage 4 summary (gaps found, completion rate)
     READ Stage 5 summary (validation score, weak dimensions)
     READ prior round's Stage 3 summary (questions count, analysis mode)
@@ -307,7 +304,8 @@ IF flags.validation_decision == "NOT_READY":
     """
 
     PERSIST REFLECTION_CONTEXT to: requirements/.stage-summaries/reflection-round-{N}.md
-    (Enables crash recovery — if orchestrator crashes after generating reflection but
+    LIMIT: config -> token_budgets.per_source.reflection_context (default: 1500 tokens)
+    (Enables crash recovery -- if orchestrator crashes after generating reflection but
      before dispatching Stage 3, the reflection is recovered from this file on re-invocation)
 
     Notify user: "PRD not ready. Score: {score}/20. Generating more questions with reflection on gaps."
@@ -355,61 +353,18 @@ IF current_round > compaction.rounds_before_compaction (default: 3):
 
 #### Rounds-Digest Template
 
-```yaml
----
-digest_version: 1
-rounds_covered: [1, 2, 3]
-generated_at: "{ISO_TIMESTAMP}"
-total_questions_asked: {N}
-total_questions_answered: {N}
-modes_used: ["complete", "standard"]
----
-```
+**Full template and rules:** See `quality-gates.md` -> "Rounds-Digest Template" section.
 
-```markdown
-## Per-Round Summary
-
-| Round | Mode | Questions | Completion | Gaps Found | ThinkDeep % | Outcome |
-|-------|------|-----------|------------|------------|-------------|---------|
-| 1 | complete | 14 | 100% | 3 | 100% | loop_questions |
-| 2 | standard | 8 | 100% | 1 | N/A | proceed |
-| 3 | standard | 5 | 100% | 0 | N/A | RED (score 11/20) |
-
-## Cumulative User Decisions
-
-| Decision Key | Value | Round |
-|-------------|-------|-------|
-| analysis_mode_round_1 | complete | 1 |
-| analysis_mode_round_2 | standard | 2 |
-| gap_action_round_1 | loop_questions | 1 |
-
-## Persistent Gap Tracker
-
-Track gap IDs that persist across rounds (used by REFLECTION_CONTEXT):
-
-| Gap ID | Section | First Seen | Status | Resolved In |
-|--------|---------|------------|--------|-------------|
-| GAP-001 | Revenue Model | Round 1 | resolved | Round 2 |
-| GAP-002 | Target Users | Round 1 | open | — |
-| GAP-003 | Workflows | Round 2 | open | — |
-
-## Key Insights (1 line per round)
-
-- **Round 1**: Initial 14 questions; ThinkDeep flagged revenue model uncertainty as CRITICAL
-- **Round 2**: Follow-up 8 questions resolved revenue model; new gaps in workflows
-- **Round 3**: Validation RED (11/20) — weak on workflows and feature inventory
-```
-
-**Digest rules:**
-- Total MUST NOT exceed `config -> token_budgets.compaction.digest_max_lines` (default: 100 lines)
-- Persistent Gap Tracker MUST include gap IDs that survive compaction for cross-round reflection
-- Per-Round Summary includes ThinkDeep completion % to track degradation history
+Summary: YAML frontmatter with `rounds_covered`, per-round table, cumulative user decisions, persistent gap tracker, and key insights. Max lines from config `token_budgets.compaction.digest_max_lines`.
 
 ### Circuit Breaker
 
-From config: `limits.max_rounds: 100`
+From config: `limits.max_rounds` (default: 10)
 
 ```
+IF current_round == 5:
+    WARN user: "Round 5 of {max_rounds}. Consider forcing PRD generation if gaps are minor."
+
 IF current_round > max_rounds:
     Notify user: "Circuit breaker: {max_rounds} rounds reached."
     Ask: "Force PRD generation with current information?" or "Continue?"

@@ -74,6 +74,29 @@ model_failures:
 4. If "Continue": Mark model as skipped, proceed with remaining
 5. Update state with `thinkdeep_failures` array
 
+### ThinkDeep Auto-Downgrade
+
+After all ThinkDeep chains complete (or fail), calculate `thinkdeep_completion_pct`:
+
+```
+thinkdeep_completion_pct = (successful_calls / expected_calls) * 100
+
+IF thinkdeep_completion_pct < config -> scoring.thinkdeep_completion.auto_downgrade_pct (default: 40%):
+    Notify user: "ThinkDeep analysis severely degraded ({completion_pct}% completed).
+                  Automatically downgrading to Standard mode for this round."
+    Present override option via AskUserQuestion:
+      - "Accept downgrade to Standard (Recommended)"
+      - "Continue with degraded ThinkDeep results"
+      - "Abort and investigate PAL issues"
+    IF user accepts downgrade:
+        SET ANALYSIS_MODE = "standard" for this round
+        Skip remaining ThinkDeep calls
+        Proceed to Part B with no ThinkDeep insights
+    Log: auto_downgrade event in state file
+```
+
+This is also checked in `quality-gates.md` -> After Stage 3 as a blocking gate.
+
 ### Consensus Failure Recovery (Stages 4, 5)
 
 1. Log the failure
@@ -101,7 +124,7 @@ When MCP tools are unavailable at startup (detected in Stage 1):
 - Mark outputs as "Generated without Sequential Thinking"
 
 ### Research MCP Unavailable
-- No notification needed — manual research is the default flow
+- No notification needed -- manual research is the default flow
 - Auto-research option is simply not presented in Stage 2 decision
 - All analysis modes remain available (research MCP is orthogonal to PAL/ST)
 
@@ -109,7 +132,7 @@ When MCP tools are unavailable at startup (detected in Stage 1):
 
 ## Research MCP Failure Recovery (Stage 2)
 
-Research MCP failures are **non-blocking** — research is optional, and auto-research is a convenience enhancement.
+Research MCP failures are **non-blocking** -- research is optional, and auto-research is a convenience enhancement.
 
 ### Tavily Search Failure
 
@@ -127,7 +150,7 @@ Research MCP failures are **non-blocking** — research is optional, and auto-re
 1. Log failure to state: `model_failures.append({tool: "tavily_search", stage: 2, error: "...", timestamp: "..."})`
 2. If some queries completed: Use partial results, note incompleteness in synthesis
 3. If no queries completed: Fall back to manual research flow (offer agenda generation)
-4. **NEVER block the workflow** — research is optional
+4. **Never block the workflow** -- research is optional
 
 ### Ref Documentation Failure
 - **Action:** Log, skip tech documentation section, proceed with Tavily results only
@@ -150,16 +173,41 @@ If the Panel Builder subagent fails (crash, timeout, no output):
 3. Build panel config from preset members + `panel.available_perspectives` registry
 4. Write directly to `requirements/.panel-config.local.md`
 5. Log: `model_failures.append({tool: "panel-builder", stage: 1, error: "...", action_taken: "fallback_to_default_preset"})`
-6. Continue to Step 1.8 (State Initialization)
+6. Continue to Step 1.9 (State Initialization)
 
-**Key:** Panel Builder failure is **non-blocking** — the default preset always produces a valid panel.
+**Key:** Panel Builder failure is **non-blocking** -- the default preset always produces a valid panel.
+
+---
+
+## Coordinator Timeout
+
+Coordinators self-enforce a soft timeout from config `token_budgets.stage_dispatch_profiles.stage_N.timeout_minutes`:
+
+```
+IF elapsed_time > timeout_minutes:
+    Write partial summary with:
+      status: completed
+      flags:
+        timeout: true
+        partial: true
+        completed_steps: [list of steps completed before timeout]
+    Proceed with whatever artifacts were produced
+```
+
+The orchestrator reads `flags.timeout: true` and notifies the user: "Stage {N} timed out after {M} minutes. Proceeding with partial results."
+
+---
+
+## Known Limitations
+
+- **Lock race condition**: The lock file mechanism assumes single-session usage. If two CLI sessions invoke the workflow simultaneously, both may acquire the lock. This is acceptable because Claude Code is inherently single-session per project directory.
 
 ---
 
 ## Critical Rules
 
-1. **NEVER substitute models** - If gpt-5.2 fails, do NOT use a different model in its place. _Note: This is an intentional deviation from PAL mastery's "graceful degradation" guidance. In requirements workflows, PRD decisions must be traceable to specific models for audit purposes. Swapping a different model mid-workflow would break traceability of which model influenced which product decision._
-2. **ALWAYS notify user** - Every failure must be shown to the user
+1. **Never substitute models** - If gpt-5.2 fails, do not use a different model in its place. _Note: This is an intentional deviation from PAL mastery's "graceful degradation" guidance. In requirements workflows, PRD decisions must be traceable to specific models for audit purposes. Swapping a different model mid-workflow would break traceability of which model influenced which product decision._
+2. **Always notify user** - Every failure must be shown to the user
 3. **Minimum 2 for consensus** - PAL Consensus cannot proceed with < 2 models
 4. **Log everything** - All failures and recovery actions must be logged to state
 5. **Graceful degradation** - If MCP unavailable, fall back to internal capabilities

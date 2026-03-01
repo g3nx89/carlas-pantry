@@ -10,13 +10,13 @@ artifacts_written:
 
 > This stage executes ThinkDeep analysis (if mode requires) then launches MPA agents for question generation.
 
-## CRITICAL RULES (must follow — failure-prevention)
+## Critical Rules
 
-1. **CONTINUATION IDs ARE PER-CHAIN**: Each perspective×model combination gets its OWN `continuation_id` thread. NEVER share continuation_ids across different perspective×model combinations.
-2. **ThinkDeep MUST complete before MPA agents**: MPA agents use ThinkDeep insights to inform option generation. Do NOT launch MPA agents until all ThinkDeep calls finish.
-3. **PROBLEM_CONTEXT is MANDATORY**: Every ThinkDeep call MUST include `problem_context` with "This is BUSINESS/PRD ANALYSIS, not code analysis." Without it, models request source files that don't exist.
-4. **FINDINGS must NEVER be empty**: Every ThinkDeep call MUST have non-empty `findings`. Empty findings = model has no context = hallucinated analysis.
-5. **ABSOLUTE paths only**: All `relevant_files` MUST use absolute paths. Relative paths cause tool errors.
+1. **Continuation IDs are per-chain**: Each perspective x model combination gets its own `continuation_id` thread. Never share across combinations.
+2. **ThinkDeep completes before MPA agents**: MPA agents use ThinkDeep insights. Do not launch MPA agents until all ThinkDeep calls finish.
+3. **PROBLEM_CONTEXT is mandatory**: Every ThinkDeep call must include `problem_context` with "This is BUSINESS/PRD ANALYSIS, not code analysis."
+4. **Findings must be non-empty**: Every ThinkDeep call must have non-empty `findings`. Empty findings produce hallucinated analysis.
+5. **Absolute paths only**: All `relevant_files` must use absolute paths.
 
 ## Part A: Deep Analysis (ThinkDeep)
 
@@ -35,7 +35,7 @@ IF ANALYSIS_MODE in {complete, advanced}:
 
 ### Step 3A.2: ThinkDeep Execution
 
-**CRITICAL:** ThinkDeep MUST complete before Part B. Insights inform option generation.
+**Critical:** ThinkDeep must complete before Part B. Insights inform option generation.
 
 **ThinkDeep Framing Best Practices:**
 See `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/config-reference.md` -> "PAL Tool Quick Reference"
@@ -61,6 +61,7 @@ Steps per call: Use `config/requirements-config.yaml` -> `analysis_modes.{mode}.
 
 FOR each perspective in [COMPETITIVE, RISK, CONTRARIAN]:
   FOR each model in config -> pal.thinkdeep.models[].id:
+    (Note: All 9 perspective x model chains are independent and can run in parallel)
 
 ```
 # Step 1: Initial exploration
@@ -109,87 +110,24 @@ mcp__pal__thinkdeep(
   relevant_files: ["{ABSOLUTE_PATH_TO_DRAFT}"]
 )
 
+AFTER Step 1 completes for each chain:
+  IF response contains < config -> scoring.thinkdeep_completion.shallow_signal_min_findings (default: 2) specific findings:
+    -> Skip Steps 2-3 for this chain (insufficient signal to deepen)
+    -> Log: thinkdeep_shallow.append({model, perspective, reason: "insufficient_findings"})
+
 IF any step fails for model:
   -> Display PAL Model Failure notification (see error-handling.md)
   -> Log to state: thinkdeep_failures.append({model, perspective, step_number})
-  -> Skip remaining steps for this model×perspective combination
+  -> Skip remaining steps for this model x perspective combination
 ```
 
-**CRITICAL:** Each perspective×model combination gets its own 3-step chain with its own `continuation_id` thread. Different perspective×model combinations MUST NOT share continuation_ids — doing so corrupts the analysis context.
+**Critical:** Each perspective×model combination gets its own 3-step chain with its own `continuation_id` thread. Different perspective×model combinations must not share continuation_ids -- doing so corrupts the analysis context.
 
-#### PROBLEM_CONTEXT_TEMPLATE (use for ALL perspectives)
+#### Templates
 
-```
-IMPORTANT: This is a BUSINESS/PRD ANALYSIS, not code analysis.
-We are evaluating market viability for a new product concept.
-No source code exists yet - this is the requirements gathering phase.
-Please analyze from a product strategy perspective, not engineering.
+**Load templates from:** `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/thinkdeep-templates.md`
 
-PRODUCT SUMMARY:
-{Extract from draft: Vision, Problem, Target Users, Value Prop - 5-10 lines}
-```
-
-#### STEP CONTENT TEMPLATES
-
-**COMPETITIVE:**
-```
-I'm analyzing the competitive landscape for {PRODUCT_NAME}.
-
-MY CURRENT ANALYSIS:
-{List 3-5 existing alternatives with assessment}
-
-MY INITIAL THINKING:
-- {Hypothesis about market gaps}
-- {Hypothesis about positioning}
-
-EXTEND MY ANALYSIS:
-1. Identify competitors I may have missed
-2. Analyze if existing players could easily add this feature
-3. Evaluate the strength of the proposed positioning
-4. Identify positioning opportunities and risks
-```
-
-**RISK:**
-```
-I'm analyzing BUSINESS RISKS for {PRODUCT_NAME}.
-
-MY CURRENT RISK ASSESSMENT:
-{Identified risks from draft}
-
-MY INITIAL THINKING:
-- {Hypothesis about highest-impact risks}
-- {Hypothesis about weakest assumptions}
-
-EXTEND MY RISK ANALYSIS:
-1. What critical business risks am I missing?
-2. Which assumptions are most likely WRONG?
-3. What could cause complete failure?
-4. How should risks be prioritized?
-```
-
-**CONTRARIAN:**
-```
-I need you to be a DEVIL'S ADVOCATE for {PRODUCT_NAME}.
-
-THE CURRENT PROPOSAL:
-{Brief summary of vision, problem, solution}
-
-ASSUMPTIONS BEING MADE:
-{List from draft}
-
-CHALLENGE EVERYTHING:
-1. Why might this problem NOT be worth solving?
-2. Why might target users NOT pay?
-3. What fundamental flaw might doom this?
-4. What are we refusing to see?
-5. Is there a simpler solution?
-```
-
-#### FINDINGS TEMPLATES
-
-**COMPETITIVE:** "Initial assessment: {Summary from draft}. Existing solutions are {characterization}."
-**RISK:** "Initial risk inventory: {N} major categories. Draft acknowledges doubts about {X}."
-**CONTRARIAN:** "The proposal assumes {list}. Strongest point: {X}. Weakest point: {Y}."
+Contains: PROBLEM_CONTEXT_TEMPLATE (mandatory for all calls), step content templates per perspective (COMPETITIVE, RISK, CONTRARIAN), and findings templates for initial calls.
 
 #### Mode Variations
 
@@ -199,7 +137,7 @@ CHALLENGE EVERYTHING:
 | advanced | COMPETITIVE + RISK | 3 | 3 | 18 (2×3×3) |
 | standard/rapid | Skip Part A | - | - | 0 |
 
-> **Cost note:** Each perspective×model now uses 3 multi-step calls instead of 1. This improves analysis depth significantly but increases PAL usage. The `thinking_mode: "high"` setting already dominates cost — the additional steps add context chaining overhead but not additional thinking tokens per step.
+> **Cost note:** Each perspective×model now uses 3 multi-step calls instead of 1. This improves analysis depth significantly but increases PAL usage. The `thinking_mode: "high"` setting already dominates cost -- the additional steps add context chaining overhead but not additional thinking tokens per step.
 
 ### Step 3A.3: Synthesize ThinkDeep Insights
 
@@ -230,7 +168,7 @@ CROSS-PERSPECTIVE SYNTHESIS
 1. {Assumption flagged by multiple perspectives}
 ```
 
-**Key Rule:** Divergence between models/perspectives = HIGH PRIORITY questions.
+Divergence between models/perspectives = HIGH PRIORITY questions.
 When all 3 models agree on a risk, the question is CRITICAL priority.
 
 ---
@@ -249,8 +187,8 @@ This ensures questions target specific aspects rather than addressing broad sect
 
 **For each required PRD section from config -> `prd.sections`:**
 
-> **Excluded sections:** "Executive Summary" is a synthesis section generated from other sections — not decomposed.
-> "Screen Inventory" has `required: false` in config — only decomposed if explicitly requested.
+> **Excluded sections:** "Executive Summary" is a synthesis section generated from other sections -- not decomposed.
+> "Screen Inventory" has `required: false` in config -- only decomposed if explicitly requested.
 
 ```
 DECOMPOSE into sub-problems:
@@ -309,6 +247,8 @@ Pass decomposition to MPA agents as `SECTION_DECOMPOSITION` in their prompt cont
 **Read panel config:** `requirements/.panel-config.local.md` (path from `PANEL_CONFIG_PATH`)
 **Read template agent:** `@$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md`
 
+**Variable resolution:** For each member in `panel_config.members`, resolve all template variables from the member's entry in the panel config file. Variables like `{member.role}`, `{member.perspective_name}`, `{member.question_prefix}` come from the panel config YAML, not from hardcoded defaults.
+
 **If ANALYSIS_MODE in {complete, advanced, standard}:**
 
 Launch panel member agents **in parallel** using Task tool. For EACH member in `panel_config.members`:
@@ -340,7 +280,7 @@ Apply these variables to the template:
 FEATURE_DIR: requirements
 DRAFT_CONTENT: {contents of requirements/working/draft-copy.md}
 PRD_MODE: {NEW|EXTEND}
-EXISTING_PRD_SECTIONS: {IF PRD_MODE = EXTEND: list section headings from requirements/PRD.md with status (COMPLETE/PARTIAL/MISSING). ELSE: 'N/A — NEW mode'}
+EXISTING_PRD_SECTIONS: {IF PRD_MODE = EXTEND: list section headings from requirements/PRD.md with status (COMPLETE/PARTIAL/MISSING). ELSE: 'N/A -- NEW mode'}
 RESEARCH_SYNTHESIS: {contents of research-synthesis.md if exists, otherwise 'No research synthesis available'}
 
 ===============================================================
@@ -354,9 +294,9 @@ THINKDEEP INSIGHTS (USE THESE TO INFORM YOUR OPTIONS)
 {contents of thinkdeep-insights.md if exists, otherwise 'No ThinkDeep insights available'}
 
 ===============================================================
-REFLECTION CONTEXT (from previous round — if available)
+REFLECTION CONTEXT (from previous round -- if available)
 ===============================================================
-{REFLECTION_CONTEXT if provided, otherwise 'First round — no prior reflection'}
+{REFLECTION_CONTEXT if provided, otherwise 'First round -- no prior reflection'}
 
 CRITICAL INSTRUCTIONS:
 1. Use ThinkDeep CONVERGENT insights to strengthen recommended options
@@ -380,30 +320,30 @@ Output to: requirements/analysis/questions-{member.id}.md
 → All members dispatched in parallel via multiple Task() calls.
 
 **If ANALYSIS_MODE = rapid:**
-Launch single agent using `product-strategist` defaults from config (no panel config needed):
+Launch single agent using `product-strategist` defaults from config `panel.available_perspectives.product-strategist` (no panel config needed):
 ```
 Task(subagent_type="general-purpose", model="sonnet", prompt="
 Read and follow: @$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md
 
-## Variable Injection
-- ROLE = Senior Product Strategist
-- PERSPECTIVE_NAME = Product Strategy
-- QUESTION_PREFIX = PSQ
+## Variable Injection (from config -> panel.available_perspectives.product-strategist)
+- ROLE = {config.role}
+- PERSPECTIVE_NAME = {config.perspective_name}
+- QUESTION_PREFIX = {config.question_prefix}
 - MEMBER_ID = product-strategist
-- FOCUS_AREAS = product vision, market positioning, competitive differentiation, business model
-- PRD_SECTION_TARGETS = Product Definition, Value Proposition, Success Criteria
+- FOCUS_AREAS = {config.focus_areas joined as comma-separated list}
+- PRD_SECTION_TARGETS = {config.prd_section_targets joined as comma-separated list}
 - DOMAIN_GUIDANCE = Analyze the product draft broadly across all PRD dimensions. Generate questions covering all sections.
 - DOMAIN_DESCRIPTION = {extract domain from draft, e.g., 'consumer app', 'B2B SaaS', 'marketplace'}
-- STEP_1_DESCRIPTION = Product Vision Analysis — Is the product vision clear? What problem does this solve? How does it fit the user's life?
-- STEP_2_DESCRIPTION = Market Positioning — Who are direct/indirect competitors? What makes this different? New or existing market?
-- STEP_3_DESCRIPTION = Business Model Exploration — How will this make money? Who pays? Pricing strategy?
-- STEP_4_DESCRIPTION = Go-to-Market — Initial target segment? MVP vs full vision? What validates success?
-- STEP_5_DESCRIPTION = Competitive Moat — What's hard to replicate? Network effects? Long-term defensibility?
+- STEP_1_DESCRIPTION = Product Vision Analysis -- Is the product vision clear? What problem does this solve?
+- STEP_2_DESCRIPTION = Market Positioning -- Who are competitors? What makes this different?
+- STEP_3_DESCRIPTION = Business Model Exploration -- How will this make money? Pricing strategy?
+- STEP_4_DESCRIPTION = Go-to-Market -- Initial target segment? MVP vs full vision? What validates success?
+- STEP_5_DESCRIPTION = Competitive Moat -- What's hard to replicate? Long-term defensibility?
 
 FEATURE_DIR: requirements
 DRAFT_CONTENT: {contents of draft-copy.md}
 PRD_MODE: {NEW|EXTEND}
-EXISTING_PRD_SECTIONS: {IF PRD_MODE = EXTEND: list section headings from requirements/PRD.md with status. ELSE: 'N/A — NEW mode'}
+EXISTING_PRD_SECTIONS: {IF PRD_MODE = EXTEND: list section headings from requirements/PRD.md with status. ELSE: 'N/A -- NEW mode'}
 
 Generate ALL essential questions covering all PRD sections. NO LIMIT on number.
 Output to: requirements/analysis/questions-product-strategist.md
@@ -428,7 +368,7 @@ Then launch synthesis agent.
 Launch synthesis agent WITHOUT Sequential Thinking.
 
 **If ANALYSIS_MODE = rapid:**
-Skip synthesis — use product-strategy agent output directly.
+Skip synthesis -- use product-strategy agent output directly.
 
 ```
 Task(subagent_type="requirements-question-synthesis", prompt="
@@ -437,7 +377,7 @@ ROUND_NUMBER: {N}
 PRD_MODE: {NEW|EXTEND}
 ANALYSIS_MODE: {MODE}
 
-PANEL_CONFIG: {contents of .panel-config.local.md YAML frontmatter — members list with id and perspective_name}
+PANEL_CONFIG: {contents of .panel-config.local.md YAML frontmatter -- members list with id and perspective_name}
 
 INPUT FILES:
 {FOR each member in panel_config.members:}
@@ -511,18 +451,16 @@ flags:
 ---
 ```
 
-## Self-Verification (MANDATORY before writing summary)
+## Self-Verification (Mandatory before writing summary)
 
-BEFORE writing the summary file, verify:
+Before writing the summary file, verify:
 1. `requirements/working/QUESTIONS-{NNN}.md` exists and contains at least 5 questions
 2. Each question has 3+ options with pros/cons
 3. If ThinkDeep ran: `requirements/analysis/thinkdeep-insights.md` exists
 4. State file was updated with `current_stage: 3`
 5. Summary YAML frontmatter has no placeholder values (no `{N}` literals)
+6. **Reasoning quality**: no two questions target the same sub-problem (check question titles for semantic overlap)
 
-## CRITICAL RULES REMINDER
+## Critical Rules Reminder
 
-- Continuation IDs are PER-CHAIN — never shared across perspective×model combinations
-- ThinkDeep MUST complete before MPA agents launch
-- PROBLEM_CONTEXT and FINDINGS must NEVER be empty
-- All file paths MUST be absolute
+Rules 1-5 above apply. Key: continuation IDs are per-chain, ThinkDeep completes before MPA, problem_context and findings must be non-empty, absolute paths only.

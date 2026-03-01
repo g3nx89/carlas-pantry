@@ -7,14 +7,14 @@ artifacts_written:
 
 # Stage 2: Research Discovery (Coordinator)
 
-> This stage is OPTIONAL. It generates research questions for offline user investigation.
+> This stage is optional. It generates research questions for offline user investigation.
 
-## CRITICAL RULES (must follow — failure-prevention)
+## Critical Rules
 
-1. **Research is OPTIONAL**: NEVER block the workflow if user skips research. Set `status: completed` and proceed.
-2. **User decisions are IMMUTABLE**: If `user_decisions.research_decision_round_N` exists, do NOT re-ask. Respect the prior decision.
-3. **Exit pause MUST set state correctly**: When pausing for offline research, `waiting_for_user: true` and `pause_stage: 2` MUST be set in state — otherwise resume routing breaks.
-4. **Research MCP failures are non-blocking**: If Tavily/Ref calls fail, fall back to manual research flow. NEVER abort the workflow due to research MCP errors.
+1. **Research is optional**: Never block the workflow if user skips research. Set `status: completed` and proceed.
+2. **User decisions are immutable**: If `user_decisions.research_decision_round_N` exists, do not re-ask. Respect the prior decision.
+3. **Exit pause sets state correctly**: When pausing for offline research, `waiting_for_user: true` and `pause_stage: 2` must be set in state -- otherwise resume routing breaks.
+4. **Research MCP failures are non-blocking**: If Tavily/Ref calls fail, fall back to manual research flow. Never abort the workflow due to research MCP errors.
 5. **Never use Tavily for library documentation**: Use Ref (`ref_search_documentation`) for tech docs. Tavily is for market/competitive research only.
 
 ## Step 2.1: Determine Entry Point
@@ -22,7 +22,7 @@ artifacts_written:
 Check the `ENTRY_TYPE` context variable provided by the orchestrator:
 - If `ENTRY_TYPE: "re_entry_after_user_input"` -> User returning from offline research. Jump to Step 2.2 (check for reports).
 - If `ENTRY_TYPE: "first_entry"` -> New entry. Check user_decisions below.
-- **Fallback** (if ENTRY_TYPE not provided): Check state — if `waiting_for_user: true` AND `pause_stage: 2` -> Re-entry, otherwise -> First entry.
+- **Fallback** (if ENTRY_TYPE not provided): Check state -- if `waiting_for_user: true` AND `pause_stage: 2` -> Re-entry, otherwise -> First entry.
 
 ### Research Skip Check
 
@@ -141,7 +141,7 @@ mcp__tavily__tavily_search(
 
 **After each search:**
 - Filter results: keep only those with `score >= config.research_mcp.tavily.relevance_threshold` (default: 0.5)
-- Extract key data points (numbers, names, dates) — not full page content
+- Extract key data points (numbers, names, dates) -- not full page content
 - Track `queries_executed` count against `max_searches_per_round`
 
 **If any search fails:** Log the error, continue with remaining queries. See `error-handling.md` -> "Research MCP Failure Recovery".
@@ -164,9 +164,9 @@ If results found, use `mcp__Ref__ref_read_url` to read the most relevant result.
 
 Write `requirements/research/research-synthesis.md` using template from `$CLAUDE_PLUGIN_ROOT/templates/research-synthesis-template.md`.
 
-**Token budget:** Output MUST NOT exceed `config.research_mcp.token_budgets.auto_research_output` tokens (default: 3,000).
+**Token budget:** Output must not exceed `config.research_mcp.token_budgets.auto_research_output` tokens (default: 3,000).
 
-**Per-query token limit:** Each individual search result fed into condensation MUST NOT exceed `config.research_mcp.token_budgets.per_query_input` tokens (default: 500). Truncate longer results to key data points before synthesis.
+**Per-query token limit:** Each individual search result fed into condensation must not exceed `config.research_mcp.token_budgets.per_query_input` tokens (default: 500). Truncate longer results to key data points before synthesis.
 
 **Condensation structure and rules:** See `research-mcp-reference.md` -> "Output Condensation" for the full template, section ordering, and priority-based trimming rules.
 
@@ -313,9 +313,9 @@ flags:
 - Manual: `"Generated research agenda with {N} questions. Synthesized {M} reports."`
 - Skipped: `"Research skipped by user decision."`
 
-## Self-Verification (MANDATORY before writing summary)
+## Self-Verification (Mandatory before writing summary)
 
-BEFORE writing the summary file, verify:
+Before writing the summary file, verify:
 1. If research agenda generated (manual path): `requirements/research/RESEARCH-AGENDA.md` exists
 2. If auto-research executed (MCP path): `requirements/research/research-synthesis.md` exists and contains source URLs
 3. If synthesis ran (manual reports): `requirements/research/research-synthesis.md` exists
@@ -324,10 +324,6 @@ BEFORE writing the summary file, verify:
 6. Summary YAML frontmatter has no placeholder values
 7. If auto-research: token count of research-synthesis.md does not exceed config budget
 
-## CRITICAL RULES REMINDER
+## Critical Rules Reminder
 
-- Research is OPTIONAL — never block workflow if skipped
-- User decisions are IMMUTABLE — never re-ask
-- Exit pause MUST set waiting_for_user and pause_stage correctly
-- Research MCP failures are non-blocking — fall back to manual flow
-- Never use Tavily for library docs — use Ref for tech documentation
+Rules 1-5 above apply. Key: research is optional (never block), user decisions are immutable, exit pause must set waiting_for_user and pause_stage, MCP failures are non-blocking.

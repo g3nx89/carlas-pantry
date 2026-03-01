@@ -24,11 +24,11 @@ Auto-research available? (state.mcp_availability.research_mcp)
     └── Manual research flow (existing Stage 2 behavior)
 ```
 
-**Core principle:** Tavily for market/business research. Ref for library/API documentation lookup. Never use Tavily to look up library documentation — it returns outdated tutorials from unofficial sources.
+**Core principle:** Tavily for market/business research. Ref for library/API documentation lookup. Never use Tavily to look up library documentation -- it returns outdated tutorials from unofficial sources.
 
 ### Session Behavior
 
-Both Tavily and Ref are **stateless** — each call is independent with no session memory. There is no need to "close" a session or manage connection state. If a call fails, simply retry or skip; there is no corrupted session to recover.
+Both Tavily and Ref are **stateless** -- each call is independent with no session memory. There is no need to "close" a session or manage connection state. If a call fails, simply retry or skip; there is no corrupted session to recover.
 
 ---
 

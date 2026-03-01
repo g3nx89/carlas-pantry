@@ -51,7 +51,7 @@ individual members within a preset (e.g., replacing `domain-expert` role/focus).
 - 5 members: 0.25 / 0.25 / 0.20 / 0.15 / 0.15
 
 The first two slots (typically product-strategist + ux-researcher) get the highest weights.
-Weights MUST sum to exactly 1.0.
+Weights must sum to exactly 1.0.
 
 ---
 
@@ -71,7 +71,7 @@ Each perspective provides:
 | `prd_section_targets` | PRD sections this perspective primarily informs |
 
 **Special: `domain-expert`**
-The `domain-expert` perspective is a template. The Panel Builder MUST customize:
+The `domain-expert` perspective is a template. The Panel Builder must customize:
 - `role`: Specific to the detected domain (e.g., "F&B Operations Specialist")
 - `perspective_name`: Domain-specific label (e.g., "F&B Operations")
 - `question_prefix`: Domain-specific prefix (e.g., "FBQ")
@@ -105,7 +105,7 @@ Focus on {domain}-specific success metrics ({list 3-4 metrics}).
 
 **Rules:**
 - Keep to 15-25 lines max
-- Ground in the draft's actual content — don't invent context not in the draft
+- Ground in the draft's actual content -- don't invent context not in the draft
 - Be specific to BOTH the domain AND the perspective (a UX researcher's domain guidance
   differs from a product strategist's even for the same domain)
 
@@ -121,27 +121,27 @@ Step 6 (Question Formulation) is always fixed in the template.
 
 **Example for Product Strategist analyzing a food-delivery app:**
 ```yaml
-step_1: "Product Vision Analysis — Is the vision clear? What problem does this fundamentally solve for people ordering food? How does it fit into their daily routine?"
-step_2: "Market Positioning — Direct/indirect competitors in food delivery? What gap exists? New market entry or differentiation play?"
-step_3: "Business Model Exploration — Commission-based vs subscription? Who pays (restaurants, consumers, both)? Pricing strategy for multi-sided economics?"
-step_4: "Go-to-Market — Initial city/market? MVP scope for marketplace launch? What validates product-market fit for food delivery?"
-step_5: "Competitive Moat — Network effects between restaurants and consumers? Switching costs? Data advantages from order history?"
+step_1: "Product Vision Analysis -- Is the vision clear? What problem does this fundamentally solve for people ordering food? How does it fit into their daily routine?"
+step_2: "Market Positioning -- Direct/indirect competitors in food delivery? What gap exists? New market entry or differentiation play?"
+step_3: "Business Model Exploration -- Commission-based vs subscription? Who pays (restaurants, consumers, both)? Pricing strategy for multi-sided economics?"
+step_4: "Go-to-Market -- Initial city/market? MVP scope for marketplace launch? What validates product-market fit for food delivery?"
+step_5: "Competitive Moat -- Network effects between restaurants and consumers? Switching costs? Data advantages from order history?"
 ```
 
 **Example for UX Researcher analyzing the same app:**
 ```yaml
-step_1: "Persona Clarity — Who orders food delivery? Work-from-home, office workers, families? What's their context when they order?"
-step_2: "Pain Point Deep Dive — What frustrates people about existing delivery apps? Discovery overwhelm? Delivery reliability? Price transparency?"
-step_3: "User Journey Mapping — From craving to delivery. What triggers an order? How do they browse/search? What's the checkout flow expectation?"
-step_4: "Emotional Design — How should ordering feel? Excitement of discovery vs efficiency of reorder? Trust signals for new restaurants?"
-step_5: "Accessibility & Inclusion — Dietary restrictions as first-class filters? Multi-language menus? Accessibility for motor/vision impairments?"
+step_1: "Persona Clarity -- Who orders food delivery? Work-from-home, office workers, families? What's their context when they order?"
+step_2: "Pain Point Deep Dive -- What frustrates people about existing delivery apps? Discovery overwhelm? Delivery reliability? Price transparency?"
+step_3: "User Journey Mapping -- From craving to delivery. What triggers an order? How do they browse/search? What's the checkout flow expectation?"
+step_4: "Emotional Design -- How should ordering feel? Excitement of discovery vs efficiency of reorder? Trust signals for new restaurants?"
+step_5: "Accessibility & Inclusion -- Dietary restrictions as first-class filters? Multi-language menus? Accessibility for motor/vision impairments?"
 ```
 
 ---
 
 ## 5. Panel Validation Rules
 
-Before finalizing, the Panel Builder MUST validate:
+Before finalizing, the Panel Builder must validate:
 
 | Rule | Check | Action on Failure |
 |------|-------|-------------------|

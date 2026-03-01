@@ -38,11 +38,11 @@
 | `{PRD_SECTION_TARGETS}` | Target PRD sections | `Product Definition, Value Proposition` |
 | `{DOMAIN_GUIDANCE}` | Domain-specific guidance block | (15-25 lines of domain context) |
 | `{DOMAIN_DESCRIPTION}` | Short domain classification | `food-delivery marketplace` |
-| `{STEP_1_DESCRIPTION}` | Sequential Thinking step 1 | `Product Vision Analysis — ...` |
-| `{STEP_2_DESCRIPTION}` | Sequential Thinking step 2 | `Market Positioning — ...` |
-| `{STEP_3_DESCRIPTION}` | Sequential Thinking step 3 | `Business Model Exploration — ...` |
-| `{STEP_4_DESCRIPTION}` | Sequential Thinking step 4 | `Go-to-Market — ...` |
-| `{STEP_5_DESCRIPTION}` | Sequential Thinking step 5 | `Competitive Moat — ...` |
+| `{STEP_1_DESCRIPTION}` | Sequential Thinking step 1 | `Product Vision Analysis -- ...` |
+| `{STEP_2_DESCRIPTION}` | Sequential Thinking step 2 | `Market Positioning -- ...` |
+| `{STEP_3_DESCRIPTION}` | Sequential Thinking step 3 | `Business Model Exploration -- ...` |
+| `{STEP_4_DESCRIPTION}` | Sequential Thinking step 4 | `Go-to-Market -- ...` |
+| `{STEP_5_DESCRIPTION}` | Sequential Thinking step 5 | `Competitive Moat -- ...` |
 | `{PANEL_CONFIG}` | Panel config YAML for synthesis agent | (members list with ids and perspectives) |
 | `{PANEL_CONFIG_PATH}` | Path to panel config file | `requirements/.panel-config.local.md` |
 | `{EXISTING_PRD_SECTIONS}` | PRD section headings with status (EXTEND mode) | `Product Definition: COMPLETE, ...` |
@@ -70,19 +70,19 @@
 
 ## PAL Tool Quick Reference
 
-> **IMPORTANT:** Authoritative PAL call syntax lives in each stage file (stage-3 for ThinkDeep, stages 4-5 for Consensus). This section is a parameter reference only — do NOT duplicate call patterns here.
+> **Important:** Authoritative PAL call syntax lives in each stage file (stage-3 for ThinkDeep, stages 4-5 for Consensus). This section is a parameter reference only -- do not duplicate call patterns here.
 
 ### Shared Parameters (ThinkDeep & Consensus)
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `step` | string | Yes | Your current analysis — NOT just a title. Include findings and specific questions |
+| `step` | string | Yes | Your current analysis -- NOT just a title. Include findings and specific questions |
 | `step_number` | integer | Yes | Current step in multi-step chain |
 | `total_steps` | integer | Yes | ThinkDeep: 3 per chain. Consensus: number of models + 1 (synthesis) |
 | `next_step_required` | boolean | Yes | True until final step |
-| `findings` | string | Yes | Summary of discoveries — MUST NOT be empty |
-| `relevant_files` | array | No | Context files — MUST use ABSOLUTE paths |
-| `continuation_id` | string | No | Thread ID from previous step — required on steps 2+ |
+| `findings` | string | Yes | Summary of discoveries -- MUST NOT be empty |
+| `relevant_files` | array | No | Context files -- MUST use ABSOLUTE paths |
+| `continuation_id` | string | No | Thread ID from previous step -- required on steps 2+ |
 
 ### ThinkDeep-Only Parameters
 
@@ -103,7 +103,7 @@
 | `models[].stance` | string | `"neutral"`, `"for"`, or `"against"` |
 | `models[].stance_prompt` | string | Instructions for model's perspective |
 
-### Common Mistakes (CRITICAL — review before every PAL call)
+### Common Mistakes (Critical -- review before every PAL call)
 
 | Mistake | Impact | Fix |
 |---------|--------|-----|
@@ -112,7 +112,7 @@
 | Treating Consensus as single-call | Skips model processing | Multi-step: step 1 = your analysis, steps 2-N = models, final = synthesis |
 | Missing `continuation_id` on steps 2+ | Loses context between steps | Pass continuation_id from each previous step |
 | Setting `next_step_required: false` too early | Skips remaining models | Only set false on final synthesis step |
-| Empty `findings` | Model has no context | Populate with discoveries — NEVER empty |
+| Empty `findings` | Model has no context | Populate with discoveries -- NEVER empty |
 | No PRD disclaimer in `problem_context` | Model requests source files | Add "This is BUSINESS/PRD ANALYSIS" |
 | Relative file paths | Tool error | MUST use absolute paths |
 | Using Tavily for library docs | Gets outdated tutorials, unofficial sources | Use Ref (`ref_search_documentation`) for tech docs |
@@ -210,7 +210,7 @@ Consensus shares multi-step workflow parameters with ThinkDeep (see "PAL Tool Qu
 
 | Rate | Action |
 |------|--------|
-| 100% | Required — all questions answered |
+| 100% | Required -- all questions answered |
 | 80% | Warning threshold |
 
 ---
@@ -238,5 +238,5 @@ Consensus shares multi-step workflow parameters with ThinkDeep (see "PAL Tool Qu
 | Research MCP + PAL unavailable | Standard, Rapid | No auto-research + no ThinkDeep/Consensus |
 
 *Complete mode with ST unavailable uses internal reasoning but maintains MPA + PAL
-*Research MCP availability is orthogonal to analysis modes — auto-research enhances any mode
+*Research MCP availability is orthogonal to analysis modes -- auto-research enhances any mode
 
