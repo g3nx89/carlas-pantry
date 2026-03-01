@@ -11,6 +11,7 @@ config_keys_used:
   - "figma_preparation.one_screen_per_dispatch"
   - "figma_preparation.component_library_dispatch"
   - "figma_preparation.prototype_wiring_dispatch"
+  - "figma_preparation.consecutive_error_threshold"
   - "figma_preparation.scenario_detection.*"
   - "judge.checkpoints.stage_2j.*"
   - "tier.*"
@@ -45,15 +46,10 @@ producing a handoff-ready Figma file and an incrementally-assembled handoff mani
 
 ## Dispatch Strategy
 
-**ONE screen per dispatch.** The figma-console MCP server is context-heavy — each call
-returns large node trees, variable collections, and component metadata. Processing
-multiple screens in a single agent dispatch leads to context compaction, causing the
-agent to lose track of node IDs, skip checklist steps, or produce inaccurate visual diffs.
-
-The orchestrator maintains the screen loop and dispatches `handoff-figma-preparer` once
-per screen, sequentially. Between dispatches, the orchestrator reads the state file to
-determine whether the screen was prepared, blocked, or errored — and decides whether to
-continue, re-dispatch with fix instructions, or skip to the next screen.
+**ONE screen per dispatch** (per SKILL.md Rule 3). The orchestrator maintains the screen
+loop and dispatches `handoff-figma-preparer` once per screen, sequentially. Between
+dispatches, the orchestrator reads the state file to determine outcome (prepared, blocked,
+or errored) and decides whether to continue, re-dispatch with fix instructions, or skip.
 
 **Dispatch order:** Process screens in the same order as the Stage 1 inventory (Y ascending,
 X ascending on the Figma page). This matches the natural reading order designers use and
@@ -125,8 +121,8 @@ IF agent wrote component_library.status == "created":
     CONTINUE to screen loop
 ELSE IF agent wrote component_library.status == "error":
     SET component_library.status = "skipped"
-    LOG to Progress Log: "Component library creation failed — proceeding without library"
-    DOWNGRADE TIER to 1 for all subsequent screen dispatches
+    SET state.effective_tier = 1  # Persist downgrade — downstream stages read effective_tier
+    LOG to Progress Log: "Component library creation failed — effective_tier downgraded to 1"
     CONTINUE to screen loop
 ```
 
@@ -189,6 +185,38 @@ IF screens_completed == 0 AND screens_blocked > 0:
 
 ---
 
+## Context Management
+
+The screen loop generates significant orchestrator context. To prevent quality degradation on late-loop screens:
+
+- **Progress summaries:** Every 5 screens, emit a compact progress summary to the orchestrator: `"{completed}/{total} screens done, {blocked} blocked, {remaining} remaining"`
+- **Context compaction:** After checkpointing each screen, discard per-screen dispatch/response details from prior iterations. The state file preserves all outcomes — the orchestrator does not need them in working memory.
+- **Screen-local context only:** Each dispatch prompt contains only the current screen's inventory data. Cross-screen state (component library, prior patterns) is passed as compact YAML summaries, not raw data.
+
+---
+
+## Circuit Breaker
+
+Track consecutive dispatch failures to detect systematic MCP issues:
+
+```
+SET consecutive_errors = 0
+
+# Inside screen loop, after each dispatch:
+IF screen.status == "error":
+    consecutive_errors += 1
+    IF consecutive_errors >= figma_preparation.consecutive_error_threshold (from config, default 3):
+        HALT screen loop
+        NOTIFY designer: "Systematic MCP failure detected: {consecutive_errors} consecutive screens errored. Check figma-console connection."
+        SET current_stage = "2:circuit_breaker"
+        CHECKPOINT state
+        EXIT loop
+ELSE:
+    consecutive_errors = 0  # Reset on any success
+```
+
+---
+
 ## Per-Screen Dispatch Protocol
 
 Each screen dispatch sends a focused prompt with ONLY the context needed for that single
@@ -237,7 +265,7 @@ Read and execute the instructions in @$CLAUDE_PLUGIN_ROOT/agents/handoff-figma-p
 | `SCREEN_NAME` | `state.screens[i].name` | Required |
 | `SCREEN_NODE_ID` | `state.screens[i].node_id` | Required |
 | `SCENARIO` | `state.scenario` | Required |
-| `TIER` | `state.tier_decision.tier` (may be downgraded to 1 if library creation failed) | Required |
+| `TIER` | `state.effective_tier` (reflects runtime downgrades; always use this, not `tier_decision.tier`) | Required |
 | `STATE_FILE_PATH` | `{WORKING_DIR}/.handoff-state.local.md` | Required |
 | `WORKING_DIR` | Resolved absolute path to `design-handoff/` | Required |
 | `INVENTORY_DATA_YAML` | Screen's entry from `.screen-inventory.md` (readiness scores, group count, image fills) | Required |
@@ -245,6 +273,13 @@ Read and execute the instructions in @$CLAUDE_PLUGIN_ROOT/agents/handoff-figma-p
 | `RESUME_CONTEXT` | If `completed_steps` is non-empty: `"Resume from step {N+1}. Completed: {steps}."` Else: `"Fresh start — no prior steps."` | `"Fresh start"` |
 | `VISUAL_DIFF_THRESHOLD` | `judge.checkpoints.stage_2j.visual_diff_threshold` from config | `0.95` |
 | `MAX_FIX_CYCLES` | `judge.checkpoints.stage_2j.max_fix_cycles` from config | `3` |
+
+---
+
+## Scenario Detection Order
+
+> **Evaluation order:** Check Scenario C first (`already_clean?`) → Check Scenario A (`draft?`) → Default: Scenario B (`in_place_cleanup`).
+> This prevents partial-cleanup files from being misclassified as drafts.
 
 ---
 
@@ -310,9 +345,15 @@ For screens that already meet handoff readiness thresholds.
 2. Step 3: Naming audit (verification, expecting zero fixes)
 3. Step 6: Token binding check (verification, expecting zero unbound)
 
-**Escalation:** If verification discovers ANY issues (naming fixes > 0 OR unbound tokens > 0),
-the agent escalates to Scenario B and executes the full 9-step checklist. This escalation
-is recorded in the state file as `scenario_escalated: true`.
+**Graduated escalation:** If verification discovers issues, the response is proportional:
+
+| Level | Condition | Action |
+|-------|-----------|--------|
+| **Micro-fix** | < `escalation_thresholds.micro_max` issues (from config), single category (naming only OR tokens only) | Fix in-place within current verification steps. No pipeline restart. |
+| **Partial escalation** | `micro_max` to `partial_max` issues (from config), single category | Run only the relevant steps (Step 3 for naming, Step 6 for tokens). Skip unaffected steps. |
+| **Full escalation** | Multi-category issues OR > `partial_max` total issues | Escalate to Scenario B — execute full 9-step checklist. |
+
+All escalation levels are recorded in the state file: `scenario_escalated: true`, `escalation_level: "micro" | "partial" | "full"`.
 
 ---
 
@@ -326,6 +367,13 @@ of uncaught visual regressions from accumulating across the screen loop.
 ```
 AFTER agent completes Step 9:
     READ screen entry from state file
+
+    # Screenshot tool validation (per SKILL.md Rule 10)
+    CHECK screen.operation_journal for the post-mutation screenshot operation
+    IF screenshot tool used != "figma_capture_screenshot":
+        LOG warning: "Visual diff used wrong screenshot tool — stale cached render possible"
+        RE-DISPATCH with instruction: "Retake post-mutation screenshot using figma_capture_screenshot"
+
     CHECK screen.visual_diff field
 
     IF visual_diff == "pass":

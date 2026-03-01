@@ -113,6 +113,7 @@ designer_dialog:
 judge:
   checkpoints:
     stage_2j:                               # After Stage 2: Figma Preparation Quality
+      model: "opus"                         # Visual fidelity requires strong spatial reasoning
       visual_diff_threshold: 0.95           # Advisory: qualitative visual comparison (no computed metric). Agent evaluates visual fidelity holistically.
       naming_min_compliance: 90             # % PascalCase compliance required to pass
       token_min_coverage: 80                # % token binding required to pass
@@ -120,10 +121,13 @@ judge:
       max_fix_cycles: 3                     # Max judge→fix→re-verify loops per screen
       on_final_fail: "halt_screen"          # "halt_screen": mark blocked, continue | "halt_workflow": stop everything
     stage_3j:                               # After Stage 3: Gap Completeness Check
+      model: "sonnet"                       # Structural completeness checks — sonnet sufficient
       max_review_cycles: 1                  # Lightweight check — one re-examine cycle max
     stage_3_5j:                             # After Stage 3.5: Design Extension Quality
+      model: "opus"                         # Visual consistency evaluation
       max_fix_cycles: 2                     # Max fix cycles for newly created screens
     stage_5j:                               # After Stage 5: Supplement Quality Check
+      model: "sonnet"                       # Pattern matching — no visual analysis needed
       max_revision_cycles: 1               # Max revision cycles for supplement content
 
 # =============================================================================
@@ -138,7 +142,7 @@ modes:
       stages: [1, 2, "2j", 3, "3j", "3.5", "3.5j", 4, 5, "5j"]
     - id: "quick"
       description: "Single screen, no batch analysis or Figma preparation"
-      stages: [1, 3, 4, 5]
+      stages: [1, 3, "3j", 4, 5, "5j"]
     - id: "batch"
       description: "File-based Q&A, no interactive dialog — gaps written to file for offline answers"
       stages: [1, 2, "2j", 3, "3j", "3.5", "3.5j", 5, "5j"]
@@ -151,10 +155,14 @@ figma_preparation:
   one_screen_per_dispatch: true             # CRITICAL: context-heavy MCP — never batch multiple screens
   component_library_dispatch: "once"        # "once" for TIER 2/3 — separate dispatch before screen loop
   prototype_wiring_dispatch: "final"        # "final" — single dispatch after all screens prepared
+  consecutive_error_threshold: 3            # Halt screen loop after this many consecutive dispatch failures
   scenario_detection:
     draft_naming_threshold: 50              # avg_naming < this → draft_to_handoff
     draft_token_threshold: 30               # avg_tokens < this → draft_to_handoff
     clean_threshold: 85                     # readiness composite >= this → already_clean (must also pass naming/token/group checks)
+    escalation_thresholds:                  # Graduated escalation for Scenario C (already_clean)
+      micro_max: 3                          # < this many issues (single category) → fix in-place
+      partial_max: 5                        # < this many issues (single category) → run relevant steps only; above → full Scenario B
     descriptions:
       a_draft_to_handoff: "Full pipeline: clone, GROUP→FRAME, constraints, components, visual diff"
       b_in_place_cleanup: "Naming audit, token alignment, GROUP→FRAME, component integration"
@@ -191,7 +199,7 @@ model_assignments:
     - "handoff-figma-preparer"              # Stage 2, 3.5: Figma preparation + design extension (loads figma-console-mastery)
     - "handoff-gap-analyzer"                # Stage 3: Gap detection + missing screen detection, figma-console
   opus:
-    - "handoff-judge"                       # Stages 2J, 3J, 3.5J, 5J: LLM-as-judge at critical boundaries
+    - "handoff-judge"                       # Default model. Per-checkpoint `model` keys in judge.checkpoints override this (sonnet for 3J, 5J).
 
 # =============================================================================
 # OUTPUT

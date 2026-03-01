@@ -6,7 +6,7 @@ description: >-
   "run design handoff", "create handoff supplement", "handoff",
   or wants to prepare a Figma file for downstream coding agent consumption.
   Produces handoff-manifest.md (structural inventory), HANDOFF-SUPPLEMENT.md
-  (compact table-first document covering ONLY behaviors, transitions, and logic
+  (compact table-first document covering behaviors, transitions, and logic
   not expressible in Figma), and figma-screen-briefs/ (structured specs for
   missing screens, ready for a figma-console agent to execute).
   Figma file is the visual source of truth.
@@ -24,7 +24,7 @@ Prepare Figma designs for coding agent consumption via two tracks:
 
 **Core philosophy:** Figma is the visual source of truth. The supplement NEVER describes layouts, colors, spacing, or anything already visible in Figma. If there's a conflict, the Figma file wins.
 
-**This workflow is resumable.** Progress persisted in state file. Designer decisions tracked per-screen.
+**This workflow is resumable.** The state file persists progress. The workflow tracks designer decisions per-screen.
 
 ---
 
@@ -39,6 +39,8 @@ Prepare Figma designs for coding agent consumption via two tracks:
 6. **Coordinator never talks to users**: Agents write to files. Orchestrator mediates ALL user interaction via AskUserQuestion.
 7. **Config reference**: All thresholds and parameters from `@$CLAUDE_PLUGIN_ROOT/config/handoff-config.yaml`.
 8. **Screenshots ALWAYS via figma-console**: NEVER use `mcp__figma-desktop__get_screenshot`. Use `figma_take_screenshot` (figma-console) for baseline reads. Use `figma_capture_screenshot` (figma-console, Desktop Bridge) for any post-mutation visual diff — `figma_take_screenshot` returns a cloud-cached render and will appear unchanged after Plugin API mutations.
+9. **Expand `$CLAUDE_PLUGIN_ROOT` before dispatch**: ALWAYS resolve `$CLAUDE_PLUGIN_ROOT` to an absolute path before passing to `Task()` dispatch prompts. Subagents may not inherit plugin-framework variable resolution.
+10. **Visual diff screenshot validation**: After every visual diff, verify the screenshot was taken with `figma_capture_screenshot` (not `figma_take_screenshot`). A stale cached screenshot silently passes any diff.
 
 ---
 
@@ -57,76 +59,23 @@ $ARGUMENTS
 
 ## Workflow Stages
 
-```
-+-------------------------------------------------------------------+
-|  Stage 1 (Inline): DISCOVERY & INVENTORY                          |
-|  Figma MCP check, page scan, readiness audit, TIER, scenario      |
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 2 (handoff-figma-preparer): FIGMA PREPARATION              |
-|  Component library (TIER 2/3), per-screen pipeline, visual diff   |
-|  ONE screen per dispatch. Mandatory 9-step checklist.             |
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 2J (handoff-judge): FIGMA PREP QUALITY                     |
-|  Visual fidelity, naming, tokens, components, GROUP residue       |
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 3 (handoff-gap-analyzer): GAP & COMPLETENESS               |
-|  Per-screen gap detection (figma-console). Missing screen detection.|
-|  Cross-screen patterns.                                           |
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 3J (handoff-judge): GAP COMPLETENESS CHECK                 |
-|  Thoroughness, navigation dead-ends, classification accuracy      |
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 3.5 (handoff-figma-preparer, CONDITIONAL): DESIGN EXTENSION|
-|  Create missing screens/states in Figma. Designer chooses per item.|
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 3.5J (handoff-judge): EXTENSION QUALITY                    |
-|  Visual consistency, component usage, layout, content             |
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 4 (Orchestrator): DESIGNER DIALOG                          |
-|  Per-screen Q&A about gaps ONLY. Cross-screen confirmation.       |
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 5 (Inline): OUTPUT ASSEMBLY                                |
-|  HANDOFF-SUPPLEMENT.md + handoff-manifest.md update               |
-+---------------+---------------------------------------------------+
-                |
-+---------------v---------------------------------------------------+
-|  Stage 5J (handoff-judge): SUPPLEMENT QUALITY                     |
-|  No Figma duplication, completeness, formatting, conciseness      |
-+-------------------------------------------------------------------+
-```
-
----
+> Visual stage flow: see `references/README.md` Stage Flow section.
 
 ## Stage Dispatch Table
 
-| Stage | Name | Delegation | Reference File | User Pause? |
-|-------|------|------------|---------------|-------------|
-| 1 | Discovery & Inventory | **Inline** | `references/setup-protocol.md` | Yes (designer approval) |
-| 2 | Figma Preparation | Agent (per-screen loop) | `references/figma-preparation.md` | No |
-| 2J | Figma Prep Quality | Agent (judge) | `references/judge-protocol.md` | On BLOCK |
-| 3 | Gap & Completeness | Agent | `references/gap-analysis.md` | No |
-| 3J | Gap Completeness Check | Agent (judge) | `references/judge-protocol.md` | On NEEDS_DEEPER |
-| 3.5 | Design Extension | Agent (conditional) | `references/design-extension.md` | Yes (per missing screen) |
-| 3.5J | Extension Quality | Agent (judge) | `references/judge-protocol.md` | On NEEDS_FIX |
-| 4 | Designer Dialog | **Orchestrator** | `references/designer-dialog.md` | Yes (per screen) |
-| 5 | Output Assembly | **Inline** | `references/output-assembly.md` | No |
-| 5J | Supplement Quality | Agent (judge) | `references/judge-protocol.md` | On NEEDS_REVISION |
+| Stage | Name | Delegation | Reference File | User Pause? | Quick Mode |
+|-------|------|------------|---------------|-------------|------------|
+| 1 | Discovery & Inventory | **Inline** | `references/setup-protocol.md` | Yes (designer approval) | Reduced (skip TIER/scenario) |
+| 2 | Figma Preparation | Agent (per-screen loop) | `references/figma-preparation.md` | No | **Skip** |
+| 2J | Figma Prep Quality | Agent (judge) | `references/judge-protocol.md` | On BLOCK | **Skip** |
+| 3 | Gap & Completeness | Agent | `references/gap-analysis.md` | No | Single screen, no manifest |
+| 3J | Gap Completeness Check | Agent (judge) | `references/judge-protocol.md` | On NEEDS_FIX | Runs |
+| 3.5 | Design Extension | Agent (conditional) | `references/design-extension.md` | Yes (per missing screen) | **Skip** |
+| 3.5J | Extension Quality | Agent (judge) | `references/judge-protocol.md` | On NEEDS_FIX | **Skip** |
+| 4 | Designer Dialog | **Orchestrator** | `references/designer-dialog.md` | Yes (per screen) | Runs |
+| 5 | Output Assembly | **Inline** | `references/output-assembly.md` | No | Minimal (no manifest) |
+| 5J | Supplement Quality | Agent (judge) | `references/judge-protocol.md` | On NEEDS_FIX | Runs |
+| — | Completion | **Inline** | `references/state-schema.md` | No | Runs |
 
 ---
 
@@ -136,39 +85,29 @@ Establish prerequisites, scan the Figma file, and get designer approval before a
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/setup-protocol.md`
 
-Execute directly (no coordinator dispatch). Steps:
+Execute directly (no coordinator dispatch). Reference file contains the full 10-step procedure.
 
-1. **Config Validation** — Validate all required config keys exist
-2. **Figma MCP Check** — Verify `figma-console` MCP server via `figma_get_status`; STOP if unavailable
-3. **Lock Acquisition** — Acquire `design-handoff/.handoff-lock`; handle stale locks
-4. **State Init or Resume** — Create new state (per `references/state-schema.md`) or resume with digest
-5. **Page Selection** — Designer selects Figma page
-6. **Screen Scanner Dispatch** — Dispatch `handoff-screen-scanner` agent (haiku) for frame discovery + structural analysis
-7. **TIER Decision** — Smart Componentization analysis, recommend TIER 1/2/3
-8. **Scenario Detection** — Classify: (A) Draft→Handoff, (B) In-place cleanup, (C) Already clean
-9. **Designer Approval** — Present inventory table, TIER recommendation, scenario via AskUserQuestion
+**TIER heuristic:**
 
-**Quick mode (`--quick`):** Skip steps 7-8. Single screen selection instead of full page scan. Proceed directly to Stage 3.
+| TIER | Criteria | Component Library |
+|------|----------|-------------------|
+| 1 | 0 candidates pass 3-gate Smart Componentization test | No |
+| 2 | >= 1 candidate passes all 3 gates | Yes |
+| 3 | TIER 2 criteria met AND inter-frame prototype transitions detected | Yes + prototype wiring |
+
+Exact thresholds in config: `tier.smart_componentization.*`
+
+**Quick mode (`--quick`):** Skip TIER decision and scenario detection. Single screen selection instead of full page scan. Proceed directly to Stage 3.
 
 ---
 
 ## Stage 2 — Figma Preparation (Agent Loop)
 
-The core file preparation — each screen is transformed through a mandatory 9-step checklist.
+Per-screen Figma file preparation via `handoff-figma-preparer` — ONE screen per dispatch, sequential loop with step-level crash recovery.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/figma-preparation.md`
 
-**CRITICAL: ONE screen per `handoff-figma-preparer` dispatch.** The orchestrator runs a sequential loop:
-
-1. IF TIER 2/3: dispatch `handoff-figma-preparer` for component library creation (one-time)
-2. FOR EACH screen in inventory:
-   - IF state shows screen completed → SKIP
-   - Dispatch `handoff-figma-preparer` for THIS SINGLE SCREEN
-   - Read completion summary from state file
-   - IF visual diff failed → mark `blocked`, continue to next screen
-3. Post-loop: Assemble `handoff-manifest.md` from per-screen data
-
-**Mode guard:** Skip entirely in Quick mode (`--quick`).
+**Quick mode:** Skip entirely. **Batch mode:** Runs normally.
 
 ---
 
@@ -176,24 +115,21 @@ The core file preparation — each screen is transformed through a mandatory 9-s
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/judge-protocol.md` (Stage 2J rubric)
 
-Dispatch `handoff-judge` (opus) with per-screen screenshots, manifest, and audit data. Evaluates: visual fidelity, naming compliance, token binding, component instantiation, GROUP residue.
+Evaluates visual fidelity, naming, tokens, components, GROUP residue. PASS → Stage 3. NEEDS_FIX → re-dispatch affected screens. BLOCK → mark blocked, continue.
 
-PASS → Stage 3. NEEDS_FIX → re-dispatch affected screens. BLOCK → mark screens blocked, continue.
+**Quick mode:** Skip (Stage 2 was skipped).
 
 ---
 
 ## Stage 3 — Gap & Completeness Analysis (Agent)
 
-Identify what Figma cannot express and what's missing from the design.
+Identify what Figma cannot express and what's missing from the design. Also generates Figma Screen Briefs (FSBs) for MUST_CREATE/SHOULD_CREATE missing items.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/gap-analysis.md`
 
-Dispatch `handoff-gap-analyzer` (sonnet) with ALL prepared screens. The analyzer uses figma-console for all queries:
-- **Part A**: Per-screen gap detection (behaviors, states, animations, data, logic, edge cases)
-- **Part B**: Missing screen/state detection (navigation dead-ends, implied states)
-- **Part C**: Cross-screen pattern extraction
+Output: `design-handoff/gap-report.md`, `design-handoff/figma-screen-briefs/FSB-*.md`
 
-Output: `design-handoff/gap-report.md`
+**Quick mode:** Runs, but skips manifest prerequisite check (no manifest in Quick mode). Analyzes the single selected screen only.
 
 ---
 
@@ -201,26 +137,19 @@ Output: `design-handoff/gap-report.md`
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/judge-protocol.md` (Stage 3J rubric)
 
-Evaluates gap detection thoroughness, navigation dead-end coverage, classification accuracy.
+PASS → Stage 3.5 (if missing screens) or Stage 4. NEEDS_FIX → re-examine specific areas.
 
-PASS → Stage 3.5 (if missing screens) or Stage 4. NEEDS_DEEPER → re-examine specific areas.
+**Quick mode:** Runs normally on the single-screen gap report.
 
 ---
 
 ## Stage 3.5 — Design Extension (Conditional)
 
-Create missing screens/states in Figma before generating the supplement.
+Create missing screens/states in Figma. Triggered only if Stage 3 detected MUST_CREATE or SHOULD_CREATE items.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/design-extension.md`
 
-**Triggered only if** Stage 3 detected MUST_CREATE or SHOULD_CREATE missing items.
-
-1. Present missing items to designer with 4 options each (Create / Designer creates / Supplement only / Skip)
-2. For "Create" items: dispatch `handoff-figma-preparer` in extend mode, one per screen
-3. For "Designer creates" items: save state, EXIT workflow (resume on re-invocation)
-4. Update screen inventory and gap report
-
-**Skip condition:** No missing screens, or all classified as OPTIONAL.
+**Skip condition:** No missing screens, all classified as OPTIONAL, or Quick mode.
 
 ---
 
@@ -228,42 +157,27 @@ Create missing screens/states in Figma before generating the supplement.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/judge-protocol.md` (Stage 3.5J rubric)
 
-Evaluates newly created screens: visual consistency, component usage, layout coherence, content completeness.
+**Skip condition:** Stage 3.5 was skipped.
 
 ---
 
 ## Stage 4 — Designer Dialog (Orchestrator-Mediated)
 
-Focused Q&A about gaps only — never about what's visible in Figma.
+Focused Q&A about gaps — never about what's visible in Figma. Orchestrator mediates via AskUserQuestion.
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/designer-dialog.md`
 
-Orchestrator runs this stage directly via AskUserQuestion:
-
-1. Present gap report summary
-2. Per-screen loop (ordered by most gaps first): present gaps as numbered questions in batches of `designer_dialog.questions_per_batch`
-3. Cross-screen pattern confirmation
-4. Exit: all screens done, or designer accepts remaining as-is
-
-**Batch mode (`--batch`):** Write gaps to file, EXIT workflow. Designer answers offline. Resume on re-invocation.
+**Batch mode (`--batch`):** Write gaps to `design-handoff/working/DIALOG-ANSWERS.md`, EXIT workflow. Designer answers offline. Resume on re-invocation.
 
 ---
 
 ## Stage 5 — Output Assembly (Inline)
 
-Consolidate all collected information into final deliverables.
+Assemble `HANDOFF-SUPPLEMENT.md` and update `handoff-manifest.md` from Stages 1-4 output. Execute directly (no coordinator dispatch).
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/output-assembly.md`
 
-Execute directly (no coordinator dispatch):
-
-1. Load templates from `$CLAUDE_PLUGIN_ROOT/templates/handoff-*.md`
-2. Assemble cross-screen patterns section (shared behaviors, mermaid navigation, common transitions)
-3. Assemble per-screen sections (template for screens with gaps, one-liner for no-gap screens)
-4. Assemble missing screens section (supplement-only items from Stage 3.5)
-5. Write `HANDOFF-SUPPLEMENT.md`
-6. Update `handoff-manifest.md` with routes, annotations, new screens
-7. Present completion summary to designer
+**Quick mode:** Generates a minimal single-screen supplement without cross-screen patterns or manifest dependency.
 
 ---
 
@@ -271,9 +185,7 @@ Execute directly (no coordinator dispatch):
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/judge-protocol.md` (Stage 5J rubric)
 
-Evaluates: no Figma duplication, gap coverage completeness, naming consistency, table formatting, conciseness.
-
-PASS → workflow complete. NEEDS_REVISION → regenerate affected sections.
+PASS → execute Completion Protocol (per `references/state-schema.md`). NEEDS_FIX → regenerate affected sections.
 
 ---
 
@@ -291,6 +203,16 @@ Key principles:
 
 ---
 
+## Context Management
+
+Stage 2's per-screen loop generates significant context. To prevent late-loop quality degradation:
+- Every 5 screens, the orchestrator emits a compact progress summary (screens completed, blocked, remaining)
+- Per-screen dispatch/response details from prior iterations are discarded after checkpoint
+- The figma-preparer agent receives only the current screen's context, not accumulated history
+- See `references/figma-preparation.md` Context Management subsection for screen loop compaction rules
+
+---
+
 ## Agent & Artifact Quick Reference
 
 | Agent | Stage | Model | Purpose |
@@ -298,7 +220,7 @@ Key principles:
 | `handoff-screen-scanner` | 1 | haiku | Frame discovery, structural analysis, readiness scoring |
 | `handoff-figma-preparer` | 2, 3.5 | sonnet | Figma file preparation + design extension (loads figma-console-mastery) |
 | `handoff-gap-analyzer` | 3 | sonnet | Gap detection + missing screen detection via figma-console |
-| `handoff-judge` | 2J, 3J, 3.5J, 5J | opus | LLM-as-judge at critical stage boundaries |
+| `handoff-judge` | 2J, 3J, 3.5J, 5J | opus / sonnet (per checkpoint) | LLM-as-judge at critical stage boundaries |
 
 **Key output artifacts:** `HANDOFF-SUPPLEMENT.md` (final), `handoff-manifest.md` (structural inventory), `gap-report.md` (working), `figma-screen-briefs/FSB-*.md` (structured briefs for missing screens — give to figma-console agent to create them), `screenshots/` (visual diffs), `judge-verdicts/` (quality gate records).
 
@@ -316,6 +238,7 @@ Key principles:
 | `references/output-assembly.md` | Stage 5: supplement + manifest generation | Stage 5 execution |
 | `references/judge-protocol.md` | Shared judge dispatch, 4 checkpoint rubrics | Every judge checkpoint |
 | `references/state-schema.md` | YAML schema, init template, resume protocol | State creation, crash recovery |
+| `references/gap-category-examples.md` | Gap category calibration examples (6 tables) | Stage 3 agent dispatch only |
 | `references/README.md` | File index, cross-references | Orientation |
 | `templates/figma-screen-brief-template.md` | Template for FSB files generated in Stage 3 for missing screens | Stage 3 brief generation |
 
@@ -323,11 +246,7 @@ Key principles:
 
 ## CRITICAL RULES (High Attention Zone — End)
 
-Rules 1-7 above MUST be followed. Key reminders:
-- Figma is source of truth — supplement NEVER duplicates Figma content
-- figma-console MCP required — stop if unavailable
-- ONE screen per figma-preparer dispatch — sequential with step-level state
-- Visual diff is non-negotiable — HARD BLOCK on failure after max retries
-- Judge checkpoints are dedicated phases — never inline
-- Coordinator never talks to users — orchestrator mediates all interaction
-- All thresholds from config — never hardcode values
+Rules 1-10 above MUST be followed. Most common violations:
+- Rule 1: Supplement contains layout/color/spacing descriptions that duplicate Figma
+- Rule 3: Multiple screens batched in a single figma-preparer dispatch
+- Rule 8/10: Wrong screenshot tool used for visual diff (`figma_take_screenshot` instead of `figma_capture_screenshot`)

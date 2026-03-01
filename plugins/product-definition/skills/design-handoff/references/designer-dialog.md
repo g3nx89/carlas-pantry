@@ -101,10 +101,21 @@ answered_at: "{ISO_TIMESTAMP}"
 
 Continue batching until all gaps for the screen are answered, then checkpoint and advance.
 
+### Partial Completion Handling
+
+If the designer stops responding mid-screen (workflow interrupted or session ends):
+
+1. **Checkpoint current progress:** Save all answers collected so far. Unanswered gaps are marked as `designer_answer: "UNANSWERED"`.
+2. **On resume:** Show count of unanswered questions: `"Resuming: {N} unanswered questions on {SCREEN}, {M} screens remaining."` Offer to continue or accept-remaining.
+3. **Batch mode validation:** When reading `QUESTIONS-HANDOFF.md` on resume, check for empty `**Your answer:**` blocks. Re-prompt for those specific questions only — do not re-ask already-answered questions.
+
 ### "Accept Remaining" Option
 
 After completing each screen (not the first), if `accept_remaining_option` is `true`
-AND remaining screens exist:
+AND remaining screens exist, offer the option under these **guard conditions**:
+
+1. **Minimum remaining:** Only offer when `>= 2 screens remain`. A single remaining screen should just be answered directly.
+2. **CRITICAL gap warning:** If any remaining screens have CRITICAL gaps, include a warning:
 
 ```
 AskUserQuestion:
@@ -112,6 +123,8 @@ AskUserQuestion:
 ## Progress: 2/5 screens done
 
 Remaining: Home (7 gaps), Profile (3 gaps), Settings (2 gaps)
+
+⚠ 2 remaining screens have CRITICAL gaps. Accepting as-is means the coding agent will guess these.
 
 (A) Continue to next screen (Home — 7 gaps)
 (B) Accept remaining gaps as-is — coding agent will use best judgment
@@ -279,4 +292,4 @@ Does this work identically on all screens? If not, describe differences.
 | Batching across multiple screens | One screen at a time |
 | Modifying a recorded answer | Answers are final |
 | Skipping cross-screen confirmation | Always confirm (unless config disables) |
-| Offering accept-remaining on first screen | Only after one screen is complete |
+| Offering accept-remaining too early | Only after one screen complete AND >= 2 screens remain |

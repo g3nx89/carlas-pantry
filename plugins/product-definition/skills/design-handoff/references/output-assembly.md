@@ -18,23 +18,33 @@ Assemble Stages 1-4 output into two deliverables:
 
 ## CRITICAL RULES
 
-1. **Figma is source of truth** — Zero layout descriptions, color specs, spacing values in supplement.
-2. **Tables over prose** — Prose only for cross-screen patterns that genuinely cannot fit table format.
-3. **Always single file** — No progressive disclosure mode (compact by design).
-4. **Never regenerate content** — Assemble from existing artifacts only.
-5. **Omit empty sections** — If a template section would have zero rows, omit it entirely.
+> Per SKILL.md Rules 1 and 7. Key additions for this stage:
+
+1. **Tables over prose** — Prose only for cross-screen patterns that genuinely cannot fit table format.
+2. **Always single file** — No progressive disclosure mode (compact by design).
+3. **Never regenerate content** — Assemble from existing artifacts only.
+4. **Omit empty sections** — If a template section would have zero rows, omit it entirely.
+5. **Atomic state writes** — Per SKILL.md, use write-to-tmp-then-rename for all state file updates.
 
 ---
 
 ## Step 5.1: Load Templates and Validate Inputs
 
 ```
-REQUIRED (halt if missing):  gap-report.md, .handoff-state.local.md, handoff-manifest.md
-IF any missing: STOP. NOTIFY: "Cannot assemble: {missing}. Re-run earlier stages."
+IF workflow_mode == "quick":
+    REQUIRED (halt if missing):  gap-report.md, .handoff-state.local.md
+    # Quick mode: no handoff-manifest.md (Stage 2 was skipped)
+    SET INCLUDE_CROSS = false
+    SET INCLUDE_MERMAID = false
+ELSE:
+    REQUIRED (halt if missing):  gap-report.md, .handoff-state.local.md, handoff-manifest.md
+    SET INCLUDE_CROSS, INCLUDE_MERMAID from config
+
+IF any REQUIRED file missing: STOP. NOTIFY: "Cannot assemble: {missing}. Re-run earlier stages."
 
 READ supplement_template  ← config templates.supplement
 READ screen_template      ← config templates.screen
-READ STATE, GAP_REPORT, INCLUDE_MERMAID (config), INCLUDE_CROSS (config)
+READ STATE, GAP_REPORT
 ```
 
 ---
@@ -64,7 +74,7 @@ This lets the reviewer jump directly to the right Figma frame or brief document.
 
 ## Step 5.3: Assemble Per-Screen Sections
 
-Iterate `STATE.screens` in Figma page order (matching manifest). Track `supplement_count`.
+Iterate `STATE.screens` in Figma page order (left-to-right by X-coordinate of top-level frames, as recorded by Stage 1 scanner). Track `supplement_count`.
 
 **No-gap screens** — one-liner: `### {N}. {name}` / `**Node ID:** ... | **No supplement needed**`
 
@@ -135,11 +145,15 @@ Populate `handoff-supplement-template.md`:
 | `{{MISSING_SCREENS_SECTION}}` | Step 5.4 (omit if empty) |
 | `{{FIGMA_BRIEFS_INDEX}}` | Step 5.4b (omit section if no FSB files) |
 
-Write to `design-handoff/HANDOFF-SUPPLEMENT.md`. Update `STATE.artifacts.handoff_supplement`. Checkpoint.
+Write to `design-handoff/HANDOFF-SUPPLEMENT.md`. Update `STATE.artifacts.handoff_supplement`.
+
+**Checkpoint:** Set `STATE.current_stage = "5:supplement_written"`. This intermediate checkpoint ensures that on resume, the supplement is NOT regenerated — resume skips to Step 5.6.
 
 ---
 
 ## Step 5.6: Update Handoff Manifest
+
+**Quick mode guard:** IF `workflow_mode == "quick"`: SKIP Step 5.6 entirely. Quick mode skips Stage 2, so no `handoff-manifest.md` exists to update.
 
 Enrich the existing `handoff-manifest.md` with Stages 3-4 data:
 
@@ -169,7 +183,7 @@ Present to designer (direct output, not AskUserQuestion):
 | Figma screen briefs generated | {figma_briefs_count} |
 | Total gaps addressed | {total_gaps} |
 | CRITICAL gaps | {critical_count} |
-| TIER | {tier} |
+| TIER | {effective_tier} |
 
 ### Artifacts
 | File | Description |
@@ -199,14 +213,26 @@ UPDATE STATE: current_stage = "5J"
 DISPATCH handoff-judge with checkpoint_id: "stage_5j"
 ```
 
-On `needs_revision`: re-run only affected Step 5.x, re-judge (max `judge.checkpoints.stage_5j.max_revision_cycles`). On `pass`: advance to workflow completion (lock release, final state update).
+On `needs_fix` (fix_type: `re_assemble`): re-run only affected Step 5.x, re-judge (max `judge.checkpoints.stage_5j.max_revision_cycles`). On `pass`: execute Completion Protocol below.
+
+---
+
+## Completion Protocol
+
+After Stage 5J passes, finalize the workflow:
+
+```
+1. SET STATE.current_stage = "complete"
+2. SET STATE.last_updated = NOW()
+3. DELETE lock file: design-handoff/.handoff-lock
+4. APPEND to Progress Log: "## Workflow Complete\n- Completed: {ISO_NOW}\n- Artifacts: HANDOFF-SUPPLEMENT.md, handoff-manifest.md"
+5. Recompute checksum and WRITE state file (atomic: write .tmp then rename)
+```
+
+On re-invocation with `current_stage == "complete"`: notify designer "Handoff already complete" and STOP. No stages dispatch.
 
 ---
 
 ## CRITICAL RULES REMINDER
 
-1. Figma is source of truth — zero layout/color/spacing in supplement
-2. Tables over prose — every piece of information in a table
-3. Always single file — no multi-file mode
-4. Never regenerate — assemble from existing artifacts only
-5. Omit empty sections — no empty tables or placeholder rows
+> Per SKILL.md Rules 1-10 and this file's Critical Rules section above.

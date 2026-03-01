@@ -2,7 +2,7 @@
 stage: "3"
 description: "Gap & Completeness Analysis — identify what Figma cannot express and what's missing"
 agents_dispatched: ["handoff-gap-analyzer"]
-artifacts_written: ["design-handoff/gap-report.md"]
+artifacts_written: ["design-handoff/gap-report.md", "design-handoff/figma-screen-briefs/FSB-*.md"]
 config_keys_used: ["gap_analysis.*"]
 ---
 
@@ -33,10 +33,13 @@ Before dispatching the gap analyzer, the coordinator verifies:
 ```
 1. CHECK current_stage in state file == "3"
 2. CHECK gap-report.md does NOT already exist (no double-run)
-   - IF exists AND stage_3j verdict is "needs_deeper": this is a re-run — proceed
+   - IF exists AND stage_3j verdict is "needs_fix": this is a re-run — proceed
 3. CHECK handoff-manifest.md EXISTS (produced by Stage 2)
-4. CHECK at least one screen has status == "prepared" in state file
-   - IF zero prepared screens: HALT — log error, set current_stage back to "2"
+   - QUICK MODE EXCEPTION: Skip this check. In Quick mode, Stage 2 was skipped and no manifest exists.
+     Set MANIFEST_PATH = null in dispatch variables.
+4. CHECK at least one screen has status == "prepared" OR workflow_mode == "quick" in state file
+   - In Quick mode, the single selected screen has status "pending" (not "prepared") — treat it as the analysis target.
+   - IF zero prepared screens AND NOT quick mode: HALT — log error, set current_stage back to "2"
 ```
 
 ### Dispatch Prompt
@@ -82,7 +85,7 @@ The gap analyzer uses BOTH Figma MCP servers on each screen. This is not redunda
 | `figma_get_styles` | Style consistency (outliers), style definitions. |
 | `figma_get_variables` | Token/variable bindings (revealing theming gaps), design system health. |
 
-> **Screenshot rule**: All screenshots MUST use figma-console (`figma_take_screenshot` for baseline reads; `figma_capture_screenshot` for post-mutation diffs — REST API is cloud-cached and returns stale renders after Plugin API changes). NEVER use `figma-desktop::get_screenshot`.
+> **Screenshot rule**: Per SKILL.md Rules 8 and 10.
 
 **figma-console reveals all dimensions:** structural (what IS in the file) and design system patterns that IMPLY what should be there but is missing (e.g., a component with only `default` and `hover` variants — meaning `disabled`, `loading`, and `error` variants are missing states).
 
@@ -91,73 +94,24 @@ The gap analyzer uses BOTH Figma MCP servers on each screen. This is not redunda
 The analyzer checks each screen against 6 categories (from `gap_analysis.categories` in config). Every gap is something a coding agent CANNOT derive from Figma alone.
 
 #### 1. Behaviors
-
 What happens when a user interacts with an element? Figma shows static frames, not behavioral outcomes.
 
-| Example Screen | Element | Gap (Invisible to Figma) |
-|---------------|---------|--------------------------|
-| Login | Submit button | What API endpoint is called? What payload shape? What happens on 200 vs 401 vs 500? Does the button disable during submission? |
-| Product List | Product card | Does tapping the card navigate to Product Detail? Or open a bottom sheet preview? Is there a long-press action (add to cart)? |
-| Settings | Toggle switch | Does changing the toggle take effect immediately or require a Save action? Is there a confirmation dialog for destructive toggles (e.g., "Delete Account")? |
-| Search | Search input | Does search trigger on each keystroke (debounced) or on explicit submit? Is there a minimum character count? |
-
 #### 2. States
-
 Which UI states exist but are not shown as separate frames or component variants?
 
-| Example Screen | Missing State | Gap |
-|---------------|---------------|-----|
-| Product List | Empty state | What does the screen show when the user has zero items? Illustration? Call-to-action? |
-| Product List | Loading state | Skeleton screens? Spinner? Shimmer placeholders? How many skeleton rows? |
-| Product List | Error state | Inline error banner? Full-screen error with retry button? Does it preserve partial data on retry? |
-| Checkout Form | Validation error | Per-field inline errors? Summary banner at top? Which fields validate on blur vs on submit? |
-| Profile | Offline state | Is the profile cached for offline viewing? Or does it show a "No connection" screen? |
-
 #### 3. Animations
-
 Micro-interactions, gesture-driven animations, and transition specifications that Figma prototyping cannot fully express.
 
-| Example Screen | Element | Gap |
-|---------------|---------|-----|
-| Login | Submit button | Loading spinner animation: duration? Easing curve? Does the button shrink to a circle during loading? |
-| Product List | Pull-to-refresh | Overscroll distance before refresh triggers? Custom refresh indicator or platform default? |
-| Onboarding | Page carousel | Swipe velocity threshold? Snap behavior? Parallax on background layers? |
-| Modal | Bottom sheet | Drag-to-dismiss threshold (% of height)? Velocity-based dismiss? Background dimming interpolation? |
-| Toast | Success notification | Slide-in direction? Auto-dismiss delay (ms)? Swipe-to-dismiss supported? |
-
 #### 4. Data
-
 API calls, payloads, response shapes, dynamic content sources, and real-time update behavior.
 
-| Example Screen | Element | Gap |
-|---------------|---------|-----|
-| Dashboard | Stats cards | Data source? Refresh interval? Are values real-time (WebSocket) or polled? Stale data indicator? |
-| Product List | Product items | API endpoint? Pagination strategy (offset vs cursor)? Page size? Sort/filter parameters? |
-| Profile | User avatar | Upload endpoint? Max file size? Accepted formats? Crop behavior? Compression? |
-| Chat | Message list | Real-time protocol (WebSocket, SSE, polling)? Message grouping by time? Read receipts? |
-
 #### 5. Logic
-
 Business rules, permission gates, conditional rendering, A/B variations, and feature flags.
 
-| Example Screen | Element | Gap |
-|---------------|---------|-----|
-| Dashboard | Admin section | Which user roles see this section? What does a non-admin see in its place — hidden entirely or "Upgrade" CTA? |
-| Checkout | Promo code field | Validation rules? Server-side or client-side? What discount types (%, fixed, free shipping)? Stacking rules? |
-| Product Detail | "Add to Cart" button | Inventory check before adding? What if item goes out of stock while user is on the page? |
-| Settings | Feature toggle | Is this gated by a feature flag? A/B test variant? Subscription tier? |
-
 #### 6. Edge Cases
-
 Boundary conditions, failure modes, and concurrent action scenarios.
 
-| Example Screen | Element | Gap |
-|---------------|---------|-----|
-| Product List | List rendering | What happens with 0 items? 10,000 items? Does it virtualize? Infinite scroll or paginated? |
-| Profile | Display name field | Max character length? Unicode handling? What about extremely long single-word names (layout overflow)? |
-| Checkout | Submit order | Double-tap prevention? What if the user backgrounds the app during submission? Resume behavior? |
-| Login | Password field | Rate limiting after N failed attempts? Account lockout? CAPTCHA trigger? |
-| Any form | Network timeout | Retry policy? Exponential backoff? User-facing timeout message? Data loss on timeout? |
+> **Calibration examples:** For concrete examples of each gap category (what to look for, typical screens, example gaps), load `@$CLAUDE_PLUGIN_ROOT/skills/design-handoff/references/gap-category-examples.md` in the agent dispatch prompt. Do NOT load into coordinator context.
 
 ### Severity Classification
 
@@ -301,12 +255,13 @@ Where not specified, record as "unspecified — designer decision needed."
 
 The agent writes `{WORKING_DIR}/gap-report.md` in this exact structure:
 
-```markdown
+~~~markdown
 ---
 status: completed | error
 total_screens_analyzed: {N}
 screens_with_gaps: {N}
 screens_no_supplement_needed: {N}
+screens_skipped: {N}                  # Screens with status "blocked" — excluded from analysis
 total_gaps: {N}
 gap_breakdown:
   critical: {N}
@@ -384,7 +339,7 @@ graph TD
 | Modal present | ProductList -> FilterSheet | overlay | Yes (prototype) |
 | Tab switch | Dashboard tabs | within-screen | No |
 | Bottom sheet | ProductDetail -> AddToCart | overlay | No |
-```
+~~~
 
 ---
 
@@ -407,6 +362,34 @@ This marking is essential. Omitting a screen from Section 1 is ambiguous — it 
 - Static onboarding illustration panels (non-interactive)
 
 Even for zero-gap screens, the analyzer must still verify: (1) no interactive elements exist that would imply behaviors, (2) no component instances exist with missing variant states, and (3) no navigation elements exist that would imply missing destination screens.
+
+---
+
+## Self-Verification (Before Writing Final Report)
+
+The gap analyzer MUST run these checks before writing the final `gap-report.md`. This follows the Reflexion pattern — verify internal consistency before handing off to the judge.
+
+```
+1. COVERAGE CHECK: Every screen in the inventory must appear in Section 1.
+   - Either with gaps listed OR with "No supplement needed" marker.
+   - IF any screen is absent: add it with appropriate marking before writing.
+
+2. NAVIGATION COMPLETENESS: Every node in the Section 3 navigation model must
+   correspond to either an inventory screen OR a missing screen entry in Section 2.
+   - IF orphan nodes exist: investigate — either add as missing screen or remove from graph.
+
+3. SEVERITY PLAUSIBILITY:
+   - IF scenario == "draft_to_handoff" AND total CRITICAL gaps == 0: flag for re-examination
+     (draft scenarios almost always have behavioral gaps).
+   - IF a form-type screen has zero "behaviors" gaps: flag as suspicious — forms always have
+     submission, validation, and error handling behaviors.
+
+4. CROSS-REFERENCE INTEGRITY: Every missing screen in Section 2 must have an `implied_by`
+   that references an element on an actual inventory screen.
+   - IF any missing screen has no valid `implied_by`: remove or re-attribute.
+```
+
+If any check fails, the analyzer corrects the report before writing. Corrections are logged in the gap report frontmatter as `self_verification_corrections: [{check, correction}]`.
 
 ---
 
@@ -466,6 +449,6 @@ After the gap analyzer writes `gap-report.md`, the orchestrator verifies the out
    - PASS → check if missing_screens contains MUST_CREATE or SHOULD_CREATE items
      - IF yes → advance to Stage 3.5 (Design Extension)
      - IF no → advance to Stage 4 (Designer Dialog)
-   - NEEDS_DEEPER → re-dispatch handoff-gap-analyzer with judge findings
+   - NEEDS_FIX (fix_type: re_examine) → re-dispatch handoff-gap-analyzer with judge findings
      - Max cycles: judge.checkpoints.stage_3j.max_review_cycles from config
 ```

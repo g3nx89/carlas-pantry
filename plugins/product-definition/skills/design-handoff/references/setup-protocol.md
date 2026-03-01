@@ -37,6 +37,17 @@ modes.default (one of: guided, quick, batch)
 
 IF any key missing or invalid:
     STOP. NOTIFY user: "Config validation failed: {key} is {missing|invalid}. Check handoff-config.yaml."
+
+VERIFY dependency files exist:
+    - $CLAUDE_PLUGIN_ROOT/agents/handoff-screen-scanner.md
+    - $CLAUDE_PLUGIN_ROOT/agents/handoff-figma-preparer.md
+    - $CLAUDE_PLUGIN_ROOT/agents/handoff-gap-analyzer.md
+    - $CLAUDE_PLUGIN_ROOT/agents/handoff-judge.md
+    - $CLAUDE_PLUGIN_ROOT/templates/handoff-supplement-template.md
+    - $CLAUDE_PLUGIN_ROOT/templates/handoff-screen-template.md
+    - $CLAUDE_PLUGIN_ROOT/templates/handoff-manifest-template.md
+    - $CLAUDE_PLUGIN_ROOT/templates/figma-screen-brief-template.md
+IF any missing: STOP. NOTIFY: "Required file missing: {path}. Plugin may be corrupted."
 ```
 
 ---
@@ -257,7 +268,4 @@ Artifacts on disk:
 
 ## CRITICAL RULES REMINDER
 
-1. figma-console required — STOP if unavailable
-2. Lock before state — acquire lock before any state read/write
-3. All thresholds from config — never hardcode
-4. Designer approval gates Stage 2 — no advancement without confirmation
+> Per CRITICAL RULES section above (Rules 1-4). Most common violation: hardcoding threshold values instead of reading from config.

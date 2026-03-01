@@ -1,7 +1,18 @@
 # Judge Protocol — Design Handoff
 
 > **Shared pattern for all judge checkpoints (Stages 2J, 3J, 3.5J, 5J)**
-> **Agent:** `handoff-judge` (opus) — dispatched by orchestrator at stage boundaries
+> **Agent:** `handoff-judge` — dispatched by orchestrator at stage boundaries
+
+### Model Selection per Checkpoint
+
+Model assignment per checkpoint (configurable via `judge.checkpoints.{id}.model` in config):
+
+| Checkpoint | Default Model | Rationale |
+|------------|---------------|-----------|
+| 2J | opus | Visual fidelity comparison requires strong spatial reasoning |
+| 3J | sonnet | Structural completeness checks — pattern matching sufficient |
+| 3.5J | opus | Visual consistency evaluation across new and existing screens |
+| 5J | sonnet | Table/document validation — no visual analysis needed |
 
 ---
 
@@ -48,6 +59,18 @@ State file: {STATE_FILE_PATH}
 4. If NEEDS_FIX or BLOCK: list specific findings with remediation instructions
 ```
 
+### Variable Sourcing — Judge Dispatch
+
+| Variable | Source | Default |
+|----------|--------|---------|
+| `{STAGE_NAME}` | Dispatch table stage name (e.g., "Figma Preparation") | Required |
+| `{CHECKPOINT_ID}` | `stage_2j`, `stage_3j`, `stage_3_5j`, `stage_5j` | Required |
+| `{WORKING_DIR}` | State file `directories.root` resolved to absolute path | `design-handoff/` |
+| `{STATE_FILE_PATH}` | `{WORKING_DIR}/.handoff-state.local.md` | Required |
+| `{ARTIFACT_PATHS}` | Checkpoint-specific artifact list (see each rubric below) | Required |
+| `{CHECKPOINT_RUBRIC}` | Inline rubric dimensions table from the matching rubric section below | Required (copy verbatim) |
+| `{PASS_CRITERIA}` | Pass condition summary from the matching rubric section below | Required (copy verbatim) |
+
 ---
 
 ## Checkpoint Rubrics
@@ -66,7 +89,7 @@ State file: {STATE_FILE_PATH}
 
 | # | Dimension | How to Evaluate | Pass Condition |
 |---|-----------|----------------|----------------|
-| 1 | **Visual fidelity** | Take screenshots of BOTH source and prepared screens via `mcp__figma-console__figma_capture_screenshot` (Desktop Bridge, live state — NEVER `figma-desktop::get_screenshot` which is cloud-cached). Compare layout structure, element placement, colors, fonts, content. | No layout shifts, missing elements, color changes, or font mismatches between source and prepared versions |
+| 1 | **Visual fidelity** | Take screenshots of BOTH source and prepared screens via `mcp__figma-console__figma_capture_screenshot` (Desktop Bridge, live state — NEVER `figma-desktop::get_screenshot` which is cloud-cached). Compare layout structure, element placement, colors, fonts, content. Visual diff is a **qualitative** PASS/FAIL assessment — the judge evaluates holistic visual equivalence, not a computed pixel-difference metric. The `visual_diff_threshold` config value (0.95) documents the quality bar, not a numeric threshold. | No layout shifts, missing elements, color changes, or font mismatches between source and prepared versions |
 | 2 | **Naming compliance** | Via `figma_get_file_for_plugin(depth=figma.query_depth)` on each prepared screen: count layers with generic names ("Group N", "Frame N", "Rectangle N"). Compute % PascalCase for components. | Component naming compliance >= `judge.checkpoints.stage_2j.naming_min_compliance` in config |
 | 3 | **Token binding** | Via `figma_get_variables`: count fills/strokes bound to variables vs hardcoded hex. | Token coverage >= `judge.checkpoints.stage_2j.token_min_coverage` in config |
 | 4 | **Component instantiation** | For TIER 2/3: cross-reference component library against each screen. If component X was created AND should appear on screen Y (per componentization analysis), verify an INSTANCE of X exists on screen Y. | All expected instances present. Missing instances listed as findings. |
@@ -105,7 +128,7 @@ State file: {STATE_FILE_PATH}
 
 **Verdicts:**
 - `pass` — All dimensions satisfied → advance to Stage 3.5 (or Stage 4 if no missing screens)
-- `needs_deeper` — Specific areas identified for re-examination → re-dispatch `handoff-gap-analyzer` with targeted instructions → re-judge
+- `needs_fix` (fix_type: `re_examine`) — Specific areas identified for re-examination → re-dispatch `handoff-gap-analyzer` with targeted instructions → re-judge
 
 **Max cycles:** `judge.checkpoints.stage_3j.max_review_cycles` from config.
 
@@ -131,7 +154,7 @@ State file: {STATE_FILE_PATH}
 
 **Verdicts:**
 - `pass` — All 4 dimensions satisfied → advance to Stage 4
-- `needs_fix` — Specific issues listed → re-dispatch `handoff-figma-preparer` (extend mode) → re-judge
+- `needs_fix` (fix_type: `re_prepare`) — Specific issues listed → re-dispatch `handoff-figma-preparer` (extend mode) → re-judge
 
 **Max cycles:** `judge.checkpoints.stage_3_5j.max_fix_cycles` from config.
 
@@ -158,8 +181,8 @@ State file: {STATE_FILE_PATH}
 | 5 | **Conciseness** | Check for prose that could be a table row, redundant information across screens, or verbose descriptions. | No section exceeds 20 lines of prose. Tables preferred over paragraphs. |
 
 **Verdicts:**
-- `pass` — All 5 dimensions satisfied → workflow complete
-- `needs_revision` — Specific sections to improve → regenerate affected sections → re-judge
+- `pass` — All 5 dimensions satisfied → execute Completion Protocol (per `references/state-schema.md`)
+- `needs_fix` (fix_type: `re_assemble`) — Specific sections to improve → regenerate affected sections → re-judge
 
 **Max cycles:** `judge.checkpoints.stage_5j.max_revision_cycles` from config.
 
@@ -176,16 +199,20 @@ State file structure (canonical for orchestrator):
 ```yaml
 judge_verdicts:
   {checkpoint_id}:
-    verdict: "pass" | "needs_fix" | "needs_deeper" | "needs_revision" | "block"
+    verdict: "pass" | "needs_fix" | "block"
+    fix_type: "re_prepare" | "re_examine" | "re_assemble" | null  # Semantic hint for orchestrator
     cycle: {N}  # Current cycle number (1-indexed)
     findings:
       - dimension: "{dimension_name}"
+        priority: "P0" | "P1" | "P2"  # P0 = block-eligible, P1 = important, P2 = cleanup
         severity: "blocking" | "warning"
         screen: "{screen_name}" | "cross-screen"  # Which screen, or cross-screen for global issues
         detail: "{specific issue description}"
         remediation: "{what the stage coordinator should do to fix this}"
     summary: "{1-2 sentence overall assessment}"
 ```
+
+**Verdict vocabulary:** All checkpoints use the same three verdicts: `pass`, `needs_fix`, `block`. The `fix_type` field provides semantic context for the orchestrator: `re_prepare` (re-dispatch figma-preparer), `re_examine` (re-dispatch gap-analyzer for deeper analysis), `re_assemble` (re-run output assembly steps).
 
 ---
 
@@ -195,12 +222,20 @@ The orchestrator's responsibility at each judge checkpoint:
 
 1. **Before dispatch:** Ensure all required artifacts exist. If any are missing, log error and skip judge (do not block workflow on missing artifacts — flag to designer instead).
 
-2. **On PASS:** Update `current_stage` in state file, advance to next stage.
+2. **On PASS:**
+   - **Reconciliation check:** Before acting on verdict, verify state file verdict matches verdict file summary. If mismatch: re-read verdict file (more detailed), trust verdict file, update state.
+   - Update `current_stage` in state file, advance to next stage.
 
-3. **On NEEDS_FIX / NEEDS_DEEPER / NEEDS_REVISION:**
+3. **On NEEDS_FIX:**
    - Increment cycle counter
-   - If cycle < max_cycles: re-dispatch the stage coordinator with judge findings as additional context
-   - If cycle >= max_cycles: escalate to designer via AskUserQuestion: "Judge found issues after {N} fix attempts: {summary}. Options: (A) Accept current state, (B) Review findings manually, (C) Halt workflow."
+   - **Convergence check** (before re-dispatch):
+     - Compare `findings.length` against prior cycle's finding count
+     - Compare set of `dimension` values against prior cycle's dimensions
+     - IF findings_count >= prior_cycle_findings_count: ESCALATE (no progress)
+     - IF new dimensions appear not in prior cycle: ESCALATE (regression)
+     - ELSE: continue to fix cycle
+   - If cycle < max_cycles AND convergence passes: re-dispatch the stage coordinator with judge findings as additional context (fix P0 findings first cycle; P1/P2 in subsequent cycles if P0 passes)
+   - If cycle >= max_cycles OR convergence fails: escalate to designer via AskUserQuestion: "Judge found issues after {N} fix attempts: {summary}. Options: (A) Accept current state, (B) Review findings manually, (C) Halt workflow."
 
 4. **On BLOCK:** Mark affected screen(s) as `blocked` in state. If any screens remain non-blocked, continue workflow with those screens. If ALL screens blocked, halt workflow and notify designer.
 
