@@ -12,27 +12,10 @@ IF state.version == 1 OR state.version is missing: MIGRATE to v2 (see Migration 
 READ config at $CLAUDE_PLUGIN_ROOT/config/planning-config.yaml
 BUILD dispatch_table from SKILL.md Phase Dispatch Table
 
-# Check for pending deep reasoning escalation (resume case)
+# Pending Escalation Resume
+# See deep-reasoning-dispatch-pattern.md § Resume Handling for full escalation resume logic.
 IF state.deep_reasoning AND state.deep_reasoning.pending_escalation:
-  pending = state.deep_reasoning.pending_escalation
-  ASK user via AskUserQuestion:
-    header: "Pending Deep Reasoning Escalation"
-    question: "A deep reasoning escalation was started for Phase {pending.phase}
-      ({pending.type}) but no response was received.
-      The prompt is saved at: {FEATURE_DIR}/{pending.prompt_file}"
-    options:
-      - label: "Provide the response now"
-        description: "I have the deep reasoning model's response ready"
-      - label: "Skip this escalation"
-        description: "Continue the workflow without the escalation response"
-
-  IF user provides response:
-    # Follow Step D-F from deep-reasoning-dispatch-pattern.md
-    INGEST response → WRITE to file → UPDATE state → RE-DISPATCH pending.phase
-  ELSE:
-    CLEAR state.deep_reasoning.pending_escalation
-    WRITE state
-    LOG: "Pending escalation cleared — continuing normal flow"
+  HANDLE_PENDING_ESCALATION(state)  # delegated to deep-reasoning-dispatch-pattern.md
 
 FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 8b, 9]:
   IF phase IN state.completed_phases: SKIP (already done)
@@ -51,7 +34,15 @@ FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 8b, 9]:
     ELSE:
       DISPATCH_COORDINATOR(phase)
   ELIF delegation == "coordinator":
-    DISPATCH_COORDINATOR(phase)
+    IF phase == "8" AND dispatch_table["8b"].eligible(state):
+      # Phases 8 and 8b run concurrently — both are coordinator dispatches
+      PARALLEL [
+        DISPATCH_COORDINATOR("8"),
+        DISPATCH_COORDINATOR("8b")
+      ]
+      # Process both summaries before continuing
+    ELSE:
+      DISPATCH_COORDINATOR(phase)
 
   # Read and validate summary
   summary_path = {FEATURE_DIR}/.phase-summaries/phase-{phase}-summary.md
@@ -71,110 +62,18 @@ FOR phase IN [1, 2, 3, 4, 5, 6, 6b, 7, 8, 8b, 9]:
   IF summary.status == "failed":
     ASK user: retry / skip / abort
 
-  # Handle gate failures (RED)
+  # Handle gate failures (RED) — see Gate Failure Decision Table below
   IF summary.gate AND summary.gate.verdict == "RED":
-    IF summary.gate.retries < 2:
-      INCREMENT retry counter in state
-      LOOP BACK to same phase (or to Phase 4 if Phase 6 RED, Phase 7 if Phase 8 RED)
+    HANDLE_GATE_FAILURE(phase, summary.gate)
 
-    ELSE:
-      # 2 retries exhausted — check deep reasoning escalation eligibility
-      # Reference: $CLAUDE_PLUGIN_ROOT/skills/plan/references/deep-reasoning-dispatch-pattern.md
-      dr_config = config.deep_reasoning_escalation
-      dr_state = state.deep_reasoning OR { escalations: [], pending_escalation: null }
-      escalations_for_phase = dr_state.escalations.count(e => e.phase == phase)
-      total_escalations = dr_state.escalations.length
-
-      IF dr_config.circular_failure_recovery.enabled
-         AND analysis_mode in dr_config.circular_failure_recovery.modes
-         AND escalations_for_phase < dr_config.limits.max_escalations_per_phase
-         AND total_escalations < dr_config.limits.max_escalations_per_session:
-
-        # Determine escalation type (specific beats generic)
-        IF phase == "6" AND dr_config.architecture_wall_breaker.enabled:
-          escalation_type = "architecture_wall"
-          escalation_flag = "architecture_wall_breaker"
-          template = "architecture_wall"
-          target_phase = "4"  # Loop back to Phase 4
-        ELIF phase in ["4", "7"]
-             AND state.deep_reasoning.algorithm_detected
-             AND summary.flags.algorithm_difficulty == true
-             AND dr_config.abstract_algorithm_detection.enabled
-             AND analysis_mode in dr_config.abstract_algorithm_detection.modes:
-          escalation_type = "algorithm_escalation"
-          escalation_flag = "abstract_algorithm_detection"
-          template = "algorithm_escalation"
-          target_phase = phase  # Re-dispatch same phase
-        ELSE:
-          escalation_type = "circular_failure"
-          escalation_flag = "circular_failure_recovery"
-          template = "circular_failure"
-          target_phase = redirect_target(phase)  # same phase or loop-back target
-
-        # Execute deep reasoning dispatch pattern (Steps A-F)
-        DEEP_REASONING_DISPATCH(
-          ESCALATION_TYPE: escalation_type,
-          ESCALATION_FLAG: escalation_flag,
-          PHASE: phase,
-          TEMPLATE: template,
-          CONTEXT_SOURCES: [summary files + failing artifacts for this phase],
-          GATE_HISTORY: {
-            retries: summary.gate.retries,
-            scores: [retry_1_score, retry_2_score],
-            failing_dimensions: summary.gate.failing_dimensions or [],
-            feedback: [retry_1_feedback, retry_2_feedback]
-          },
-          SPECIFIC_FOCUS: summary.gate.lowest_dimension or "overall quality"
-        )
-
-        IF user accepted escalation AND response received:
-          # Re-dispatch with deep reasoning context (Step F)
-          RE-DISPATCH_COORDINATOR(target_phase)
-          # Continue to summary read/validation for the re-dispatched phase
-        ELSE:
-          # User declined — fall through to existing behavior
-          ASK user: retry / skip / abort
-
-      ELSE:
-        # Deep reasoning not available or limits exceeded — existing behavior
-        ASK user: retry / skip / abort
-
-  # Post-phase deep reasoning checks (non-gate triggers)
-  # Security Deep Dive: check after Phase 6b completes
+  # Post-phase: security deep dive after Phase 6b
+  # Delegated: see deep-reasoning-dispatch-pattern.md with ESCALATION_TYPE = security_deep_dive
   IF phase == "6b" AND summary.status == "completed":
-    dr_config = config.deep_reasoning_escalation
-    critical_count = summary.flags.critical_security_count OR 0
+    CHECK_SECURITY_DEEP_DIVE(summary, config)  # triggers if critical_count >= threshold
 
-    IF dr_config.security_deep_dive.enabled
-       AND analysis_mode in dr_config.security_deep_dive.modes
-       AND critical_count >= dr_config.security_deep_dive.trigger.min_critical_findings:
-
-      LOG: "Security deep dive trigger: {critical_count} CRITICAL findings"
-      DEEP_REASONING_DISPATCH(
-        ESCALATION_TYPE: "security_deep_dive",
-        ESCALATION_FLAG: "security_deep_dive",
-        PHASE: "6b",
-        TEMPLATE: "security_deep_dive",
-        CONTEXT_SOURCES: ["analysis/expert-review.md", "analysis/cli-security-report.md", "design.md"],
-        GATE_HISTORY: null,
-        SPECIFIC_FOCUS: "CRITICAL severity security findings requiring CVE-level analysis"
-      )
-
-      IF user accepted AND response received:
-        # Append to expert review (do NOT re-dispatch Phase 6b)
-        APPEND deep reasoning response summary to {FEATURE_DIR}/analysis/expert-review.md
-        UPDATE phase-6b-summary.md: flags.deep_reasoning_supplement = true
-      # Continue to next phase regardless
-
-  # Post-phase: update requirements digest after Phase 3
-  # Phase 3 produces requirements-anchor.md which consolidates spec + user clarifications.
-  # Update the requirements_digest in state so subsequent dispatches use the enriched version.
-  IF phase == "3" AND summary.status == "completed":
-    IF file_exists({FEATURE_DIR}/requirements-anchor.md):
-      # Re-extract digest from enriched source (budget: config.requirements_context.digest_max_tokens)
-      anchor = READ({FEATURE_DIR}/requirements-anchor.md)
-      state.requirements_digest = EXTRACT_DIGEST(anchor, max_tokens=config.requirements_context.digest_max_tokens)
-      LOG: "Requirements digest updated from requirements-anchor.md (post-Phase 3)"
+  # Post-phase: update requirements digest after Phase 3 (consolidates spec + user clarifications)
+  IF phase == "3" AND summary.status == "completed" AND file_exists({FEATURE_DIR}/requirements-anchor.md):
+    state.requirements_digest = EXTRACT_DIGEST(READ({FEATURE_DIR}/requirements-anchor.md), max_tokens=config.requirements_context.digest_max_tokens)
 
   # Update state
   ADD phase to state.completed_phases
@@ -207,20 +106,9 @@ FUNCTION DISPATCH_COORDINATOR(phase):
       IF summary.risks_identified:
         accumulated_risks += summary.risks_identified
 
-    # Truncate per category to stay within budget
-    budgets = config.state.context_protocol.context_pack.category_budgets
-    #   decisions: 200 tokens, questions: 150 tokens, risks: 150 tokens
-    context_pack = TRUNCATE_PER_CATEGORY(
-      decisions=accumulated_decisions,
-      questions=accumulated_questions,
-      risks=accumulated_risks,
-      decision_budget=budgets.decisions,     # 200
-      question_budget=budgets.questions,     # 150
-      risk_budget=budgets.risks,             # 150
-      decision_strategy="keep_high_confidence_first",
-      question_strategy="keep_high_priority_first",
-      risk_strategy="keep_high_severity_first"
-    )
+    # Truncate per category to stay within budget (config.state.context_protocol.context_pack.category_budgets)
+    # Strategies: decisions=keep_high_confidence_first, questions=keep_high_priority_first, risks=keep_high_severity_first
+    context_pack = TRUNCATE_PER_CATEGORY(accumulated_decisions, accumulated_questions, accumulated_risks, budgets)
 
     context_section = """
     ## Accumulated Context (from prior phases)
@@ -237,12 +125,8 @@ FUNCTION DISPATCH_COORDINATOR(phase):
   ELSE:
     context_section = ""
 
-  # --- Requirements Digest Injection ---
-  # Inject the requirements digest extracted in Phase 1 (Step 1.6c) into every dispatch.
-  # This ensures every coordinator has baseline visibility into the original requirements,
-  # even if the phase file doesn't list spec.md in artifacts_read.
-  # After Phase 3, the digest is updated with user clarifications if requirements-anchor.md exists.
-  # Gated by config toggle: config.requirements_context.inject_in_dispatch (default: true)
+  # --- Requirements Digest Injection (config.requirements_context.inject_in_dispatch) ---
+  # Extracted in Phase 1 (Step 1.11), updated after Phase 3 with user clarifications.
   IF config.requirements_context.inject_in_dispatch AND state.requirements_digest:
     requirements_section = """
     ## Requirements Digest (from spec.md)
@@ -284,7 +168,49 @@ FUNCTION DISPATCH_COORDINATOR(phase):
   RETURN
 ```
 
-## Crash Recovery
+### Variable Resolution Table
+
+| Variable | Source | Type | Required | Fallback |
+|----------|--------|------|----------|----------|
+| `{phase}` | dispatch_table key | string | Yes | — |
+| `{phase_name}` | phase file frontmatter `name` | string | Yes | — |
+| `{phase_file}` | dispatch_table `.file` | string | Yes | — |
+| `{FEATURE_DIR}` | state `.feature_dir` | path | Yes | — |
+| `{analysis_mode}` | state `.analysis_mode` | enum | Yes | — |
+| `{relevant_flags_and_values}` | `config.feature_flags` filtered by phase's `feature_flags` frontmatter | `flag: bool` pairs | No | `""` |
+| `{requirements_section}` | state `.requirements_digest` | markdown | No | `""` |
+| `{context_section}` | Context Pack builder (gated by `a6_context_protocol`) | markdown | No | `""` |
+| `{prior_summaries}` | dispatch_table `.prior_summaries` | file path list | No | `[]` |
+
+### Gate Failure Decision Table
+
+| Condition | Action | Loop-Back Target |
+|-----------|--------|-----------------|
+| `retries < 2` | INCREMENT retry counter, re-dispatch phase | Phase 6 RED -> Phase 4, Phase 8 RED -> Phase 7, others -> same phase |
+| `retries >= 2`, deep reasoning eligible | Follow `deep-reasoning-dispatch-pattern.md` | Per escalation type |
+| `retries >= 2`, not eligible | ASK user: retry / skip / abort | — |
+
+> **Why Phase 6 RED loops to Phase 4, not Phase 5:** Phase 5 (ThinkDeep) analyzes the *existing* architecture. If the architecture itself is flawed (Phase 6 RED), re-analyzing the same flawed design is unproductive. Looping to Phase 4 forces a fresh architecture design that Phase 5 can then analyze.
+
+**Mandatory field for all escalations:**
+```
+escalation_rationale: "{gate} failed {retries}x. Scores: {scores}. Failing dims: {dims}. Selected: {type} because {reason}."
+```
+
+## Summary Validation
+
+Required fields in every phase summary YAML:
+- `phase` (string)
+- `status` (completed | needs-user-input | failed | skipped)
+- `checkpoint` (string matching expected checkpoint name)
+- `artifacts_written` (array, may be empty)
+- `summary` (non-empty string)
+
+If validation fails, mark summary as degraded and ask user whether to retry, continue, or abort.
+
+> **Lock protocol:** Orchestrator-level locking is deferred. Current implementation uses phase-level locks: Phase 1 acquires `.planning.lock` after precondition checks, Phase 9 releases it at completion. See `phase-9-completion.md` for lock lifecycle details.
+
+## On-Demand: Crash Recovery
 
 ```
 FUNCTION CRASH_RECOVERY(phase):
@@ -307,39 +233,29 @@ Coordinators NEVER interact with users directly. All user interaction flows thro
 3. Orchestrator writes user's answer to `{FEATURE_DIR}/.phase-summaries/phase-{N}-user-input.md`
 4. Orchestrator re-dispatches same coordinator (coordinator reads the user-input file and continues)
 
-## Circuit Breaker Pattern
+### Post-Phase-9 Menu Handlers
+
+After Phase 9 completes, the orchestrator presents a completion menu (gated by `a5_post_planning_menu`). Handlers execute in orchestrator context (NOT coordinator).
+
+See `phase-9-completion.md` Step 9.13 for the definitive menu options and handler implementations. The six options are: **Review**, **Expert**, **Simplify**, **GitHub**, **Commit**, **Quit**. The orchestrator relays the user's choice and executes the corresponding handler from that file.
+
+## On-Demand: Circuit Breaker Pattern
 
 Provides a generic retry-with-escalation mechanism used by multiple strategies (S8, S9, S13).
 
 ```
 FUNCTION CIRCUIT_BREAKER(context_name, action, max_failures, escalation_action):
-  """
-  Generic circuit breaker for iterative improvement loops.
-
-  Parameters:
-    context_name: Identifier for this circuit breaker instance (e.g., "specify_gate", "expert_review")
-    action: The callable action to attempt (e.g., re-score, re-dispatch)
-    max_failures: Maximum attempts before escalating (from config.circuit_breaker)
-    escalation_action: What to do when max_failures exceeded
-  """
-
   failure_count = 0
-
   WHILE failure_count < max_failures:
     result = EXECUTE(action)
-
-    IF result.success:
-      RETURN result
-
+    IF result.success: RETURN result
     failure_count += 1
     LOG: "Circuit breaker '{context_name}': attempt {failure_count}/{max_failures} failed"
-
-  # Max failures reached — escalate
-  LOG: "Circuit breaker '{context_name}': max failures ({max_failures}) reached — escalating"
+  LOG: "Circuit breaker '{context_name}': max failures reached — escalating"
   RETURN EXECUTE(escalation_action)
 ```
 
-**Application Table:**
+**Application table:**
 
 | Context | Strategy | Max Failures | Escalation Action |
 |---------|----------|-------------|-------------------|
@@ -348,43 +264,20 @@ FUNCTION CIRCUIT_BREAKER(context_name, action, max_failures, escalation_action):
 | `mpa_convergence` | S2 (Phase 4/7) | `config.circuit_breaker.convergence.max_rounds` (2) | Accept low convergence, flag for user |
 | `gate_retry` | Existing | 2 (hardcoded) | Deep reasoning escalation or user choice |
 
-## v1-to-v2 State Migration
+## On-Demand: v1-to-v2 State Migration
 
 ```
 ON resume, IF state.version == 1 OR state.version is missing:
   1. ADD phase_summaries section (all values = null)
-  2. ADD orchestrator section:
-     version: 2
-     delegation_model: "lean_orchestrator"
-     coordinator_failures: 0
-     summaries_reconstructed: 0
-  3. ADD missing timestamps: expert_review_completed, test_strategy_completed,
-     test_coverage_completed, asset_consolidation_completed (all null)
-  4. SET version: 2
-  5. WRITE updated state
-  6. LOG "Migrated state file from v1 to v2"
-
-  # Reconstruct phase_summaries from existing checkpoint data:
-  FOR each phase in state.completed_phases:
-    IF file exists at {FEATURE_DIR}/.phase-summaries/phase-{N}-summary.md:
-      SET state.phase_summaries[phase] = path
-    # (v1 sessions won't have summaries, but artifacts still exist - OK to continue)
+  2. ADD orchestrator section: { version: 2, delegation_model: "lean_orchestrator", coordinator_failures: 0, summaries_reconstructed: 0 }
+  3. ADD missing timestamps: expert_review_completed, test_strategy_completed, test_coverage_completed, asset_consolidation_completed (all null)
+  4. SET version: 2, WRITE state, LOG "Migrated v1 to v2"
+  5. Reconstruct phase_summaries from existing checkpoint data (v1 sessions may lack summaries — OK)
 ```
 
-Non-breaking: all existing v1 fields are preserved. Orchestrator continues from last checkpoint.
+Non-breaking: all existing v1 fields are preserved.
 
-## Summary Validation
-
-Required fields in every phase summary YAML:
-- `phase` (string)
-- `status` (completed | needs-user-input | failed | skipped)
-- `checkpoint` (string matching expected checkpoint name)
-- `artifacts_written` (array, may be empty)
-- `summary` (non-empty string)
-
-If validation fails, mark summary as degraded and ask user whether to retry, continue, or abort.
-
-## Architecture Decision Record: Delegation vs Inline Loading
+## On-Demand: ADR — Delegation vs Inline Loading
 
 **Chosen:** Coordinator delegation via `Task(subagent_type="general-purpose")`
 

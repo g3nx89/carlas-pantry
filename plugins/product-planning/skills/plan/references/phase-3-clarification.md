@@ -19,6 +19,17 @@ feature_flags:
 additional_references: []
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 3.1  | —     | —        | ✓        | ✓        | Requires ST MCP |
+| 3.2  | ✓     | ✓        | ✓        | ✓        | `(s12_specify_gate)` |
+| 3.3  | ✓     | ✓        | ✓        | ✓        | — |
+| 3.4  | ✓     | ✓        | ✓        | ✓        | Inline for Rapid/Standard, coordinator for Advanced/Complete |
+| 3.5  | ✓     | ✓        | ✓        | ✓        | `(s12_specify_gate)`, iterates if score < threshold |
+| 3.6  | ✓     | ✓        | ✓        | ✓        | — |
+| 3.7  | ✓     | ✓        | ✓        | ✓        | — |
+
 # Phase 3: Clarifying Questions
 
 > **COORDINATOR INSTRUCTIONS**
@@ -53,7 +64,7 @@ mcp__sequential-thinking__sequentialthinking(T2: Scope Boundaries)
 mcp__sequential-thinking__sequentialthinking(T3: Decomposition Strategy)
 ```
 
-## Step 3.1b: Specify Gate — Initial Scoring (S8)
+## Step 3.2: Specify Gate — Initial Scoring [IF s12_specify_gate]
 
 ```
 IF feature_flags.s12_specify_gate.enabled:
@@ -72,15 +83,15 @@ IF feature_flags.s12_specify_gate.enabled:
 
   3. IF specify_score >= config.specify_gate.pass_threshold (default 7):
        LOG: "Specify gate PASSED ({specify_score}/10)"
-       SKIP targeted question generation (use standard Step 3.2)
+       SKIP targeted question generation (use standard Step 3.3)
      ELSE:
        LOG: "Specify gate score: {specify_score}/10 — generating targeted questions"
-       PROCEED to targeted question generation in Step 3.2
+       PROCEED to targeted question generation in Step 3.3
 
   4. STORE specify_dimensions = { value, scope, acceptance, constraints, risk }
 ```
 
-## Step 3.2: Generate Questions
+## Step 3.3: Generate Questions
 
 IF specify gate is enabled AND score < threshold:
   Generate TARGETED questions per low-scoring dimension:
@@ -98,7 +109,7 @@ ELSE (gate disabled or score >= threshold):
   - Integration details
   - Design preferences
 
-## Step 3.3: Collect User Responses
+## Step 3.4: Collect User Responses [USER]
 
 **USER INTERACTION:** This phase requires user input for ALL generated questions.
 
@@ -107,7 +118,7 @@ ELSE (gate disabled or score >= threshold):
 
 For "whatever you think is best" responses, use BA recommendation and mark as ASSUMED.
 
-## Step 3.3b: Specify Gate — Iteration Loop (S8)
+## Step 3.5: Specify Gate — Iteration Loop [IF s12_specify_gate]
 
 ```
 IF feature_flags.s12_specify_gate.enabled AND specify_score < config.specify_gate.pass_threshold:
@@ -141,7 +152,7 @@ IF feature_flags.s12_specify_gate.enabled AND specify_score < config.specify_gat
     LOG: "Specify gate exhausted iterations — score {specify_score}/10, proceeding with advisory flag"
 ```
 
-## Step 3.4: Update State
+## Step 3.6: Update State
 
 Save all decisions to `user_decisions` (IMMUTABLE).
 
@@ -150,14 +161,14 @@ Include in phase summary YAML:
 - `specify_dimensions: { value, scope, acceptance, constraints, risk }` (null if gate disabled)
 - `flags.low_specify_score: true` (if applicable)
 
-## Step 3.5: Generate Requirements Anchor
+## Step 3.7: Generate Requirements Anchor
 
 **Purpose:** Produce a consolidated, structured requirements document that merges the original spec with user clarifications. This document becomes the single source of truth for requirements context in all downstream phases (5, 6, 6b, 7, 8, 9).
 
 ```
 READ {FEATURE_DIR}/spec.md
 
-# Collect user clarifications (from Step 3.3 responses)
+# Collect user clarifications (from Step 3.4 responses)
 # In coordinator mode: already parsed from phase-3-user-input.md
 # In inline mode: already collected via AskUserQuestion
 

@@ -24,8 +24,8 @@ flowchart TB
         P1_5["Fresh Start"]
         P1_6["Lock Acquisition"]
         P1_7["MCP Availability Check"]
-        P1_7b["CLI Detection (1.5b)<br/>CLI availability + role deploy"]
-        P1_7c["Dev-Skills Detection (1.5c)<br/>Tech-stack keyword scan"]
+        P1_7b["CLI Detection (1.6)<br/>CLI availability + role deploy"]
+        P1_7c["Dev-Skills Detection (1.7)<br/>Tech-stack keyword scan"]
         P1_8{"Select Analysis Mode"}
 
         P1_1 --> P1_2 --> P1_3
@@ -40,7 +40,7 @@ flowchart TB
         P2_1["Load Context<br/>spec.md + constitution.md"]
         P2_2["Adaptive Research Depth (A3)<br/>Risk keyword detection"]
         P2_3["Research MCP Enhancement<br/>Context7 / Ref / Tavily"]
-        P2_3s["Dev-Skills Loader (2.2c-a)<br/>accessibility, mobile, figma"]
+        P2_3s["Dev-Skills Loader (2.6)<br/>accessibility, mobile, figma"]
         P2_4["Launch Code Explorers (MPA)<br/>3 parallel agents"]
         P2_5["Learnings Researcher (A2)<br/>Institutional knowledge"]
         P2_6["Sequential Thinking T4-T6<br/>Pattern Recognition"]
@@ -80,7 +80,7 @@ flowchart TB
     %% Phase 4: Architecture Design
     subgraph P4[" Phase 4: Architecture Design "]
         direction TB
-        P4_0a["Dev-Skills Loader (4.0a)<br/>api-patterns, database, c4,<br/>mermaid, frontend"]
+        P4_0a["Dev-Skills Loader (4.1)<br/>api-patterns, database, c4,<br/>mermaid, frontend"]
         P4_1["Architecture Pattern Research<br/>Research MCP"]
         P4_2["Launch 3 Architects (MPA)<br/>Grounding / Ideality / Resilience"]
         P4_2w["Wildcard Architect (S5/ToT)<br/>Unconstrained exploration"]
@@ -114,7 +114,7 @@ flowchart TB
     %% Phase 6: Plan Validation
     subgraph P6[" Phase 6: Plan Validation "]
         direction TB
-        P6_0a["CLI Plan Review (6.0a)<br/>planreviewer: strategic + feasibility"]
+        P6_0a["CLI Plan Review (6.2)<br/>planreviewer: strategic + feasibility"]
         P6_0["Multi-Judge Debate (S6)<br/>3 rounds: analysis/rebuttal/final"]
         P6_1["CLI Consensus Scoring<br/>advocate + challenger stances"]
         P6_2["Score Divergence Check<br/>delta thresholds: low/moderate/high"]
@@ -133,7 +133,7 @@ flowchart TB
     %% Phase 6b: Expert Review
     subgraph P6b[" Phase 6b: Expert Review (A4) "]
         direction TB
-        P6b_0a["Dev-Skills Loader (6b.0a)<br/>clean-code, api-security"]
+        P6b_0a["Dev-Skills Loader (6b.1)<br/>clean-code, api-security"]
         P6b_1["Security Analyst<br/>STRIDE Analysis"]
         P6b_2["Simplicity Reviewer<br/>Over-engineering Check"]
         P6b_CL["CLI Security Audit<br/>securityauditor role"]
@@ -152,7 +152,7 @@ flowchart TB
         direction TB
         P7_1["Load Test Context"]
         P7_1b["Testing Best Practices<br/>Research MCP"]
-        P7_1c["Dev-Skills Loader (7.1c)<br/>qa-test-planner, accessibility"]
+        P7_1c["Dev-Skills Loader (7.3)<br/>qa-test-planner, accessibility"]
         P7_3["Risk Analysis<br/>T-RISK-1, T-RISK-2, T-RISK-3"]
         P7_4["Launch QA Agents (MPA)<br/>Strategist / Security / Performance"]
         P7_5["Reconciliation<br/>ST Revision with Phase 5"]
@@ -205,7 +205,7 @@ flowchart TB
         direction TB
         P9_1["Load All Artifacts<br/>spec + plan + design + tests"]
         P9_2["Extract Test IDs<br/>UT / INT / E2E / UAT"]
-        P9_2a["Dev-Skills Loader (9.2a)<br/>clean-code"]
+        P9_2a["Dev-Skills Loader (9.3)<br/>clean-code"]
         P9_3["Initialize tasks.md"]
         P9_4["Launch Tech-Lead<br/>ST T-TASK-1 to T-TASK-4"]
         P9_5["Clarification Loop<br/>Max 2 iterations"]
@@ -484,7 +484,7 @@ flowchart TB
     classDef devskills fill:#FF9800,stroke:#E65100,color:#fff,stroke-width:1px
     classDef loader fill:#FFF3E0,stroke:#E65100,color:#333,stroke-width:1px
 
-    subgraph DETECT["Phase 1: Detection (Step 1.5c)"]
+    subgraph DETECT["Phase 1: Detection (Step 1.7)"]
         D1["Scan spec.md for<br/>technology keywords"]
         D2["Scan project root for<br/>framework markers"]
         D3["Store detected domains<br/>in state.dev_skills"]
@@ -505,11 +505,11 @@ flowchart TB
 
     subgraph PHASES["Per-Phase Skill Loading"]
         direction TB
-        PH2["Phase 2 (2.2c-a)<br/>accessibility, mobile, figma<br/>Budget: 2500 tokens"]
-        PH4["Phase 4 (4.0a)<br/>api-patterns, database, c4,<br/>mermaid, frontend<br/>Budget: 3000 tokens"]
-        PH6b["Phase 6b (6b.0a)<br/>clean-code, api-security<br/>Budget: 2000 tokens"]
-        PH7["Phase 7 (7.1c)<br/>qa-test-planner, accessibility<br/>Budget: 2000 tokens"]
-        PH9["Phase 9 (9.2a)<br/>clean-code<br/>Budget: 800 tokens"]
+        PH2["Phase 2 (2.6)<br/>accessibility, mobile, figma<br/>Budget: 2500 tokens"]
+        PH4["Phase 4 (4.1)<br/>api-patterns, database, c4,<br/>mermaid, frontend<br/>Budget: 3000 tokens"]
+        PH6b["Phase 6b (6b.1)<br/>clean-code, api-security<br/>Budget: 2000 tokens"]
+        PH7["Phase 7 (7.3)<br/>qa-test-planner, accessibility<br/>Budget: 2000 tokens"]
+        PH9["Phase 9 (9.3)<br/>clean-code<br/>Budget: 800 tokens"]
     end
 
     subgraph MODES["Mode Availability"]

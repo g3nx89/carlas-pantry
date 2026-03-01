@@ -9,7 +9,7 @@ Phase coordinators delegate skill loading to a throwaway `Task(general-purpose)`
 
 ## Prerequisites
 
-- `state.dev_skills.available == true` (set in Phase 1, Step 1.5c)
+- `state.dev_skills.available == true` (set in Phase 1, Step 1.7)
 - `analysis_mode != "rapid"`
 - Config: `config.dev_skills_integration.enabled == true`
 
@@ -77,9 +77,9 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
 
 When possible, dispatch the skill loader subagent IN PARALLEL with other prep work:
 - Phase 2: Parallel with code-explorer and researcher agents
-- Phase 4: Parallel with Research MCP queries (Step 4.0)
+- Phase 4: Parallel with Research MCP queries (Step 4.3)
 - Phase 6b: Sequential (short phase, minimal benefit from parallelism)
-- Phase 7: Parallel with Research MCP queries (Step 7.1b)
+- Phase 7: Parallel with Research MCP queries (Step 7.2)
 - Phase 9: Sequential (runs before tech-lead dispatch)
 
 ## Graceful Degradation
@@ -100,7 +100,7 @@ When possible, dispatch the skill loader subagent IN PARALLEL with other prep wo
 | Load skills in Rapid mode | Unnecessary latency for simple features | Skip via mode guard |
 | Exceed per-phase token budget | Coordinator context bloat | Enforce limits in loader prompt |
 | Load skills not relevant to detected domains | Wasted tokens and latency | Filter by `state.dev_skills.detected_domains` |
-| Skip domain detection in Phase 1 | All phases load max skills | Always run Step 1.5c |
+| Skip domain detection in Phase 1 | All phases load max skills | Always run Step 1.7 |
 | Cache skill content across phases | Stale if skills update between sessions | Load fresh per phase |
 
 ## Phase-Specific Parameters
@@ -108,7 +108,7 @@ When possible, dispatch the skill loader subagent IN PARALLEL with other prep wo
 | Phase | Budget | Parallel With | Key Skills |
 |-------|--------|---------------|------------|
 | 2 | 2500 | code-explorer, researcher agents | a11y, mobile, figma (conditional) |
-| 4 | 3000 | Research MCP queries (Step 4.0) | api-patterns, database-design, c4, frontend (conditional) |
+| 4 | 3000 | Research MCP queries (Step 4.3) | api-patterns, database-design, c4, frontend (conditional)  |
 | 6b | 2000 | N/A (sequential) | clean-code, api-patterns (security) |
-| 7 | 2000 | Research MCP queries (Step 7.1b) | qa-test-planner, accessibility-auditor (conditional) |
+| 7 | 2000 | Research MCP queries (Step 7.2) | qa-test-planner, accessibility-auditor (conditional) |
 | 9 | 800 | N/A (sequential) | clean-code |

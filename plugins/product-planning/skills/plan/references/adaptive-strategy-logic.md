@@ -49,6 +49,11 @@ After architecture perspectives are evaluated (by judges in Complete/Advanced mo
 
 **Actions:**
 1. Use winning perspective's primary concern as the composition anchor
+1b. **Critical-Concern Safety Check**
+    IF any weak-perspective agent covers a **critical failure mode** (security vulnerability, data loss risk, compliance violation):
+      - DOWNGRADE to `NEGOTIATED_COMPOSITION`
+      - Log: `"DIRECT_COMPOSITION downgraded: weak perspective {agent} covers critical concern {concern}"`
+    Rationale: Even high-convergence scenarios must not dismiss minority findings on critical failure modes.
 2. Enrich with secondary insights from other perspectives (no conflicts to resolve)
 3. Apply tension map directly — all low/medium tensions merge automatically
 4. Confirm winning perspective with user (minimal interaction)
@@ -228,7 +233,7 @@ test_cases:
 After Diagonal Matrix MPA or ToT generates perspectives and judges evaluate them:
 
 ```markdown
-### Step 4.5: Strategy Selection
+### Step 4.13: Strategy Selection
 
 1. COLLECT judge scores for all architecture perspectives
 2. APPLY decision tree to determine strategy

@@ -22,6 +22,15 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/templates/asset-manifest-template.md"
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 8b.1 | ✓     | ✓        | ✓        | ✓        | Artifact scope varies by mode |
+| 8b.2 | ✓     | ✓        | ✓        | ✓        | Simplified layout for Rapid if <10 assets |
+| 8b.3 | —     | ✓        | ✓        | ✓        | Self-critique skipped for Rapid |
+| 8b.4 | ✓     | ✓        | ✓        | ✓        | User validation gate |
+| 8b.5 | ✓     | ✓        | ✓        | ✓        | — |
+
 # Phase 8b: Asset Consolidation & Preparation
 
 > **COORDINATOR INSTRUCTIONS**

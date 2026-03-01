@@ -37,6 +37,22 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 2.1  | ✓     | ✓        | ✓        | ✓        | — |
+| 2.2  | ✓     | ✓        | ✓        | ✓        | `(a3_adaptive_depth)` |
+| 2.3  | ✓     | ✓        | ✓        | ✓        | Requires Research MCP |
+| 2.4  | ✓     | ✓        | ✓        | ✓        | Agent count varies by depth |
+| 2.5  | ✓     | ✓        | ✓        | ✓        | `(a2_learnings_researcher)` |
+| 2.6  | —     | ✓        | ✓        | ✓        | `(dev_skills_integration)` |
+| 2.7  | —     | —        | —        | ✓        | `(a1_flow_analysis)`, Complete only |
+| 2.8  | ✓     | ✓        | ✓        | ✓        | 2-3 agents in parallel |
+| 2.9  | —     | —        | —        | ✓        | Requires ST MCP |
+| 2.10 | —     | ✓        | ✓        | ✓        | `(st_tao_loops)` |
+| 2.11 | ✓     | ✓        | ✓        | ✓        | — |
+| 2.12 | —     | —        | ✓        | ✓        | `(s3_judge_gates)` |
+
 # Phase 2: Research & Codebase Exploration
 
 > **COORDINATOR INSTRUCTIONS**
@@ -64,7 +80,7 @@ READ:
   - specs/constitution.md
 ```
 
-## Step 2.1b: Adaptive Research Depth (A3)
+## Step 2.2: Adaptive Research Depth [IF a3_adaptive_depth]
 
 **Purpose:** Adjust research intensity based on risk indicators in the feature spec.
 
@@ -100,7 +116,7 @@ IF feature_flags.a3_adaptive_depth.enabled:
 | standard | 2 | Related patterns | T4, T5 |
 | deep | 3 | Comprehensive exploration | T4, T5, T6 |
 
-## Step 2.1c: Research MCP Enhancement
+## Step 2.3: Research MCP Enhancement
 
 **Purpose:** Use research MCP servers to gather official documentation for mentioned technologies BEFORE launching researcher agents. This provides enriched context and ensures agents have access to current, authoritative information.
 
@@ -173,7 +189,7 @@ IF feature_flags.a3_adaptive_depth.enabled:
    - Version compatibility notes
 
 6. OUTPUT:
-   research_context will be passed to researcher agents in Step 2.2
+   research_context will be passed to researcher agents in Step 2.4
 ```
 
 **Server Selection Quick Reference:**
@@ -190,7 +206,7 @@ IF feature_flags.a3_adaptive_depth.enabled:
 - NEVER use Tavily for library documentation (returns outdated content)
 - ALWAYS use Context7 or Ref for API reference
 
-## Step 2.2: Launch Research Agents
+## Step 2.4: Launch Research Agents
 
 For each unknown in Technical Context:
 
@@ -201,7 +217,7 @@ Task(
 )
 ```
 
-## Step 2.2b: Launch Learnings Researcher (A2)
+## Step 2.5: Launch Learnings Researcher [IF a2_learnings_researcher]
 
 **Purpose:** Search institutional knowledge base for relevant solutions and learnings.
 
@@ -245,9 +261,9 @@ IF feature_flags.a2_learnings_researcher.enabled:
 - Results merged into research.md "Institutional Knowledge" section
 - High-relevance learnings highlighted in Phase 3 question generation
 
-## Step 2.2c-a: Dev-Skills Context Loading (Subagent)
+## Step 2.6: Dev-Skills Context Loading [IF dev_skills_integration] [PARALLEL]
 
-**Purpose:** Load accessibility, mobile, and Figma domain expertise before flow analysis and code exploration. Runs IN PARALLEL with Steps 2.2, 2.2b, and 2.3.
+**Purpose:** Load accessibility, mobile, and Figma domain expertise before flow analysis and code exploration. Runs IN PARALLEL with Steps 2.4, 2.5, and 2.8.
 
 **Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md`
 
@@ -297,14 +313,14 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
   """)
 
   # Skill loader runs in parallel with code-explorer and researcher agents
-  # READ result BEFORE dispatching flow-analyzer (if a11y context needed in Step 2.2c)
+  # READ result BEFORE dispatching flow-analyzer (if a11y context needed in Step 2.7)
   READ {FEATURE_DIR}/.phase-summaries/phase-2-skill-context.md
   IF file exists AND not empty:
-    INJECT relevant sections into flow-analyzer prompt (Step 2.2c) as:
+    INJECT relevant sections into flow-analyzer prompt (Step 2.7) as:
     "## Domain Reference (from dev-skills)\n{matching section content}"
 ```
 
-## Step 2.2c: User Flow Analysis (A1)
+## Step 2.7: User Flow Analysis [IF a1_flow_analysis]
 
 **Complete mode only. Feature flag: `a1_flow_analysis`**
 
@@ -332,7 +348,7 @@ IF feature_flags.a1_flow_analysis.enabled AND analysis_mode == "complete":
 Reference: `$CLAUDE_PLUGIN_ROOT/templates/user-flow-analysis-template.md`
 Output: Flow diagrams, decision tree, test scenario recommendations
 
-## Step 2.3: Launch Code Explorer Agents (MPA)
+## Step 2.8: Launch Code Explorer Agents [PARALLEL]
 
 Launch 2-3 agents in parallel:
 
@@ -342,7 +358,7 @@ Task(subagent_type: "product-planning:code-explorer", prompt: "Map architecture.
 Task(subagent_type: "product-planning:code-explorer", prompt: "Identify integrations...")
 ```
 
-## Step 2.4: Sequential Thinking (Complete Mode)
+## Step 2.9: Sequential Thinking (Complete Mode)
 
 IF mode == Complete AND ST available:
 
@@ -352,7 +368,7 @@ mcp__sequential-thinking__sequentialthinking(T5: Integration Points)
 mcp__sequential-thinking__sequentialthinking(T6: Technical Constraints)
 ```
 
-## Step 2.4b: TAO Loop Analysis (After Research Agents)
+## Step 2.10: TAO Loop Analysis [IF st_tao_loops]
 
 ```
 IF feature_flags.st_tao_loops.enabled AND analysis_mode in {standard, advanced, complete}:
@@ -371,7 +387,7 @@ ELSE:
   # Direct consolidation without structured pause
 ```
 
-## Step 2.5: Consolidate Research
+## Step 2.11: Consolidate Research
 
 Write `{FEATURE_DIR}/research.md` with:
 - Technologies and decisions
@@ -388,7 +404,7 @@ Write `{FEATURE_DIR}/research.md` with:
 
 **Checkpoint: RESEARCH**
 
-## Step 2.6: Quality Gate - Research Completeness (S3)
+## Step 2.12: Quality Gate - Research Completeness [IF s3_judge_gates]
 
 **Purpose:** Verify research quality before proceeding to architecture.
 
@@ -418,7 +434,7 @@ IF feature_flags.s3_judge_gates.enabled AND analysis_mode in {advanced, complete
      IF verdict == FAIL AND retries < 2:
        LOG: "Gate 1 FAILED (score: {score}/5.0) - retry {retries+1}/2"
        DISPLAY retry_feedback to user
-       Re-run Phase 2.3-2.5 with feedback
+       Re-run Steps 2.8-2.11 with feedback
        retries += 1
        → Re-evaluate
 

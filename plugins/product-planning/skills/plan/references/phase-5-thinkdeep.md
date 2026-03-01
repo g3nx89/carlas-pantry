@@ -24,6 +24,16 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 5.1  | —     | —        | ✓        | ✓        | Skips phase for Rapid/Standard |
+| 5.2  | —     | —        | ✓        | ✓        | CLI availability check |
+| 5.3  | —     | —        | ✓        | ✓        | — |
+| 5.4  | —     | —        | ✓        | ✓        | 6 dispatches (Adv) / 9 dispatches (Complete) |
+| 5.5  | —     | —        | ✓        | ✓        | Maintainability report Complete only |
+| 5.6  | —     | —        | ✓        | ✓        | User interaction |
+
 # Phase 5: Multi-CLI Deep Analysis
 
 > **COORDINATOR INSTRUCTIONS**
@@ -50,10 +60,10 @@ IF analysis_mode in {standard, rapid}: → Skip phase (write summary with status
 IF state.cli.available == false OR state.cli.mode == "disabled": → Skip (graceful degradation, write summary with status: skipped)
 ```
 
-## Step 5.1b: Verify CLI Availability
+## Step 5.2: Verify CLI Availability
 
 ```
-# Read CLI capabilities already populated by Phase 1 Step 1.5b
+# Read CLI capabilities already populated by Phase 1 Step 1.6
 cli_capabilities = state.cli.capabilities
 cli_mode = state.cli.mode  # "tri", "dual", "single_*", or "disabled"
 
@@ -64,7 +74,7 @@ IF cli_mode == "disabled" OR no CLIs available:
   → Write summary with status: skipped (graceful degradation)
 ```
 
-## Step 5.2: Prepare Context
+## Step 5.3: Prepare Context
 
 ```
 READ feature requirements: {FEATURE_DIR}/spec.md
@@ -89,7 +99,7 @@ PREPARE problem_context with:
   - Codebase patterns (from Phase 4 summary context)
 ```
 
-## Step 5.3: Execute CLI Deep Analysis Matrix
+## Step 5.4: Execute CLI Deep Analysis Matrix
 
 | Mode | Perspectives | CLIs | Total Dispatches |
 |------|--------------|------|------------------|
@@ -117,7 +127,7 @@ FOR each perspective IN perspectives:
   | Parameter | Value |
   |-----------|-------|
   | ROLE | `deepthinker` |
-  | PHASE_STEP | `5.3.{perspective}` |
+  | PHASE_STEP | `5.4.{perspective}` |
   | MODE_CHECK | `analysis_mode in {complete, advanced}` |
   | GEMINI_PROMPT | Perspective prompt from config with architecture AND requirements context. Focus: Broad architecture exploration, tech stack validation, pattern conflicts for {perspective}. Include design.md content AND acceptance criteria from spec.md/requirements-anchor.md. |
   | CODEX_PROMPT | Perspective prompt from config with architecture AND requirements context. Focus: Import chain analysis, coupling assessment, code-level complexity for {perspective}. Include design.md content AND key constraints from spec.md/requirements-anchor.md. |
@@ -125,12 +135,12 @@ FOR each perspective IN perspectives:
   | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/design.md"]` |
   | REPORT_FILE | `analysis/cli-deepthinker-{perspective}-report.md` |
   | PREFERRED_SINGLE_CLI | `gemini` |
-  | POST_WRITE | none (synthesis happens in Step 5.4) |
+  | POST_WRITE | none (synthesis happens in Step 5.5) |
 ```
 
 **Note:** All 9 (Complete) or 6 (Advanced) dispatches can be launched simultaneously since each perspective's dispatch is fully independent. The CLI dispatch pattern handles per-perspective retry and circuit breaker logic internally.
 
-## Step 5.4: Synthesize Insights
+## Step 5.5: Synthesize Insights
 
 Read per-perspective CLI reports:
 - `{FEATURE_DIR}/analysis/cli-deepthinker-performance-report.md`
@@ -145,7 +155,7 @@ Write `{FEATURE_DIR}/analysis/thinkdeep-insights.md`:
 - **Unique insights** (single CLI or single perspective only) → VERIFY against existing findings
 - Recommended architecture updates
 
-## Step 5.5: Present Findings
+## Step 5.6: Present Findings [USER]
 
 **USER INTERACTION:** The user should review deep analysis findings.
 

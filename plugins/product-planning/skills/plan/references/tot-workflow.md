@@ -185,7 +185,19 @@ pruning_result:
     # ... continue for all 8
 
   advancing: ["R1", "I1", "W1", "G2"]
-  eliminated: ["G1", "I2", "R2", "W2"]
+  eliminated:
+    - option_id: "G1"
+      elimination_rationale: "Duplicates R1 structural approach with lower resilience coverage"
+      recoverable: true   # Could reconsider if R1 proves infeasible
+    - option_id: "I2"
+      elimination_rationale: "Exceeds complexity budget by 2x with no proportional benefit over I1"
+      recoverable: true   # Could reconsider if stricter contracts become a requirement
+    - option_id: "R2"
+      elimination_rationale: "Comprehensive resilience adds latency incompatible with performance SLAs"
+      recoverable: false  # Architecturally incompatible with latency requirements
+    - option_id: "W2"
+      elimination_rationale: "Experimental approach lacks proven patterns for production readiness"
+      recoverable: true   # Could reconsider if constraints relax on maturity requirements
 
   diversity_check:
     perspectives_represented: ["failure_first", "outside_in", "wildcard", "inside_out"]

@@ -93,6 +93,16 @@ self_critique:
 | Advanced | 5 | 4/5 | Yes (detailed) |
 | Complete | 5 | 5/5 | Yes (comprehensive) |
 
+### Phase-Aware Thresholds
+
+| Phase Group | Min Questions | Completeness Rule |
+|-------------|--------------|-------------------|
+| 1–3 (Setup/Research/Clarification) | Default (as configured above) | Standard pass threshold |
+| 4–6 (Architecture/Analysis/Validation) | Default + 1 | All completeness questions must pass |
+| 7–9 (Test Strategy/Coverage/Tasks) | Default + 1 | All completeness questions must pass |
+
+Agents operating in Phases 4–9 have higher stakes (architecture decisions, validation gates, test strategy). The +1 question ensures deeper verification, and the stricter completeness rule prevents shipping gaps in structural or quality-critical phases.
+
 **If you cannot meet the threshold, document why and flag for human review.**
 ```
 

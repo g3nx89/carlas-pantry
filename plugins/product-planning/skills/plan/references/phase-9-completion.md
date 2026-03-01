@@ -5,6 +5,8 @@ checkpoint: "COMPLETION"
 delegation: "coordinator"
 modes: [complete, advanced, standard, rapid]
 prior_summaries:
+  - ".phase-summaries/phase-4-summary.md"
+  - ".phase-summaries/phase-6-summary.md"
   - ".phase-summaries/phase-7-summary.md"
   - ".phase-summaries/phase-8-summary.md"
   - ".phase-summaries/phase-8b-summary.md"
@@ -39,6 +41,23 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
+<!-- Mode Applicability -->
+| Step  | Rapid | Standard | Advanced | Complete | Notes |
+|-------|-------|----------|----------|----------|-------|
+| 9.1   | ✓     | ✓        | ✓        | ✓        | Optional entry point |
+| 9.2   | ✓     | ✓        | ✓        | ✓        | — |
+| 9.3   | —     | ✓        | ✓        | ✓        | `(dev_skills_integration)` |
+| 9.4   | ✓     | ✓        | ✓        | ✓        | — |
+| 9.5   | ✓     | ✓        | ✓        | ✓        | ST for Adv/Complete; inline for Rapid/Std |
+| 9.6   | ✓     | ✓        | ✓        | ✓        | User interaction if high-risk tasks found |
+| 9.7   | ✓     | ✓        | ✓        | ✓        | — |
+| 9.8   | —     | —        | ✓        | ✓        | CLI task audit |
+| 9.9   | ✓     | ✓        | ✓        | ✓        | — |
+| 9.10  | ✓     | ✓        | ✓        | ✓        | — |
+| 9.11  | ✓     | ✓        | ✓        | ✓        | — |
+| 9.12  | ✓     | ✓        | ✓        | ✓        | — |
+| 9.13  | ✓     | ✓        | ✓        | ✓        | `(a5_post_planning_menu)` |
+
 # Phase 9: Task Generation & Completion
 
 > **COORDINATOR INSTRUCTIONS**
@@ -62,7 +81,7 @@ When `a6_context_protocol` is enabled (check feature flags):
 
 This phase consolidates all planning artifacts and generates actionable, dependency-ordered tasks with TDD structure. The tech-lead agent receives complete context including test specifications.
 
-## Step 9.0: Task Regeneration Check (Optional Entry Point)
+## Step 9.1: Task Regeneration Check (Optional Entry Point)
 
 **Purpose:** Allow users to regenerate tasks without re-running Phases 1-8 when planning is already complete.
 
@@ -87,26 +106,27 @@ IF user requests "regenerate tasks" OR "update tasks" OR triggers Phase 9 direct
        FOR artifact IN REQUIRED_ARTIFACTS:
          IF NOT exists(artifact):
            ERROR: "Missing required artifact: {artifact}. Run /plan to generate."
-           → Abort regeneration
+           → Abort regeneration  # No lock held — safe to abort
 
-       # Acquire lock for Phase 9 only
+       # All preconditions passed — now acquire lock
        CREATE {FEATURE_DIR}/.planning.lock
 
-       # Proceed directly to Step 9.1
-       → Continue to Step 9.1
+       # Proceed directly to Step 9.2
+       → Continue to Step 9.2
 
      ELSE IF state.phase < "TEST_COVERAGE_VALIDATION":
-       # Planning not complete
+       # Planning not complete — no lock acquired
        SET status: needs-user-input
        SET block_reason: "Planning not complete (current phase: {state.phase}). Options: (1) Run full /plan workflow, (2) Abort"
 
   2. IF no planning state exists:
+     # No lock acquired — safe to abort
      SET status: needs-user-input
      SET block_reason: "No planning state found. Cannot regenerate without prior planning. Run /product-planning:plan first."
 
 ELSE:
-  # Normal workflow - coming from Phase 8
-  → Continue to Step 9.1
+  # Normal workflow - coming from Phase 8 (lock already held by orchestrator)
+  → Continue to Step 9.2
 ```
 
 **Trigger Phrases for Regeneration:**
@@ -115,14 +135,14 @@ ELSE:
 - "rerun Phase 9"
 - "refresh tasks.md"
 
-## Step 9.1: Load Task Generation Context
+## Step 9.2: Load Task Generation Context
 
 ```
 1. READ planning artifacts:
    - {FEATURE_DIR}/spec.md (user stories with priorities)
    - {FEATURE_DIR}/plan.md (tech stack, libraries, structure)
    - {FEATURE_DIR}/design.md (architecture decisions)
-   - specs/constitution.md (project conventions)
+   - specs/constitution.md (project conventions)  # Path configurable via config.guards.constitution_path
 
 2. READ test artifacts (from Phases 7-8):
    - {FEATURE_DIR}/test-plan.md (V-Model strategy, coverage matrix)
@@ -172,7 +192,7 @@ ELSE:
    "Task generation context: {story_count} stories, {test_count} tests, {entity_count} entities"
 ```
 
-## Step 9.2a: Dev-Skills Context Loading (Subagent)
+## Step 9.3: Dev-Skills Context Loading [IF dev_skills_integration]
 
 **Purpose:** Load clean-code quality standards to enrich the tech-lead's task generation.
 
@@ -200,11 +220,11 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
 
   READ {FEATURE_DIR}/.phase-summaries/phase-9-skill-context.md
   IF file exists AND not empty:
-    INJECT into tech-lead prompt (Step 9.3) as:
+    INJECT into tech-lead prompt (Step 9.5) as:
     "## Task Quality Standards (from dev-skills)\n{section content}"
 ```
 
-## Step 9.2: Initialize Tasks File
+## Step 9.4: Initialize Tasks File
 
 ```
 COPY $CLAUDE_PLUGIN_ROOT/templates/tasks-template.md to {FEATURE_DIR}/tasks.md
@@ -216,7 +236,7 @@ UPDATE tasks.md header with:
   - Test artifact references
 ```
 
-## Step 9.3: Launch Tech-Lead Agent with Sequential Thinking
+## Step 9.5: Launch Tech-Lead Agent with Sequential Thinking
 
 **Complete/Advanced modes:** Use ST T-TASK templates for structured decomposition.
 **Standard/Rapid modes:** Use inline structured reasoning.
@@ -319,7 +339,7 @@ IF feature_flags.st_task_decomposition.enabled AND analysis_mode in {complete, a
   })
 ```
 
-## Step 9.4: Task Clarification Loop
+## Step 9.6: Task Clarification Loop [USER]
 
 **Purpose:** Present high-risk/uncertain tasks to user for clarification before finalizing.
 
@@ -383,7 +403,7 @@ WHILE iteration < max_iterations:
        BREAK
 ```
 
-## Step 9.5: Task Validation
+## Step 9.7: Task Validation
 
 **Purpose:** Verify task breakdown meets quality standards before finalizing.
 
@@ -432,10 +452,10 @@ WHILE iteration < max_iterations:
 
 6. IF validation fails critical checks (passed < 4 OR tdd_integration < 80%):
    LOG: "Task validation failed - requesting revision"
-   → Return to Step 9.3 with validation feedback (max 1 retry)
+   → Return to Step 9.5 with validation feedback (max 1 retry)
 ```
 
-## Step 9.5b: CLI Task Audit
+## Step 9.8: CLI Task Audit [IF cli_context_isolation]
 
 **Purpose:** Audit task breakdown for completeness (Gemini), code-level accuracy (Codex), and user story coverage (OpenCode) via CLI multi-CLI dispatch.
 
@@ -444,7 +464,7 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | Parameter | Value |
 |-----------|-------|
 | ROLE | `taskauditor` |
-| PHASE_STEP | `9.5b` |
+| PHASE_STEP | `9.8` |
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
 | GEMINI_PROMPT | `Audit task completeness for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Tasks: {FEATURE_DIR}/tasks.md. Focus: Requirements mapping, missing infrastructure tasks, scope coverage.` |
 | CODEX_PROMPT | `Verify task breakdown against codebase for feature: {FEATURE_NAME}. Tasks: {FEATURE_DIR}/tasks.md. Design: {FEATURE_DIR}/design.md. Focus: File path verification, dependency ordering, code structure alignment.` |
@@ -464,13 +484,13 @@ IF audit has blocking findings (missing tasks, invalid paths):
     {blocking_findings_summary}
 
     Options:
-    1. Fix issues and regenerate tasks (return to Step 9.3)
+    1. Fix issues and regenerate tasks (return to Step 9.5)
     2. Acknowledge findings and proceed as-is
     3. Add missing tasks manually
   """
 ```
 
-## Step 9.6: Generate Final Artifacts
+## Step 9.9: Generate Final Artifacts
 
 ```
 1. FINALIZE tasks.md:
@@ -499,7 +519,7 @@ IF audit has blocking findings (missing tasks, invalid paths):
    ...
 ```
 
-## Step 9.7: Output Artifacts Summary
+## Step 9.10: Output Artifacts Summary
 
 | Artifact | Content |
 |----------|---------|
@@ -512,7 +532,7 @@ IF audit has blocking findings (missing tasks, invalid paths):
 | `data-model.md` | Entity definitions (optional) |
 | `contract.md` | API contracts (optional) |
 
-## Step 9.8: Generate Summary Report
+## Step 9.11: Generate Summary Report
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -569,7 +589,7 @@ Next Steps:
 
 Include this summary report in the phase summary's `summary` field.
 
-## Step 9.9: Cleanup
+## Step 9.12: Cleanup
 
 ```
 DELETE {FEATURE_DIR}/.planning.lock
@@ -579,7 +599,7 @@ UPDATE state.task_count = {task_count}
 SAVE state to {FEATURE_DIR}/.planning-state.local.md
 ```
 
-## Step 9.10: Post-Planning Menu (A5)
+## Step 9.13: Post-Planning Menu [IF a5_post_planning_menu] [USER]
 
 **Purpose:** Provide structured options for next steps after planning completion.
 
@@ -600,6 +620,8 @@ IF feature_flags.a5_post_planning_menu.enabled:
 ```
 
 **Option Handlers (executed by orchestrator after receiving user choice):**
+
+> **Important:** The following option handlers are executed by the **ORCHESTRATOR** (SKILL.md context), NOT by the Phase 9 coordinator. The coordinator's job ends after writing `tasks.md` and the phase summary.
 
 **1. Review:**
 ```

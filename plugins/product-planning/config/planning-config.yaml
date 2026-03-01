@@ -873,7 +873,9 @@ limits:
 guards:
   require_spec_exists: true
   require_constitution_exists: true
+  constitution_path: "specs/constitution.md"
   block_on_gate_failure: true
+  lock_stale_timeout_minutes: 60
 
 # =============================================================================
 # SPECIFY GATE (S8 — Phase 3)
@@ -1879,6 +1881,7 @@ deep_reasoning_escalation:
   limits:
     max_escalations_per_session: 3
     max_escalations_per_phase: 1
+    stale_timeout_minutes: 30  # Pending escalation older than this is considered stale on resume
 
   # --- Supported Models (informational, for user guidance) ---
   supported_models:

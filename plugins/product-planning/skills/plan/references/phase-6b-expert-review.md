@@ -30,6 +30,18 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 6b.1 | —     | —        | ✓        | ✓        | `(dev_skills_integration)` |
+| 6b.2 | —     | —        | ✓        | ✓        | `(a4_expert_review)` |
+| 6b.3 | —     | —        | ✓        | ✓        | CLI security audit |
+| 6b.4 | —     | —        | ✓        | ✓        | `(s13_confidence_gated_review)` for filtering |
+| 6b.5 | —     | —        | ✓        | ✓        | `(s13_confidence_gated_review)` for tri-state |
+| 6b.6 | —     | —        | ✓        | ✓        | `(deep_reasoning_escalation)` |
+| 6b.7 | —     | —        | ✓        | ✓        | — |
+| 6b.8 | —     | —        | ✓        | ✓        | — |
+
 # Phase 6b: Expert Review (A4)
 
 > **COORDINATOR INSTRUCTIONS**
@@ -53,7 +65,7 @@ When `a6_context_protocol` is enabled (check feature flags):
 
 **Prerequisite:** Feature flag `a4_expert_review` must be enabled AND analysis_mode in {advanced, complete}.
 
-## Step 6b.0a: Dev-Skills Context Loading (Subagent)
+## Step 6b.1: Dev-Skills Context Loading [IF dev_skills_integration]
 
 **Purpose:** Load clean-code principles and API security patterns before launching expert review agents.
 
@@ -89,11 +101,11 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
 
   READ {FEATURE_DIR}/.phase-summaries/phase-6b-skill-context.md
   IF file exists AND not empty:
-    INJECT clean-code section into simplicity-reviewer prompt (Step 6b.1)
-    INJECT api-security section into security-analyst prompt (Step 6b.1)
+    INJECT clean-code section into simplicity-reviewer prompt (Step 6b.2)
+    INJECT api-security section into security-analyst prompt (Step 6b.2)
 ```
 
-## Step 6b.1: Launch Expert Review Agents
+## Step 6b.2: Launch Expert Review Agents [PARALLEL]
 
 Launch both agents in parallel:
 
@@ -148,7 +160,7 @@ Task(
 )
 ```
 
-## Step 6b.1b: CLI Security Audit (Supplement)
+## Step 6b.3: CLI Security Audit [IF cli_context_isolation]
 
 **Purpose:** Supplement standard security review with CLI multi-CLI security analysis. Standard agents STILL run in parallel — CLI dispatch adds breadth.
 
@@ -157,7 +169,7 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | Parameter | Value |
 |-----------|-------|
 | ROLE | `securityauditor` |
-| PHASE_STEP | `6b.1b` |
+| PHASE_STEP | `6b.3` |
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
 | GEMINI_PROMPT | `Architectural security and supply chain review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Supply chain security, trust boundaries, compliance patterns. Cross-check against compliance requirements in spec.md.` |
 | CODEX_PROMPT | `OWASP code-level security audit for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Injection points, hardcoded secrets, auth implementation flaws. Check data types from spec.md for sensitive data handling.` |
@@ -165,9 +177,9 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/design.md", "{FEATURE_DIR}/plan.md"]` |
 | REPORT_FILE | `analysis/cli-security-report.md` |
 | PREFERRED_SINGLE_CLI | `codex` |
-| POST_WRITE | `Merge CLI security findings with standard agent findings in Step 6b.2` |
+| POST_WRITE | `Merge CLI security findings with standard agent findings in Step 6b.4` |
 
-## Step 6b.2: Consolidate Findings
+## Step 6b.4: Consolidate Findings
 
 ```
 security_findings = parse security-analyst output
@@ -192,7 +204,7 @@ IF feature_flags.s13_confidence_gated_review.enabled:
     finding.note = "Confidence {finding.confidence} < threshold {threshold} — demoted to advisory"
 ```
 
-## Step 6b.3: Handle Blocking Findings (Tri-State Outcome)
+## Step 6b.5: Handle Blocking Findings (Tri-State Outcome) [USER]
 
 ```
 # S9: Tri-state outcome with iteration (s13_confidence_gated_review)
@@ -264,7 +276,7 @@ ELSE:
     """
 ```
 
-## Step 6b.3b: Flag Critical Count for Deep Reasoning Check
+## Step 6b.6: Flag Critical Count for Deep Reasoning Check
 
 Always include the critical finding count in the phase summary, regardless of blocking status. The orchestrator uses `critical_security_count` to determine if a deep reasoning security audit should be offered (threshold: 2+ CRITICAL findings when `security_deep_dive` flag is enabled).
 
@@ -280,11 +292,11 @@ flags:
 > `critical_security_count` from this summary and follows the `deep-reasoning-dispatch-pattern.md`
 > if the threshold is met and the `security_deep_dive` flag is enabled.
 
-## Step 6b.4: Report Advisory Findings
+## Step 6b.7: Report Advisory Findings
 
 Include simplicity opportunities in the summary's "Context for Next Phase" section so the orchestrator can present them to the user.
 
-## Step 6b.5: Write Expert Review Report
+## Step 6b.8: Write Expert Review Report
 
 ```
 OUTPUT:

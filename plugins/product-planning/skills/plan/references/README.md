@@ -54,12 +54,12 @@ Each CLI role runs all available CLIs (Gemini, Codex, OpenCode) in parallel via 
 ### CLI-Enhanced Phases
 | Phase | Role | Step | Report |
 |-------|------|------|--------|
-| 1 | — | Step 1.5b: Detection + deployment | State only |
-| 5 | deepthinker | Step 5.3: Multi-CLI deep analysis | `cli-deepthinker-{perspective}-report.md` |
-| 6 | planreviewer | Step 6.0a: Pre-validation review | `cli-planreview-report.md` |
-| 6b | securityauditor | Step 6b.1b: Security supplement | `cli-security-report.md` |
-| 7 | teststrategist | Step 7.3.5: Test review | `cli-testreview-report.md` |
-| 9 | taskauditor | Step 9.5b: Task audit | `cli-taskaudit-report.md` |
+| 1 | — | Step 1.6: Detection + deployment | State only |
+| 5 | deepthinker | Step 5.4: Multi-CLI deep analysis | `cli-deepthinker-{perspective}-report.md` |
+| 6 | planreviewer | Step 6.2: Pre-validation review | `cli-planreview-report.md` |
+| 6b | securityauditor | Step 6b.3: Security supplement | `cli-security-report.md` |
+| 7 | teststrategist | Step 7.12: Test review | `cli-testreview-report.md` |
+| 9 | taskauditor | Step 9.8: Task audit | `cli-taskaudit-report.md` |
 
 ## By Task
 
@@ -93,20 +93,34 @@ Each CLI role runs all available CLIs (Gemini, Codex, OpenCode) in parallel via 
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `phase-workflows.md` | ~44 | Thin navigational index to per-phase files |
-| `orchestrator-loop.md` | ~155 | Dispatch loop, crash recovery, migration |
-| `phase-*-*.md` | 70-572 | Per-phase coordinator instructions |
+| `orchestrator-loop.md` | ~295 | Dispatch loop, gate failure table, crash recovery, migration |
+| `phase-workflows.md` | ~43 | Thin navigational index to per-phase files |
+| `phase-1-setup.md` | ~486 | Setup, validation, capability detection, mode selection |
+| `phase-2-research.md` | ~455 | Codebase exploration, technology research |
+| `phase-3-clarification.md` | ~215 | User questions, gap resolution |
+| `phase-4-architecture.md` | ~545 | Diagonal Matrix MPA, architecture design |
+| `phase-5-thinkdeep.md` | ~170 | Multi-CLI deep analysis |
+| `phase-6-validation.md` | ~277 | CLI Consensus plan scoring |
+| `phase-6b-expert-review.md` | ~315 | Security/quality expert review |
+| `phase-7-test-strategy.md` | ~640 | V-Model test planning, QA MPA |
+| `phase-8-coverage.md` | ~162 | Test coverage validation |
+| `phase-8b-asset-consolidation.md` | ~256 | Asset discovery, manifest generation |
+| `phase-9-completion.md` | ~695 | Task generation, TDD structuring, completion menu |
 | `research-mcp-patterns.md` | ~293 | Research MCP server usage guide |
 | `judge-gate-rubrics.md` | ~308 | Gate evaluation criteria |
-| `self-critique-template.md` | ~133 | Agent verification template |
-| `tot-workflow.md` | ~344 | Tree-of-Thoughts process |
+| `self-critique-template.md` | ~143 | Agent verification template (phase-aware thresholds) |
+| `tot-workflow.md` | ~364 | Tree-of-Thoughts process |
 | `debate-protocol.md` | ~425 | Multi-round debate structure |
-| Others | <100 | Focused reference content |
-| `cli-dispatch-pattern.md` | ~200 | Canonical CLI multi-CLI dispatch pattern |
-| `skill-loader-pattern.md` | ~100 | Dev-skills context loading via subagent delegation |
-| `phase-8b-asset-consolidation.md` | ~170 | Asset consolidation coordinator instructions |
-| `deep-reasoning-dispatch-pattern.md` | ~180 | Deep reasoning escalation dispatch pattern |
-| `mpa-synthesis-pattern.md` | ~130 | Shared MPA Deliberation (S1) + Convergence Detection (S2) algorithms |
+| `cli-dispatch-pattern.md` | ~342 | Canonical CLI multi-CLI dispatch pattern |
+| `skill-loader-pattern.md` | ~114 | Dev-skills context loading via subagent delegation |
+| `deep-reasoning-dispatch-pattern.md` | ~293 | Deep reasoning escalation dispatch pattern |
+| `mpa-synthesis-pattern.md` | ~164 | Shared MPA Deliberation + Convergence Detection algorithms |
+| `adaptive-strategy-logic.md` | ~289 | Convergence-adaptive synthesis strategy selection |
+| `validation-rubric.md` | ~225 | Phase 6 plan validation scoring |
+| `coverage-validation-rubric.md` | ~265 | Phase 8 test coverage validation scoring |
+| `cot-prefix-template.md` | ~152 | Chain-of-thought reasoning approach template |
+| `thinkdeep-prompts.md` | ~303 | Deep analysis perspective prompts (CLI dispatch) |
+| `v-model-methodology.md` | ~314 | Test level mapping and V-Model alignment |
 | `$PLUGIN/templates/asset-manifest-template.md` | ~90 | Asset manifest structure template |
 | `$PLUGIN/templates/deep-reasoning-templates.md` | ~200 | CTCO prompt templates for deep reasoning models |
 | `$PLUGIN/templates/cli-roles/*.txt` | ~80-120 | CLI role prompts (18 files, 6 roles x 3 CLIs) |
@@ -115,19 +129,19 @@ Each CLI role runs all available CLIs (Gemini, Codex, OpenCode) in parallel via 
 ### Working with Dev-Skills Integration
 1. Read `skill-loader-pattern.md` for the canonical subagent dispatch pattern
 2. Check `config/planning-config.yaml` `dev_skills_integration:` section for domain-skill mappings
-3. Phase 1 (`phase-1-setup.md`) Step 1.5c handles detection
-4. Phases 2, 4, 6b, 7, 9 each have a skill loader step (e.g., Step 4.0a)
+3. Phase 1 (`phase-1-setup.md`) Step 1.7 handles detection
+4. Phases 2, 4, 6b, 7, 9 each have a skill loader step (e.g., Step 4.1)
 5. Agent files (`agents/*.md`) have "Skill Awareness" sections for runtime context
 
 ### Dev-Skills Enhanced Phases
 | Phase | Step | Skills Loaded (Conditional) | Budget |
 |-------|------|-----------------------------|--------|
-| 1 | 1.5c | Detection only (inline) | — |
-| 2 | 2.2c-a | accessibility, mobile, figma | 2500 |
-| 4 | 4.0a | api-patterns, database, c4, mermaid, frontend | 3000 |
-| 6b | 6b.0a | clean-code, api-patterns (security) | 2000 |
-| 7 | 7.1c | qa-test-planner, accessibility | 2000 |
-| 9 | 9.2a | clean-code | 800 |
+| 1 | 1.7 | Detection only (inline) | — |
+| 2 | 2.6 | accessibility, mobile, figma | 2500 |
+| 4 | 4.1 | api-patterns, database, c4, mermaid, frontend | 3000 |
+| 6b | 6b.1 | clean-code, api-patterns (security) | 2000 |
+| 7 | 7.3 | qa-test-planner, accessibility | 2000 |
+| 9 | 9.3 | clean-code | 800 |
 
 ### Working with Deep Reasoning Escalation
 
@@ -135,7 +149,7 @@ External deep reasoning models (GPT-5 Pro, Google Deep Think) can be escalated t
 
 1. Read `deep-reasoning-dispatch-pattern.md` for the canonical escalation workflow
 2. Check `config/planning-config.yaml` `deep_reasoning_escalation:` section for flags and keywords
-3. Phase 1 (`phase-1-setup.md`) Step 1.5d handles algorithm detection
+3. Phase 1 (`phase-1-setup.md`) Step 1.8 handles algorithm detection
 4. `orchestrator-loop.md` gate failure handler and post-Phase-6b check trigger escalation
 5. Templates in `$PLUGIN/templates/deep-reasoning-templates.md` define CTCO prompts
 
@@ -150,8 +164,8 @@ External deep reasoning models (GPT-5 Pro, Google Deep Think) can be escalated t
 
 ### Requirements Context Propagation
 The workflow uses three defence-in-depth mechanisms to prevent requirements dilution:
-1. **Requirements digest** — extracted in Phase 1 (Step 1.6c), injected in every coordinator dispatch prompt (~300 tokens)
-2. **Requirements anchor** — `requirements-anchor.md` produced by Phase 3 (Step 3.5), consolidates spec + user clarifications (~800 tokens)
+1. **Requirements digest** — extracted in Phase 1 (Step 1.11), injected in every coordinator dispatch prompt (~300 tokens)
+2. **Requirements anchor** — `requirements-anchor.md` produced by Phase 3 (Step 3.7), consolidates spec + user clarifications (~800 tokens)
 3. **Direct spec.md read** — Phases 5, 6, 6b list spec.md in `artifacts_read` for deep requirement context
 
 Config: `planning-config.yaml` `requirements_context:` section.
@@ -166,7 +180,7 @@ Config: `planning-config.yaml` `requirements_context:` section.
 - `self-critique-template.md` used by all agents
 - `debate-protocol.md` used by `debate-judge` agent
 - `deep-reasoning-dispatch-pattern.md` used by `orchestrator-loop.md` gate failure handler and Phase 6b security check
-- `mpa-synthesis-pattern.md` used by Phase 4 (Steps 4.1b, 4.1c) and Phase 7 (Steps 7.3.2b, 7.3.3b) for shared MPA algorithms
+- `mpa-synthesis-pattern.md` used by Phase 4 (Steps 4.6, 4.7) and Phase 7 (Steps 7.8, 7.10) for shared MPA algorithms
 - `phase-8b-asset-consolidation.md` feeds `asset-manifest.md` into Phase 9 for Phase 0 task generation
 - `phase-3-clarification.md` produces `requirements-anchor.md` directly read by Phases 4, 5, 6, 6b (prefer-anchor-over-spec fallback); other phases receive requirements context indirectly via orchestrator dispatch digest
 - `orchestrator-loop.md` injects requirements digest (from state) into every coordinator dispatch prompt

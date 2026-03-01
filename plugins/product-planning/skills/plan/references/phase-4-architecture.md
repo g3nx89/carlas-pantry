@@ -44,6 +44,24 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 4.1   | —     | ✓        | ✓        | ✓        | `(dev_skills_integration)`, parallel with 4.3 |
+| 4.2   | ✓     | ✓        | ✓        | ✓        | — |
+| 4.3   | —     | —        | ✓        | ✓        | Research MCP, parallel with 4.1 |
+| 4.4   | ✓     | ✓        | ✓        | ✓        | Agent count varies by mode; `(s10_team_presets)` |
+| 4.5   | —     | —        | —        | ✓        | `(s5_tot_architecture)`, ALT to 4.4 |
+| 4.6   | —     | —        | ✓        | ✓        | `(s7_mpa_deliberation)` |
+| 4.7   | —     | —        | ✓        | ✓        | `(s8_convergence_detection)` |
+| 4.8   | —     | ✓        | ✓        | ✓        | `(st_tao_loops)` |
+| 4.9   | —     | —        | —        | ✓        | Requires ST MCP; `(st_fork_join_architecture)` |
+| 4.10  | —     | ✓        | ✓        | ✓        | ST for Adv/Complete; heuristic for Standard |
+| 4.11  | ✓     | ✓        | ✓        | ✓        | — |
+| 4.12  | ✓     | ✓        | ✓        | ✓        | User interaction |
+| 4.13  | —     | —        | ✓        | ✓        | `(s4_adaptive_strategy)` |
+| 4.14  | —     | —        | ✓        | ✓        | `(s3_judge_gates)` |
+
 # Phase 4: Architecture Design
 
 > **Algorithm Awareness:** If `state.deep_reasoning.algorithm_detected == true`, the
@@ -70,9 +88,9 @@ When `a6_context_protocol` is enabled (check feature flags):
 2. **CHECK** open questions — if your analysis resolves any, include the resolution in your `key_decisions`.
 3. **CONTRIBUTE** your findings as `key_decisions`, `open_questions`, and `risks_identified` in your phase summary YAML.
 
-## Step 4.0a: Dev-Skills Context Loading (Subagent)
+## Step 4.1 [PARALLEL]: Dev-Skills Context Loading (Subagent)
 
-**Purpose:** Load domain expertise from dev-skills plugin before launching architect agents. Runs IN PARALLEL with Step 4.0 Research MCP queries.
+**Purpose:** Load domain expertise from dev-skills plugin before launching architect agents. Steps 4.1 and 4.3 execute IN PARALLEL. Wait for both to complete before proceeding to Step 4.4.
 
 **Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md`
 
@@ -126,14 +144,14 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
     IF any Skill() call fails → log in skills_failed, continue with remaining
   """)
 
-  # READ result AFTER both 4.0a and 4.0 complete
+  # READ result AFTER both 4.1 and 4.3 complete
   READ {FEATURE_DIR}/.phase-summaries/phase-4-skill-context.md
   IF file exists AND not empty:
-    INJECT relevant sections into architect agent prompts (Step 4.1) as:
+    INJECT relevant sections into architect agent prompts (Step 4.4) as:
     "## Domain Reference (from dev-skills)\n{section content}"
 ```
 
-## Step 4.0b: Load Requirements Context
+## Step 4.2: Load Requirements Context
 
 ```
 # Prefer requirements-anchor.md (consolidates spec + user clarifications from Phase 3)
@@ -147,10 +165,10 @@ ELSE:
   LOG: "Requirements context: using spec.md (raw)"
 
 # Use requirements_file as the source for acceptance criteria, user stories,
-# and constraints when preparing architect agent prompts (Step 4.1)
+# and constraints when preparing architect agent prompts (Step 4.4)
 ```
 
-## Step 4.0: Architecture Pattern Research (Research MCP)
+## Step 4.3 [PARALLEL]: Architecture Pattern Research (Research MCP)
 
 **Purpose:** Fetch framework-specific architecture patterns BEFORE launching architect agents.
 
@@ -189,7 +207,7 @@ ELSE:
   architecture_context = research.md findings only
 ```
 
-## Step 4.1: Standard MPA Architecture
+## Step 4.4: Standard MPA Architecture
 
 ```
 # S5: Team Preset filtering (s10_team_presets)
@@ -214,7 +232,7 @@ Output to:
 - `{FEATURE_DIR}/design.ideality.md`
 - `{FEATURE_DIR}/design.resilience.md`
 
-### Step 4.1-alt: Hybrid ToT-MPA Workflow (S5)
+### Step 4.5 [ALT to 4.4, IF s5_tot_architecture]: Hybrid ToT-MPA Workflow (S5)
 
 **Complete mode only. Feature flag: `s5_tot_architecture` (requires: `s4_adaptive_strategy`)**
 
@@ -233,19 +251,19 @@ Output to:
 Reference: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/tot-workflow.md`
 Reference: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/adaptive-strategy-logic.md`
 
-## Step 4.1b: MPA Deliberation — Structured Synthesis (S1)
+## Step 4.6 [IF s7_mpa_deliberation]: MPA Deliberation — Structured Synthesis (S1)
 
 Follow the **MPA Deliberation** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/mpa-synthesis-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
 | `AGENT_OUTPUTS` | `[grounding, ideality, resilience]` |
-| `AGENT_LIST` | Architecture agents from Step 4.1 |
+| `AGENT_LIST` | Architecture agents from Step 4.4 |
 | `PHASE_ID` | `"4"` |
 | `INSIGHT_FOCUS` | Key insights, unique patterns, novel approaches |
 | `RESOLUTION_STRATEGY` | User decision for architectural conflicts |
 
-## Step 4.1c: Convergence Detection (S2)
+## Step 4.7 [IF s8_convergence_detection]: Convergence Detection (S2)
 
 Follow the **Convergence Detection** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/mpa-synthesis-pattern.md` with these parameters:
 
@@ -255,7 +273,7 @@ Follow the **Convergence Detection** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/
 | `PHASE_ID` | `"4"` |
 | `LOW_CONVERGENCE_STRATEGY` | `"present_all_options"` |
 
-## Step 4.2: TAO Loop Analysis (After MPA Agents)
+## Step 4.8 [IF st_tao_loops]: TAO Loop Analysis (After MPA Agents)
 
 ```
 IF feature_flags.st_tao_loops.enabled AND analysis_mode in {standard, advanced, complete}:
@@ -273,10 +291,10 @@ IF feature_flags.st_tao_loops.enabled AND analysis_mode in {standard, advanced, 
 
   IF T-AGENT-VALIDATION.result == FAIL:
     LOG: "TAO validation failed - flagging for human review"
-    FLAG divergent_findings for user decision in Step 4.4
+    FLAG divergent_findings for user decision in Step 4.11
 
 ELSE:
-  # Skip TAO loop, proceed directly to Step 4.3
+  # Skip TAO loop, proceed directly to Step 4.9
 ```
 
 **TAO Loop Purpose:**
@@ -284,7 +302,7 @@ ELSE:
 - Explicitly categorizes findings before merging
 - Provides structured pause for reflection
 
-## Step 4.3: Sequential Thinking with Diagonal Matrix Fork-Join (Complete Mode)
+## Step 4.9 [IF Complete mode]: Sequential Thinking with Diagonal Matrix Fork-Join
 
 IF mode == Complete AND ST available:
 
@@ -357,7 +375,7 @@ ELSE:
 - Two-pass join uses 100% of agent output (composition, not selection)
 - Tension map surfaces real architectural trade-offs for user decision
 
-## Step 4.3c: Risk Assessment for Selected Architecture (Advanced/Complete)
+## Step 4.10 [IF Advanced/Complete]: Risk Assessment for Selected Architecture
 
 **Purpose:** Apply structured risk analysis (T11-T13) to the architecture options BEFORE presenting to user.
 
@@ -430,23 +448,23 @@ ELSE IF analysis_mode == standard:
 | Ideality (Outside-In × Data) | Y/10 | M | Low/Med/High | Low/Med/High |
 | Resilience (Failure-First × Behavior) | Z/10 | P | Low/Med/High | Low/Med/High |
 
-## Step 4.4: Present Options
+## Step 4.11: Present Options
 
 Display comparison table with:
 - Complexity scores
 - Maintainability scores
 - Performance scores
 - Time-to-implement estimates
-- **Risk scores** (from Step 4.3c, Advanced/Complete modes)
-- **Critical risks count** (from Step 4.3c)
-- **Mitigation effort** (from Step 4.3c)
+- **Risk scores** (from Step 4.10, Advanced/Complete modes)
+- **Critical risks count** (from Step 4.10)
+- **Mitigation effort** (from Step 4.10)
 
 Include **Recommendation** with reasoning that considers:
 1. Trade-off analysis from T8
 2. Risk assessment from T11-T13 (if available)
 3. Pattern alignment from research phase
 
-## Step 4.5: Record Architecture Decision
+## Step 4.12 [USER]: Record Architecture Decision
 
 **USER INTERACTION:** The user must review the tension map and confirm the composition strategy.
 
@@ -460,7 +478,7 @@ On re-dispatch after user input, read `{FEATURE_DIR}/.phase-summaries/phase-4-us
 
 Save `architecture_choice` to decisions (IMMUTABLE).
 
-## Step 4.6: Adaptive Strategy Selection (S4)
+## Step 4.13 [IF s4_adaptive_strategy]: Adaptive Strategy Selection (S4)
 
 **Purpose:** Optimize synthesis based on evaluation results.
 
@@ -494,7 +512,7 @@ IF feature_flags.s4_adaptive_strategy.enabled AND analysis_mode in {advanced, co
   5. UPDATE state.architecture.strategy_selected = strategy
 ```
 
-## Step 4.7: Quality Gate - Architecture Quality (S3)
+## Step 4.14 [IF s3_judge_gates]: Quality Gate - Architecture Quality (S3)
 
 **Purpose:** Verify architecture quality before proceeding to ThinkDeep.
 

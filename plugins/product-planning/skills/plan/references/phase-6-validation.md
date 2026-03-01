@@ -30,6 +30,18 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 6.1  | ✓     | ✓        | ✓        | ✓        | — |
+| 6.2  | —     | —        | ✓        | ✓        | CLI dispatch |
+| 6.3  | —     | —        | —        | ✓        | `(s6_multi_judge_debate)`, Complete only |
+| 6.4  | —     | —        | ✓        | ✓        | CLI Consensus; skipped if 6.3 runs |
+| 6.5  | —     | —        | ✓        | ✓        | Score divergence check |
+| 6.6  | ✓     | ✓        | ✓        | ✓        | — |
+| 6.7  | ✓     | ✓        | ✓        | ✓        | User interaction for YELLOW/RED |
+| 6.8  | ✓     | ✓        | —        | —        | Fallback when CLI unavailable |
+
 # Phase 6: Plan Validation
 
 > **COORDINATOR INSTRUCTIONS**
@@ -49,7 +61,7 @@ When `a6_context_protocol` is enabled (check feature flags):
 2. **CHECK** open questions — if your analysis resolves any, include the resolution in your `key_decisions`.
 3. **CONTRIBUTE** your findings as `key_decisions`, `open_questions`, and `risks_identified` in your phase summary YAML.
 
-## Step 6.0: Load Requirements Context
+## Step 6.1: Load Requirements Context
 
 ```
 # Prefer requirements-anchor.md (consolidates spec + user clarifications from Phase 3)
@@ -62,11 +74,11 @@ ELSE:
   requirements_file = "{FEATURE_DIR}/spec.md"
   LOG: "Requirements context: using spec.md (raw)"
 
-# Read requirements content for use in CLI scoring prompts (Step 6.2)
+# Read requirements content for use in CLI scoring prompts (Step 6.6)
 requirements_content = READ(requirements_file)
 ```
 
-## Step 6.0a: CLI Plan Review
+## Step 6.2: CLI Plan Review [IF cli_context_isolation]
 
 **Purpose:** Pre-validation adversarial review via CLI multi-CLI dispatch before CLI Consensus Scoring or Multi-Judge Debate.
 
@@ -75,7 +87,7 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | Parameter | Value |
 |-----------|-------|
 | ROLE | `planreviewer` |
-| PHASE_STEP | `6.0a` |
+| PHASE_STEP | `6.2` |
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
 | GEMINI_PROMPT | `Strategic plan review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Strategic risks, scope assessment, Red Team/Blue Team analysis. Cross-check plan against acceptance criteria in spec.md.` |
 | CODEX_PROMPT | `Technical feasibility review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Code structure support, dependency compatibility, import path resolution. Verify plan covers all technical constraints from spec.md.` |
@@ -83,9 +95,9 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]` |
 | REPORT_FILE | `analysis/cli-planreview-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
-| POST_WRITE | `APPEND CLI review summary to consensus_context for Step 6.1` |
+| POST_WRITE | `APPEND CLI review summary to consensus_context for Step 6.4` |
 
-## Step 6.0b: Multi-Judge Debate Validation (S6)
+## Step 6.3: Multi-Judge Debate Validation [IF s6_multi_judge_debate]
 
 **Complete mode only. Feature flag: `s6_multi_judge_debate`**
 
@@ -102,9 +114,9 @@ Execute multi-round debate validation:
 
 Reference: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/debate-protocol.md`
 
-If S6 debate produces a verdict, skip Step 6.1 (standard CLI Consensus).
+If S6 debate produces a verdict, skip Step 6.4 (standard CLI Consensus).
 
-## Step 6.1: CLI Consensus Scoring (Standard Flow)
+## Step 6.4: CLI Consensus Scoring (Standard Flow)
 
 **When S6 debate is disabled or unavailable:** Execute consensus scoring via CLI dispatch.
 
@@ -117,7 +129,7 @@ IF mode in {Complete, Advanced} AND state.cli.available:
   | Parameter | Value |
   |-----------|-------|
   | ROLE | `consensus` |
-  | PHASE_STEP | `6.1` |
+  | PHASE_STEP | `6.4` |
   | MODE_CHECK | `analysis_mode in {complete, advanced}` |
   | GEMINI_PROMPT | see below (advocate stance + scoring rubric) |
   | CODEX_PROMPT | see below (challenger stance + scoring rubric) |
@@ -127,7 +139,7 @@ IF mode in {Complete, Advanced} AND state.cli.available:
   | PREFERRED_SINGLE_CLI | `gemini` |
   | POST_WRITE | none |
 
-  # Requirements content loaded from Step 6.0 (requirements_file → requirements_content)
+  # Requirements content loaded from Step 6.1 (requirements_file → requirements_content)
 
   GEMINI_PROMPT:
     "STANCE: ADVOCATE — Highlight strengths, give benefit of doubt on ambiguous items.
@@ -197,7 +209,7 @@ IF mode in {Complete, Advanced} AND state.cli.available:
   total_score = SUM(final_scores)
 ```
 
-## Step 6.1b: Score Divergence Check
+## Step 6.5: Score Divergence Check
 
 **Purpose:** Detect scoring divergence between CLIs and reconcile if needed.
 
@@ -221,7 +233,7 @@ ELSE:
   LOG: "Moderate divergence ({score_delta}) — using averaged scores"
 ```
 
-## Step 6.2: Score Calculation
+## Step 6.6: Score Calculation
 
 | Dimension | Weight | Score | Max |
 |-----------|--------|-------|-----|
@@ -232,7 +244,7 @@ ELSE:
 | Feasibility | 15% | 1-3 | 3 |
 | **Total** | **100%** | | **20** |
 
-## Step 6.3: Determine Status
+## Step 6.7: Determine Status [USER]
 
 | Score | Status | Action |
 |-------|--------|--------|
@@ -252,7 +264,7 @@ If RED: Set `status: needs-user-input` with `block_reason` explaining what faile
 > orchestrator generates a specialized CTCO prompt for an external deep reasoning model.
 > The coordinator does not need to handle this. See `deep-reasoning-dispatch-pattern.md`.
 
-## Step 6.4: Internal Validation (Fallback)
+## Step 6.8: Internal Validation (Fallback)
 
 IF CLI dispatch not available:
 

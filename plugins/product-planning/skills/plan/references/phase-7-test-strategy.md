@@ -51,6 +51,27 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md"
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 7.1  | ✓     | ✓        | ✓        | ✓        | — |
+| 7.2  | —     | —        | ✓        | ✓        | Research MCP |
+| 7.3  | —     | ✓        | ✓        | ✓        | `(dev_skills_integration)` |
+| 7.4  | —     | —        | ✓        | ✓        | Requires ST MCP |
+| 7.5  | ✓     | ✓        | ✓        | ✓        | 1 agent (Rapid/Std) / 3 agents (Adv/Complete); `(s10_team_presets)` |
+| 7.6  | —     | —        | ✓        | ✓        | `(st_revision_reconciliation)` for ST path |
+| 7.7  | —     | —        | ✓        | ✓        | `(st_redteam_analysis)` |
+| 7.8  | —     | —        | ✓        | ✓        | `(s7_mpa_deliberation)` |
+| 7.9  | —     | ✓        | ✓        | ✓        | `(st_tao_loops)` |
+| 7.10 | —     | —        | ✓        | ✓        | `(s8_convergence_detection)` |
+| 7.11 | ✓     | ✓        | ✓        | ✓        | — |
+| 7.12 | —     | —        | —        | ✓        | CLI dispatch, Complete only |
+| 7.13 | ✓     | ✓        | ✓        | ✓        | — |
+| 7.14 | ✓     | ✓        | ✓        | ✓        | — |
+| 7.15 | ✓     | ✓        | ✓        | ✓        | — |
+| 7.16 | ✓     | ✓        | ✓        | ✓        | Only if test-strategy.md exists |
+| 7.17 | —     | —        | ✓        | ✓        | `(s3_judge_gates)` |
+
 # Phase 7: Test Strategy (V-Model)
 
 > **Algorithm Awareness:** If `state.deep_reasoning.algorithm_detected == true`, the
@@ -88,7 +109,7 @@ READ:
 
 IF test-strategy.md exists:
   EXTRACT: risk_areas, testable_acs, critical_journeys, edge_cases
-  STORE as strategy_inputs for Step 7.6b
+  STORE as strategy_inputs for Step 7.16
 
   # Migration check: old specify versions produced test-plan.md instead (remove after v2.0)
   IF test-plan.md exists AND test-strategy.md does NOT exist:
@@ -100,7 +121,7 @@ ELSE:
   strategy_inputs = null
 ```
 
-## Step 7.1b: Testing Best Practices Research (Research MCP)
+## Step 7.2: Testing Best Practices Research (Research MCP)
 
 **Purpose:** Fetch framework-specific testing patterns BEFORE launching QA agents.
 
@@ -154,9 +175,9 @@ ELSE:
   testing_context = null
 ```
 
-## Step 7.1c: Dev-Skills Context Loading (Subagent)
+## Step 7.3: Dev-Skills Context Loading [IF dev_skills_integration] [PARALLEL]
 
-**Purpose:** Load QA domain expertise and accessibility patterns before launching QA agents. Runs IN PARALLEL with Step 7.1b Research MCP queries.
+**Purpose:** Load QA domain expertise and accessibility patterns before launching QA agents. Runs IN PARALLEL with Step 7.2 Research MCP queries.
 
 **Reference:** `$CLAUDE_PLUGIN_ROOT/skills/plan/references/skill-loader-pattern.md`
 
@@ -190,14 +211,14 @@ IF state.dev_skills.available AND analysis_mode != "rapid":
     IF any Skill() call fails → log in skills_failed, continue with remaining
   """)
 
-  # READ result AFTER both 7.1b and 7.1c complete
+  # READ result AFTER both 7.2 and 7.3 complete
   READ {FEATURE_DIR}/.phase-summaries/phase-7-skill-context.md
   IF file exists AND not empty:
-    INJECT qa-test-planner section into qa-strategist prompt (Step 7.3)
-    INJECT accessibility section into qa-security prompt (Step 7.3) if UI feature
+    INJECT qa-test-planner section into qa-strategist prompt (Step 7.5)
+    INJECT accessibility section into qa-security prompt (Step 7.5) if UI feature
 ```
 
-## Step 7.2: Risk Analysis
+## Step 7.4: Risk Analysis
 
 Execute Sequential Thinking for failure point analysis:
 
@@ -222,7 +243,7 @@ mcp__sequential-thinking__sequentialthinking(T-RISK-3: Risk to Test Mapping)
 - Each Critical/High risk MUST have dedicated test coverage
 ```
 
-## Step 7.3: Launch QA Agents (MPA Pattern)
+## Step 7.5: Launch QA Agents [PARALLEL]
 
 ```
 # S5: Team Preset filtering (s10_team_presets)
@@ -314,7 +335,7 @@ Output to (MPA intermediate outputs — distinct from specify's root-level `test
 - `{FEATURE_DIR}/analysis/test-strategy-security.md`
 - `{FEATURE_DIR}/analysis/test-strategy-performance.md`
 
-## Step 7.3.1: Risk Reconciliation with ST Revision
+## Step 7.6: Risk Reconciliation with ST Revision [IF st_revision_reconciliation]
 
 **Purpose:** Ensure Phase 5 ThinkDeep security/performance insights are aligned with Phase 7 test risk analysis using ST Revision.
 
@@ -392,7 +413,7 @@ ELSE:
 - Conflicts resolved: {count}
 ```
 
-## Step 7.3.2: Red Team Branch (Complete/Advanced)
+## Step 7.7: Red Team Branch [IF st_redteam_analysis]
 
 **Purpose:** Add adversarial perspective to risk analysis by thinking like an attacker.
 
@@ -441,19 +462,19 @@ ELSE:
 - Service disruption vectors
 - Injection vulnerabilities (SQL, XSS, command)
 
-## Step 7.3.2b: MPA Deliberation — Structured Synthesis for QA (S1)
+## Step 7.8: MPA Deliberation — Structured Synthesis for QA [IF s7_mpa_deliberation]
 
 Follow the **MPA Deliberation** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/mpa-synthesis-pattern.md` with these parameters:
 
 | Parameter | Value |
 |-----------|-------|
 | `AGENT_OUTPUTS` | `[general, security, performance]` |
-| `AGENT_LIST` | QA agents from Step 7.3 |
+| `AGENT_LIST` | QA agents from Step 7.5 |
 | `PHASE_ID` | `"7"` |
 | `INSIGHT_FOCUS` | Key test cases, unique risk findings, novel coverage approaches |
 | `RESOLUTION_STRATEGY` | Higher severity for risk conflicts, broader coverage for scope conflicts |
 
-## Step 7.3.3: TAO Loop for QA Synthesis
+## Step 7.9: TAO Loop for QA Synthesis [IF st_tao_loops]
 
 ```
 IF feature_flags.st_tao_loops.enabled:
@@ -469,7 +490,7 @@ IF feature_flags.st_tao_loops.enabled:
     - Gaps → Document as known testing gaps
 ```
 
-## Step 7.3.3b: Convergence Detection for QA (S2)
+## Step 7.10: Convergence Detection for QA [IF s8_convergence_detection]
 
 Follow the **Convergence Detection** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/plan/references/mpa-synthesis-pattern.md` with these parameters:
 
@@ -479,7 +500,7 @@ Follow the **Convergence Detection** algorithm from `$CLAUDE_PLUGIN_ROOT/skills/
 | `PHASE_ID` | `"7"` |
 | `LOW_CONVERGENCE_STRATEGY` | `"include_all_flag_conflicts"` |
 
-## Step 7.3.4: Synthesize QA Agent Outputs
+## Step 7.11: Synthesize QA Agent Outputs
 
 After all QA agents complete AND reconciliation is done:
 
@@ -489,7 +510,7 @@ After all QA agents complete AND reconciliation is done:
 4. **Flag conflicts** - Note where agents disagree for human decision
 5. **Verify reconciliation** - All ThinkDeep insights have test coverage
 
-## Step 7.3.5: CLI Test Strategy Review
+## Step 7.12: CLI Test Strategy Review [IF cli_context_isolation]
 
 **Purpose:** Review and validate QA agent outputs using CLI multi-CLI dispatch. Gemini discovers test infrastructure and framework patterns; Codex verifies test code quality and patterns; OpenCode assesses UAT quality and accessibility testing. Also absorbs ThinkDeep reconciliation duties.
 
@@ -498,7 +519,7 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | Parameter | Value |
 |-----------|-------|
 | ROLE | `teststrategist` |
-| PHASE_STEP | `7.3.5` |
+| PHASE_STEP | `7.12` |
 | MODE_CHECK | `analysis_mode == "complete"` |
 | GEMINI_PROMPT | `Review test strategy for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. ThinkDeep insights: {FEATURE_DIR}/analysis/thinkdeep-insights.md (if exists). Focus: Test infrastructure discovery, framework compatibility, coverage gaps, ThinkDeep-to-test reconciliation.` |
 | CODEX_PROMPT | `Review test code quality for feature: {FEATURE_NAME}. Test plan: {FEATURE_DIR}/test-plan.md. Focus: Existing test patterns, assertion quality, mock patterns, test isolation.` |
@@ -508,7 +529,7 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | PREFERRED_SINGLE_CLI | `gemini` |
 | POST_WRITE | `Update test-plan.md with coverage gap additions (Gemini), pattern alignment recommendations (Codex), UAT/accessibility improvements (OpenCode), and ThinkDeep reconciliation report` |
 
-## Step 7.4: Generate UAT Scripts
+## Step 7.13: Generate UAT Scripts
 
 For each user story in spec.md, generate:
 
@@ -530,7 +551,7 @@ For each user story in spec.md, generate:
 - [ ] User confirmation
 ```
 
-## Step 7.5: Structure Test Directories
+## Step 7.14: Structure Test Directories
 
 ```
 CREATE {FEATURE_DIR}/test-cases/unit/ if not exists
@@ -544,11 +565,11 @@ WRITE e2e scenarios to test-cases/e2e/
 WRITE uat scripts to test-cases/uat/
 ```
 
-## Step 7.6: Generate Test Plan Document
+## Step 7.15: Generate Test Plan Document
 
 Write `{FEATURE_DIR}/test-plan.md` using template from `$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md`
 
-## Step 7.6b: Strategy Traceability Verification
+## Step 7.16: Strategy Traceability Verification [IF test-strategy.md exists]
 
 ```
 IF strategy_inputs != null:
@@ -586,7 +607,7 @@ ELSE:
   SKIP — no Section 10 added to test-plan.md (strategy_inputs is null)
 ```
 
-## Step 7.7: Quality Gate - Test Coverage (S3)
+## Step 7.17: Quality Gate - Test Coverage [IF s3_judge_gates]
 
 **Purpose:** Verify test coverage quality before coverage validation.
 

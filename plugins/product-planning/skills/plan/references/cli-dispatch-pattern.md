@@ -23,7 +23,7 @@ ELSE:
 | Parameter | Description |
 |-----------|-------------|
 | `ROLE` | CLI role name (deepthinker, planreviewer, teststrategist, securityauditor, taskauditor) |
-| `PHASE_STEP` | Step number in the calling phase (e.g., 5.6, 6.0a) |
+| `PHASE_STEP` | Step number in the calling phase (e.g., 5.4, 6.2) |
 | `MODE_CHECK` | Analysis mode condition (e.g., `analysis_mode in {complete, advanced}`) |
 | `GEMINI_PROMPT` | Prompt text for Gemini CLI |
 | `CODEX_PROMPT` | Prompt text for Codex CLI |
@@ -195,8 +195,21 @@ IF available_cli_count == 0:
   SKIP synthesis — no CLI data available
   RETURN empty with flags.degraded = true
 
-# Group findings by semantic similarity (topic + recommendation alignment)
-finding_groups = GROUP(all_findings by topic_similarity)
+# Group findings into concrete topic categories with recommendation direction
+finding_groups = GROUP(all_findings) into these categories:
+#   1. Architecture — structural decisions, patterns, component design
+#   2. Performance — scalability, latency, resource efficiency
+#   3. Security — threats, vulnerabilities, compliance
+#   4. Maintainability — code quality, extensibility, technical debt
+#   5. Testing — test strategy, coverage, testability
+#   6. Data — schema design, data flow, storage
+#   7. UX — user experience, accessibility, usability
+#   8. Deployment — CI/CD, infrastructure, monitoring
+#   9. Dependencies — third-party libraries, version constraints
+#
+# Within each category, sub-group by recommendation direction:
+#   - Add/Improve — new capabilities or enhancements
+#   - Remove/Reduce — simplifications or eliminations
 
 FOR each group IN finding_groups:
   sources = UNIQUE(cli names in group)

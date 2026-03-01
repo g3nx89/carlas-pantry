@@ -221,7 +221,7 @@ When adding new ST template groups:
 | Single-CLI without degradation notice | User unaware analysis reduced | Log degradation, set state.cli.mode |
 | Role prompts without EXPLORE directives | Agents miss codebase evidence | Every role MUST explore filesystem |
 | Deploying to wrong directory | CLI reads from project conf/ | Auto-deploy in Phase 1 |
-| CLI dispatch without availability check | Fails silently | Step 1.5b checks availability |
+| CLI dispatch without availability check | Fails silently | Step 1.6 checks availability |
 
 ### External Prompt Authoring
 
@@ -318,7 +318,7 @@ When adding new ST template groups:
 
 ### Subagent-Delegated Skill Loading
 - Coordinators dispatch a throwaway `Task(general-purpose)` subagent to load, extract, and condense dev-skills (~70% token savings vs inline)
-- Detection: Phase 1 Step 1.5c scans spec.md for technology keywords and project root for framework markers
+- Detection: Phase 1 Step 1.7 scans spec.md for technology keywords and project root for framework markers
 - Modes: Complete, Advanced, Standard (NOT Rapid)
 - Reference: `skills/plan/references/skill-loader-pattern.md`
 - Config: `config/planning-config.yaml` `dev_skills_integration:` section
@@ -327,11 +327,11 @@ When adding new ST template groups:
 
 | Phase | Step | Skills Loaded | Budget | Parallel With |
 |-------|------|---------------|--------|---------------|
-| 2 | 2.2c-a | accessibility, mobile, figma | 2500 | code-explorer, researcher |
-| 4 | 4.0a | api-patterns, database, c4, mermaid, frontend | 3000 | Research MCP (Step 4.0) |
-| 6b | 6b.0a | clean-code, api-security | 2000 | N/A |
-| 7 | 7.1c | qa-test-planner, accessibility | 2000 | Research MCP (Step 7.1b) |
-| 9 | 9.2a | clean-code | 800 | N/A |
+| 2 | 2.6 | accessibility, mobile, figma | 2500 | code-explorer, researcher |
+| 4 | 4.1 | api-patterns, database, c4, mermaid, frontend | 3000 | Research MCP (Step 4.3) |
+| 6b | 6b.1 | clean-code, api-security | 2000 | N/A |
+| 7 | 7.3 | qa-test-planner, accessibility | 2000 | Research MCP (Step 7.2) |
+| 9 | 9.3 | clean-code | 800 | N/A |
 
 ### Dev-Skills Anti-Patterns
 
@@ -340,7 +340,7 @@ When adding new ST template groups:
 | Invoke Skill() directly in coordinator | Context pollution (~5-15K) | Delegate to subagent |
 | Load skills in Rapid mode | Unnecessary latency | Skip via mode guard |
 | Exceed per-phase token budget | Coordinator context bloat | Enforce limits in loader prompt |
-| Skip Phase 1 detection | All phases load max skills | Always run Step 1.5c |
+| Skip Phase 1 detection | All phases load max skills | Always run Step 1.7 |
 | Hard-depend on skill content | Breaks without dev-skills | Treat as supplementary |
 
 ---

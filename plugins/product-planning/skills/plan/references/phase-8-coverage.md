@@ -21,6 +21,16 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
 ---
 
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 8.1  | ✓     | ✓        | ✓        | ✓        | — |
+| 8.2  | —     | —        | ✓        | ✓        | CLI Consensus |
+| 8.3  | ✓     | ✓        | ✓        | ✓        | — |
+| 8.4  | ✓     | ✓        | ✓        | ✓        | User interaction for YELLOW/RED |
+| 8.5  | ✓     | ✓        | —        | —        | Fallback when CLI unavailable |
+| 8.6  | ✓     | ✓        | ✓        | ✓        | — |
+
 # Phase 8: Test Coverage Validation
 
 > **COORDINATOR INSTRUCTIONS**

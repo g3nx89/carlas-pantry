@@ -9,16 +9,32 @@ artifacts_read: []
 artifacts_written: []
 agents: []
 mcp_tools:
-  # PAL MCP removed — CLI dispatch (Step 1.5b) replaces model availability checks
   - "mcp__sequential-thinking__sequentialthinking"
 feature_flags:
   - "cli_context_isolation"
   - "cli_custom_roles"
   - "dev_skills_integration"
-  - "deep_reasoning_escalation"  # Step 1.5d: abstract algorithm detection
+  - "deep_reasoning_escalation"  # Step 1.8: abstract algorithm detection
   - "s10_team_presets"
 additional_references: []
 ---
+
+<!-- Mode Applicability -->
+| Step | Rapid | Standard | Advanced | Complete | Notes |
+|------|-------|----------|----------|----------|-------|
+| 1.1  | ✓     | ✓        | ✓        | ✓        | — |
+| 1.2  | ✓     | ✓        | ✓        | ✓        | — |
+| 1.3  | ✓     | ✓        | ✓        | ✓        | — |
+| 1.4  | ✓     | ✓        | ✓        | ✓        | — |
+| 1.5  | ✓     | ✓        | ✓        | ✓        | — |
+| 1.6  | ✓     | ✓        | ✓        | ✓        | `(cli_context_isolation)` |
+| 1.7  | ✓     | ✓        | ✓        | ✓        | `(dev_skills_integration)` |
+| 1.8  | ✓     | ✓        | ✓        | ✓        | `(deep_reasoning_escalation)` |
+| 1.9  | ✓     | ✓        | ✓        | ✓        | — |
+| 1.10 | ✓     | ✓        | ✓        | ✓        | `(s10_team_presets)` |
+| 1.11 | ✓     | ✓        | ✓        | ✓        | — |
+| 1.12 | ✓     | ✓        | ✓        | ✓        | — |
+| 1.13 | ✓     | ✓        | ✓        | ✓        | — |
 
 # Phase 1: Setup & Initialization
 
@@ -26,12 +42,14 @@ additional_references: []
 > After completion, the orchestrator MUST write a Phase 1 summary to
 > `{FEATURE_DIR}/.phase-summaries/phase-1-summary.md` using the summary template.
 
+#### Block A: Validation (Steps 1.1–1.4)
+
 ## Step 1.1: Prerequisites Check
 
 ```
 VERIFY:
   - Feature spec exists at {FEATURE_DIR}/spec.md
-  - Constitution exists at specs/constitution.md
+  - Constitution exists at specs/constitution.md  # Path configurable via config.guards.constitution_path
 
 IF missing → ERROR with resolution guidance
 ```
@@ -68,11 +86,13 @@ ELSE:
 ```
 LOCK_FILE = "{FEATURE_DIR}/.planning.lock"
 
-IF LOCK_FILE exists AND age < 60 minutes:
+IF LOCK_FILE exists AND age < config.guards.lock_stale_timeout_minutes (default 60):
   → ERROR: "Planning session in progress"
 
 CREATE LOCK_FILE with pid, timestamp, user
 ```
+
+#### Block B: Capability Detection (Steps 1.5–1.8)
 
 ## Step 1.5: MCP Availability Check
 
@@ -90,16 +110,18 @@ DISPLAY availability status
 
 # NOTE: PAL MCP tools (thinkdeep, consensus, challenge, listmodels) have been
 # replaced by CLI dispatch via dispatch-cli-agent.sh. Complete/Advanced modes
-# now require CLI availability (detected in Step 1.5b) instead of PAL MCP.
+# now require CLI availability (detected in Step 1.6) instead of PAL MCP.
 
 IF research MCP unavailable:
-  LOG: "Research MCP servers unavailable - Steps 2.1c, 4.0, 7.1b will use internal knowledge"
+  LOG: "Research MCP servers unavailable - Steps 2.3, 4.3, 7.2 will use internal knowledge"
   SET state.research_mcp_available = false
 ELSE:
   SET state.research_mcp_available = true
 ```
 
-## Step 1.5b: CLI Capability Detection
+## Step 1.6: CLI Capability Detection [IF cli_context_isolation]
+
+> **Note:** CLI smoke test verifies binary availability only, not configuration or authentication.
 
 ```
 IF feature_flags.cli_context_isolation.enabled:
@@ -114,7 +136,7 @@ IF feature_flags.cli_context_isolation.enabled:
        LOG: "Dispatch script not found — skipping CLI integration"
        SET state.cli.available = false
        SET state.cli.mode = "disabled"
-       SKIP rest of 1.5b
+       SKIP rest of 1.6
 
   2. CHECK which CLIs are installed via dispatch script smoke test:
      # Smoke test each CLI with a 30-second timeout
@@ -176,7 +198,7 @@ ELSE:
   SET state.cli.mode = "disabled"
 ```
 
-## Step 1.5c: Dev-Skills Relevance Detection
+## Step 1.7: Dev-Skills Relevance Detection [IF dev_skills_integration]
 
 **Purpose:** Detect whether the `dev-skills` plugin is installed and which skill domains are relevant to this feature based on spec.md content and codebase markers.
 
@@ -185,7 +207,7 @@ IF config.dev_skills_integration.enabled:
 
   1. CHECK dev-skills plugin installed:
      TRY: Skill("dev-skills:clean-code") with minimal invocation
-     IF fails → SET state.dev_skills.available = false, SKIP rest of 1.5c
+     IF fails → SET state.dev_skills.available = false, SKIP rest of 1.7
 
   2. SCAN spec.md for technology indicators (case-insensitive):
      FOR EACH domain IN config.dev_skills_integration.detection:
@@ -229,7 +251,7 @@ ELSE:
   SET state.dev_skills.detected_domains = []
 ```
 
-## Step 1.5d: Abstract Algorithm Detection
+## Step 1.8: Abstract Algorithm Detection [IF deep_reasoning_escalation]
 
 **Purpose:** Detect algorithm/math complexity keywords in spec.md that may warrant deep reasoning escalation in later phases. This is **detection only** — no escalation happens in Phase 1. The orchestrator uses this flag when quality gates fail in Phase 4, 6, or 7.
 
@@ -284,7 +306,9 @@ ELSE:
     pending_escalation: null
 ```
 
-## Step 1.6: Analysis Mode Selection
+#### Block C: User Configuration (Steps 1.9–1.11)
+
+## Step 1.9: Analysis Mode Selection
 
 Present modes based on MCP availability. Only show modes where required tools are available.
 
@@ -371,7 +395,7 @@ IF config.mode_suggestion.enabled:
      - Choose different mode
 ```
 
-## Step 1.6b: Team Preset Selection (S5)
+## Step 1.10: Team Preset Selection [IF s10_team_presets] [USER]
 
 ```
 IF feature_flags.s10_team_presets.enabled:
@@ -413,7 +437,7 @@ IF feature_flags.s10_team_presets.enabled:
   4. LOG: "Team preset: {selected_preset or 'default'}"
 ```
 
-## Step 1.6c: Requirements Digest Extraction
+## Step 1.11: Requirements Digest Extraction
 
 **Purpose:** Extract a compact requirements digest from spec.md to inject into every coordinator dispatch prompt. This ensures every phase has baseline visibility into the original requirements, regardless of whether it reads spec.md directly.
 
@@ -438,7 +462,9 @@ STORE in state:
 LOG: "Requirements digest extracted ({word_count} words, estimated {token_count} tokens)"
 ```
 
-## Step 1.7: Workspace Preparation
+#### Block D: Workspace Setup (Steps 1.12–1.13)
+
+## Step 1.12: Workspace Preparation
 
 ```
 CREATE {FEATURE_DIR}/analysis/ if not exists
@@ -446,7 +472,7 @@ CREATE {FEATURE_DIR}/.phase-summaries/ if not exists
 COPY plan-template.md to {FEATURE_DIR}/plan.md if not exists
 ```
 
-## Step 1.8: Write Phase 1 Summary
+## Step 1.13: Write Phase 1 Summary
 
 After completing all setup steps, the orchestrator writes `{FEATURE_DIR}/.phase-summaries/phase-1-summary.md` containing:
 - Selected analysis mode and rationale

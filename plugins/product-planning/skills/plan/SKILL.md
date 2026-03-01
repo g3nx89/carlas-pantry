@@ -41,17 +41,33 @@ Transform feature specifications into actionable implementation plans with integ
 
 ## Critical Rules
 
-1. **State Preservation** - Checkpoint after user decisions. User decisions are IMMUTABLE once saved.
-2. **Resume Compliance** - When resuming, NEVER re-ask questions from `user_decisions`.
-3. **Delegation** - Complex analysis uses MPA agents + CLI deep analysis. Do NOT attempt inline analysis.
-4. **Mode Selection** - ALWAYS ask user to choose analysis mode before proceeding.
-5. **Lock Protocol** - Acquire lock at start, release at completion. Check for stale locks (>60 min).
-6. **Config Reference** - Use `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` for all settings.
-7. **V-Model Alignment** - Every acceptance criterion MUST have a corresponding test.
-8. **Delegation Protocol** - Delegated phases execute via `Task(subagent_type="general-purpose")` coordinators. Phase 1 is inline. Phase 3 is conditional (inline for Standard/Rapid).
-9. **Summary-Only Context** - Between phases, read ONLY summary files from `{FEATURE_DIR}/.phase-summaries/`. Never read full phase instruction files or raw artifacts in orchestrator context.
-10. **No User Interaction from Coordinators** - Coordinators set `status: needs-user-input` in their summary. The orchestrator mediates ALL user prompts via `AskUserQuestion`.
-11. **Requirements Context Propagation** - The orchestrator injects a requirements digest (~300 tokens from spec.md) into every coordinator dispatch prompt. Phase 3 produces `requirements-anchor.md` (spec + clarifications). Phases 5, 6, 6b read spec.md directly. See `config/planning-config.yaml` `requirements_context:` for budgets.
+### Tier 1 — Architectural Invariants
+
+1. **No User Interaction from Coordinators** — Coordinators NEVER call `AskUserQuestion` or prompt users directly. Set `status: needs-user-input` with `flags.block_reason` in the summary; the orchestrator mediates ALL user prompts.
+2. **Orchestrator Summary-Only Context** — Read ONLY summary files from `{FEATURE_DIR}/.phase-summaries/` between phases. Never load raw phase artifacts (design.md, research.md) into orchestrator context.
+3. **Delegation Protocol** — Dispatch all phases >=2 via `Task(subagent_type="general-purpose")` with a prompt pointing to the phase reference file. Run Phase 1 inline. Run Phase 3 inline for Standard/Rapid.
+4. **Delegation over Inline Analysis** — Always delegate analysis to coordinator subagents. Never perform multi-step analysis inline in the orchestrator.
+
+### Tier 2 — Operational Protocol
+
+5. **Checkpoint after User Decisions** — Save user decisions to state immediately after receiving them. Never overwrite a saved user decision. When resuming, never re-ask questions already in `user_decisions`.
+6. **Mode Selection** — Ask the user to choose an analysis mode before proceeding. Never default silently.
+7. **Lock Protocol** — Acquire lock at start, release at completion. Treat locks older than `config.guards.lock_stale_timeout_minutes` (default 60) as stale.
+8. **Config Reference** — Source all settings from `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml`. Never hardcode thresholds or limits.
+9. **V-Model Alignment** — Map every acceptance criterion to a corresponding test. Flag untested criteria.
+10. **Requirements Context Propagation** — Inject a requirements digest (~300 tokens from spec.md) into every coordinator dispatch prompt. Phase 3 produces `requirements-anchor.md` (spec + clarifications). Phases 5, 6, 6b read spec.md directly. See `config/planning-config.yaml` `requirements_context:` for budgets.
+
+## Terminology
+
+| Term | Definition |
+|------|-----------|
+| Phase | Numbered workflow step (1-9, plus 6b, 8b) |
+| Coordinator | Dispatched subagent that executes a phase |
+| Dispatch | Sending a coordinator via `Task(general-purpose)` with a phase prompt |
+| Summary | 30-80 line result file written by coordinator to `.phase-summaries/` |
+| Gate | Quality checkpoint scored by CLI Consensus (Phases 6, 8) |
+| Orchestrator | This SKILL.md context — reads summaries, dispatches coordinators, mediates user interaction |
+| Escalation | Deep reasoning dispatch triggered by repeated gate failure |
 
 ## Analysis Modes
 
@@ -64,9 +80,19 @@ Transform feature specifications into actionable implementation plans with integ
 
 Costs are base estimates without ST or CLI enhancements. See `config/planning-config.yaml` blessed profiles for full costs with all enhancements enabled.
 
-**CLI Multi-CLI Dispatch** (Complete/Advanced): When `cli_custom_roles` is enabled and CLI tools are installed, phases 5, 6, 6b, 7, and 9 run supplemental analysis via Gemini + Codex + OpenCode in parallel using Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`), then synthesize and self-critique findings. Each CLI brings a different lens: Gemini (strategic/broad), Codex (code-level/challenger), OpenCode (UX/product). Tri-CLI synthesis uses unanimous (VERY HIGH), majority (HIGH), and divergent (FLAG) confidence levels. This adds ~6-9 min total latency but provides broader coverage.
+### CLI Dispatch
 
-Graceful degradation: If CLIs unavailable, fall back to Standard/Rapid modes (internal agents only). If ST unavailable, fall back to Advanced mode.
+| CLI | Analytical Lens | Phases |
+|-----|----------------|--------|
+| Gemini | Strategic / broad | 5, 6, 8 |
+| Codex | Code-level / challenger | 5, 6, 8 |
+| OpenCode | UX / product | 5, 6, 8 |
+
+Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh`
+
+Complete/Advanced modes dispatch all three CLIs in parallel, then synthesize findings. Tri-CLI synthesis uses unanimous (VERY HIGH), majority (HIGH), and divergent (FLAG) confidence levels. Adds ~6-9 min total latency.
+
+Graceful degradation: If CLIs are unavailable, fall back to Standard/Rapid modes (internal agents only). If ST is unavailable, fall back to Advanced mode.
 
 ## Workflow Phases
 
@@ -126,27 +152,63 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for ~78% o
 
 ## Phase Dispatch Table
 
-| Phase | Delegation | File | Prior Summaries | User Interaction | CLI | Checkpoint |
-|-------|-----------|------|-----------------|------------------|-----|------------|
-| 1 | Inline | `phase-1-setup.md` | — | Mode selection | Detect | SETUP |
-| 2 | Coordinator | `phase-2-research.md` | phase-1 | Gate failure only | — | RESEARCH |
-| 3 | Conditional | `phase-3-clarification.md` | phase-2 | Questions (all) | — | CLARIFICATION |
-| 4 | Coordinator | `phase-4-architecture.md` | phase-2, phase-3 | Select option | — | ARCHITECTURE |
-| 5 | Coordinator | `phase-5-thinkdeep.md` | phase-4 | Review findings | deepthinker | THINKDEEP |
-| 6 | Coordinator | `phase-6-validation.md` | phase-4, phase-5 | If YELLOW/RED | planreviewer | VALIDATION |
-| 6b | Coordinator | `phase-6b-expert-review.md` | phase-6 | Blocking security | securityauditor | EXPERT_REVIEW |
-| 7 | Coordinator | `phase-7-test-strategy.md` | phase-4, phase-5, phase-6 | — | teststrategist | TEST_STRATEGY |
-| 8 | Coordinator | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | — | TEST_COVERAGE_VALIDATION |
-| 8b | Coordinator | `phase-8b-asset-consolidation.md` | phase-8 | Validate manifest | — | ASSET_CONSOLIDATION |
-| 9 | Coordinator | `phase-9-completion.md` | phase-7, phase-8, phase-8b | Clarify tasks | taskauditor | COMPLETION |
+| Phase | File | Prior Summaries | User Interaction | CLI | Checkpoint | Relevant Flags | Direct Artifact Reads | `∥` |
+|-------|------|-----------------|------------------|-----|------------|----------------|-----------------------|-----|
+| 1 | `phase-1-setup.md` | — | Mode selection | Detect | SETUP | `cli_*`, `dev_skills`, `deep_reasoning`, `s10_team` | — | — |
+| 2 | `phase-2-research.md` | phase-1 | Gate failure only | — | RESEARCH | `a1_flow`, `a2_learnings`, `a3_adaptive`, `s3_judge`, `st_tao`, `dev_skills` | spec.md, constitution.md | — |
+| 3 | `phase-3-clarification.md` | phase-2 | Questions (all) | — | CLARIFICATION | `s12_specify_gate` | spec.md, research.md | — |
+| 4 | `phase-4-architecture.md` | phase-2, phase-3 | Select option | — | ARCHITECTURE | `s5_tot`, `s4_adaptive`, `s3_judge`, `st_fork_join`, `st_tao`, `dev_skills`, `deep_reasoning`, `s7_mpa`, `s8_convergence`, `s10_team` | spec.md, research.md | — |
+| 5 | `phase-5-thinkdeep.md` | phase-4 | Review findings | deepthinker | THINKDEEP | `cli_*` | spec.md, design.md | — |
+| 6 | `phase-6-validation.md` | phase-4, phase-5 | If YELLOW/RED | planreviewer | VALIDATION | `s6_debate`, `cli_*`, `deep_reasoning` | spec.md, plan.md, design.md | — |
+| 6b | `phase-6b-expert-review.md` | phase-6 | Blocking security | securityauditor | EXPERT_REVIEW | `a4_expert`, `cli_*`, `dev_skills`, `deep_reasoning`, `s13_confidence` | spec.md, design.md, plan.md | — |
+| 7 | `phase-7-test-strategy.md` | phase-4, phase-5, phase-6 | — | teststrategist | TEST_STRATEGY | `st_revision`, `st_redteam`, `st_tao`, `s3_judge`, `cli_*`, `dev_skills`, `deep_reasoning`, `s7_mpa`, `s8_convergence`, `s10_team` | spec.md, design.md, plan.md, thinkdeep-insights.md, test-strategy.md | — |
+| 8 | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | — | TEST_COVERAGE_VALIDATION | `cli_*` | test-plan.md, spec.md, test-strategy.md | `∥` |
+| 8b | `phase-8b-asset-consolidation.md` | phase-8 | Validate manifest | — | ASSET_CONSOLIDATION | — | spec.md, design.md, plan.md, test-plan.md, research.md, expert-review.md | `∥` |
+| 9 | `phase-9-completion.md` | phase-4, phase-6, phase-7, phase-8, phase-8b | Clarify tasks | taskauditor | COMPLETION | `st_task_decomp`, `a5_post_menu`, `cli_*`, `dev_skills` | spec.md, plan.md, design.md, test-plan.md, test-cases/*, asset-manifest.md | — |
 
-All phase files are in `$CLAUDE_PLUGIN_ROOT/skills/plan/references/`.
+All phase files are in `$CLAUDE_PLUGIN_ROOT/skills/plan/references/`. Delegation: Phase 1 inline, Phase 3 conditional (inline for Standard/Rapid), all others coordinator.
 
-## Orchestrator Loop
+> **Flag abbreviations:** `cli_*` = `cli_context_isolation` + `cli_custom_roles`, `s5_tot` = `s5_tot_architecture`, `s4_adaptive` = `s4_adaptive_strategy`, `s3_judge` = `s3_judge_gates`, `st_fork_join` = `st_fork_join_architecture`, `st_tao` = `st_tao_loops`, `dev_skills` = `dev_skills_integration`, `deep_reasoning` = `deep_reasoning_escalation`, `s7_mpa` = `s7_mpa_deliberation`, `s8_convergence` = `s8_convergence_detection`, `s10_team` = `s10_team_presets`, `a1_flow` = `a1_flow_analysis`, `a4_expert` = `a4_expert_review`, `s13_confidence` = `s13_confidence_gated_review`, `s6_debate` = `s6_multi_judge_debate`, `st_task_decomp` = `st_task_decomposition`, `a5_post_menu` = `a5_post_planning_menu`.
 
-Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/plan/references/orchestrator-loop.md`
+## Orchestrator Dispatch Loop
 
-The loop reads state → dispatches phases in order → reads summaries → handles user interaction → updates state. It includes crash recovery, summary validation, v1-to-v2 state migration, and the Context Pack builder (S6).
+```pseudocode
+FOR EACH phase IN dispatch_table (ordered by phase number):
+
+  # 1. Check entry conditions
+  IF phase.min_mode > state.analysis_mode: SKIP
+  IF phase.checkpoint already in state.checkpoints: SKIP (already done)
+  IF phase == "8b" AND state.analysis_mode in [rapid, standard]: SKIP
+
+  # 2. Resolve prompt variables (see orchestrator-loop.md § Variable Resolution Table)
+  prompt = FILL_TEMPLATE(phase.prompt_template, {
+    phase, phase_name, phase_file, FEATURE_DIR, analysis_mode,
+    relevant_flags_and_values, requirements_section, context_section, prior_summaries
+  })
+
+  # 3. Dispatch coordinator
+  IF phase == "8" AND phase "8b" eligible:
+    PARALLEL_DISPATCH(phase_8_prompt, phase_8b_prompt)  # Both run concurrently
+  ELSE:
+    summary = Task(subagent_type="general-purpose", prompt=prompt)
+
+  # 4. Validate summary
+  VALIDATE summary has required YAML frontmatter (stage, status, artifacts_written)
+  IF validation fails: RECONSTRUCT minimal summary from artifact state
+
+  # 5. Handle result
+  IF summary.status == "needs-user-input":
+    RELAY summary.flags.block_reason to user via AskUserQuestion
+    UPDATE state with user response
+    RE-DISPATCH same phase
+  ELIF summary.gate AND summary.gate.verdict == "RED":
+    FOLLOW Gate Failure Decision Table (orchestrator-loop.md)
+  ELSE:
+    SAVE checkpoint
+    CONTINUE to next phase
+```
+
+> **On-demand references in `orchestrator-loop.md`:** crash recovery, circuit breaker, state migration, variable resolution table, gate failure decision table, Context Pack builder (S6), ADR.
 
 **Multi-Agent Collaboration Flags** (all disabled by default — enable in `config/planning-config.yaml`):
 - `a6_context_protocol` — Accumulated decision/question/risk propagation via Context Pack
@@ -155,6 +217,15 @@ The loop reads state → dispatches phases in order → reads summaries → hand
 - `s10_team_presets` — User-selectable agent team configurations (balanced/rapid_prototype)
 - `s12_specify_gate` — 5-dimension specification quality scoring in Phase 3
 - `s13_confidence_gated_review` — Confidence-scored expert review with tri-state outcome
+
+### Feature Flag Naming Convention
+
+| Prefix | Scope | Example |
+|--------|-------|---------|
+| `s{N}_` | Shared — available in all modes | `s7_mpa_deliberation` |
+| `a{N}_` | Advanced-only — Complete/Advanced modes | `a6_context_protocol` |
+| `st_` | Sequential Thinking integration | `st_enabled` |
+| _(none)_ | Infrastructure — always active | `circuit_breaker_enabled` |
 
 ## Phase 1 (Inline)
 
@@ -166,6 +237,7 @@ Execute Phase 1 inline. Read `$CLAUDE_PLUGIN_ROOT/skills/plan/references/phase-1
 - **Template:** `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`
 - **Size:** 30-80 lines (YAML frontmatter + markdown)
 - **Critical section:** "Context for Next Phase" — this is what the next coordinator reads to understand priorities
+- `reasoning_lineage` (optional, ~100 tokens) — Brief chain of key decisions: `"Chose X because Y → led to Z → confirmed by W"`
 
 ## State Management
 
@@ -221,48 +293,13 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 | `data-model.md` | Entity definitions (optional) |
 | `contract.md` | API contracts (optional) |
 
-## Additional Resources
+### Additional Resources
 
-### Per-Phase Instruction Files
-- `references/phase-1-setup.md` through `references/phase-9-completion.md`
-- `references/phase-6b-expert-review.md`
-- `references/phase-8b-asset-consolidation.md`
-- `references/phase-workflows.md` — Navigational index only
+See `references/README.md` for the complete reference file catalog with usage patterns and cross-references.
 
-### Orchestrator Support
-- `references/orchestrator-loop.md` — Dispatch loop, crash recovery, state migration
-
-### Existing References
-- `references/thinkdeep-prompts.md` — Deep analysis perspective prompts (used by CLI deepthinker dispatch)
-- `references/validation-rubric.md` — Consensus scoring criteria
-- `references/v-model-methodology.md` — V-Model testing reference
-- `references/coverage-validation-rubric.md` — Test coverage scoring
-- `$CLAUDE_PLUGIN_ROOT/templates/asset-manifest-template.md` — Asset manifest structure (Phase 8b)
-- `references/self-critique-template.md` — Standard self-critique for all agents (S1)
-- `references/cot-prefix-template.md` — Chain-of-Thought reasoning template (S2)
-- `references/judge-gate-rubrics.md` — Quality gate scoring criteria (S3)
-- `references/adaptive-strategy-logic.md` — Architecture selection strategy (S4)
-- `references/tot-workflow.md` — Hybrid ToT-MPA workflow (S5)
-- `references/debate-protocol.md` — Multi-round debate validation (S6)
-- `references/research-mcp-patterns.md` — Research MCP server usage guide
-- `references/cli-dispatch-pattern.md` — Canonical CLI multi-CLI dispatch pattern (retry, synthesis, self-critique)
-- `references/skill-loader-pattern.md` — Canonical dev-skills context loading via subagent delegation (Phases 2, 4, 6b, 7, 9)
-- `references/deep-reasoning-dispatch-pattern.md` — Deep reasoning escalation workflow (gate failures, security deep dive, algorithm escalation)
-- `references/mpa-synthesis-pattern.md` — Shared MPA Deliberation (S1) + Convergence Detection (S2) algorithms (used by Phase 4 and Phase 7)
-
-### Sequential Thinking Reference
-- `$CLAUDE_PLUGIN_ROOT/templates/sequential-thinking-templates.md`
-  - **Load selectively**: coordinators should load only the relevant template group per the `phase_mapping` in `config/planning-config.yaml`, NOT the entire file (~4K tokens). E.g., Phase 4 loads `architecture_design` + `architecture_fork_join` + `risk_assessment` + `agent_analysis` groups only.
-
-### Configuration
-- `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` — All limits, thresholds, models
-
-### Templates
-- `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md` — Phase summary format
-- `$CLAUDE_PLUGIN_ROOT/templates/tasks-template.md` — Task breakdown structure
-- `$CLAUDE_PLUGIN_ROOT/templates/test-plan-template.md` — Test plan structure
-- `$CLAUDE_PLUGIN_ROOT/templates/uat-script-template.md` — UAT script format
-- `$CLAUDE_PLUGIN_ROOT/templates/deep-reasoning-templates.md` — CTCO prompt templates for deep reasoning escalation
+**Examples:** `$CLAUDE_PLUGIN_ROOT/skills/plan/examples/` contains sample artifacts for reference:
+- `state-file.md` — Sample `.planning-state.local.md` for resume testing
+- `thinkdeep-output.md` — Sample CLI deep analysis output (Phase 5)
 
 ## Quick Start
 
@@ -271,6 +308,14 @@ State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
 3. Select analysis mode
 4. Answer clarifying questions
 5. Review architecture → ThinkDeep → validation → tests → tasks
+
+### When NOT to Use This Skill
+
+- **Bug fixes** — Use direct implementation, not feature planning
+- **Documentation-only changes** — No architecture design needed
+- **Multi-feature specs** — Split into separate planning sessions per feature
+- **Already-planned features** — Go directly to `/product-implementation:implement`
+- **Trivial changes** — Single-file edits under 50 lines don't need planning
 
 ## Error Handling
 
