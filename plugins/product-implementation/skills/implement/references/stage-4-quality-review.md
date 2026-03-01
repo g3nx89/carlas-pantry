@@ -27,6 +27,21 @@ additional_references:
 > **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
 > Read the prior stage summaries to understand what was implemented and validated.
 
+## 4.0 Feature Interaction Matrix
+
+When multiple optional features are enabled (stances, convergence, confidence scoring, CoVe), they interact. This matrix shows processing order and pairwise interactions.
+
+**Processing order:** Stances → Review → Convergence → Confidence Scoring → Deduplication → Escalation → Stance Divergence → CoVe
+
+| Feature A | Feature B | Interaction | Handling |
+|-----------|-----------|-------------|----------|
+| Stances | Convergence | Stance-biased vocabulary can depress Jaccard scores | Convergence limitations note acknowledges this; no correction applied |
+| Stances | Confidence | Stance agreement adds consensus bonus | Finding flagged by advocate + challenger both = stronger signal |
+| Convergence | Confidence | Convergence strategy affects dedup before confidence scoring | HIGH convergence → standard dedup; LOW → present all (confidence scores still apply) |
+| Convergence | CoVe | Low convergence increases noise → more CoVe work | CoVe min_findings_trigger gates unnecessary verification |
+| Confidence | CoVe | Confidence filters before CoVe runs | CoVe only verifies findings that survived confidence thresholds |
+| Stances | CoVe | Divergent-stance findings may need more verification | CoVe treats all Critical/High equally regardless of stance origin |
+
 ## 4.1a Skill Reference Resolution for Review
 
 Before selecting the review strategy, resolve domain-specific skill references and conditional review dimensions.
@@ -162,7 +177,7 @@ Each reviewer agent should:
 
 > See `stage-4-plugin-review.md` for the full procedure.
 
-When the `code-review` plugin is installed, Tier B runs a context-isolated review via `code-review:review-local-changes`. Findings are normalized to match the Stage 4 severity format and fed into Section 4.3 consolidation. If the plugin is not installed, Tier B is silently skipped.
+When the `code-review` plugin is installed, Tier B runs a context-isolated review via `code-review:review-local-changes`. The subagent prompt includes `detected_domains` and tech stack from Stage 1 summary to enable domain-aware review heuristics. Findings are normalized to match the Stage 4 severity format and fed into Section 4.3 consolidation. If the plugin is not installed, Tier B is silently skipped.
 
 ## 4.2b Tier C: CLI Multi-Model Review
 
@@ -173,6 +188,10 @@ When `cli_dispatch.stage4.multi_model_review.enabled` is `true`, Tier C dispatch
 ### Dev-Skills Conditional Reviewers
 
 Conditional reviewers from `dev_skills.conditional_review` (Section 4.1a) launch alongside all tiers. They are always dispatched as native `developer` agents.
+
+### Native Agent Failure Tracking
+
+Track consecutive `developer` agent failures (crash, timeout, empty output) across all dispatches in this stage. If failures reach `quality_review.native_agent_failure_threshold` (default: 3), surface diagnostic: "Consecutive native agent failures ({N}) — check agent prompt complexity, context size, or model availability." This mirrors the CLI circuit breaker pattern but for native agents.
 
 ## 4.3a Convergence Detection (Optional)
 
@@ -194,7 +213,11 @@ After all reviewers complete (Tiers A + optionally B + C), measure inter-reviewe
    - `avg >= high_threshold (0.70)`: HIGH — use `strategies.high`
    - `avg >= medium_threshold (0.40)`: MEDIUM — use `strategies.medium`
    - `avg < medium_threshold`: LOW — use `strategies.low`
-6. Pass strategy to Section 4.3 to adapt consolidation behavior:
+6. **Semantic cross-check** (corrective — may adjust convergence level): After Jaccard classification, compute file:line overlap — count findings where 2+ reviewers reference the same file and line (within 5-line proximity). Compare:
+   - Keyword HIGH but file:line overlap LOW → demote convergence one level (HIGH→MEDIUM). Reviewers share vocabulary but found different issues.
+   - Keyword LOW but file:line overlap HIGH → promote convergence one level (LOW→MEDIUM). Reviewers describe the same issues using different terms.
+   - Log any adjustment: "Convergence adjusted {old}→{new}: keyword={keyword_level}, file:line={overlap_level}"
+7. Pass strategy to Section 4.3 to adapt consolidation behavior:
    - `standard_merge_deduplicate`: normal merge (current behavior)
    - `weighted_merge_flag_divergence`: on severity conflicts, keep higher severity + note "[Divergent]"
    - `present_all_flag_for_user`: skip dedup, present all, add header "Low reviewer agreement — manual review recommended"

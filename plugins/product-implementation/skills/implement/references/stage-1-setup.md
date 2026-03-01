@@ -123,9 +123,9 @@ Extract and store:
 - **Test ID references**: If `test_cases_available` is true, scan task descriptions for test ID patterns (configured in `config/implementation-config.yaml` under `handoff.test_cases.test_id_patterns`; defaults: `E2E-*`, `INT-*`, `UT-*`, `UAT-*`). If no test IDs are found in tasks.md but test-cases/ exists, warn: "tasks.md does not reference test IDs from test-cases/ — traceability may be incomplete."
 - **Test ID cross-validation**: If both tasks.md test IDs and test-cases/ specs are present, verify that referenced test IDs have corresponding spec files. Log any orphaned references.
 
-## 1.6 Domain Detection
+## 1.6 Domain Detection [Cost: zero file reads, zero dispatches — pure text matching]
 
-Detect technology domains present in the feature to enable conditional skill injection by downstream coordinators. This step uses artifacts ALREADY loaded in Sections 1.4-1.5 — no additional file reads.
+Detect technology domains present in the feature to enable conditional skill injection by downstream coordinators. This step uses artifacts ALREADY loaded in Sections 1.4-1.5.
 
 ### Detection Procedure
 
@@ -133,21 +133,22 @@ Detect technology domains present in the feature to enable conditional skill inj
 2. **Scan plan.md content**: check tech stack, architecture decisions, and file structure sections
 3. **Match against domain indicators** defined in `config/implementation-config.yaml` under `dev_skills.domain_mapping`
 
-For each domain in the mapping, check if ANY of its `indicators` appear (case-sensitive) in the combined text of task file paths + plan.md content. If a match is found, add the domain key to `detected_domains`.
+For each domain in the mapping, check if ANY of its `indicators` appear (case-sensitive) in the combined text of task file paths + plan.md content. If a match is found, add the domain key to `detected_domains`. Count the number of distinct indicator matches per domain.
 
 ### Output
 
-Store the result as `detected_domains` in the Stage 1 summary YAML frontmatter (top-level field, not under `flags`; see Section 1.10). Example:
+Store the result as `detected_domains` in the Stage 1 summary YAML frontmatter (top-level field, not under `flags`; see Section 1.10). Flag domains with only a single indicator match as `tentative` — downstream stages may treat tentative domains with lower priority for skill injection.
 
 ```yaml
 detected_domains: ["kotlin", "compose", "android", "api"]
+domain_confidence:
+  kotlin: 5        # 5 indicator matches — confident
+  compose: 3       # 3 indicator matches — confident
+  android: 1       # 1 indicator match — tentative
+  api: 2           # 2 indicator matches — confident
 ```
 
 If `dev_skills.enabled` is `false` in config, set `detected_domains: []` and skip detection.
-
-### Cost
-
-Zero additional file reads. Zero additional agent dispatches. Pure text matching against already-loaded content.
 
 ## 1.6a MCP Availability Check
 
@@ -156,7 +157,7 @@ Probe available MCP tools to determine which research capabilities are reachable
 ### Procedure
 
 1. Read `research_mcp` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-2. If `research_mcp.enabled` is `false` → set all availability flags to `false`, skip Sections 1.6b-1.6d, and proceed to Section 1.7
+2. If `research_mcp.enabled` is `true`, proceed with probes below. Otherwise, set all availability flags to `false`, skip Sections 1.6b-1.6d, and proceed to Section 1.7.
 3. **Probe Ref**: If `research_mcp.ref.enabled` is `true`, call `ref_search_documentation` with a minimal query derived from plan.md tech stack (e.g., the primary framework name). If the call succeeds (returns results or empty results without error), set `ref_available: true`. If it errors or times out, set `ref_available: false`.
 4. **Probe Context7**: If `research_mcp.context7.enabled` is `true`, call `resolve-library-id` with the primary framework name from plan.md. If the call succeeds, set `context7_available: true`. If it errors, set `context7_available: false`.
 5. **Probe Tavily**: If `research_mcp.tavily.enabled` is `true`, call `tavily_search` with a minimal query (e.g., `"{primary_framework} documentation"`). If the call succeeds, set `tavily_available: true`. If it errors, set `tavily_available: false`.
@@ -176,7 +177,7 @@ mcp_availability:
 
 3 lightweight probe calls (~1-3s total). Skipped entirely when `research_mcp.enabled` is `false`.
 
-## 1.6b URL Extraction from Planning Artifacts
+## 1.6b URL Extraction from Planning Artifacts [Cost: zero MCP calls — regex on loaded content]
 
 Extract documentation URLs from already-loaded planning artifacts for pre-reading in Stage 2.
 
@@ -197,10 +198,6 @@ extracted_urls:
   - "https://docs.example.com/api/v2"
   - "https://framework.dev/migration-guide"
 ```
-
-### Cost
-
-Zero MCP calls. Pure regex matching against already-loaded content.
 
 ## 1.6c Library ID Pre-Resolution (Context7)
 
@@ -231,7 +228,7 @@ resolved_libraries:
 
 Up to 5 `resolve-library-id` calls (~2-5s total). Skipped when disabled or Context7 unavailable.
 
-## 1.6d Private Documentation Discovery
+## 1.6d Private Documentation Discovery [Cost: 1 Ref call, skipped when disabled]
 
 Discover private documentation sources via Ref for use in downstream stages.
 
@@ -250,18 +247,14 @@ private_doc_urls:
   - "https://internal.docs.company.com/api-guide"
 ```
 
-### Cost
-
-1 Ref call. Skipped when disabled or Ref unavailable.
-
-## 1.6e Mobile Device Availability Check
+## 1.6e Mobile Device Availability Check [Cost: 1 MCP probe ~1-2s, skipped when UAT disabled]
 
 Probe mobile-mcp to determine if a mobile testing emulator is available for UAT execution. This step runs ONCE during Stage 1 and stores results for all downstream stages.
 
 ### Procedure
 
 1. Read `uat_execution` and `cli_dispatch.stage2.uat_mobile_tester` sections from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-2. If BOTH `uat_execution.enabled` is `false` AND `cli_dispatch.stage2.uat_mobile_tester.enabled` is `false` → set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.6f
+2. If either `uat_execution.enabled` or `cli_dispatch.stage2.uat_mobile_tester.enabled` is `true`, proceed with probe below. Otherwise, set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.6f.
 3. **Probe mobile-mcp**: Call `mobile_list_available_devices`
    - If call succeeds AND returns at least one device: set `mobile_mcp_available: true`, store `mobile_device_name` from the first available emulator device (prefer emulator over physical device for UAT reproducibility)
    - If call fails, times out, or returns empty device list: set `mobile_mcp_available: false`, `mobile_device_name: null`, log warning: `"Mobile MCP not available or no emulator running — UAT mobile testing will be skipped for all phases"`
@@ -275,11 +268,7 @@ mobile_mcp_available: true    # or false
 mobile_device_name: "emulator-5554"  # or null
 ```
 
-### Cost
-
-1 lightweight MCP probe call (~1-2s). Skipped entirely when both UAT config switches are disabled.
-
-## 1.6f Plugin Availability Check
+## 1.6f Plugin Availability Check [Cost: zero MCP calls — skill listing check]
 
 Probe available plugins to determine which optional skill-based capabilities are reachable. This step runs ONCE during Stage 1 and stores results for downstream coordinators.
 
@@ -297,10 +286,6 @@ Store in Stage 1 summary YAML frontmatter:
 plugin_availability:
   code_review: true    # or false
 ```
-
-### Cost
-
-Zero MCP calls. Single skill listing check (~0s).
 
 ## 1.7a CLI Availability Detection (CLI)
 
@@ -368,9 +353,11 @@ Before initializing or resuming state, acquire the execution lock:
 1. If state file does not exist → no lock to check, proceed to initialization (Section 1.8)
 2. If state file exists, read `lock` field:
    - If `lock.acquired: false` → acquire lock (set `lock.acquired: true`, `lock.acquired_at: "{ISO_TIMESTAMP}"`, `lock.session_id: "{unique_id}"`)
-   - If `lock.acquired: true` → check `lock.acquired_at` against the stale timeout in `config/implementation-config.yaml` (default: 60 minutes):
-     - If older than the configured timeout → treat as stale, override with new lock, log warning: "Overriding stale lock from {timestamp}"
-     - If within the configured timeout → halt with guidance: "Another implementation session is active (started {timestamp}). Wait for it to complete or manually release the lock in `.implementation-state.local.md`."
+   - If `lock.acquired: true` → check `lock.acquired_at` against the stale lock timeout¹:
+     - If older than the timeout → treat as stale, override with new lock, log warning: "Overriding stale lock from {timestamp}"
+     - If within the timeout → halt with guidance: "Another implementation session is active (started {timestamp}). Wait for it to complete or manually release the lock in `.implementation-state.local.md`."
+
+> ¹ Stale lock timeout: `config/implementation-config.yaml` → `lock.stale_timeout_minutes` (default: 60)
 
 ## 1.8 State Initialization
 

@@ -1,9 +1,27 @@
 # Agent Prompt Templates
 
-All 9 prompts in this file are used by the orchestrator to launch `developer` and `tech-writer` agents. Variables in `{braces}` MUST be prefilled by the orchestrator before dispatching.
+All 9 prompts in this file are used by coordinators to launch `developer` and `tech-writer` agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
+
+## Common Variables
+
+These variables appear across most prompts. Per-prompt variable lists reference this table rather than repeating definitions.
+
+| Variable | Description | Fallback |
+|----------|-------------|----------|
+| `{FEATURE_NAME}` | Feature identifier from git branch (e.g., `001-user-auth`) | **Required — always available** |
+| `{FEATURE_DIR}` | Path to feature spec directory (e.g., `specs/001-user-auth`) | **Required — always available** |
+| `{TASKS_FILE}` | Path to tasks.md (e.g., `specs/001-user-auth/tasks.md`) | **Required — always available** |
+| `{user_input}` | Original user arguments passed at invocation | `"No additional user instructions provided — follow standard workflow."` |
+
+## Coordinator Dispatch Protocol
+
+After reading a stage reference file, the coordinator lists the section headers it found in its first stage log line. This confirms the file was fully ingested before proceeding.
+
+Example: `"[2026-02-15T10:30:45Z] Read stage-2-execution.md: Sections 2.0, 2.0a, 2.1, 2.1a, 2.2, 2.3"`
 
 ---
 
+<!-- SECTION: Phase Implementation Prompt -->
 ## Phase Implementation Prompt
 
 Used in Stage 2 for each phase of tasks.md execution.
@@ -42,28 +60,9 @@ When skill references include a compose, UI framework, or frontend skill, you MU
 
 When research context is provided: use it to verify API signatures, follow documented patterns, and diagnose build errors before guessing. Prefer Ref-sourced documentation over ad-hoc searches. When absent, proceed with codebase knowledge and planning artifacts only.
 
-## Build Verification Rule
+## Implementation Verification Rules
 
-After writing or modifying ANY source file, you MUST compile/build the project before marking the corresponding task `[X]`. The sequence is: (1) write code, (2) compile/build, (3) fix any compilation errors, (4) mark `[X]`. NEVER mark a task complete if the project does not compile. If the project has no explicit build step (interpreted languages), run the linter or type checker instead.
-
-## API Existence Verification
-
-Before calling ANY API, method, or class, verify it exists in the current project dependencies at the EXACT version used. Use grep/glob to confirm. This is especially critical for:
-- **Compose/UI frameworks**: Composable function signatures change across versions. Do not infer API signatures from naming patterns.
-- **Third-party libraries**: Do not assume an API exists because it appears in documentation for a different version.
-- **Platform APIs**: Android SDK levels, iOS deployment targets, and Node.js versions all gate API availability.
-
-## Test Quality Requirements
-
-NEVER write placeholder assertions (`assertTrue(true)`, `expect(true).toBe(true)`, `expect(1).toBe(1)`). Every test assertion must exercise real code and validate actual behavior. If a behavior cannot be tested in the current test framework, document it as a manual test case in your completion summary instead. Stage 3 validation scans for tautological patterns — placeholder tests will be caught and flagged.
-
-## Animation and State Transition Testing
-
-When implementing animations, transitions, or stateful UI components: tests must verify EACH discrete state AND the transitions between states (initial -> animating -> final, plus interrupted states). Do not test only the final state — an animation that starts at its target value is a no-op bug. Use test clocks or animation test utilities when available.
-
-## Pattern Bug Fix Propagation
-
-When fixing a bug that stems from a misapplied pattern (wrong API usage, incorrect state handling, framework anti-pattern): BEFORE marking the fix complete, grep the entire project for other occurrences of the same pattern. Fix ALL occurrences, not just the one referenced in the task. Report grep results and all files modified.
+Follow the Implementation Verification Rules defined in `agents/developer.md` § Implementation Verification Rules.
 
 ## Final Step — Verified Test Count
 
@@ -75,23 +74,26 @@ After completing all tasks in this phase, run the project's full test suite as y
 Where {N} is the total number of passing tests and {M} is the number of failing tests (should be 0). This count will be cross-validated across stages — do not estimate, run the actual tests and report the real count.
 ```
 
-**Variables:**
-- `{phase_name}` — Name of the current phase (e.g., "Phase 1: Setup", "Phase 3: US1 - User Registration")
-- `{user_input}` — Original user arguments, or empty string if none
-- `{FEATURE_NAME}` — Feature identifier from git branch
-- `{FEATURE_DIR}` — Path to feature spec directory
-- `{TASKS_FILE}` — Path to tasks.md
-- `{context_summary}` — Context File Summaries section from Stage 1 summary. Provides 1-line descriptions of each loaded planning artifact so the agent has immediate context without re-reading full files. **Fallback if unavailable:** `"No context summary available — read planning artifacts from FEATURE_DIR as needed."`
-- `{test_specs_summary}` — Test Specifications section from Stage 1 summary. Lists available test-case specs by level with counts. **Fallback if unavailable:** `"No test specifications available — proceed with standard TDD approach."`
-- `{test_cases_dir}` — Path to test-cases/ directory, or `"Not available"` if the directory does not exist
-- `{traceability_file}` — Path to `analysis/task-test-traceability.md`, or `"Not available"` if the file does not exist
-- `{skill_references}` — Domain-specific skill references resolved by the coordinator from `detected_domains` (see `stage-2-execution.md` Section 2.0). Contains skill paths and usage guidance. **Fallback if no skills apply or dev-skills not installed:** `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`
-- `{research_context}` — Documentation excerpts, library references, and API details assembled by the coordinator from MCP tools (see `stage-2-execution.md` Section 2.0a). Includes pre-read URLs, Context7 library docs, and private documentation. **Fallback if research MCP is disabled or unavailable:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
+**Variables:** See Common Variables above, plus:
+- `{phase_name}` — Name of the current phase (e.g., "Phase 1: Setup"). **Required — always available**
+- `{context_summary}` — Context File Summaries section from Stage 1 summary. **Fallback:** `"No context summary available — read planning artifacts from FEATURE_DIR as needed."`
+- `{test_specs_summary}` — Test Specifications section from Stage 1 summary. **Fallback:** `"No test specifications available — proceed with standard TDD approach."`
+- `{test_cases_dir}` — Path to test-cases/ directory. **Fallback:** `"Not available"`
+- `{traceability_file}` — Path to `analysis/task-test-traceability.md`. **Fallback:** `"Not available"`
+- `{skill_references}` — Domain-specific skill references (see `stage-2-execution.md` Section 2.0). **Fallback:** `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`
+- `{research_context}` — Documentation excerpts from MCP tools (see `stage-2-execution.md` Section 2.0a). **Fallback:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
 
-**Agent behavior:** The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy. When skill references are provided, the agent reads the referenced SKILL.md files on-demand for domain-specific patterns and anti-patterns — skills are consulted, not followed blindly (codebase conventions take precedence). When research context is provided, the agent uses it to verify API signatures, follow documented patterns, and diagnose build errors. The agent MUST run the full test suite as its final action and report `test_count_verified` and `test_failures` in the specified structured format. The agent must compile/build after each file write before marking tasks [X], verify APIs exist before using them, never write placeholder assertions, and grep for all occurrences when fixing pattern-level bugs.
+**Agent behavior:**
+1. The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion.
+2. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy.
+3. When skill references are provided, the agent reads the referenced SKILL.md files on-demand — skills are consulted, not followed blindly (codebase conventions take precedence).
+4. When research context is provided, the agent uses it to verify API signatures, follow documented patterns, and diagnose build errors.
+5. The agent follows Implementation Verification Rules from `agents/developer.md`.
+6. The agent MUST run the full test suite as its final action and report `test_count_verified` and `test_failures`.
 
 ---
 
+<!-- SECTION: Code Simplification Prompt -->
 ## Code Simplification Prompt
 
 Used in Stage 2 after each phase's developer agent completes and tests pass. The code-simplifier agent refines modified files for clarity and maintainability before auto-commit.
@@ -156,17 +158,20 @@ After completing all simplifications, run the project's full test suite as your 
 Where {N} is the total number of passing tests and {M} is the number of failing tests (should be 0). If ANY test fails, report which tests failed and which simplification likely caused the failure.
 ```
 
-**Variables:**
-- `{modified_files_list}` — Bullet list of source files modified by the developer agent in the current phase. Extracted from tasks.md `[X]` entries for this phase, filtered to exclude test files, config files, and documentation per `code_simplification.exclude_patterns` in config.
-- `{FEATURE_NAME}` — Feature identifier from git branch
-- `{FEATURE_DIR}` — Path to feature spec directory
-- `{phase_name}` — Name of the phase that was just completed (e.g., "Phase 1: Setup")
-- `{skill_references}` — Domain-specific skill references resolved by the coordinator in Section 2.0. Same value used for the developer agent. **Fallback if no skills apply or dev-skills not installed:** `"No domain-specific skills available — simplify using standard clean code principles."`
+**Variables:** See Common Variables above (except `{TASKS_FILE}` — not used), plus:
+- `{modified_files_list}` — Bullet list of source files modified in the current phase, filtered per `code_simplification.exclude_patterns`. **Required — always available**
+- `{phase_name}` — Name of the phase just completed. **Required — always available**
+- `{skill_references}` — Domain-specific skill references (same value as developer agent). **Fallback:** `"No domain-specific skills available — simplify using standard clean code principles."`
 
-**Agent behavior:** The code-simplifier agent reads each listed file, identifies simplification opportunities (dead code, naming, nesting, duplication), applies changes while preserving all functionality, builds after each file change, and runs the full test suite as final verification. It reports structured output with per-file detail and test results. The agent MUST NOT modify test files, change public APIs, add dependencies, or alter observable behavior.
+**Agent behavior:**
+1. The code-simplifier reads each listed file and identifies simplification opportunities (dead code, naming, nesting, duplication).
+2. Applies changes while preserving all functionality, builds after each file change.
+3. Runs the full test suite as final verification and reports structured output.
+4. MUST NOT modify test files, change public APIs, add dependencies, or alter observable behavior.
 
 ---
 
+<!-- SECTION: Completion Validation Prompt -->
 ## Completion Validation Prompt
 
 Used in Stage 3 after all phases complete.
@@ -202,19 +207,23 @@ If test-case specs are available in test_cases_dir, verify that test IDs referen
 When research context is provided: use it to verify that implemented APIs match their official documentation (advisory check — flag discrepancies as Low severity). When absent, skip API documentation alignment checks.
 ```
 
-**Variables:**
-- `{user_input}` — Original user arguments, or empty string if none
-- `{FEATURE_NAME}` — Feature identifier from git branch
-- `{FEATURE_DIR}` — Path to feature spec directory
-- `{TASKS_FILE}` — Path to tasks.md
-- `{test_cases_dir}` — Path to test-cases/ directory, or `"Not available"` if the directory does not exist
-- `{traceability_file}` — Path to `analysis/task-test-traceability.md`, or `"Not available"` if the file does not exist
-- `{research_context}` — Documentation excerpts for API verification, assembled by the coordinator (see `stage-3-validation.md` Section 3.1). **Fallback if research MCP is disabled or unavailable:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
+**Variables:** See Common Variables above, plus:
+- `{test_cases_dir}` — Path to test-cases/ directory. **Fallback:** `"Not available"`
+- `{traceability_file}` — Path to `analysis/task-test-traceability.md`. **Fallback:** `"Not available"`
+- `{research_context}` — Documentation excerpts for API verification (see `stage-3-validation.md` Section 3.1). **Fallback:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
 
-**Agent behavior:** The developer agent reads tasks.md, verifies every task is `[X]`, runs the test suite, and cross-references implementation against plan.md and spec.md. When test-case specs are available, also validates test ID traceability. Verifies constitution.md/CLAUDE.md compliance if those files declare architectural constraints. Computes test coverage deltas against test-plan.md targets when available. Independently runs the full test suite and reports `baseline_test_count` in the validation report. Scans test files for tautological/placeholder assertions (assertTrue(true), etc.) and flags files with no substantive assertions per config patterns. If `tautological_patterns` is not defined in config, skip the tautological scan. When research context is provided, performs advisory API documentation alignment checks.
+**Agent behavior:**
+1. The developer agent reads tasks.md, verifies every task is `[X]`, runs the test suite, and cross-references implementation against plan.md and spec.md.
+2. When test-case specs are available, validates test ID traceability.
+3. Verifies constitution.md/CLAUDE.md compliance if those files declare architectural constraints.
+4. Computes test coverage deltas against test-plan.md targets when available.
+5. Independently runs the full test suite and reports `baseline_test_count`.
+6. Scans test files for tautological/placeholder assertions per config patterns.
+7. When research context is provided, performs advisory API documentation alignment checks.
 
 ---
 
+<!-- SECTION: Quality Review Prompt -->
 ## Quality Review Prompt
 
 Used in Stage 4. Launched 3 times in parallel with different `{focus_area}` values.
@@ -248,6 +257,10 @@ Severity levels:
 
 Apply escalation triggers BEFORE classifying — a finding that matches any High escalation trigger must never be classified as Medium.
 
+**Example:** A `LiveData` observer updating UI from a background thread matches both "UI state contradiction" and "race condition with user-visible effect" → classify as High, not Medium.
+
+**Tiebreaker:** When uncertain whether a finding matches an escalation trigger, classify as Medium with note: `"Potential High — {trigger} may apply"`.
+
 If no issues found for your focus area, state "No issues found" with a brief explanation of what you reviewed.
 
 User Input: {user_input}
@@ -267,23 +280,26 @@ TASKS_FILE: {TASKS_FILE}
 When research context is provided: use it for documentation-backed review — verify API usage against official docs, flag deprecated API calls, and check pattern compliance against documented best practices. When absent, review against codebase conventions only.
 ```
 
-**Variables:**
+**Variables:** See Common Variables above, plus:
 - `{focus_area}` — One of (see `config/implementation-config.yaml` for canonical list):
   - `"simplicity, DRY principles, and code elegance"`
   - `"bugs, functional correctness, and edge case handling"`
   - `"project conventions, abstractions, and pattern adherence"`
-- `{user_input}` — Original user arguments, or empty string if none
-- `{FEATURE_NAME}` — Feature identifier from git branch
-- `{FEATURE_DIR}` — Path to feature spec directory
-- `{TASKS_FILE}` — Path to tasks.md
-- `{skill_references}` — Domain-specific skill references resolved by the coordinator (see `stage-4-quality-review.md` Section 4.1a). **Fallback:** `"No domain-specific skills available — review against codebase conventions only."`
-- `{research_context}` — Documentation excerpts for documentation-backed review, assembled by the coordinator from accumulated research URLs (see `stage-4-quality-review.md` Section 4.1b). **Fallback:** `"No research context available — review against codebase conventions only."`
-- `{reviewer_stance}` — Reviewer stance instruction, assigned by the Stage 4 coordinator (see `stage-4-quality-review.md` Section 4.2). Contains stance-specific guidance (advocate, challenger, or neutral). **Fallback if stances disabled:** `"No specific stance assigned — review objectively using your best judgment."`
+  **Required — always available**
+- `{skill_references}` — Domain-specific skill references (see `stage-4-quality-review.md` Section 4.1a). **Fallback:** `"No domain-specific skills available — review against codebase conventions only."`
+- `{research_context}` — Documentation excerpts from accumulated research URLs (see `stage-4-quality-review.md` Section 4.1b). **Fallback:** `"No research context available — review against codebase conventions only."`
+- `{reviewer_stance}` — Stance instruction (advocate, challenger, neutral) from Stage 4 coordinator (Section 4.2). **Fallback:** `"No specific stance assigned — review objectively using your best judgment."`
 
-**Agent behavior:** The developer agent reads the changed files (extracted from tasks.md file paths), reviews code through its assigned lens, and produces a structured list of findings using the specified output format. When skill references are provided, the agent consults them for domain-specific anti-patterns and best practices relevant to its focus area. When research context is provided, the agent uses it for documentation-backed review: verifying API correctness, flagging deprecated calls, and checking pattern compliance. When a reviewer stance is provided, the agent adopts it: an advocate emphasizes strengths, a challenger stress-tests and scores conservatively, a neutral reviewer applies balanced judgment. Stances calibrate severity assessment — they do not change review scope or output format.
+**Agent behavior:**
+1. The developer agent reads the changed files (from tasks.md file paths) and reviews code through its assigned lens.
+2. Produces a structured list of findings using the specified output format.
+3. When skill references are provided, consults them for domain-specific anti-patterns relevant to its focus area.
+4. When research context is provided, uses it for documentation-backed review (API correctness, deprecated calls, pattern compliance).
+5. When a reviewer stance is provided, adopts it: advocate emphasizes strengths, challenger stress-tests, neutral applies balanced judgment. Stances calibrate severity — they do not change review scope or output format.
 
 ---
 
+<!-- SECTION: Review Fix Prompt -->
 ## Review Fix Prompt
 
 Used in Stage 4 when user chooses "Fix now".
@@ -304,21 +320,17 @@ FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
 ```
 
-**Variables:**
-- `{findings_list}` — Markdown list of Critical and High findings from the consolidated review, each with:
-  - Finding ID (C1, H1, etc.)
-  - Description
-  - File path and line number
-  - Recommended fix
-- `{user_input}` — Original user arguments, or empty string if none
-- `{FEATURE_NAME}` — Feature identifier from git branch
-- `{FEATURE_DIR}` — Path to feature spec directory
-- `{TASKS_FILE}` — Path to tasks.md
+**Variables:** See Common Variables above, plus:
+- `{findings_list}` — Markdown list of Critical and High findings, each with finding ID, description, file:line, and recommended fix. **Required — always available**
 
-**Agent behavior:** The developer agent reads each referenced file, applies targeted fixes for each listed finding, runs tests to verify no regressions, and reports what was fixed with file:line references.
+**Agent behavior:**
+1. The developer agent reads each referenced file and applies targeted fixes for each listed finding.
+2. Runs tests to verify no regressions.
+3. Reports what was fixed with file:line references.
 
 ---
 
+<!-- SECTION: Incomplete Task Fix Prompt -->
 ## Incomplete Task Fix Prompt
 
 Used in Stage 5 when user chooses to fix incomplete tasks before documentation.
@@ -339,21 +351,17 @@ FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
 ```
 
-**Variables:**
-- `{incomplete_tasks_list}` — Markdown list of incomplete tasks from tasks.md, each with:
-  - Task ID (T001, T002, etc.)
-  - Description
-  - File path
-  - Current status (not started / partially done)
-- `{user_input}` — Original user arguments, or empty string if none
-- `{FEATURE_NAME}` — Feature identifier from git branch
-- `{FEATURE_DIR}` — Path to feature spec directory
-- `{TASKS_FILE}` — Path to tasks.md
+**Variables:** See Common Variables above, plus:
+- `{incomplete_tasks_list}` — Markdown list of incomplete tasks, each with task ID, description, file path, and current status. **Required — always available**
 
-**Agent behavior:** The developer agent reads tasks.md, identifies the listed incomplete tasks, implements them following the Tasks.md Execution Workflow, marks each `[X]` on completion, and runs tests to verify correctness.
+**Agent behavior:**
+1. The developer agent reads tasks.md and identifies the listed incomplete tasks.
+2. Implements them following the Tasks.md Execution Workflow, marks each `[X]` on completion.
+3. Runs tests to verify correctness.
 
 ---
 
+<!-- SECTION: Documentation Update Prompt -->
 ## Documentation Update Prompt
 
 Used in Stage 5 to launch the tech-writer agent for feature documentation.
@@ -378,18 +386,20 @@ TASKS_FILE: {TASKS_FILE}
 When research context is provided: use it to enrich documentation with links to official docs, verify code examples against current API signatures, and include migration notes or deprecation warnings where relevant. Maximum Dropout benefit applies — by Stage 5, Ref returns only the most documentation-relevant content. When absent, produce documentation from codebase knowledge and planning artifacts only.
 ```
 
-**Variables:**
-- `{user_input}` — Original user arguments, or empty string if none
-- `{FEATURE_NAME}` — Feature identifier from git branch
-- `{FEATURE_DIR}` — Path to feature spec directory
-- `{TASKS_FILE}` — Path to tasks.md
-- `{skill_references}` — Documentation-oriented skill references resolved by the coordinator (see `stage-5-documentation.md` Section 5.1a). Contains diagram generation and domain documentation skills. **Fallback:** `"No documentation skills available — produce prose documentation without diagrams."`
-- `{research_context}` — Documentation excerpts for enrichment and link generation, assembled by the coordinator from accumulated research URLs (see `stage-5-documentation.md` Section 5.1b). **Fallback:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
+**Variables:** See Common Variables above, plus:
+- `{skill_references}` — Documentation-oriented skill references (see `stage-5-documentation.md` Section 5.1a). **Fallback:** `"No documentation skills available — produce prose documentation without diagrams."`
+- `{research_context}` — Documentation excerpts from accumulated research URLs (see `stage-5-documentation.md` Section 5.1b). **Fallback:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
 
-**Agent behavior:** The tech-writer agent reads all context files from FEATURE_DIR, reviews the implemented code, and creates/updates project documentation including API guides, usage examples, architecture updates, module READMEs, and lessons learned. When diagram skills are provided, the agent uses Mermaid.js syntax to create architecture, sequence, and ERD diagrams inline. When research context is provided, the agent enriches documentation with links to official docs, verifies code examples, and includes migration or deprecation notes. Produces a documentation update summary.
+**Agent behavior:**
+1. The tech-writer agent reads all context files from FEATURE_DIR and reviews the implemented code.
+2. Creates/updates project documentation: API guides, usage examples, architecture updates, module READMEs, and lessons learned.
+3. When diagram skills are provided, uses Mermaid.js syntax for architecture, sequence, and ERD diagrams.
+4. When research context is provided, enriches documentation with official doc links and migration notes.
+5. Produces a documentation update summary.
 
 ---
 
+<!-- SECTION: Auto-Commit Prompt -->
 ## Auto-Commit Prompt
 
 Used by Stages 2, 4, and 5 coordinators to commit milestone changes via a throwaway `Task(subagent_type="general-purpose")` subagent. This keeps git output out of coordinator context. Failure is always warn-and-continue.
@@ -435,10 +445,20 @@ Report exactly these fields at the end of your response:
 - `{FEATURE_DIR}` — Path to feature spec directory (used to scope staged files)
 - `{exclude_patterns_formatted}` — Bullet list of exclude patterns from `auto_commit.exclude_patterns` in config, formatted as: `- .implementation-state.local.md\n- .stage-summaries/`
 
+**Example successful run:**
+
+```
+commit_status: success
+commit_sha: a1b2c3d
+files_committed: 5
+reason: Phase 1 implementation committed
+```
+
 **Agent behavior:** The general-purpose subagent runs git commands to stage and commit changed files, excluding internal state files. It reports structured output that the coordinator logs. On any failure, the subagent reports the error without retrying — the coordinator treats all failures as non-blocking warnings.
 
 ---
 
+<!-- SECTION: Retrospective Composition Prompt -->
 ## Retrospective Composition Prompt
 
 Used in Stage 6 to launch the tech-writer agent for composing the implementation retrospective narrative from structured KPI data and transcript analysis.
@@ -526,7 +546,7 @@ Write `{FEATURE_DIR}/retrospective.md` with these sections. Skip any section whe
 
 - Use concrete numbers and evidence — avoid vague assessments
 - Reference KPI IDs (e.g., "KPI 1.2") when discussing metrics
-- Use traffic light emoji for visual scanning: green circle, yellow circle, red circle
+- Use traffic light text markers for visual scanning: `[GREEN]`, `[YELLOW]`, `[RED]`
 - Keep the document scannable with headers, tables, and bullet points
 - Total document length: aim for 200-400 lines depending on sections enabled
 ```

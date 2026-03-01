@@ -42,6 +42,11 @@ autonomy_policy:
       incomplete_tasks: "document_as_is"   # Proceed to documentation noting gaps
       infrastructure: "retry_then_ask"     # Retry 1x, then ask user
 
+# Orchestrator settings
+# Referenced by: orchestrator-loop.md step 6 (cumulative failure check)
+orchestrator:
+  max_coordinator_failures: 3  # Halt with diagnostic when cumulative coordinator failures reach this threshold
+
 # Lock protocol
 lock:
   stale_timeout_minutes: 60  # Locks older than this are treated as stale and overridden
@@ -79,6 +84,10 @@ quality_review:
       low_threshold: 0               # Same severity: accept majority
       moderate_threshold: 1           # 1 level diff: accept and note
       high_threshold: 2               # 2+ levels: flag for user
+
+  # Native agent failure tracking (Stage 4)
+  # Referenced by: stage-4-quality-review.md Section 4.2
+  native_agent_failure_threshold: 3  # Consecutive developer agent failures before surfacing diagnostic
 
   # Convergence detection for reviewer agreement (Stage 4)
   # Referenced by: stage-4-quality-review.md Section 4.3a
@@ -626,6 +635,7 @@ timestamps:
 # Referenced by: orchestrator-loop.md DISPATCH_COORDINATOR
 context_protocol:
   enabled: false
+  total_budget_tokens: 600  # Post-formatting validation: truncate lowest-priority items if total exceeds this
   category_budgets:
     decisions: 250
     open_issues: 200

@@ -164,14 +164,21 @@ If validation reveals issues:
 
 ### Autonomy Policy Check
 
-Read `autonomy_policy` from the Stage 1 summary. Read the policy level definition from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml` under `autonomy_policy.levels.{policy}`.
+Apply the shared autonomy policy procedure from `$CLAUDE_PLUGIN_ROOT/skills/implement/references/autonomy-policy-procedure.md` with:
 
-1. Determine the **highest severity** among all validation findings (Critical > High > Medium > Low)
-2. Look up `policy.findings.{highest_severity}` action:
-   - If action is `"fix"`: Auto-fix — launch developer agent to address issues at this severity and above, log: `"[AUTO-{policy}] Validation issues found — auto-fixing {severity}+ findings"`. After fix, re-validate. If re-validation passes or only lower-severity issues remain, set `validation_outcome: "fixed"`. If re-validation still finds issues at the same or higher severity, set `validation_outcome: "proceed_anyway"`, log, and proceed to quality review (do not loop infinitely).
-   - If action is `"defer"`: Log findings, log: `"[AUTO-{policy}] Validation findings deferred — proceeding to quality review"`. Set `validation_outcome: "proceed_anyway"`.
-   - If action is `"accept"`: Log: `"[AUTO-{policy}] Validation findings accepted"`. Set `validation_outcome: "proceed_anyway"`.
-3. If no policy set (edge case): fall through to manual escalation below.
+| Parameter | Value |
+|-----------|-------|
+| `finding_severity_map` | Validation findings grouped by severity |
+| `context_label` | `"Validation"` |
+| `fix_agent_config` | `{agent_type: "product-implementation:developer", prompt_template: "Completion Validation Prompt", prompt_vars: {from Section 3.1}}` |
+| `defer_artifact_path` | N/A — validation defers map to `validation_outcome: "proceed_anyway"` |
+| `stage_log_prefix` | `"Stage 3"` |
+
+**Outcome mapping** (extends the shared procedure):
+- `"fixed"` → set `validation_outcome: "fixed"`. After fix, re-validate once. If re-validation still finds issues at the same or higher severity, set `validation_outcome: "proceed_anyway"` (do not loop).
+- `"deferred"` → set `validation_outcome: "proceed_anyway"`
+- `"accepted"` → set `validation_outcome: "proceed_anyway"`
+- No policy set → fall through to manual escalation below.
 
 ### Manual Escalation (when no autonomy policy applies)
 

@@ -253,6 +253,22 @@ Deliver working, tested implementations with clear documentation of completion s
 - Ask clarifying questions immediately if inputs are insufficient
 - Refuse to proceed if critical information is missing
 
+## Implementation Verification Rules
+
+These rules are referenced by `agent-prompts.md` Phase Implementation Prompt. Follow them during every implementation phase.
+
+1. **Build Verification**: After writing or modifying ANY source file, compile/build the project before marking the corresponding task `[X]`. Sequence: (1) write code, (2) compile/build, (3) fix compilation errors, (4) mark `[X]`. If the project has no explicit build step (interpreted languages), run the linter or type checker instead.
+
+2. **API Existence Verification**: Before calling ANY API, method, or class, verify it exists in the current project dependencies at the EXACT version used. Use grep/glob to confirm. Especially critical for Compose/UI frameworks (signatures change across versions), third-party libraries (don't assume API exists from docs of a different version), and platform APIs (SDK levels gate availability).
+
+3. **Test Quality**: NEVER write placeholder assertions (`assertTrue(true)`, `expect(true).toBe(true)`). Every assertion must exercise real code and validate actual behavior. If a behavior cannot be tested, document it as a manual test case in your completion summary. Stage 3 validation scans for tautological patterns.
+
+4. **Animation and State Transition Testing**: Tests must verify EACH discrete state AND transitions between states (initial → animating → final, plus interrupted states). Do not test only the final state. Use test clocks or animation test utilities when available.
+
+5. **Pattern Bug Fix Propagation**: When fixing a bug from a misapplied pattern, BEFORE marking the fix complete, grep the entire project for other occurrences of the same pattern. Fix ALL occurrences. Report grep results and all files modified.
+
+6. **Final Step**: After completing all tasks in a phase, run the project's full test suite as your FINAL action. Report structured counts: `test_count_verified: {N}`, `test_failures: {M}`.
+
 ## Quality Standards
 
 ### Correctness

@@ -35,7 +35,7 @@ additional_references:
 
 # Stage 2: Phase-by-Phase Execution
 
-> **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
+> **COORDINATOR STAGE:** The orchestrator dispatches this stage via `Task()`.
 > Read the Stage 1 summary first to obtain FEATURE_NAME, FEATURE_DIR, TASKS_FILE,
 > and the list of phases to execute.
 
@@ -69,18 +69,6 @@ Codebase conventions (CLAUDE.md, constitution.md) always take precedence over sk
 
 Where `$PLUGINS_DIR` resolves to the plugins installation directory and `{plugin_path}` comes from `dev_skills.plugin_path` in config.
 
-### Example Output
-
-```markdown
-The following dev-skills are relevant to this implementation domain. Consult their SKILL.md
-for patterns, anti-patterns, and decision trees. Read on-demand — do NOT read all upfront.
-Codebase conventions (CLAUDE.md, constitution.md) always take precedence over skill guidance.
-
-- **clean-code**: `$PLUGINS_DIR/dev-skills/skills/clean-code/SKILL.md` — Universal code quality patterns
-- **kotlin-expert**: `$PLUGINS_DIR/dev-skills/skills/kotlin-expert/SKILL.md` — Kotlin domain patterns
-- **api-patterns**: `$PLUGINS_DIR/dev-skills/skills/api-patterns/SKILL.md` — API design patterns
-```
-
 ### Context Budget
 
 This resolution adds ~5-10 lines to the agent prompt. The agent reads skill files on-demand only when encountering relevant implementation decisions — it does NOT preload all skills into context.
@@ -98,12 +86,12 @@ Before entering the phase loop, build the `{research_context}` block for develop
 4. **Pre-read extracted URLs** (Ref):
    - Read `extracted_urls` from Stage 1 summary
    - For each URL (up to `ref.max_reads_per_stage`): call `ref_read_url(url)` and capture a summary (cap each at `ref.token_budgets.per_source` tokens)
-   - If Ref is unavailable, skip this step
+   - If Ref is unavailable, omit this step
 
 5. **Quick Context7 lookup**:
    - Read `resolved_libraries` from Stage 1 summary
    - For each resolved library (up to `context7.max_queries_per_stage`): call `query-docs(library_id, "{relevant_query}")` using the feature's primary use case from plan.md
-   - If Context7 is unavailable, skip this step
+   - If Context7 is unavailable, omit this step
 
 6. **Pre-read private documentation** (Ref):
    - Read `private_doc_urls` from Stage 1 summary
@@ -134,6 +122,8 @@ The assembled `{research_context}` block is capped at `research_context_total` (
 
 ## 2.1 Phase Loop
 
+> All availability flags (`cli_availability.*`, `mobile_mcp_available`, `mcp_availability.*`, `test_cases_available`) come from the Stage 1 summary unless noted otherwise.
+
 For each phase in `tasks.md` (in order), perform these steps:
 
 ### Step 1: Parse Phase Tasks
@@ -147,7 +137,7 @@ Extract from the current phase section in tasks.md:
 
 ### Step 1.8: CLI Test Author (Option H)
 
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage2.test_author.enabled` is `true`, `test_cases_available` is `true` (from Stage 1 summary), and `cli_availability.codex` is `true` (from Stage 1 summary). If any condition is false, skip to Step 2.
+> **Conditional**: Only runs when ALL of: `cli_dispatch.stage2.test_author.enabled` is `true`, `test_cases_available` is `true`, and `cli_availability.codex` is `true`. If any condition is false, skip to Step 2.
 
 Before launching the developer agent, generate executable tests from test-case specifications using an external coding agent. This creates TDD targets that the developer agent must make pass.
 
@@ -167,7 +157,7 @@ Before launching the developer agent, generate executable tests from test-case s
    - `file_paths=[FEATURE_DIR/test-cases/, plan.md, contract.md, data-model.md, PROJECT_ROOT/src/]`
    - `fallback_behavior="skip"` (developer writes its own tests)
    - `expected_fields=["test_files_created", "total_assertions", "edge_cases_added", "interface_assumptions", "coverage_vs_plan"]`
-5. **Verify test files**: Check that test files were created on disk
+5. **Verify test files**: Confirm the CLI agent created test files on disk
 6. **Run test suite**: All new tests should FAIL (Red phase confirmation)
    - If any test passes unexpectedly: log warning (may be tautological or testing existing functionality)
    - If tests don't compile: pass compilation errors as `{test_compilation_notes}` to developer agent in Step 2
@@ -176,9 +166,7 @@ Before launching the developer agent, generate executable tests from test-case s
    - Instruction: "Pre-generated test files exist at: {list}. Make these tests PASS. You may adjust imports/setup but do NOT change assertions or remove tests."
    - If compilation notes exist: include them as `{test_compilation_notes}`
 
-#### Write Boundaries
-
-The CLI agent writes to test directories following the project's existing test file naming conventions. It MUST NOT write to source directories. The coordinator verifies post-dispatch that no source files were created or modified.
+Write boundaries enforced per `cli-dispatch-procedure.md` — the coordinator verifies post-dispatch that the CLI agent wrote only to test directories and did not create or modify source files.
 
 ### Step 2: Launch Developer Agent
 
@@ -208,7 +196,8 @@ After agent returns, verify:
 3. Agent reported test results (all passing)
 4. No compilation errors reported in agent output (agent must compile after each file change per Build Verification Rule in Section 2.2)
 5. Extract `test_count_verified` and `test_failures` from the agent's structured output (see `agent-prompts.md` Phase Implementation Prompt, "Final Step" section). If the agent did not report these values, log a warning: "Developer agent did not report verified test count — cross-validation will be limited."
-6. Record the phase-level `test_count_verified` value. The LAST phase's `test_count_verified` becomes the final verified count for all of Stage 2 (since each phase runs the full suite).
+6. **Test name identity check**: If pre-generated tests exist (from Step 1.8), verify the agent preserved their function names — compare the set of test function names before and after the phase. Log a warning if any pre-generated test function was renamed or removed.
+7. Record the phase-level `test_count_verified` value. The LAST phase's `test_count_verified` becomes the final verified count for all of Stage 2 (since each phase runs the full suite).
 
 If verification fails:
 - For sequential task failure: **Halt execution**. Report which task failed and why.
@@ -248,10 +237,9 @@ After phase completion is verified (all tasks `[X]`, tests passing), optionally 
      - Log: `"Simplification reverted: {test_failures} test(s) failed after simplification"`
      - Proceed to Step 4 with original (unsimplified) code
    - If `test_failures > 0` AND `rollback_on_test_failure` is `false`:
-     - **Check autonomy policy** (read `autonomy_policy` from Stage 1 summary):
-       - If `autonomy_policy` is `full_auto` or `balanced` or `critical_only`: Auto-revert simplification changes (`git checkout -- {modified_files_list}`), log: `"[AUTO-{policy}] Simplification auto-reverted: {test_failures} test(s) failed"`. Proceed to Step 4.
-       - *(All policy levels auto-revert here because simplification test failure is an infrastructure/tooling issue — the simplifier broke working code — not a severity-based finding. Reverting restores the known-good state with zero risk.)*
-       - Otherwise (no policy set, edge case): Set `status: needs-user-input`, `block_reason: "Tests failed after code simplification. {test_failures} failures. Review and decide: revert simplification or fix manually."` → return to orchestrator
+     - Apply infrastructure failure handling per `autonomy-policy-procedure.md` § Special Case: Infrastructure Failures.
+     - All policy levels auto-revert (simplification failure is infrastructure, not severity-based — see procedure). Revert: `git checkout -- {modified_files_list}`, log: `"[AUTO-{policy}] Simplification auto-reverted: {test_failures} test(s) failed"`.
+     - If no policy set (edge case): set `status: needs-user-input`, `block_reason: "Tests failed after code simplification. {test_failures} failures."` → return to orchestrator
    - If `test_failures == 0`:
      - Log: `"Simplification complete: {files_simplified} files, {changes_made} changes, all tests passing"`
      - Proceed to Step 4
@@ -262,17 +250,15 @@ After phase completion is verified (all tasks `[X]`, tests passing), optionally 
    - `changes_made: {count}`
    - `simplification_reverted: false` (or `true` if reverted)
 
-#### Latency Impact
-
-Adds ~5-15s dispatch overhead + 30-120s agent execution per phase. Skipped automatically when disabled, when no eligible files exist, or when file count exceeds threshold.
+Latency: ~5-15s dispatch overhead + 30-120s agent execution per phase.
 
 ### Step 3.6: UX Test Coverage Review (Optional)
 
 > **Conditional**: Only runs when ALL of:
 >   1. `cli_dispatch.stage2.ux_test_reviewer.enabled` is `true`
->   2. `cli_availability.opencode` is `true` (from Stage 1 summary)
+>   2. `cli_availability.opencode` is `true`
 >   3. Phase touches UI files (task file paths match any domain in `ux_test_reviewer.phase_relevance.ui_domains`)
-> If any condition is false, skip this step silently.
+> If any condition is false, omit this step.
 
 After tests are written and passing (Step 3), dispatch OpenCode to review test coverage for UX scenarios: empty states, loading states, error states, and accessibility assertions.
 
@@ -302,162 +288,17 @@ After tests are written and passing (Step 3), dispatch OpenCode to review test c
 
 6. **If CLI fails, CLI unavailable, or times out**: follow `fallback_behavior` — default `"skip"` means continue without review, log warning
 
-#### Latency Impact
-
-Adds ~5-15s dispatch overhead + 30-90s agent execution per relevant phase. Skipped automatically when disabled, when OpenCode is unavailable, or when phase has no UI files.
+Latency: ~5-15s dispatch overhead + 30-90s agent execution per relevant phase.
 
 ### Step 3.7: UAT Mobile Testing (Optional)
 
-> **Conditional**: Only runs when ALL of:
->   1. `uat_execution.enabled` is `true` (master switch from config)
->   2. `cli_dispatch.stage2.uat_mobile_tester.enabled` is `true`
->   3. `cli_availability.gemini` is `true` (from Stage 1 summary)
->   4. `mobile_mcp_available` is `true` (from Stage 1 summary)
->   5. Phase has mapped UAT specs OR touches UI files (see relevance check below)
-> If any condition is false, check the Non-Skippable Gate rule below before skipping.
+> **Conditional**: Only runs when 5 gates pass (see `stage-2-uat-mobile.md` for full gate check).
+> Quick check: `uat_execution.enabled` AND `uat_mobile_tester.enabled` AND `cli_availability.gemini` AND `mobile_mcp_available` AND phase relevance.
+> If any gate fails, check the Non-Skippable Gate rule in `stage-2-uat-mobile.md` before skipping.
 
-#### Non-Skippable Gate Check
+Read and execute the full UAT procedure from `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-2-uat-mobile.md`. The procedure covers phase relevance check, APK build/install, evidence directory, CLI dispatch, result processing (with autonomy policy via `autonomy-policy-procedure.md`), write boundaries, and metrics tracking.
 
-Before skipping UAT, check if `"stage2.uat_mobile_tester"` appears in `cli_dispatch.non_skippable_gates` from config. If it does:
-
-- **Conditions 1-2 false** (master switches disabled): Skip silently — the user explicitly disabled this dispatch.
-- **Conditions 3-4 false** (prerequisites unavailable): Log a structured gate failure: `"[GATE_BLOCKED] Non-skippable gate 'stage2.uat_mobile_tester' cannot execute: {reason}. Prerequisites: gemini={cli_availability.gemini}, mobile_mcp={mobile_mcp_available}."` This failure is recorded in the Stage 2 summary for KPI tracking. Do NOT silently skip.
-- **Condition 5 false** (phase not relevant): Skip silently — irrelevant phases are not a gate failure.
-
-If `"stage2.uat_mobile_tester"` is NOT in `non_skippable_gates`, skip to Step 4 with a standard warning log.
-
-After code completion (and optional simplification), run behavioral acceptance testing and Figma visual verification against the running app on a Genymotion emulator. The coordinator handles APK build and install; the CLI agent handles testing.
-
-#### Phase Relevance Check
-
-Determine if the current phase warrants UAT testing:
-
-1. **UAT test ID check** (if `uat_mobile_tester.phase_relevance.check_uat_test_ids` is `true`):
-   - Extract test IDs from current phase task descriptions
-   - Filter for `UAT-*` pattern (from `handoff.test_cases.test_id_patterns`)
-   - Map each `UAT-{ID}` to `{FEATURE_DIR}/test-cases/uat/UAT-{ID}.md`
-   - If at least one UAT spec file exists for this phase → `uat_relevant = true`
-
-2. **UI file path check** (if `uat_mobile_tester.phase_relevance.check_ui_file_paths` is `true`):
-   - Collect file paths from current phase task descriptions
-   - Check against domain indicators for domains listed in `uat_mobile_tester.phase_relevance.ui_domains` (resolved via `dev_skills.domain_mapping` in config)
-   - If any file path matches a UI domain indicator → `uat_relevant = true`
-
-3. If neither check matches → skip to Step 4, log: `"Phase '{phase_name}' has no UAT specs or UI files — skipping UAT"`
-
-#### APK Build
-
-1. Read build config from `cli_dispatch.stage2.uat_mobile_tester.gradle_build`
-2. Run the build command:
-   ```
-   Bash("{gradle_build.command}")
-   ```
-   With timeout: `gradle_build.timeout_ms` (default: 180000 = 3 minutes)
-3. If build fails: log warning `"Gradle build failed — skipping UAT for phase '{phase_name}'"`, skip to Step 4
-4. Locate APK: use `Glob("{gradle_build.apk_search_pattern}")` to find the built APK
-5. If no APK found: log warning `"No APK found matching '{apk_search_pattern}' — skipping UAT"`, skip to Step 4
-6. Store `apk_path` for injection into CLI prompt
-
-#### APK Install
-
-1. Read install config from `uat_execution.apk_install`
-2. If `uat_execution.apk_install.reinstall` is `true`:
-   - Call `mobile_terminate_app` with `app_package` (if app running, ignore errors)
-   - Call `mobile_uninstall_app` with `app_package` (if installed, ignore errors)
-3. Call `mobile_install_app` with the located APK path
-4. If install fails: log warning `"APK install failed — skipping UAT for phase '{phase_name}'"`, skip to Step 4
-5. If `uat_execution.apk_install.launch_after_install` is `true`:
-   - Determine `app_package`: use `uat_execution.apk_install.app_package` from config if set, otherwise auto-detect from APK via `aapt dump badging {apk_path}` or similar
-   - Call `mobile_launch_app` with `app_package`
-   - Wait 3-5 seconds for app initialization
-
-#### Evidence Directory Setup
-
-Create the evidence directory for this phase:
-```
-mkdir -p {FEATURE_DIR}/{uat_mobile_tester.evidence_dir}/{phase_name_sanitized}/
-```
-Where `phase_name_sanitized` converts the phase name to a safe directory name (lowercase, non-alphanumeric replaced with hyphens, e.g., "Phase 1: Setup" → "phase-1-setup").
-
-#### CLI Dispatch
-
-1. **Collect UAT specs**: Read content of all matched UAT spec files for this phase (from the relevance check above). If no specific specs matched but the phase was deemed relevant via UI file paths, use all available UAT specs from `{FEATURE_DIR}/test-cases/uat/` as context.
-
-2. **Build prompt**: Read the role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_uat_mobile_tester.txt`
-
-3. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
-   - `cli_name="gemini"`, `role="uat_mobile_tester"`
-   - `file_paths=[FEATURE_DIR/test-cases/uat/, FEATURE_DIR, PROJECT_ROOT]`
-   - `timeout_ms` from `cli_dispatch.stage2.uat_mobile_tester.timeout_ms` (default: 600000 = 10 minutes)
-   - `fallback_behavior` from `cli_dispatch.stage2.uat_mobile_tester.fallback_behavior` (default: `"skip"`)
-   - `expected_fields=["total_scenarios", "passed", "failed", "blocked", "critical_issues", "visual_mismatches", "recommendation"]`
-
-4. **Coordinator-Injected Context** (appended per `cli-dispatch-procedure.md` variable injection convention):
-   - `{phase_name}` — current phase name
-   - `{FEATURE_DIR}` — feature directory
-   - `{PROJECT_ROOT}` — project root
-   - `{uat_spec_content}` — content of matched UAT spec files (concatenated, with file headers)
-   - `{apk_path}` — path to the built APK
-   - `{evidence_dir}` — full path to `{FEATURE_DIR}/{evidence_dir}/{phase_name_sanitized}/`
-   - `{mobile_device_name}` — from Stage 1 summary
-   - `{figma_default_url}` — from `uat_mobile_tester.figma.default_node_url` config (or `"Not provided"`)
-   - `{app_package}` — from `uat_execution.apk_install.app_package` config (or `"Auto-detected from APK"`)
-
-5. **MCP Tool Budget** (appended per standard convention, values from `cli_dispatch.mcp_tool_budgets.per_cli_dispatch`):
-   ```
-   ## MCP Tool Budget (Advisory)
-   - Mobile MCP: max {mobile_mcp.max_screenshots} screenshots, {mobile_mcp.max_interactions} interactions, {mobile_mcp.max_device_queries} device queries
-   - Figma: max {figma.max_calls} calls
-   - Sequential Thinking: max {sequential_thinking.max_chains} chains
-   ```
-
-#### Result Processing
-
-1. **Parse `<SUMMARY>` block**: Extract `total_scenarios`, `passed`, `failed`, `blocked`, `critical_issues`, `visual_mismatches`, `recommendation`
-
-2. **Severity gating** (from `cli_dispatch.stage2.uat_mobile_tester.severity_gating`):
-   - If `recommendation` is `"PASS"` or `"PASS_WITH_NOTES"` and no `[Critical]` or `[High]` findings:
-     - Log: `"UAT passed for phase '{phase_name}': {passed}/{total_scenarios} scenarios, {visual_mismatches} visual mismatches"`
-     - Proceed to Step 4
-   - If findings are `[Medium]` or `[Low]` only:
-     - Log warning: `"UAT found {count} medium/low findings in phase '{phase_name}' — continuing"`
-     - Proceed to Step 4
-   - If `critical_issues > 0` OR raw output contains `[Critical]` or `[High]` findings:
-     - **Check autonomy policy** (read `autonomy_policy` from Stage 1 summary, read policy level from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml` `autonomy_policy.levels.{policy}`):
-       - **Categorize findings by severity**: separate `[Critical]` findings from `[High]` findings
-       - **Per-severity iteration** (matches Stage 4 pattern): for each severity level present (`critical`, then `high`), look up `policy.findings.{severity}` action and build action lists:
-         - Findings where action is `"fix"` → add to `fix_list`
-         - Findings where action is `"defer"` → add to `defer_list`
-         - Findings where action is `"accept"` → add to `accept_list`
-       - **Apply fix_list** (if non-empty): Launch developer agent to address these specific findings, log: `"[AUTO-{policy}] UAT {severity} findings — auto-fixing for phase '{phase_name}'"`. After fix, re-build and re-run UAT (one retry). If retry still fails for these findings, persist them to `{FEATURE_DIR}/review-findings.md` (append under a `## UAT Findings — {phase_name}` section), log warning.
-       - **Apply defer_list** (if non-empty): Persist findings to `{FEATURE_DIR}/review-findings.md` (append under a `## UAT Findings — {phase_name}` section), log: `"[AUTO-{policy}] UAT {severity} findings deferred for phase '{phase_name}'"`.
-       - **Apply accept_list** (if non-empty): Log: `"[AUTO-{policy}] UAT {severity} findings accepted for phase '{phase_name}'"`.
-       - After processing all severity levels → proceed to Step 4
-       - If no policy set (edge case): fall through to manual escalation below
-     - **Manual escalation** (when no autonomy policy applies):
-       - Set `status: needs-user-input`
-       - Set `block_reason: "UAT testing found critical/high issues in phase '{phase_name}': {critical_issues} critical issue(s), {failed} scenario(s) failed. Review findings and decide: fix implementation / skip UAT for this phase / proceed anyway."`
-       - Include the raw findings section from CLI output in the block_reason for user context
-       - Return to orchestrator (orchestrator mediates user interaction per standard protocol)
-
-3. **If CLI fails, CLI unavailable, or times out**: follow `fallback_behavior` — default `"skip"` means continue without UAT results, log warning
-
-4. **Track metrics**: Record in phase-level tracking for summary:
-   - `uat_ran: true`
-   - `uat_scenarios: {total_scenarios}`
-   - `uat_passed: {passed}`
-   - `uat_failed: {failed}`
-   - `uat_blocked: {blocked}`
-   - `uat_visual_mismatches: {visual_mismatches}`
-   - `uat_recommendation: {recommendation}`
-
-#### Write Boundaries
-
-The CLI agent writes ONLY screenshot files to the evidence directory (`{FEATURE_DIR}/{evidence_dir}/{phase_name_sanitized}/`). It MUST NOT write to source directories, test directories, or spec directories. The coordinator verifies post-dispatch that no files outside the evidence directory were created or modified.
-
-#### Latency Impact
-
-Adds ~30-60s for Gradle build + ~10-30s for APK install + ~120-600s for UAT execution per phase. Total overhead per relevant phase: ~3-10 minutes. Skipped automatically when disabled, when no relevant UAT specs or UI files exist for the phase, when mobile-mcp is unavailable, or when Gemini CLI is not installed.
+Latency: ~3-10 minutes per relevant phase.
 
 ### Step 4: Update Progress
 
@@ -498,7 +339,7 @@ Otherwise (`per_phase`, the default), follow the Auto-Commit Dispatch Procedure 
 
 ## 2.1a CLI Test Augmenter (Option I)
 
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage2.test_augmenter.enabled` is `true`, `cli_availability.gemini` is `true` (from Stage 1 summary), and all phases have completed successfully. If any condition is false, skip to Section 2.2.
+> **Conditional**: Only runs when ALL of: `cli_dispatch.stage2.test_augmenter.enabled` is `true`, `cli_availability.gemini` is `true`, and all phases have completed successfully. If any condition is false, skip to Section 2.2.
 
 After all phases complete but before writing the Stage 2 summary, run an edge case discovery pass using an external model with full visibility into all implemented code and tests.
 
@@ -521,7 +362,7 @@ After all phases complete but before writing the Stage 2 summary, run an edge ca
    - Record confirmed bug discoveries in `augmentation_bugs_found` for the Stage 2 summary
    - If all augmented tests PASS: record as coverage improvements (no bugs found)
 5. **Run full test suite**: Update `test_count_verified` with the post-augmentation count
-6. **If CLI fails, CLI unavailable, or times out**: skip silently — no impact on main workflow
+6. **If CLI fails, CLI unavailable, or times out**: omit — no impact on main workflow
 
 ### Output
 
@@ -534,9 +375,9 @@ Adds to Stage 2 summary flags:
 
 1. **Phase ordering**: Complete each phase entirely before starting the next
 2. **Sequential tasks**: Execute in the order listed within a phase
-3. **Parallel tasks `[P]`**: Can be dispatched to agents concurrently, BUT:
+3. **Parallel tasks `[P]`**: The coordinator dispatches these to agents concurrently, BUT:
    - Tasks touching the same file must still run sequentially
-   - All parallel tasks must complete before the phase is considered done
+   - All parallel tasks must complete before the coordinator marks the phase done
 4. **Cross-phase dependencies**: Respect implicit ordering — Phase N tasks may depend on Phase N-1 outputs
 
 ### TDD Enforcement
@@ -548,7 +389,7 @@ The `developer` agent follows TDD internally (see `agents/developer.md`). This c
 
 ### Build Verification
 
-The developer agent must compile/build the project after writing or modifying each source file, before marking the corresponding task `[X]`. This is enforced via the Phase Implementation Prompt (see `agent-prompts.md`). The coordinator verifies compliance in Step 3: if the agent's output indicates compilation failures, the phase is NOT complete.
+The developer agent must compile/build the project after writing or modifying each source file, before marking the corresponding task `[X]`. The Phase Implementation Prompt (see `agent-prompts.md`) enforces this rule. The coordinator verifies compliance in Step 3: if the agent's output indicates compilation failures, the phase is NOT complete.
 
 ### Error Handling
 
@@ -563,13 +404,15 @@ The developer agent must compile/build the project after writing or modifying ea
 
 ### Build Error Smart Resolution (MCP-Assisted)
 
-When a build or compilation error occurs and MCP tools are available (per `mcp_availability` from Stage 1 summary), the developer agent can use research tools to diagnose and fix the error. This is controlled by `research_mcp.build_error_resolution` in config.
+When a build or compilation error occurs and MCP tools are available (per `mcp_availability`), the developer agent uses research tools to diagnose and fix the error. The `research_mcp.build_error_resolution` config section controls this behavior.
 
 **Strategy: `ref_first`** (default):
 
 1. **Ref lookup**: Call `ref_search_documentation("{library} {error_terms}")` using the library name and key error terms. If results are found, call `ref_read_url(best_result)` for the fix details.
 2. **Context7 fallback** (after `escalation_after` failed Ref lookups, default 1): Call `query-docs(library_id, "error {error_terms}")` using the pre-resolved library ID from Stage 1 summary.
 3. **Tavily last resort** (after all above fail): Call `tavily_search("{library} {version} {error_message}")` with `search_depth` and `max_results` from config.
+
+**Query variation**: On retries, vary search terms — use error message keywords on the first attempt, library + API name on the second. Deduplicate URLs across attempts to avoid reading the same documentation twice.
 
 **Budget**: Maximum `max_retries` (default 2) MCP lookup attempts per build error. If all attempts fail, the agent reports the error normally (no MCP-assisted fix).
 
