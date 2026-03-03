@@ -389,6 +389,16 @@ cli_dispatch:
 
   # --- GLOBAL SETTINGS ---
 
+  # CLI-specific defaults applied to all dispatches for a given CLI.
+  # Integration-level `model` fields override these defaults.
+  cli_defaults:
+    opencode:
+      # OpenCode requires explicit model selection via --model flag.
+      # Without it, opencode uses its config default which may not be available.
+      # The -f flag is unreliable (greedy array parsing); dispatch-cli-agent.sh
+      # passes prompt content inline via $(cat) instead.
+      model: "openrouter/x-ai/grok-4-fast"
+
   timeout_ms: 300000              # 5 minute default; per-option override available
   timeout_action: "fallback"      # "fallback" (use native/skip) | "error" (halt with user prompt)
   retry:

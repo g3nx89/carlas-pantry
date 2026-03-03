@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # --- Argument parsing ---
-CLI_NAME="" ROLE="" PROMPT_FILE="" OUTPUT_FILE="" TIMEOUT_SEC=300 EXPECTED_FIELDS=""
+CLI_NAME="" ROLE="" PROMPT_FILE="" OUTPUT_FILE="" TIMEOUT_SEC=300 EXPECTED_FIELDS="" MODEL=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,12 +17,13 @@ while [[ $# -gt 0 ]]; do
     --output-file)  OUTPUT_FILE="$2"; shift 2 ;;
     --timeout)      TIMEOUT_SEC="$2"; shift 2 ;;
     --expected-fields) EXPECTED_FIELDS="$2"; shift 2 ;;
+    --model)        MODEL="$2"; shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
 if [[ -z "$CLI_NAME" || -z "$ROLE" || -z "$PROMPT_FILE" || -z "$OUTPUT_FILE" ]]; then
-  echo "Usage: dispatch-cli-agent.sh --cli <name> --role <role> --prompt-file <path> --output-file <path> [--timeout <sec>] [--expected-fields <fields>]" >&2
+  echo "Usage: dispatch-cli-agent.sh --cli <name> --role <role> --prompt-file <path> --output-file <path> [--timeout <sec>] [--expected-fields <fields>] [--model <model>]" >&2
   exit 1
 fi
 
@@ -54,7 +55,7 @@ fi
 # Each CLI command is written to a script file, which is then executed by the
 # platform-aware dispatch section. This eliminates the double-expansion problem
 # where quotes and $() inside CLI_CMD break when expanded in bash -c "$CLI_CMD".
-DISPATCH_SCRIPT="$(mktemp "${TMPDIR:-/tmp}/dispatch-XXXXXX.sh")"
+DISPATCH_SCRIPT="$(mktemp "${TMPDIR:-/tmp}/dispatch-XXXXXXXXXX")"
 trap 'rm -f "$DISPATCH_SCRIPT"' EXIT
 
 case "$CLI_NAME" in
@@ -76,13 +77,19 @@ DSCRIPT_HEAD
     echo "gemini --yolo --output-format json -p \"\$(cat '$PROMPT_FILE')\"" >> "$DISPATCH_SCRIPT"
     ;;
   opencode)
-    # opencode run: -f attaches file(s) but is an ARRAY flag that greedily
-    # consumes subsequent args. Use -- to separate options from the positional
-    # message, preventing the message from being eaten by -f.
-    cat > "$DISPATCH_SCRIPT" <<DSCRIPT
-#!/usr/bin/env bash
-opencode run --format json -f '$PROMPT_FILE' -- 'Execute the analysis instructions in the attached file. Return your complete findings in the specified output format.'
-DSCRIPT
+    # opencode run: pass prompt content inline as the positional message.
+    # The -f flag is unreliable (greedily consumes args, hangs with some models).
+    # Reading prompt file content and passing it inline is more robust.
+    # Optional --model flag selects provider/model (e.g., openrouter/x-ai/grok-4-fast).
+    {
+      echo '#!/usr/bin/env bash'
+      echo 'PROMPT_CONTENT="$(cat '"'$PROMPT_FILE'"')"'
+      if [[ -n "$MODEL" ]]; then
+        echo 'opencode run --format json --model '"'$MODEL'"' -- "$PROMPT_CONTENT"'
+      else
+        echo 'opencode run --format json -- "$PROMPT_CONTENT"'
+      fi
+    } > "$DISPATCH_SCRIPT"
     ;;
   *)
     cat > "$DISPATCH_SCRIPT" <<DSCRIPT
@@ -114,24 +121,23 @@ elif command -v gsetsid &>/dev/null && command -v gtimeout &>/dev/null; then
   EXIT_CODE=$?
   set -e
 else
-  # macOS fallback: set -m enables job control (new process group per job)
-  DISPATCH_METHOD="set_m_fallback"
+  # macOS fallback: background timer with foreground execution
+  # Avoids set -m job control which breaks in non-TTY contexts (e.g., Claude Code)
+  DISPATCH_METHOD="bg_timer_fallback"
   set +e
-  set -m
   "$DISPATCH_SCRIPT" > "$RAW_OUTPUT" 2>&1 &
   CLI_PID=$!
   (
     sleep "$TIMEOUT_SEC"
-    kill -- -$CLI_PID 2>/dev/null
+    kill $CLI_PID 2>/dev/null
     sleep 10
-    kill -9 -- -$CLI_PID 2>/dev/null
+    kill -9 $CLI_PID 2>/dev/null
   ) &
   TIMER_PID=$!
   wait $CLI_PID 2>/dev/null
   EXIT_CODE=$?
   kill $TIMER_PID 2>/dev/null
   wait $TIMER_PID 2>/dev/null || true
-  set +m
   set -e
 fi
 
@@ -168,6 +174,14 @@ if command -v jq &>/dev/null && [[ -s "$RAW_OUTPUT" ]]; then
     if [[ -s "$OUTPUT_FILE" ]]; then
       PARSE_TIER=1
       PARSE_METHOD="json_jq_jsonl_codex"
+    fi
+  fi
+  # Try OpenCode JSONL format: extract .part.text from type=="text" events
+  if [[ "$PARSE_TIER" -eq 0 ]]; then
+    jq -r 'select(.type == "text") | .part.text // empty' "$RAW_OUTPUT" > "$OUTPUT_FILE" 2>/dev/null || true
+    if [[ -s "$OUTPUT_FILE" ]]; then
+      PARSE_TIER=1
+      PARSE_METHOD="json_jq_jsonl_opencode"
     fi
   fi
 fi

@@ -37,7 +37,12 @@ FOR EACH cli IN integration.models:
           --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/{INTEGRATION}-{CLI}.md \
           --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-{CLI}.md \
           --timeout {integration.timeout_seconds} \
-          --expected-fields "{expected_fields}"
+          --expected-fields "{expected_fields}" \
+          [--model {cli.model | cli_defaults.{cli.name}.model}]
+
+    NOTE on --model: Required for opencode (uses OpenRouter provider routing).
+    Resolve model from: (1) integration-level cli.model, (2) cli_dispatch.cli_defaults.{cli}.model.
+    Codex and gemini do NOT need --model (they use their built-in defaults).
 
     EXIT CODES:
         0 = success
@@ -333,7 +338,8 @@ $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --cli opencode --role spec_evaluator_against \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-opencode.md \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/evaluation-opencode.md \
-  --timeout 120 &
+  --timeout 120 \
+  --model {OPENCODE_MODEL} &
 
 wait  # collect all results
 ```

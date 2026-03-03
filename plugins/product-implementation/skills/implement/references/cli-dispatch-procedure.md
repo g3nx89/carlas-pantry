@@ -28,6 +28,7 @@ config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (cli_dispa
 | `prompt` | string | Full prompt with variables injected |
 | `cli_name` | string | CLI identifier (e.g., "codex", "gemini") |
 | `role` | string | Role name (e.g., "test_author", "correctness_reviewer") |
+| `model` | string? | Model override for CLI (e.g., "openrouter/x-ai/grok-4-fast"). Required for opencode; omit for codex/gemini. Resolved from: (1) integration-level config, (2) `cli_dispatch.cli_defaults.{cli_name}.model` |
 | `file_paths` | string[] | Directories/files the CLI agent can access |
 | `timeout_ms` | int | From config `cli_dispatch.timeout_ms` (default: 300000) |
 | `fallback_behavior` | string | `"native"` / `"skip"` / `"error"` |
@@ -68,8 +69,14 @@ Bash("$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --prompt-file {temp_prompt_path} \
   --output-file {FEATURE_DIR}/.dispatch-output-{role}-{timestamp}-{suffix}.txt \
   --timeout {timeout_ms / 1000} \
-  --expected-fields {comma_separated_fields}")
+  --expected-fields {comma_separated_fields} \
+  [--model {model}]")
 ```
+
+> **NOTE on `--model`**: Required for opencode (uses OpenRouter provider routing).
+> Resolve model from: (1) integration-level config `model` field, (2) `cli_dispatch.cli_defaults.{cli_name}.model`.
+> Codex and gemini do NOT need `--model` (they use their built-in defaults).
+> Omit the `--model` flag entirely when the value is null/empty.
 
 6. Clean up temp prompt file after dispatch completes.
 

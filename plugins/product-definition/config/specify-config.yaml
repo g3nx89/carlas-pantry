@@ -517,13 +517,27 @@ sadd_patterns:
 cli_dispatch:
   # Master switch — set to false to use internal reasoning only
   enabled: true
-  version: "1.0.0"
+  version: "1.1.0"
 
   # Script path (relative to plugin root)
   script_path: "scripts/dispatch-cli-agent.sh"
 
   # CLI client config directory (relative to plugin root)
   cli_clients_dir: "config/cli_clients"
+
+  # ─────────────────────────────────────────────────────────────
+  # CLI DEFAULTS (per-CLI overrides)
+  # ─────────────────────────────────────────────────────────────
+  # Default parameters applied to all dispatches for a given CLI.
+  # Integration-level `model` fields override these defaults.
+
+  cli_defaults:
+    opencode:
+      # OpenCode requires explicit model selection via --model flag.
+      # Without it, opencode uses its config default which may not be available.
+      # The -f flag is unreliable (greedy array parsing); dispatch-cli-agent.sh
+      # passes prompt content inline via $(cat) instead.
+      model: "openrouter/x-ai/grok-4-fast"
 
   # ─────────────────────────────────────────────────────────────
   # TIMEOUT CONFIGURATION (per-integration)

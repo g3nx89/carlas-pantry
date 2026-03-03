@@ -71,6 +71,7 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 - Figma enabled: {FIGMA_ENABLED}
 - Entry type: {ENTRY_TYPE}
 - Iteration: {ITERATION_NUMBER}
+- OpenCode model: {OPENCODE_MODEL}
 
 ## Shared References (load ONLY those listed for this stage)
 {IF stage needs checkpoint-protocol:}
@@ -129,6 +130,7 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/stage-4-clarifi
 - Figma enabled: false
 - Entry type: re_entry_after_user_input
 - Iteration: 2
+- OpenCode model: openrouter/x-ai/grok-4-fast
 
 ## Shared References (load ONLY those listed for this stage)
 - Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/checkpoint-protocol.md
@@ -170,6 +172,7 @@ Every dispatch variable MUST have a defined fallback:
 | `FIGMA_ENABLED` | `false` | User must explicitly enable |
 | `ITERATION_NUMBER` | `1` | First iteration default |
 | `RTM_ENABLED` | `false` | Assume disabled; set to true in Stage 1 if user confirms inventory |
+| `OPENCODE_MODEL` | `"openrouter/x-ai/grok-4-fast"` | From `cli_dispatch.cli_defaults.opencode.model` in config |
 | `FEATURE_DIR` | (none) | MUST be set by Stage 1 — abort if missing |
 | `FEATURE_NAME` | (none) | MUST be set by Stage 1 — abort if missing |
 

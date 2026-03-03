@@ -147,7 +147,8 @@ $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --cli opencode --role spec_assumption_probe \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-opencode.md \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/challenge-opencode.md \
-  --timeout 120 &
+  --timeout 120 \
+  --model {OPENCODE_MODEL} &
 
 wait  # collect all results
 ```

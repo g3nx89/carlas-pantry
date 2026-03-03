@@ -202,7 +202,8 @@ $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --cli opencode --role edge_ops_compliance \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/edgecases-opencode.md \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/edgecases-opencode.md \
-  --timeout 150 &
+  --timeout 150 \
+  --model {OPENCODE_MODEL} &
 
 wait
 ```
@@ -357,7 +358,8 @@ $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --cli opencode --role spec_q_contrarian \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/triangulation-opencode.md \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/triangulation-opencode.md \
-  --timeout 90 &
+  --timeout 90 \
+  --model {OPENCODE_MODEL} &
 
 wait
 ```

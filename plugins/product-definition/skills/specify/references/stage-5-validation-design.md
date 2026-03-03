@@ -77,7 +77,8 @@ $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-{cli}.md \
   --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/evaluation-{cli}.md \
   --timeout 120 \
-  --expected-fields "score,dimension,decision"
+  --expected-fields "score,dimension,decision" \
+  [--model {model_from_cli_defaults}]  # Required for opencode; omit for codex/gemini
 ```
 
 **If disabled OR CLI_AVAILABLE = false:** Skip to Step 5.5 (design artifacts).
