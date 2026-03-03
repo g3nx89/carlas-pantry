@@ -26,6 +26,7 @@ additional_references:
 
 > **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
 > Read the prior stage summaries to understand what was implemented and validated.
+> **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL Tier C CLI dispatches (correctness, security, domain, UX reviewers), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## 4.0 Feature Interaction Matrix
 

@@ -16,6 +16,7 @@ artifacts_written:
 2. **100% completion required**: All questions must be answered. Do not proceed to gap analysis with unanswered questions.
 3. **Consensus requires minimum 2 models**: If < 2 PAL models available, fail and notify user.
 4. **next_action must be set**: Summary must include `flags.next_action` with one of: `loop_questions`, `loop_research`, `proceed`.
+5. **Multi-model dispatch: ONLY use PAL MCP tools**: For consensus validation, use `mcp__pal__consensus`. NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## Step 4.1: Determine Entry Point
 

@@ -7,6 +7,12 @@
 > Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh`
 > Config: `$CLAUDE_PLUGIN_ROOT/config/cli_dispatch` in `specify-config.yaml`
 
+> **ANTI-PATTERN — DO NOT USE `ask` FOR CLI DISPATCH:**
+> The `ask` command (CCB async dispatch from CLAUDE.md) must NEVER be used for multi-model
+> analysis in the specify workflow. The async queue has no stage/integration scoping — calling
+> `ask codex` in Stage 4 may return stale results from a Stage 2 dispatch. ALWAYS use
+> `dispatch-cli-agent.sh` which is synchronous and writes results to dedicated output files.
+
 ---
 
 ## Pattern: Tri-CLI Parallel Dispatch

@@ -12,6 +12,11 @@ dispatch_procedure: "cli-dispatch-procedure.md"
 > Tier C dispatches external CLI agents (Codex, Gemini, OpenCode) for multi-model code review.
 > Only runs when `cli_dispatch.stage4.multi_model_review.enabled` is `true`.
 
+> **ANTI-PATTERN — DO NOT USE `ask` FOR CLI DISPATCH:**
+> All dispatches in this file MUST use `dispatch-cli-agent.sh` via Bash(). NEVER use the
+> `ask` command or CCB async dispatch — the async queue has no stage scoping and returns
+> stale results from prior stages.
+
 ## Prerequisites
 
 - `cli_dispatch.stage4.multi_model_review.enabled` must be `true` in config

@@ -3,6 +3,12 @@
 > Parameterized consensus workflow used by Stage 4 (response validation) and Stage 5 (PRD readiness).
 > Each stage supplies its own `{STEP_CONTENT}`, `{FINDINGS}`, `{RELEVANT_FILES}`, and `{STANCE_PROMPTS}`.
 
+> **ANTI-PATTERN — DO NOT USE `ask` FOR MULTI-MODEL ANALYSIS:**
+> The `ask` command (CCB async dispatch from CLAUDE.md) must NEVER be used for consensus or
+> ThinkDeep analysis in the refinement workflow. The async queue has no stage/round scoping — calling
+> `ask codex` in Stage 5 may return stale results from a Stage 3 dispatch. ALWAYS use
+> PAL MCP tools (`mcp__pal__consensus`, `mcp__pal__thinkdeep`) which are synchronous and scoped.
+
 ## Model Resolution (BEFORE calling Consensus)
 
 ```

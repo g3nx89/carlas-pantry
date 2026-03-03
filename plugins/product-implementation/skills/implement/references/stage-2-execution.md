@@ -38,6 +38,7 @@ additional_references:
 > **COORDINATOR STAGE:** The orchestrator dispatches this stage via `Task()`.
 > Read the Stage 1 summary first to obtain FEATURE_NAME, FEATURE_DIR, TASKS_FILE,
 > and the list of phases to execute.
+> **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL CLI dispatches (test author, test augmenter, code simplifier), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## 2.0 Skill Reference Resolution
 

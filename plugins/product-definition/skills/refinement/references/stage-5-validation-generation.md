@@ -16,6 +16,7 @@ artifacts_written:
 3. **EXTEND mode preserves existing sections**: Never overwrite complete sections. Only add/update incomplete sections.
 4. **Consensus requires minimum 2 models**: If < 2 PAL models available after failures, fail and notify user.
 5. **Absolute paths only** in PAL `relevant_files` parameter.
+6. **Multi-model dispatch: ONLY use PAL MCP tools**: For consensus validation, use `mcp__pal__consensus`. NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## Step 5.1: Validation Level Selection
 

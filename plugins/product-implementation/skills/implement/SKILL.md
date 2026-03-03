@@ -193,6 +193,8 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `review-findings.md` | Findings exist AND outcome is "fix now" or "fix later" | Quality review findings |
 | `docs/` | Stage 5 runs | Feature documentation, API guides, architecture updates |
 | Module `README.md` files | Stage 5 runs | Updated READMEs in folders affected by implementation |
+| `.project-setup-analysis.local.md` | project_setup enabled | Project analysis results (excluded from auto-commit) |
+| `.project-setup-proposal.local.md` | project_setup enabled + user selects categories | Summary of configuration changes applied |
 | `.uat-evidence/` | UAT enabled + relevant phases | UAT screenshots organized by phase |
 | `retrospective.md` | Stage 6 runs | Implementation retrospective narrative with KPI analysis |
 | `.implementation-report-card.local.md` | Stage 6 runs (excluded from auto-commit) | Machine-readable KPI Report Card |
@@ -216,7 +218,8 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 |------|-------------|---------|
 | `references/orchestrator-loop.md` | Workflow start (always) | Dispatch loop, crash recovery, state migration, context packs |
 | `references/integrations-overview.md` | When understanding integration architecture | Dev-Skills, Research MCP, CLI Dispatch, Autonomy Policy — full detail |
-| `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, lock, state init, domain detection |
+| `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, project setup, lock, state init, domain detection |
+| `references/stage-1-project-setup.md` | Stage 1 (inline, conditional) | Project analysis checklist, hook patterns, CLAUDE.md rubric, generator rules |
 | `references/stage-2-execution.md` | Stage 2 (coordinator) | Skill resolution, phase loop, task parsing, error handling |
 | `references/stage-2-uat-mobile.md` | Stage 2 (coordinator, conditional) | UAT mobile testing gate check, APK build/install, CLI dispatch, result processing |
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |
@@ -247,7 +250,8 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 
 1. Ensure `{FEATURE_DIR}/tasks.md` and `plan.md` exist (run `/product-planning:plan` then `/product-planning:tasks`)
 2. Optional: verify `design.md`, `test-plan.md`, `test-strategy.md`, and `test-cases/` are present for richer agent context
-3. **Top 5 config toggles** (in `config/implementation-config.yaml`):
+3. **Top 6 config toggles** (in `config/implementation-config.yaml`):
+   - `project_setup.enabled` — enable project setup analysis and configuration generation (Stage 1)
    - `autonomy_policy.default_level` — set to skip the startup question (`full_auto` / `balanced` / `critical_only`)
    - `code_simplification.enabled` — enable post-phase code simplification
    - `dev_skills.enabled` — enable domain-specific skill injection

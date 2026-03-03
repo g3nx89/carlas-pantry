@@ -4,6 +4,12 @@
 > Each phase file specifies parameters; this file defines the execution pattern.
 > Supports tri-CLI (gemini + codex + opencode), dual-CLI, and single-CLI modes.
 
+> **ANTI-PATTERN — DO NOT USE `ask` FOR CLI DISPATCH:**
+> The `ask` command (CCB async dispatch from CLAUDE.md) must NEVER be used for multi-model
+> analysis in the planning workflow. The async queue has no phase/integration scoping — calling
+> `ask codex` in Phase 6 may return stale results from a Phase 5 dispatch. ALWAYS use
+> `dispatch-cli-agent.sh` which is synchronous and writes results to dedicated output files.
+
 ## Prerequisites
 
 Before executing this pattern, the calling phase MUST verify:

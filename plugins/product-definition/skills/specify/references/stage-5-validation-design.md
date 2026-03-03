@@ -22,6 +22,7 @@ artifacts_written:
 6. **Retry max 2**: If REJECTED after 2 retries, signal `needs-user-input`
 7. **NEVER interact with users directly**: signal `needs-user-input` in summary
 8. **Spec content inline**: NEVER pass local file paths to CLIs — embed spec content in prompt files
+9. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For multi-stance evaluation, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## Step 5.0a: Validate Pre-Conditions
 

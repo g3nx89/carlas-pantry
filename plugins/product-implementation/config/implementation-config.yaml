@@ -51,6 +51,33 @@ orchestrator:
 lock:
   stale_timeout_minutes: 60  # Locks older than this are treated as stale and overridden
 
+# Project setup analysis (Stage 1 Section 1.5b)
+# Analyzes target project structure and Claude configuration, proposes improvements.
+# Uses Subagent-Delegated Context Injection: throwaway subagent scans project, writes compact analysis.
+# Referenced by: stage-1-setup.md Section 1.5b, stage-1-project-setup.md
+project_setup:
+  enabled: true                        # Set to false to skip project analysis entirely
+  skip_if_analyzed: true               # Skip re-analysis if .project-setup-analysis.local.md already exists
+  analysis_budget:
+    max_files_to_scan: 50              # Cap on project files read by analysis subagent
+    output_token_budget: 3000          # Target size for analysis output file
+  categories:                          # Which analysis categories to run (user still selects which to apply)
+    claude_md: true                    # Analyze and propose CLAUDE.md improvements
+    hooks: true                        # Analyze and propose hook configuration
+    mcp_servers: true                  # Analyze and propose MCP server setup
+    code_quality: true                 # Analyze and propose linter/formatter setup
+  hooks:                               # Which hook categories the generator can propose
+    spec_protection: true              # Prevent modification of planning artifacts
+    language_enforcement: true         # Block non-primary language files
+    tdd_reminder: true                 # Warn when implementing without tests
+    safety_guards: true                # Block destructive Bash operations
+    commit_format: true                # Enforce conventional commit messages
+    code_formatting: true              # Auto-format after file writes
+    architecture_boundaries: true      # Validate import/dependency directions
+    build_output_analysis: true        # Scan build output for warnings/errors
+    session_context: true              # Inject progress and principles at session start
+  backup_settings_json: true           # Create .claude/settings.json.bak before modifying
+
 # Quality review (Stage 4)
 quality_review:
   agent_count: 3  # Number of parallel reviewer agents when code-review skill is unavailable
@@ -310,6 +337,8 @@ auto_commit:
     - ".stage-summaries/"
     - ".implementation-report-card"
     - "transcript-extract.json"
+    - ".project-setup-analysis"
+    - ".project-setup-proposal"
 
 # Code simplification (Stage 2 post-phase)
 # When enabled, a code-simplifier agent runs after each phase's developer agent completes.

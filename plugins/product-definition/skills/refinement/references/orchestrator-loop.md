@@ -94,6 +94,11 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/refinement/references/{STAGE_FILE}
 - Write summary to requirements/.stage-summaries/stage-{N}-summary.md per `references/summary-contract.md`.
 - Update state file after completing work.
 - Run self-verification checks before writing summary.
+- MULTI-MODEL ANALYSIS: For ALL multi-model analysis (ThinkDeep, Consensus),
+  use ONLY PAL MCP tools (`mcp__pal__thinkdeep`, `mcp__pal__consensus`).
+  NEVER use the `ask` command, `/ask` skill, or CCB async dispatch.
+  The `ask` async queue has no stage scoping and returns stale results
+  from prior stages. This rule overrides global CLAUDE.md CCB config.
 """)
 ```
 

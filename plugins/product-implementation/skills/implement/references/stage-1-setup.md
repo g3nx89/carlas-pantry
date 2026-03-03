@@ -123,6 +123,76 @@ Extract and store:
 - **Test ID references**: If `test_cases_available` is true, scan task descriptions for test ID patterns (configured in `config/implementation-config.yaml` under `handoff.test_cases.test_id_patterns`; defaults: `E2E-*`, `INT-*`, `UT-*`, `UAT-*`). If no test IDs are found in tasks.md but test-cases/ exists, warn: "tasks.md does not reference test IDs from test-cases/ — traceability may be incomplete."
 - **Test ID cross-validation**: If both tasks.md test IDs and test-cases/ specs are present, verify that referenced test IDs have corresponding spec files. Log any orphaned references.
 
+## 1.5b Project Setup Analysis [Cost: 1-2 subagent dispatches, ~30-60s]
+
+> Conditional: Only when `project_setup.enabled` is `true` in config.
+> If disabled, set `project_setup` status to `"disabled"` in the Stage 1 summary and skip to Section 1.6.
+
+### Skip Conditions
+
+Skip this section entirely (set status to `"skipped"`) if ANY of:
+- `project_setup.enabled` is `false` in `config/implementation-config.yaml`
+- State file exists AND `user_decisions.project_setup_applied` is `true` (resume case — already applied)
+- `{FEATURE_DIR}/.project-setup-analysis.local.md` exists AND `project_setup.skip_if_analyzed` is `true` in config (re-run case — analysis persists)
+
+### Procedure
+
+1. **Dispatch analysis subagent** (throwaway `Task(subagent_type="general-purpose")`):
+   - Prompt: Use the **Project Analysis Prompt** from `agent-prompts.md`
+   - Fill variables: `{PROJECT_ROOT}`, `{FEATURE_DIR}`, `{plan_tech_stack}` (from plan.md tech stack section loaded in 1.4), `{plan_architecture}` (from plan.md architecture section), `{plan_test_strategy}` (from test-plan.md or plan.md test approach)
+   - The subagent reads `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-1-project-setup.md` Sections A-D for analysis instructions
+   - The subagent scans PROJECT_ROOT for build files, `.claude/`, `CLAUDE.md`, `.mcp.json`
+   - The subagent writes `{FEATURE_DIR}/.project-setup-analysis.local.md`
+
+2. **Read analysis file** — read the compact analysis output (<3K tokens). If the subagent failed to produce the file, log warning and skip to Section 1.6.
+
+3. **Filter categories** — For each category in `project_setup.categories` (claude_md, hooks, mcp_servers, code_quality):
+   - If the category is disabled in config → skip
+   - If the analysis has zero recommendations for that category → skip
+   - Collect categories with recommendations
+
+4. **If no recommendations remain** → log "Project setup analysis found no improvements needed", set status to `"skipped"`, skip to Section 1.6.
+
+5. **Present to user** via `AskUserQuestion`:
+   - Question: "I've analyzed your project setup. Which improvements should I apply?"
+   - Header: "Setup"
+   - multiSelect: `true`
+   - Options: Only categories with recommendations (max 4). Each option's description includes the count and list of recommendations from the analysis.
+
+6. **If user selects categories** → Dispatch generator subagent (throwaway `Task(subagent_type="general-purpose")`):
+   - Prompt: Use the **Project Setup Generator Prompt** from `agent-prompts.md`
+   - Fill variables: `{PROJECT_ROOT}`, `{FEATURE_DIR}`, `{analysis_content}` (full analysis file content), `{selected_categories}` (user's choices), `{plan_context}` (1-line summary of plan.md tech stack and architecture)
+   - The subagent reads `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-1-project-setup.md` Sections E-F for generator instructions
+   - The subagent creates hook scripts, appends CLAUDE.md, updates settings.json
+   - The subagent writes `{FEATURE_DIR}/.project-setup-proposal.local.md`
+
+7. **If user selects "Other" or no categories** → set status to `"skipped"`, log "User skipped project setup", skip to Section 1.6.
+
+8. **Record decisions** in state file (immutable):
+   - `user_decisions.project_setup_applied: true`
+   - `user_decisions.project_setup_categories: [{selected list}]`
+
+9. **Merge into domain context** — The analysis provides ground-truth language/framework detection from actual project files. Pass `languages` and `frameworks` from the analysis to enrich Section 1.6 domain detection. If a domain is detected with `high` confidence in the analysis but only `tentative` in Section 1.6's text-matching, upgrade it to confident.
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter (see Section 1.10):
+
+```yaml
+project_setup:
+  status: "applied"                     # "applied" | "skipped" | "disabled"
+  categories_applied: ["claude_md", "hooks"]
+  categories_skipped: ["mcp_servers", "code_quality"]
+  build_system: "gradle_kts"
+  build_command: "./gradlew assembleDebug"
+  test_command: "./gradlew testDebugUnitTest"
+  formatter: "ktfmt --kotlinlang-style"  # or null
+  active_hooks: ["protect-specs", "tdd-reminder", "safe-bash"]
+  architecture_pattern: "clean_architecture"  # or null
+  detected_languages: ["kotlin"]
+  detected_frameworks: ["compose", "hilt", "room"]
+```
+
 ## 1.6 Domain Detection [Cost: zero file reads, zero dispatches — pure text matching]
 
 Detect technology domains present in the feature to enable conditional skill injection by downstream coordinators. This step uses artifacts ALREADY loaded in Sections 1.4-1.5.
@@ -480,6 +550,18 @@ mobile_mcp_available: {true/false}  # from Section 1.6e (false if UAT config dis
 mobile_device_name: "{name or null}"  # from Section 1.6e (first available emulator device)
 plugin_availability:             # from Section 1.6f
   code_review: {true/false}
+project_setup:                  # from Section 1.5b (all null/disabled if project_setup.enabled is false)
+  status: "{applied/skipped/disabled}"
+  categories_applied: [{list or empty}]
+  categories_skipped: [{list or empty}]
+  build_system: "{type or null}"
+  build_command: "{command or null}"
+  test_command: "{command or null}"
+  formatter: "{command or null}"
+  active_hooks: [{list of hook names, existing + new}]
+  architecture_pattern: "{pattern or null}"
+  detected_languages: [{list}]
+  detected_frameworks: [{list}]
 autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user-selected or config default)
 cli_circuit_state: null   # from Section 1.7b (null if disabled)
 # IF context_protocol.enabled:
@@ -505,6 +587,7 @@ context_contributions:
 - Total tasks: {M}
 - Phases remaining: {list}
 - Resume from: {phase_name or "beginning"}
+- Project setup: {status} — build={build_system}, languages={list}, frameworks={list}, hooks={N active} (or "disabled")
 - Detected domains: {list, e.g., ["kotlin", "compose", "api"] or [] if detection disabled}
 - CLI availability: {map, e.g., codex=true, gemini=false or "no CLI options enabled"}
 - MCP availability: ref={true/false}, context7={true/false}, tavily={true/false} (or "all disabled" if research_mcp.enabled is false)
@@ -568,6 +651,7 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] Context loaded: {N} phases, {M} tasks
 - [{timestamp}] Expected file warnings: {list or "none"}
 - [{timestamp}] Test cases: {discovered N specs / not available}
+- [{timestamp}] Project setup: {status} ({N categories applied, M skipped} or "disabled" or "skipped — already applied")
 - [{timestamp}] Domain detection: {detected_domains list or "disabled"}
 - [{timestamp}] CLI availability: {map, e.g., codex=true, gemini=false or "no CLI options enabled"}
 - [{timestamp}] MCP availability: ref={bool}, context7={bool}, tavily={bool} (or "research_mcp disabled")

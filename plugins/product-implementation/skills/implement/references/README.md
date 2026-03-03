@@ -7,7 +7,8 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Read When... |
 |------|--------------|
 | `orchestrator-loop.md` | Understanding dispatch loop, crash recovery, state migration, or context pack protocol |
-| `stage-1-setup.md` | Debugging setup, branch parsing, lock acquisition, or state initialization |
+| `stage-1-setup.md` | Debugging setup, branch parsing, project setup, lock acquisition, or state initialization |
+| `stage-1-project-setup.md` | Understanding project setup analysis, hook generation, CLAUDE.md improvements, or generator rules |
 | `stage-2-execution.md` | Debugging phase-by-phase execution, task parsing, or TDD enforcement |
 | `stage-2-uat-mobile.md` | Understanding UAT mobile testing procedure (extracted from Stage 2 Step 3.7) |
 | `stage-3-validation.md` | Debugging completion validation, spec alignment, or test coverage checks |
@@ -53,7 +54,8 @@ Quick guide to when to read each reference file during skill development or debu
 | File | Lines | Purpose |
 |------|-------|---------|
 | `orchestrator-loop.md` | 272 | Dispatch loop, crash recovery, lock release, state migration, late notification handling, autonomy policy infrastructure checks, context pack protocol |
-| `stage-1-setup.md` | 584 | Inline setup instructions, domain detection with confidence scoring, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), plugin availability check (1.6f), CLI circuit breaker initialization (1.7b), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), context contributions initialization, summary template |
+| `stage-1-setup.md` | 666 | Inline setup instructions, project setup analysis (1.5b), domain detection with confidence scoring, MCP availability probing (1.6a-1.6d), mobile device availability (1.6e), plugin availability check (1.6f), CLI circuit breaker initialization (1.7b), CLI availability detection with dispatch script smoke test (1.7a), autonomy policy selection (1.9a), context contributions initialization, summary template |
+| `stage-1-project-setup.md` | 280 | Project analysis checklist (build system, languages, frameworks, test infra, code quality, Claude config audit), hook pattern catalog (9 categories with templates), CLAUDE.md completeness rubric (6 sections), analysis output format, generator instructions (append-only, backup, POSIX-compatible), user interaction protocol |
 | `stage-2-execution.md` | 501 | Skill resolution, research context resolution (2.0a), phase loop, CLI test author (Step 1.8), code simplification (Step 3.5), OpenCode UX test review (Step 3.6), auto-commit per phase, batch strategy, execution rules, build verification, build error smart resolution, test count extraction, cli_dispatch_metrics, circuit state propagation, context contributions, autonomy policy checks |
 | `stage-2-uat-mobile.md` | 121 | UAT mobile testing procedure (non-skippable gate check, phase relevance, APK build/install, evidence directory, CLI dispatch, result processing via autonomy-policy-procedure, write boundaries) |
 | `stage-3-validation.md` | 243 | Validation checks, CLI spec validator (3.1a), OpenCode UX validator (3.1b), constitution compliance, coverage delta, API doc alignment (check 12), Stage 2 cross-validation, test quality gate, report format, circuit state propagation, context contributions, autonomy policy check via shared procedure (3.4) |
@@ -62,7 +64,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `stage-4-cli-review.md` | 126 | Tier C: CLI multi-model review, Phase 1 parallel dispatch (correctness, security, android domain, UX/accessibility), Phase 2 sequential pattern search (Gemini 1M context), consolidation checkpoint |
 | `stage-5-documentation.md` | 292 | Skill resolution for docs, research context for documentation (5.1b), tech-writer dispatch, OpenCode doc review (5.2a), auto-commit documentation, lock release, context contributions, autonomy policy check for incomplete tasks (5.1) |
 | `stage-6-retrospective.md` | 350 | KPI Report Card compilation (10 Phase 1 KPIs), Phase 2 KPI placeholders (CoVe effectiveness, reviewer convergence, circuit breaker trips), cli_dispatch_metrics aggregation, sidecar cleanup, session transcript extraction (conditional), retrospective composition via tech-writer, auto-commit, context contributions, state update |
-| `agent-prompts.md` | 562 | Common Variables section, 9 agent prompt templates (8 agent + 1 auto-commit) with section markers, `{skill_references}`, `{research_context}`, and `{reviewer_stance}` variables with explicit fallback annotations, Implementation Verification Rules reference, severity escalation, retrospective composition |
+| `agent-prompts.md` | 660 | Common Variables section, 11 agent prompt templates (10 agent + 1 auto-commit) with section markers, `{skill_references}`, `{research_context}`, and `{reviewer_stance}` variables with explicit fallback annotations, Implementation Verification Rules reference, severity escalation, retrospective composition, project analysis, project setup generator |
 | `integrations-overview.md` | 84 | Dev-Skills, Research MCP, CLI Dispatch, and Autonomy Policy integration summaries (extracted from SKILL.md for context efficiency) |
 | `autonomy-policy-procedure.md` | 56 | Shared parameterized autonomy policy check — severity iteration, fix/defer/accept actions, infrastructure failure auto-revert, manual escalation fallback |
 | `auto-commit-dispatch.md` | 62 | Shared parameterized auto-commit procedure, exclude pattern semantics, batch strategy |
@@ -74,7 +76,8 @@ Quick guide to when to read each reference file during skill development or debu
 
 Obvious flows (stage file → agent-prompts.md, all stages → config) are omitted. See individual stage files for their specific references.
 
-- **Stage 1 summary as context bus**: `stage-1-setup.md` writes `detected_domains`, `mcp_availability`, `cli_availability`, `mobile_mcp_available`, `plugin_availability`, `autonomy_policy`, `cli_circuit_state`, and `context_contributions` — consumed by all downstream coordinators
+- **Stage 1 summary as context bus**: `stage-1-setup.md` writes `project_setup`, `detected_domains`, `mcp_availability`, `cli_availability`, `mobile_mcp_available`, `plugin_availability`, `autonomy_policy`, `cli_circuit_state`, and `context_contributions` — consumed by all downstream coordinators
+- **Project setup enriches domain detection**: `stage-1-project-setup.md` is read by analysis and generator subagents dispatched from Section 1.5b; its `detected_languages` and `detected_frameworks` results merge into Section 1.6 domain detection via the `project_setup` block in Stage 1 summary
 - **Test count propagation**: `test_count_verified` (Stage 2) → `baseline_test_count` (Stage 3, independently verified) → `test_count_post_fix` (Stage 4)
 - **Research URL accumulation**: Stage 2 writes `research_urls_discovered` to summary flags; Stages 4 and 5 re-read these URLs for maximum Ref Dropout benefit
 - **CLI circuit state propagation**: Initialized in Stage 1 (Section 1.7b), propagated through Stages 2, 3, 4 summary flags, updated by CLI dispatches via `cli-dispatch-procedure.md`

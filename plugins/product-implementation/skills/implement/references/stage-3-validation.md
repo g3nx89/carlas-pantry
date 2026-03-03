@@ -26,6 +26,7 @@ additional_references:
 
 > **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
 > Read the prior stage summaries first to understand execution results.
+> **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL CLI dispatches (validation checks), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## 3.1 Validation Agent
 

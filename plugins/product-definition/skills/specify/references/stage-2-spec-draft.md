@@ -19,6 +19,7 @@ artifacts_written:
 4. **Gate evaluation**: GREEN = proceed silently, YELLOW/RED = signal `needs-user-input`
 5. **If gates require BA revision**: re-invoke BA then re-run gates (coordinator-internal loop)
 6. **NEVER interact with users directly**: signal `needs-user-input` in summary for orchestrator
+7. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For MPA-Challenge dispatch, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## Step 2.0: Validate Pre-Conditions
 

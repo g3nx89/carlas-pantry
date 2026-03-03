@@ -21,6 +21,17 @@
 |-------|------|----------|---------|----------|----------|
 | `flags.block_reason` | string\|null | Yes | `null` | Stage 1 | Orchestrator |
 | `flags.test_cases_available` | boolean | Yes | — | Stage 1 | Stages 2, 3 |
+| `project_setup` | map | Yes | `{status: "disabled"}` | Stage 1 | Stages 2, 4, 5 |
+| `project_setup.status` | enum | Yes | `"disabled"` | Stage 1 | All stages |
+| `project_setup.categories_applied` | array | Yes | `[]` | Stage 1 | Stage 6 |
+| `project_setup.build_system` | string\|null | Yes | `null` | Stage 1 | Stage 2 |
+| `project_setup.build_command` | string\|null | Yes | `null` | Stage 1 | Stage 2 |
+| `project_setup.test_command` | string\|null | Yes | `null` | Stage 1 | Stage 2 |
+| `project_setup.formatter` | string\|null | Optional | `null` | Stage 1 | Stage 2 |
+| `project_setup.active_hooks` | array | Optional | `[]` | Stage 1 | Stage 2 |
+| `project_setup.architecture_pattern` | string\|null | Optional | `null` | Stage 1 | Stages 2, 4 |
+| `project_setup.detected_languages` | array | Optional | `[]` | Stage 1 | Stages 2, 4, 5 |
+| `project_setup.detected_frameworks` | array | Optional | `[]` | Stage 1 | Stages 2, 4, 5 |
 | `detected_domains` | array | Yes | `[]` | Stage 1 | Stages 2, 4, 5 |
 | `cli_availability` | map | Yes | `{}` | Stage 1 | Stages 2, 3, 4, 5 |
 | `mcp_availability` | map | Yes | all false | Stage 1 | Stages 2, 3, 4, 5 |

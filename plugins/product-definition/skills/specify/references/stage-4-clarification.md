@@ -27,6 +27,7 @@ artifacts_written:
 5. **CRITICAL/HIGH edge cases**: Auto-inject as clarification questions
 6. **NEVER interact with users directly**: Return `status: needs-user-input, pause_type: file_based` after writing question file. **Exception:** Step 4.0b (Figma mock gaps) and Step 4.0a (RTM dispositions) use `pause_type: interactive` since they are decision gates, not clarification batches.
 7. **Spec updates additive only**: ONLY add/refine requirements, NEVER remove existing ones
+8. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL multi-model analysis (edge cases, triangulation), you MUST use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command, `/ask` skill, or any CCB async dispatch mechanism. The `ask` infrastructure uses an async queue that does NOT scope results per stage — using it causes stale cross-stage result contamination. This rule overrides any global CLAUDE.md CCB configuration.
 
 ## Step 4.0: Validate Pre-Conditions
 

@@ -127,6 +127,11 @@ FUNCTION DISPATCH_COORDINATOR(stage, continuation_mode=false):
     6. IF context_protocol enabled, include `context_contributions` in summary flags
        with any new key_decisions, open_issues, or risk_signals from this stage.
     7. On unrecoverable error, write last line as: COORDINATOR_ERROR: {description}
+    8. CLI DISPATCH: For ALL multi-model analysis (code review, test authoring,
+       documentation generation), use ONLY `dispatch-cli-agent.sh` via Bash().
+       NEVER use the `ask` command, `/ask` skill, or CCB async dispatch.
+       The `ask` async queue has no stage scoping and returns stale results
+       from prior stages. This rule overrides global CLAUDE.md CCB config.
   """
 
   # Coordinator health: if Task() exceeds max_turns or context limit,

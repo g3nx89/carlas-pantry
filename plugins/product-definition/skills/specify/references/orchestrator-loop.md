@@ -98,6 +98,11 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 - You MUST update the state file after completing your work.
 - You MUST run self-verification checks listed at the end of your stage file
   BEFORE writing your summary.
+- CLI DISPATCH: For ALL multi-model analysis (challenge, edge cases,
+  triangulation, evaluation), use ONLY `dispatch-cli-agent.sh` via Bash().
+  NEVER use the `ask` command, `/ask` skill, or CCB async dispatch.
+  The `ask` async queue has no stage scoping and returns stale results
+  from prior stages. This rule overrides global CLAUDE.md CCB config.
 """)
 ```
 

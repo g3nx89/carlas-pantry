@@ -560,3 +560,128 @@ Write `{FEATURE_DIR}/retrospective.md` with these sections. Skip any section whe
 - `{sections_config}` — The `retrospective.sections` block from `config/implementation-config.yaml`, rendered as YAML. Controls which sections the tech-writer includes. **Fallback if config unavailable:** All sections enabled (default `true`).
 
 **Agent behavior:** The tech-writer agent reads the provided structured data (KPI Report Card, transcript extract, stage summaries), synthesizes findings across all three data sources, and produces a narrative retrospective document. The agent respects section toggles from `{sections_config}` — disabled sections are omitted entirely. When transcript data is unavailable, the agent omits session behavior sections and produces a KPI-and-summary-focused retrospective. The agent uses traffic light indicators, tables, and evidence-based language throughout.
+
+---
+
+<!-- SECTION: Project Analysis Prompt -->
+## Project Analysis Prompt
+
+Used in Stage 1 Section 1.5b to analyze the target project's structure and existing Claude configuration. Dispatched as a throwaway `Task(subagent_type="general-purpose")` subagent.
+
+```markdown
+**Goal**: Analyze the project at {PROJECT_ROOT} to assess its structure, build system, existing Claude configuration, and configuration gaps. Cross-reference findings with the implementation plan to produce targeted improvement recommendations.
+
+## Instructions
+
+Read and follow the analysis checklist in `{PLUGIN_ROOT}/skills/implement/references/stage-1-project-setup.md`, Sections A through D.
+
+1. **Scan project structure** (Section A): Detect build system, languages, frameworks, test infrastructure, and code quality tools. Cap file reads at {max_files_to_scan} total.
+2. **Audit Claude configuration** (Section A.6): Read CLAUDE.md, .claude/settings.json, .mcp.json at PROJECT_ROOT. Inventory existing hooks by type, MCP servers, and CLAUDE.md sections present.
+3. **Score CLAUDE.md completeness** (Section C): Evaluate against the 6-section rubric. List missing sections.
+4. **Cross-reference with plan** (Section D): Use plan tech stack, architecture, and test strategy to determine which hooks, CLAUDE.md sections, and tools would benefit this specific implementation.
+5. **Generate recommendations**: For each category (CLAUDE.md, hooks, MCP servers, code quality), list ONLY improvements not already present. Do NOT recommend what already exists.
+6. **Write output**: Write the analysis to `{FEATURE_DIR}/.project-setup-analysis.local.md` using the format specified in Section D. Keep output under {output_token_budget} tokens.
+
+## Project Context
+
+PROJECT_ROOT: {PROJECT_ROOT}
+FEATURE_DIR: {FEATURE_DIR}
+
+### Plan Tech Stack
+{plan_tech_stack}
+
+### Plan Architecture
+{plan_architecture}
+
+### Plan Test Strategy
+{plan_test_strategy}
+
+## CRITICAL RULES
+
+- This is a READ-ONLY analysis. Do NOT create, modify, or delete any project files.
+- Do NOT recommend hooks that already exist (check .claude/settings.json first).
+- Do NOT recommend CLAUDE.md sections that are already present.
+- Do NOT recommend MCP servers that are already configured in .mcp.json.
+- Recommendations must be SPECIFIC to this project and plan — no generic advice.
+```
+
+**Variables:**
+- `{PROJECT_ROOT}` — Git repository root path. **Required — always available**
+- `{FEATURE_DIR}` — Path to feature spec directory. **Required — always available**
+- `{PLUGIN_ROOT}` — `$CLAUDE_PLUGIN_ROOT` resolved path. **Required — always available**
+- `{max_files_to_scan}` — From `config/implementation-config.yaml` `project_setup.analysis_budget.max_files_to_scan`. **Default:** `50`
+- `{output_token_budget}` — From `config/implementation-config.yaml` `project_setup.analysis_budget.output_token_budget`. **Default:** `3000`
+- `{plan_tech_stack}` — Tech stack section extracted from plan.md (loaded in Section 1.4). **Fallback:** `"No tech stack information available from plan.md."`
+- `{plan_architecture}` — Architecture section extracted from plan.md. **Fallback:** `"No architecture information available from plan.md."`
+- `{plan_test_strategy}` — Test approach from test-plan.md or plan.md. **Fallback:** `"No test strategy information available."`
+
+**Agent behavior:**
+1. The subagent reads `stage-1-project-setup.md` Sections A-D for detailed analysis instructions.
+2. Scans project root for build system markers, language files, framework indicators, test infrastructure, and code quality tools.
+3. Reads and evaluates existing Claude configuration files (CLAUDE.md, .claude/settings.json, .mcp.json).
+4. Cross-references detected project characteristics with the implementation plan to generate targeted recommendations.
+5. Writes a compact analysis file in the specified YAML+markdown format.
+6. The subagent MUST NOT modify any project files — read-only analysis only.
+
+---
+
+<!-- SECTION: Project Setup Generator Prompt -->
+## Project Setup Generator Prompt
+
+Used in Stage 1 Section 1.5b to generate configuration files based on the analysis and user-selected categories. Dispatched as a throwaway `Task(subagent_type="general-purpose")` subagent.
+
+```markdown
+**Goal**: Generate project configuration improvements for the selected categories based on the project analysis. Create hook scripts, CLAUDE.md additions, and write a proposal summary.
+
+## Instructions
+
+Read and follow the generator instructions in `{PLUGIN_ROOT}/skills/implement/references/stage-1-project-setup.md`, Sections E and F.
+
+1. **Pre-generation checklist** (Section E.1): Backup settings.json if configured, create .claude/hooks/ directory if needed.
+2. **For each selected category**, generate ONLY what is recommended in the analysis:
+   - **hooks**: Create shell scripts in `.claude/hooks/`, register in `.claude/settings.json` (Section E.2). Use hook templates from Section B of the reference file.
+   - **claude_md**: Append missing sections to CLAUDE.md with marker comments (Section E.3).
+   - **mcp_servers**: Write recommendations to proposal file (Section E.4). Do NOT auto-install.
+   - **code_quality**: Create config files if missing, write recommendations to proposal (Section E.5).
+3. **Write proposal file** (Section E.6): Write `{FEATURE_DIR}/.project-setup-proposal.local.md` summarizing all changes and rollback instructions.
+
+## Project Context
+
+PROJECT_ROOT: {PROJECT_ROOT}
+FEATURE_DIR: {FEATURE_DIR}
+
+### Analysis Results
+{analysis_content}
+
+### Selected Categories
+{selected_categories}
+
+### Plan Context
+{plan_context}
+
+## CRITICAL RULES — APPEND-ONLY SAFETY
+
+- NEVER overwrite existing files. Only CREATE new files or APPEND to existing ones.
+- NEVER delete existing hooks, MCP servers, or CLAUDE.md content.
+- Before modifying .claude/settings.json, create .claude/settings.json.bak (if backup_settings_json is true).
+- If a hook script with the same name already exists, SKIP it and log "Skipped: already exists".
+- CLAUDE.md additions MUST be wrapped in marker comments: `<!-- BEGIN: implement-skill-setup -->` / `<!-- END: implement-skill-setup -->`
+- Hook scripts MUST use `#!/usr/bin/env bash` and be POSIX-compatible (macOS + Linux).
+- Hook scripts that parse JSON input MUST check for `jq` availability and degrade gracefully.
+```
+
+**Variables:**
+- `{PROJECT_ROOT}` — Git repository root path. **Required — always available**
+- `{FEATURE_DIR}` — Path to feature spec directory. **Required — always available**
+- `{PLUGIN_ROOT}` — `$CLAUDE_PLUGIN_ROOT` resolved path. **Required — always available**
+- `{analysis_content}` — Full content of `.project-setup-analysis.local.md` (produced by the analysis subagent). **Required — always available when this prompt runs**
+- `{selected_categories}` — Comma-separated list of categories the user selected (e.g., `"claude_md, hooks"`). **Required — always available**
+- `{plan_context}` — 1-line summary of plan.md tech stack and architecture. **Fallback:** `"No plan context available."`
+
+**Agent behavior:**
+1. The subagent reads `stage-1-project-setup.md` Sections B, E, and F for hook templates and generator rules.
+2. Creates a backup of `.claude/settings.json` if configured and the file exists.
+3. For each selected category, generates the appropriate files following append-only safety rules.
+4. Registers new hooks in `.claude/settings.json` by reading, parsing, appending, and rewriting the JSON.
+5. Writes a comprehensive proposal file with applied changes, manual action items, and rollback instructions.
+6. The subagent MUST NOT overwrite existing configuration — append-only.

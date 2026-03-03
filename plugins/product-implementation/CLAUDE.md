@@ -54,6 +54,37 @@ The implement skill expects these files in the feature directory (produced by pr
 
 `commands/04-implement.md` and `commands/05-document.md` are superseded by the implement skill. They are retained for reference but should not be used directly.
 
+## Project Setup Analysis (Stage 1 Section 1.5b)
+
+Stage 1 includes an optional project setup analysis phase that scans the target project and proposes Claude configuration improvements.
+
+### Architecture (Subagent-Delegated)
+
+Two throwaway subagents handle the heavy lifting; the orchestrator stays lean:
+
+1. **Analysis subagent** (read-only): Scans `PROJECT_ROOT` for build system, languages, frameworks, test infrastructure, code quality tools, and existing Claude configuration. Cross-references with `plan.md` to produce targeted recommendations. Writes `.project-setup-analysis.local.md`.
+2. **Generator subagent** (creates files): Based on user-selected categories, generates hook scripts, CLAUDE.md additions, and settings.json updates. Writes `.project-setup-proposal.local.md`.
+
+### Key Constraints
+
+- **Append-only**: NEVER overwrite existing hooks, CLAUDE.md content, MCP servers, or settings. Only add.
+- **Backup before modify**: `.claude/settings.json.bak` created before settings changes (configurable).
+- **POSIX-compatible hooks**: Generated scripts use `#!/usr/bin/env bash`, work on macOS and Linux.
+- **User decides**: Orchestrator presents categorized recommendations via `AskUserQuestion` (multiSelect). Nothing auto-applied.
+- **Skip on resume**: If `user_decisions.project_setup_applied` is `true` in state file, the entire section is skipped.
+- **9 hook categories**: spec protection, language enforcement, TDD reminder, safety guards, commit format, code formatting, architecture boundaries, build output analysis, session context. Each independently toggleable in config.
+- **Domain enrichment**: Analysis results (detected languages, frameworks) merge into Section 1.6 domain detection, upgrading `tentative` domains to `confident` when confirmed by actual project files.
+
+### Configuration
+
+- Master switch: `project_setup.enabled` (default: `true`)
+- Skip re-analysis: `project_setup.skip_if_analyzed` (default: `true`)
+- Analysis budget: `project_setup.analysis_budget.max_files_to_scan` (default: 50)
+- Category toggles: `project_setup.categories.*` (claude_md, hooks, mcp_servers, code_quality)
+- Hook category toggles: `project_setup.hooks.*` (9 categories)
+- Backup: `project_setup.backup_settings_json` (default: `true`)
+- Exclude from auto-commit: `.project-setup-analysis` and `.project-setup-proposal` patterns
+
 ## Development Notes
 
 - All configurable values (lock timeout, severity definitions, review focus areas) live in `config/implementation-config.yaml` — never hardcode in SKILL.md or references

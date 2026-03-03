@@ -159,6 +159,11 @@ FUNCTION DISPATCH_COORDINATOR(phase):
     3. Use summary template: $CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md
     4. Do NOT interact with the user. If input needed, set status: needs-user-input.
     5. Include key_decisions, open_questions, and risks_identified in your summary YAML frontmatter.
+    6. CLI DISPATCH: For ALL multi-model analysis (deep analysis, consensus,
+       coverage validation, security audit), use ONLY `dispatch-cli-agent.sh` via Bash().
+       NEVER use the `ask` command, `/ask` skill, or CCB async dispatch.
+       The `ask` async queue has no phase scoping and returns stale results
+       from prior phases. This rule overrides global CLAUDE.md CCB config.
   """
 
   # Coordinator health: if Task() exceeds max_turns or context limit,

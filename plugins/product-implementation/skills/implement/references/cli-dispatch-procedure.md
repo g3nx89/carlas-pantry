@@ -15,6 +15,12 @@ config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (cli_dispa
 > Coordinators invoke this procedure instead of calling CLI agents directly.
 > CLI agents are dispatched as standalone Bash processes using `scripts/dispatch-cli-agent.sh`.
 
+> **ANTI-PATTERN — DO NOT USE `ask` FOR CLI DISPATCH:**
+> The `ask` command (CCB async dispatch from CLAUDE.md) must NEVER be used for multi-model
+> analysis in the implementation workflow. The async queue has no stage/integration scoping — calling
+> `ask codex` in Stage 4 may return stale results from a Stage 2 dispatch. ALWAYS use
+> `dispatch-cli-agent.sh` which is synchronous and writes results to dedicated output files.
+
 ## Parameters
 
 | Parameter | Type | Description |

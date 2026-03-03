@@ -26,6 +26,11 @@ if [[ -z "$CLI_NAME" || -z "$ROLE" || -z "$PROMPT_FILE" || -z "$OUTPUT_FILE" ]];
   exit 1
 fi
 
+# Resolve PROMPT_FILE to absolute path (prevents issues if child process changes cwd)
+if [[ "$PROMPT_FILE" != /* ]]; then
+  PROMPT_FILE="$(cd "$(dirname "$PROMPT_FILE")" && pwd)/$(basename "$PROMPT_FILE")"
+fi
+
 # --- Build CLI command ---
 RAW_OUTPUT="${OUTPUT_FILE}.raw"
 METRICS_FILE="${OUTPUT_FILE}.metrics.json"
@@ -45,23 +50,48 @@ else
   exit 3
 fi
 
-# Build the CLI invocation command
+# Build CLI invocation as a temp script to avoid bash -c quoting issues.
+# Each CLI command is written to a script file, which is then executed by the
+# platform-aware dispatch section. This eliminates the double-expansion problem
+# where quotes and $() inside CLI_CMD break when expanded in bash -c "$CLI_CMD".
+DISPATCH_SCRIPT="$(mktemp "${TMPDIR:-/tmp}/dispatch-XXXXXX.sh")"
+trap 'rm -f "$DISPATCH_SCRIPT"' EXIT
+
 case "$CLI_NAME" in
   codex)
-    CLI_CMD="codex exec --json -C $PROMPT_FILE"
+    # codex exec: "-" reads prompt from stdin. File redirection provides stdin
+    # even in background (&) execution mode where inherited stdin is disconnected.
+    cat > "$DISPATCH_SCRIPT" <<DSCRIPT
+#!/usr/bin/env bash
+codex exec --json -- - < '$PROMPT_FILE'
+DSCRIPT
     ;;
   gemini)
-    CLI_CMD="gemini --non-interactive --yolo --output-format json < $PROMPT_FILE"
+    # gemini: -p/--prompt triggers non-interactive (headless) mode.
+    # The -p value IS the prompt text. $(cat) passes file content as the argument.
+    # NOTE: --non-interactive does NOT exist (gemini v0.31+). Always use -p.
+    cat > "$DISPATCH_SCRIPT" <<'DSCRIPT_HEAD'
+#!/usr/bin/env bash
+DSCRIPT_HEAD
+    echo "gemini --yolo --output-format json -p \"\$(cat '$PROMPT_FILE')\"" >> "$DISPATCH_SCRIPT"
     ;;
   opencode)
-    OPENCODE_INSTRUCTION="${OPENCODE_INSTRUCTION:-Execute the analysis instructions in the attached file. Return your complete findings in the specified output format.}"
-    ESCAPED_INSTRUCTION=$(printf '%s' "$OPENCODE_INSTRUCTION" | sed "s/'/'\\\\''/g")
-    CLI_CMD="opencode run --format json -f $PROMPT_FILE '${ESCAPED_INSTRUCTION}'"
+    # opencode run: -f attaches file(s) but is an ARRAY flag that greedily
+    # consumes subsequent args. Use -- to separate options from the positional
+    # message, preventing the message from being eaten by -f.
+    cat > "$DISPATCH_SCRIPT" <<DSCRIPT
+#!/usr/bin/env bash
+opencode run --format json -f '$PROMPT_FILE' -- 'Execute the analysis instructions in the attached file. Return your complete findings in the specified output format.'
+DSCRIPT
     ;;
   *)
-    CLI_CMD="$CLI_NAME < $PROMPT_FILE"
+    cat > "$DISPATCH_SCRIPT" <<DSCRIPT
+#!/usr/bin/env bash
+$CLI_NAME < '$PROMPT_FILE'
+DSCRIPT
     ;;
 esac
+chmod +x "$DISPATCH_SCRIPT"
 
 # --- Platform-aware dispatch ---
 TIMED_OUT=false
@@ -72,7 +102,7 @@ if command -v setsid &>/dev/null && command -v timeout &>/dev/null; then
   DISPATCH_METHOD="setsid_timeout"
   set +e
   setsid timeout --signal=TERM --kill-after=10 "$TIMEOUT_SEC" \
-    bash -c "$CLI_CMD" > "$RAW_OUTPUT" 2>&1
+    "$DISPATCH_SCRIPT" > "$RAW_OUTPUT" 2>&1
   EXIT_CODE=$?
   set -e
 elif command -v gsetsid &>/dev/null && command -v gtimeout &>/dev/null; then
@@ -80,7 +110,7 @@ elif command -v gsetsid &>/dev/null && command -v gtimeout &>/dev/null; then
   DISPATCH_METHOD="gsetsid_gtimeout"
   set +e
   gsetsid gtimeout --signal=TERM --kill-after=10 "$TIMEOUT_SEC" \
-    bash -c "$CLI_CMD" > "$RAW_OUTPUT" 2>&1
+    "$DISPATCH_SCRIPT" > "$RAW_OUTPUT" 2>&1
   EXIT_CODE=$?
   set -e
 else
@@ -88,7 +118,7 @@ else
   DISPATCH_METHOD="set_m_fallback"
   set +e
   set -m
-  bash -c "$CLI_CMD" > "$RAW_OUTPUT" 2>&1 &
+  "$DISPATCH_SCRIPT" > "$RAW_OUTPUT" 2>&1 &
   CLI_PID=$!
   (
     sleep "$TIMEOUT_SEC"
@@ -105,8 +135,8 @@ else
   set -e
 fi
 
-# Check for timeout (exit code 124 from timeout command)
-if [[ "$EXIT_CODE" -eq 124 || "$EXIT_CODE" -eq 137 ]]; then
+# Check for timeout (124=timeout cmd, 137=SIGKILL/128+9, 143=SIGTERM/128+15 from set -m fallback)
+if [[ "$EXIT_CODE" -eq 124 || "$EXIT_CODE" -eq 137 || "$EXIT_CODE" -eq 143 ]]; then
   TIMED_OUT=true
   EXIT_CODE=2
 fi
@@ -122,13 +152,23 @@ PARSE_METHOD="none"
 SUMMARY_FOUND=false
 
 # Tier 1: jq JSON envelope extraction
+# Handles: single JSON (.message/.response), Codex JSONL (.item.text in item.completed events)
 if command -v jq &>/dev/null && [[ -s "$RAW_OUTPUT" ]]; then
-  jq -r '.message // .response // empty' "$RAW_OUTPUT" > "$OUTPUT_FILE" 2>/dev/null
+  # Try single-object envelope first (.message or .response)
+  jq -r '.message // .response // empty' "$RAW_OUTPUT" > "$OUTPUT_FILE" 2>/dev/null || true
   if [[ -s "$OUTPUT_FILE" ]] && [[ "$(head -c 1 "$OUTPUT_FILE")" != "{" ]]; then
     PARSE_TIER=1
     PARSE_METHOD="json_jq"
   else
-    : > "$OUTPUT_FILE"  # Clear for next tier
+    : > "$OUTPUT_FILE"  # Clear for next attempt
+  fi
+  # Try Codex JSONL format: extract .item.text from item.completed events
+  if [[ "$PARSE_TIER" -eq 0 ]]; then
+    jq -r 'select(.type == "item.completed") | .item.text // empty' "$RAW_OUTPUT" > "$OUTPUT_FILE" 2>/dev/null || true
+    if [[ -s "$OUTPUT_FILE" ]]; then
+      PARSE_TIER=1
+      PARSE_METHOD="json_jq_jsonl_codex"
+    fi
   fi
 fi
 
@@ -137,8 +177,8 @@ if [[ "$PARSE_TIER" -eq 0 ]] && command -v python3 &>/dev/null && [[ -s "$RAW_OU
   python3 -c "
 import re, sys
 text = open(sys.argv[1]).read()
-# Try .message first (Codex), then .response (Gemini)
-for field in ['message', 'response']:
+# Try .text (Codex JSONL), .message, .response
+for field in ['text', 'message', 'response']:
     m = re.search(r'\"' + field + r'\"\s*:\s*\"((?:[^\"\\\\]|\\\\.)*)\"', text, re.DOTALL)
     if m:
         val = m.group(1)
@@ -146,7 +186,7 @@ for field in ['message', 'response']:
         sys.stdout.write(val)
         sys.exit(0)
 sys.exit(1)
-" "$RAW_OUTPUT" > "$OUTPUT_FILE" 2>/dev/null
+" "$RAW_OUTPUT" > "$OUTPUT_FILE" 2>/dev/null || true
   if [[ -s "$OUTPUT_FILE" ]]; then
     PARSE_TIER=2
     PARSE_METHOD="json_python3_partial"
@@ -199,7 +239,7 @@ if [[ -n "$EXPECTED_FIELDS" ]] && [[ "$SUMMARY_FOUND" == "true" ]]; then
   done
 fi
 
-# Clean up raw output
+# Clean up raw output (temp script cleaned by trap)
 rm -f "$RAW_OUTPUT"
 
 # --- Metrics sidecar ---

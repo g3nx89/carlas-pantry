@@ -17,6 +17,7 @@ artifacts_written:
 3. **PROBLEM_CONTEXT is mandatory**: Every ThinkDeep call must include `problem_context` with "This is BUSINESS/PRD ANALYSIS, not code analysis."
 4. **Findings must be non-empty**: Every ThinkDeep call must have non-empty `findings`. Empty findings produce hallucinated analysis.
 5. **Absolute paths only**: All `relevant_files` must use absolute paths.
+6. **Multi-model dispatch: ONLY use PAL MCP tools**: For ALL ThinkDeep analysis, use `mcp__pal__thinkdeep`. NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## Part A: Deep Analysis (ThinkDeep)
 
