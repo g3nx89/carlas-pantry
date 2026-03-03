@@ -24,6 +24,7 @@
 | `project_setup` | map | Yes | `{status: "disabled"}` | Stage 1 | Stages 2, 4, 5 |
 | `project_setup.status` | enum | Yes | `"disabled"` | Stage 1 | All stages |
 | `project_setup.categories_applied` | array | Yes | `[]` | Stage 1 | Stage 6 |
+| `project_setup.categories_skipped` | array | Optional | `[]` | Stage 1 | Stage 6 |
 | `project_setup.build_system` | string\|null | Yes | `null` | Stage 1 | Stage 2 |
 | `project_setup.build_command` | string\|null | Yes | `null` | Stage 1 | Stage 2 |
 | `project_setup.test_command` | string\|null | Yes | `null` | Stage 1 | Stage 2 |

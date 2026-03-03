@@ -1,6 +1,6 @@
 # Agent Prompt Templates
 
-All 9 prompts in this file are used by coordinators to launch `developer` and `tech-writer` agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
+All 11 prompts in this file are used by coordinators to launch `developer`, `tech-writer`, and project-setup agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
 
 ## Common Variables
 
@@ -666,7 +666,7 @@ FEATURE_DIR: {FEATURE_DIR}
 - Before modifying .claude/settings.json, create .claude/settings.json.bak (if backup_settings_json is true).
 - If a hook script with the same name already exists, SKIP it and log "Skipped: already exists".
 - CLAUDE.md additions MUST be wrapped in marker comments: `<!-- BEGIN: implement-skill-setup -->` / `<!-- END: implement-skill-setup -->`
-- Hook scripts MUST use `#!/usr/bin/env bash` and be POSIX-compatible (macOS + Linux).
+- Hook scripts MUST use `#!/usr/bin/env bash` and be Bash-compatible (macOS + Linux). Avoid GNU-specific flags.
 - Hook scripts that parse JSON input MUST check for `jq` availability and degrade gracefully.
 ```
 

@@ -9,7 +9,12 @@ artifacts_read:
   - "plan.md"
   - "test-cases/ (if exists)"
   - "analysis/task-test-traceability.md (if exists)"
-artifacts_written: []
+artifacts_written:
+  - "{FEATURE_DIR}/.project-setup-analysis.local.md (conditional — Section 1.5b)"
+  - "{FEATURE_DIR}/.project-setup-proposal.local.md (conditional — Section 1.5b)"
+  - ".claude/hooks/*.sh (conditional — Section 1.5b)"
+  - ".claude/settings.json (conditional, merged — Section 1.5b)"
+  - "CLAUDE.md (conditional, appended — Section 1.5b)"
 agents: []
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
@@ -162,13 +167,13 @@ Skip this section entirely (set status to `"skipped"`) if ANY of:
 6. **If user selects categories** → Dispatch generator subagent (throwaway `Task(subagent_type="general-purpose")`):
    - Prompt: Use the **Project Setup Generator Prompt** from `agent-prompts.md`
    - Fill variables: `{PROJECT_ROOT}`, `{FEATURE_DIR}`, `{analysis_content}` (full analysis file content), `{selected_categories}` (user's choices), `{plan_context}` (1-line summary of plan.md tech stack and architecture)
-   - The subagent reads `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-1-project-setup.md` Sections E-F for generator instructions
+   - The subagent reads `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-1-project-setup.md` Sections B, E, and F for hook templates and generator instructions
    - The subagent creates hook scripts, appends CLAUDE.md, updates settings.json
    - The subagent writes `{FEATURE_DIR}/.project-setup-proposal.local.md`
 
 7. **If user selects "Other" or no categories** → set status to `"skipped"`, log "User skipped project setup", skip to Section 1.6.
 
-8. **Record decisions** in state file (immutable):
+8. **Record decisions** in state file (immutable). Note: If the state file does not yet exist (initial run), these decisions are recorded when the state file is created in Section 1.8:
    - `user_decisions.project_setup_applied: true`
    - `user_decisions.project_setup_categories: [{selected list}]`
 
@@ -528,6 +533,7 @@ summary: |
   Required files: tasks.md, plan.md. Optional files loaded: {list}.
   Expected files missing: {list or "none"}.
   Test cases: {available with N specs / not available}.
+  Project setup: {applied (N categories) / skipped / disabled}.
   {Resume status if applicable}.
 flags:
   block_reason: null

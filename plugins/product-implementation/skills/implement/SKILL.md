@@ -101,7 +101,7 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 
 | Stage | Delegation | Reference File | Agents Used | Prior Summaries | User Interaction | Checkpoint |
 |-------|-----------|----------------|-------------|-----------------|------------------|------------|
-| 1 | Inline | `stage-1-setup.md` | — | — | Policy question (1.9a) | SETUP |
+| 1 | Inline | `stage-1-setup.md` | — | — | Setup question (1.5b), Policy question (1.9a) | SETUP |
 | 2 | Coordinator | `stage-2-execution.md` | `developer`, `code-simplifier`, `uat-tester (CLI/gemini)` | stage-1 | Auto-resolve per policy (build/test) | EXECUTION |
 | 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 | Auto-resolve per policy (validation) | VALIDATION |
 | 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3+ (Tier A, with optional stances/convergence/CoVe), plugin (Tier B), CLI (Tier C) | stage-2, stage-3 | Auto-resolve per policy (findings) | QUALITY_REVIEW |

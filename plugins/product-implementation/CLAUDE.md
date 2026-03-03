@@ -69,7 +69,7 @@ Two throwaway subagents handle the heavy lifting; the orchestrator stays lean:
 
 - **Append-only**: NEVER overwrite existing hooks, CLAUDE.md content, MCP servers, or settings. Only add.
 - **Backup before modify**: `.claude/settings.json.bak` created before settings changes (configurable).
-- **POSIX-compatible hooks**: Generated scripts use `#!/usr/bin/env bash`, work on macOS and Linux.
+- **Bash-compatible hooks**: Generated scripts use `#!/usr/bin/env bash`, work on macOS and Linux. All hooks that parse JSON input include jq availability check with graceful degradation.
 - **User decides**: Orchestrator presents categorized recommendations via `AskUserQuestion` (multiSelect). Nothing auto-applied.
 - **Skip on resume**: If `user_decisions.project_setup_applied` is `true` in state file, the entire section is skipped.
 - **9 hook categories**: spec protection, language enforcement, TDD reminder, safety guards, commit format, code formatting, architecture boundaries, build output analysis, session context. Each independently toggleable in config.
