@@ -1,6 +1,6 @@
 ---
 name: code-simplifier
-model: opus
+model: sonnet
 description: Simplifies and refines recently modified code for clarity, consistency, and maintainability while preserving ALL functionality and passing ALL tests
 ---
 

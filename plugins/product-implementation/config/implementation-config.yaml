@@ -2,6 +2,60 @@
 # Single source of truth for all configurable values used by the implement skill.
 # Referenced by: skills/implement/SKILL.md and skills/implement/references/
 
+# Quality preset (replaces manual toggling of 40+ individual booleans)
+# Three tiers: minimal (fast prototyping), standard (recommended), comprehensive (full quality).
+# When null, the orchestrator asks the user at Stage 1 startup (Section 1.9b).
+# Resolution order: explicit config value > preset default > base default (false).
+# Referenced by: stage-1-setup.md Section 1.9b
+quality_preset: null    # null = ask at start; "minimal" | "standard" | "comprehensive"
+external_models: null   # null = ask at start; true (check CLI availability) | false (native only)
+
+# Quality preset definitions — documents what each tier enables.
+# These are READ-ONLY reference tables for the Stage 1 resolver.
+# Explicit config overrides always win over preset defaults.
+quality_presets:
+  minimal:
+    label: "Minimal"
+    description: "Fast prototyping — all optional quality features off"
+    features:
+      cove: false
+      stances: false
+      convergence: false
+      context_protocol: false
+      circuit_breaker: false
+    cli_features: {}     # No CLI options enabled regardless of external_models
+  standard:
+    label: "Standard (Recommended)"
+    description: "Balanced quality — core review features on, select CLI agents if external models available"
+    features:
+      cove: true
+      stances: true
+      convergence: true
+      context_protocol: true
+      circuit_breaker: true
+    cli_features:        # Only activated when external_models: true
+      test_author: true
+      spec_validator: true
+      ux_test_reviewer: true
+  comprehensive:
+    label: "Comprehensive"
+    description: "Maximum quality — all review features on, all available CLI agents"
+    features:
+      cove: true
+      stances: true
+      convergence: true
+      context_protocol: true
+      circuit_breaker: true
+    cli_features:        # Only activated when external_models: true
+      test_author: true
+      spec_validator: true
+      ux_test_reviewer: true
+      multi_model_review: true
+      fix_engineer: true
+      doc_reviewer: true
+      test_augmenter: true
+      ux_validator: true
+
 # Autonomy policy (issue resolution behavior)
 # Controls how the system handles findings, failures, and issues during execution.
 # When default_level is null, the orchestrator asks the user at Stage 1 startup.
@@ -90,7 +144,7 @@ quality_review:
   # Dispatches throwaway subagent to verify Critical/High findings against actual code.
   # Referenced by: stage-4-quality-review.md Section 4.3b
   cove:
-    enabled: false
+    enabled: true
     min_findings_trigger: 2           # Min Critical+High findings to trigger CoVe
     verification_questions:
       min: 3
@@ -99,7 +153,7 @@ quality_review:
   # Reviewer stance assignment for calibrated scoring (Stage 4)
   # Referenced by: stage-4-quality-review.md Section 4.2, agent-prompts.md
   stances:
-    enabled: false
+    enabled: true
     assignments:
       - stance: "advocate"
         prompt_extension: "Highlight code strengths, acknowledge good patterns, give benefit of doubt on ambiguous choices. Your role is to ensure genuine quality is recognized, not to inflate scores."
@@ -119,7 +173,7 @@ quality_review:
   # Convergence detection for reviewer agreement (Stage 4)
   # Referenced by: stage-4-quality-review.md Section 4.3a
   convergence:
-    enabled: false
+    enabled: true
     high_threshold: 0.70
     medium_threshold: 0.40
     keyword_count: 20
@@ -192,6 +246,12 @@ test_coverage:
     - "assertEquals\\(true,\\s*true\\)"
   # If placeholder-only test files >= this count, flag High; 1 file = Medium
   placeholder_file_threshold_high: 2
+  # Empty test body patterns — used by output-verifier (Step 2.5) and Stage 3 (check 13)
+  # Regex patterns for test method declarations to detect empty bodies.
+  empty_body_patterns:
+    kotlin: "@Test\\s+fun\\s+\\w+\\(\\)\\s*\\{\\s*\\}"
+    python: "def test_\\w+\\(self\\):\\s*pass"
+    js_ts: "(it|test)\\(['\"].*['\"],\\s*\\(\\)\\s*=>\\s*\\{\\s*\\}\\)"
 
 # Dev-skills integration (conditional skill injection)
 # Coordinators read detected_domains from Stage 1 summary and resolve applicable skills.
@@ -313,6 +373,13 @@ research_mcp:
     max_retries: 2               # Max MCP lookup attempts per build error
     escalation_after: 1          # Escalate to next tool after this many failed lookups
 
+# Figma integration (conditional — developer agents use figma-console MCP for design spec extraction and parity verification)
+# Referenced by: stage-1-setup.md Section 1.6g, stage-2-execution.md Step 2, stage-4-quality-review.md
+figma:
+  enabled: true                  # Set to false to skip Figma probing and all design handoff features
+  parity_threshold: 0.85         # Minimum figma_check_design_parity score to pass parity gate
+  auto_fix_below_threshold: true # If parity score < threshold, re-dispatch developer to fix discrepancies
+
 # Branch format
 branch:
   pattern: "feature/<number-padded-to-3-digits>-<kebab-case-title>"
@@ -418,7 +485,7 @@ cli_dispatch:
   # Cross-stage circuit breaker for CLI dispatch failures
   # Referenced by: stage-1-setup.md Section 1.7b, cli-dispatch-procedure.md
   circuit_breaker:
-    enabled: false
+    enabled: true
     consecutive_failure_threshold: 3
 
   # MCP tool budgets per CLI dispatch (advisory limits on MCP usage by CLI agents).
@@ -673,7 +740,7 @@ timestamps:
 # Context Pack Protocol — accumulated context propagation across stages
 # Referenced by: orchestrator-loop.md DISPATCH_COORDINATOR
 context_protocol:
-  enabled: false
+  enabled: true
   total_budget_tokens: 600  # Post-formatting validation: truncate lowest-priority items if total exceeds this
   category_budgets:
     decisions: 250
@@ -683,3 +750,49 @@ context_protocol:
     decisions: "keep_high_confidence_first"
     open_issues: "keep_highest_severity_first"
     risk_signals: "keep_highest_severity_first"
+
+# Per-phase delivery cycles — restructures workflow from linear (S1→S2→S3→S4→S5→S6)
+# to per-phase (S1 → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → final passes → S6).
+# Each phase gets validated, reviewed, and documented before proceeding to the next.
+# Set enabled: false to restore the original linear behavior.
+# Referenced by: orchestrator-loop.md (dispatch mode selection, phase loop)
+per_phase_review:
+  enabled: true                   # Master switch — false restores linear S1→S2→S3→S4→S5→S6
+  s3_per_phase: true              # Run completion validation per-phase (scoped to phase tasks/files)
+  s4_per_phase: true              # Run quality review per-phase (code quality applies to all domains)
+  s4_ui_only: false               # false = S4 runs for ALL phases; true = only UI phases get S4
+  s5_per_phase: true              # Run incremental documentation per-phase (API docs, component docs)
+  tier_b_per_phase: false         # Plugin review (Tier B) — save for final pass by default
+  tier_c_per_phase: false         # CLI multi-model review (Tier C) — save for final pass by default
+  final_review_pass: true         # Run full S3+S4 after all phases complete (cross-phase validation)
+  final_docs_pass: true           # Run S5 after all phases for cross-phase doc synthesis (overview, index)
+  figma_parity_gate: true         # Enable figma_check_design_parity per-phase for UI phases only
+
+# Native verification agents (Stage 2)
+# These are native Claude agents (not CLI-dispatched), grouped here alongside doc_judge
+# for consistency since all three are sonnet-model verification/generation agents.
+
+# Native test-writer agent — writes failing tests from test-case specs (Red phase)
+# Mutually exclusive with CLI test_author (Option H): if both enabled, CLI takes priority.
+# Referenced by: stage-2-execution.md Step 1.9
+native_test_writer:
+  enabled: true                   # Active when test_cases_available AND Option H not running
+  mutually_exclusive_with: "test_author"  # Never runs alongside CLI test author
+  fallback_to_developer: true     # If test-writer fails, developer falls back to full TDD
+
+# Output verification agent — runs after every phase regardless of test-writer
+# Referenced by: stage-2-execution.md Step 2.5
+output_verifier:
+  enabled: true                   # Runs after every phase
+  model: "sonnet"                 # Needs code comprehension for reliable assertion/spec detection
+  fail_action: "fix"              # "fix" (re-dispatch developer to fix) | "warn" (log and continue)
+
+# Documentation judge — LLM-as-a-judge for documentation accuracy verification
+# After tech-writer produces per-phase documentation, the doc-judge verifies it against
+# actual code: catches hallucinated APIs, wrong signatures, invented behaviors.
+# Referenced by: stage-5-documentation.md (per-phase mode)
+doc_judge:
+  enabled: true                   # Set to false to skip doc verification
+  model: "sonnet"                 # Needs code comprehension to detect hallucinated APIs
+  max_revision_cycles: 1          # Re-dispatch tech-writer once on FAIL
+  accuracy_threshold: 70          # Below this score → FAIL → triggers revision cycle

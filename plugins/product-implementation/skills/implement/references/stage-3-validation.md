@@ -28,6 +28,16 @@ additional_references:
 > Read the prior stage summaries first to understand execution results.
 > **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL CLI dispatches (validation checks), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
+## Phase Scope Mode
+
+When the coordinator prompt includes a `## Phase Scope` block, this stage is scoped to a SINGLE PHASE:
+- **Scope all checks** (Section 3.2) to only the phase's tasks, files, and test IDs
+- **Summary path**: write to the path specified in the Phase Scope block (e.g., `phase-{N}-stage-3-summary.md`)
+- **Prior summaries**: read `stage-1-summary.md` and the phase's `phase-{N}-stage-2-summary.md`
+- **Baseline test count**: still run the FULL test suite (not just phase tests) — the baseline must be project-wide
+
+When NO Phase Scope is present, this is a **full-project validation** (final pass after all phases). All 14 checks run across the entire implementation. Summary path: `final-stage-3-summary.md` or `stage-3-summary.md`.
+
 ## 3.1 Validation Agent
 
 Launch a `developer` agent for comprehensive validation using the prompt template from `agent-prompts.md` (Section: Completion Validation Prompt).
@@ -132,6 +142,14 @@ The validation agent verifies:
 10. **Stage 2 cross-validation** *(conditional — only if Stage 2 summary has `test_count_verified` in flags)*: Compare the independently verified `baseline_test_count` against Stage 2's `test_count_verified`. If the values differ, log a warning: "Test count discrepancy: Stage 2 reported {test_count_verified} but independent verification found {baseline_test_count}. Investigate possible agent reporting error." The `baseline_test_count` (independently verified) takes precedence.
 11. **Test quality gate** *(always runs)*: Scan all test files created or modified during implementation for tautological/placeholder assertions. Use patterns from `config/implementation-config.yaml` under `test_coverage.tautological_patterns`. For each test file: if ALL assertions match tautological patterns (no substantive assertions), flag the file. If flagged file count >= `placeholder_file_threshold_high` (default 2), flag as **High** severity: "Placeholder tests detected: {N} test file(s) contain only tautological assertions ({file_list})." If count > 0 but below threshold, flag as Medium.
 12. **API documentation alignment** *(advisory, optional — only if `{research_context}` is provided)*: Cross-check implemented API usage (method signatures, parameter types, return values) against the documentation excerpts in `{research_context}`. Flag discrepancies as **Low** severity (advisory). This check uses Context7 library docs when available. If `{research_context}` is absent, skip this check entirely.
+13. **Empty test body detection** *(always runs)*: Scan all test files for methods with zero `assert*/expect*/verify*/check*/should*` calls. Use patterns from `config/implementation-config.yaml` under `test_coverage.empty_body_patterns`. For each empty test body found, check if a corresponding spec exists in `test-cases/`:
+    - Spec exists + empty implementation → **Critical**: "Test {test_id} has spec with verifications but empty body — passes without verifying anything"
+    - No spec + empty implementation → **High**: "Empty test body: {method} in {file} — passes without verifying anything"
+    This extends check 11 (tautological patterns) to catch the specific failure mode of empty stubs that count as "passing".
+14. **DoD checklist enforcement** *(always runs)*: For each phase's Definition of Done section in tasks.md, verify that `- [ ]` (unchecked) items are satisfiable:
+    - Unchecked item references test IDs where those tests are empty (from check 13) → **Critical**: "DoD item '{text}' references test {id} which has empty body"
+    - Unchecked general criterion with no verifiable evidence → **High**: "DoD item '{text}' is unchecked and no implementation evidence found"
+    - All items checked `[X]` → PASS for this phase
 
 ## 3.3 Validation Report
 

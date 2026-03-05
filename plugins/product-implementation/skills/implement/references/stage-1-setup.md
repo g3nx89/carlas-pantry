@@ -362,6 +362,28 @@ plugin_availability:
   code_review: true    # or false
 ```
 
+## 1.6g Figma Availability Check [Cost: 1 MCP probe ~1-2s, skipped when no UI domains detected]
+
+Probe figma-console to determine if Figma Desktop Bridge is connected. This enables developer agents to extract structured design specs and verify implementation parity.
+
+### Procedure
+
+1. Read `detected_domains` from Section 1.6 output
+2. If no UI-related domains are detected (`compose`, `android`, `web_frontend` are absent from `detected_domains`) → set `figma_available: false`, skip to Section 1.7a
+3. Read `figma` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+4. If `figma.enabled` is `false` → set `figma_available: false`, skip to Section 1.7a
+5. **Probe Figma**: Call `figma_get_status`
+   - If call succeeds AND returns a connected status → set `figma_available: true`
+   - If call fails, times out, or returns disconnected → set `figma_available: false`, log warning: `"Figma Desktop Bridge not available — developer agents will implement from planning artifacts only (no structured design data)"`
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+figma_available: true    # or false
+```
+
 ## 1.7a CLI Availability Detection (CLI)
 
 Detect which external CLI tools are available for CLI dispatch. This step runs ONCE during Stage 1 and stores results for all downstream coordinators. It only executes when at least one CLI option is enabled in config.
@@ -517,6 +539,66 @@ This value is consumed by:
 - **Stage 4 coordinator**: extends the auto-decision matrix (Section 4.4) based on policy
 - **Stage 5 coordinator**: determines behavior on incomplete tasks (Section 5.1)
 
+## 1.9b Quality Configuration
+
+Determine the quality tier and external model availability. These two settings control dozens of downstream feature flags, replacing manual boolean toggling.
+
+### Procedure
+
+1. Read `quality_preset` from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+2. If `quality_preset` is `null`:
+   - Ask user via `AskUserQuestion`:
+     - **Question:** "What quality level should I use for this implementation?"
+     - **Header:** "Quality"
+     - **Options:**
+       1. **Standard (Recommended)** — "Core review features on, select CLI agents if available" (description from config: `quality_presets.standard.description`)
+       2. **Comprehensive** — "Maximum quality — all review features and CLI agents" (description from config: `quality_presets.comprehensive.description`)
+       3. **Minimal** — "Fast prototyping — all optional features off" (description from config: `quality_presets.minimal.description`)
+   - Map selection to preset key: "Standard" → `standard`, "Comprehensive" → `comprehensive`, "Minimal" → `minimal`
+
+3. Read `external_models` from config
+4. If `external_models` is `null` AND selected preset is NOT `minimal`:
+   - Ask user via `AskUserQuestion`:
+     - **Question:** "Should I use external AI models (Codex, Gemini, OpenCode) for review and testing?"
+     - **Header:** "Models"
+     - **Options:**
+       1. **Yes — check availability** — "Probe external CLIs and enable matching features from the preset"
+       2. **No — native only** — "Use only Claude agents, skip all CLI dispatches"
+   - Map selection: "Yes" → `true`, "No" → `false`
+5. If preset is `minimal`: set `external_models` to `false` (minimal never uses CLI agents)
+
+6. **Resolve effective feature flags** using three-tier precedence:
+   - For each feature in the selected preset's `features` map:
+     - If the feature has an **explicit value** already set in config (not matching base default) → keep explicit value
+     - Else → use preset default
+   - For each CLI feature in the preset's `cli_features` map:
+     - If `external_models` is `false` → skip (all CLI features stay as-is)
+     - If the CLI option has an **explicit `enabled: true`** in config → keep explicit value
+     - Else → use preset default
+   - Log the resolved configuration: `"Quality preset: {preset} | External models: {external_models} | Resolved: {summary of enabled features}"`
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter (see Section 1.10):
+
+```yaml
+quality_preset: "standard"           # or "minimal" or "comprehensive"
+external_models: true                # or false
+resolved_quality_config:
+  cove: true
+  stances: true
+  convergence: true
+  context_protocol: true
+  circuit_breaker: true
+  cli_features_enabled: ["test_author", "spec_validator", "ux_test_reviewer"]
+```
+
+### Impact
+
+- When `external_models` is `false`, Section 1.7a (CLI Availability Detection) is skipped entirely — no smoke tests run
+- The `resolved_quality_config` is the authoritative source for all downstream stages
+- Coordinators read `resolved_quality_config` from the Stage 1 summary, NOT individual config booleans
+
 ## 1.10 Write Stage 1 Summary
 
 After completing all setup steps, write the summary to `{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`:
@@ -552,6 +634,7 @@ resolved_libraries:         # from Section 1.6c
   - name: "{library_name}"
     library_id: "{context7_library_id}"
 private_doc_urls: [{list of private doc URLs}]  # from Section 1.6d
+figma_available: {true/false}  # from Section 1.6g (false if no UI domains, disabled, or Desktop Bridge not connected)
 mobile_mcp_available: {true/false}  # from Section 1.6e (false if UAT config disabled or no emulator)
 mobile_device_name: "{name or null}"  # from Section 1.6e (first available emulator device)
 plugin_availability:             # from Section 1.6f
@@ -569,6 +652,15 @@ project_setup:                  # from Section 1.5b (all null/disabled if projec
   detected_languages: [{list}]
   detected_frameworks: [{list}]
 autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user-selected or config default)
+quality_preset: "{standard/comprehensive/minimal}"  # from Section 1.9b (user-selected or config value)
+external_models: {true/false}  # from Section 1.9b (user-selected or config value)
+resolved_quality_config:        # from Section 1.9b (three-tier resolved flags)
+  cove: {true/false}
+  stances: {true/false}
+  convergence: {true/false}
+  context_protocol: {true/false}
+  circuit_breaker: {true/false}
+  cli_features_enabled: [{list of enabled CLI feature keys}]
 cli_circuit_state: null   # from Section 1.7b (null if disabled)
 # IF context_protocol.enabled:
 context_contributions:
@@ -600,9 +692,13 @@ context_contributions:
 - Extracted URLs: {count} documentation URLs from planning artifacts (or "disabled")
 - Resolved libraries: {count} Context7 library IDs pre-resolved (or "disabled")
 - Private doc URLs: {count} private documentation sources (or "disabled")
+- Figma: {available / not available} (or "no UI domains" or "disabled")
 - Mobile MCP: {available with device "{name}" / not available} (or "UAT disabled")
 - Plugin availability: code-review={true/false}
 - Autonomy policy: {full_auto/balanced/critical_only} ({user selected / from config default})
+- Quality preset: {standard/comprehensive/minimal} ({user selected / from config value})
+- External models: {true/false} ({user selected / from config value})
+- Resolved quality config: {summary of enabled features and CLI features}
 - CLI circuit breaker: {initialized for N CLIs / disabled}
 - Context protocol: {enabled with initial contributions / disabled}
 
@@ -664,9 +760,13 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] URL extraction: {N} URLs extracted from planning artifacts (or "disabled/skipped")
 - [{timestamp}] Library pre-resolution: {N} libraries resolved via Context7 (or "disabled/skipped")
 - [{timestamp}] Private docs: {N} private doc URLs discovered (or "disabled/skipped")
+- [{timestamp}] Figma probe: {available / not available / no UI domains / disabled}
 - [{timestamp}] Mobile MCP probe: {available with device "{name}" / not available / UAT disabled}
 - [{timestamp}] Plugin availability: code-review={true/false}
 - [{timestamp}] Autonomy policy: {level_key} ({source: user selected / config default})
+- [{timestamp}] Quality preset: {preset_key} ({source: user selected / config value})
+- [{timestamp}] External models: {true/false} ({source: user selected / config value})
+- [{timestamp}] Resolved quality config: {N features enabled, M CLI features enabled}
 - [{timestamp}] Circuit breaker: {initialized for N CLIs / disabled}
 - [{timestamp}] Context protocol: {enabled / disabled}
 - [{timestamp}] Lock acquired

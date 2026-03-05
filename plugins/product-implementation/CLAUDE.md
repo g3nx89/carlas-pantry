@@ -12,21 +12,29 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 
 ## Architecture
 
-### 6-Stage Workflow
+### Per-Phase Delivery Cycles (v3 Architecture)
+
+When `per_phase_review.enabled` is `true` (default), stages 2-5 run per-phase inside a loop:
+`S1 → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → optional final S3+S4 → final S5 → S6`
+
+When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `S1→S2→S3→S4→S5→S6`.
 
 | Stage | Name | Dispatch | Agent(s) |
 |-------|------|----------|----------|
 | 1 | Setup & Context Loading | Inline | None (orchestrator) |
-| 2 | Phase-by-Phase Execution | Coordinator | developer + code-simplifier + uat-tester (per phase, CLI/gemini) |
-| 3 | Completion Validation | Coordinator | developer |
-| 4 | Quality Review | Coordinator | 3x+ developer (parallel, conditionally extended) |
-| 5 | Feature Documentation | Coordinator | developer + tech-writer |
+| 2 | Phase-by-Phase Execution | Coordinator (per-phase) | test-writer + developer + output-verifier + code-simplifier + uat-tester (per phase, CLI/gemini) |
+| 3 | Completion Validation | Coordinator (per-phase + final) | developer |
+| 4 | Quality Review | Coordinator (per-phase + final) | 3x+ developer (parallel, conditionally extended) |
+| 5 | Feature Documentation | Coordinator (per-phase + final) | developer + tech-writer + doc-judge |
 | 6 | Implementation Retrospective | Coordinator | tech-writer |
 
 ### Agent Assignments
 
-- **developer** (`agents/developer.md`): model=opus — implementation, testing, validation, code review
-- **code-simplifier** (`agents/code-simplifier.md`): model=opus — post-phase code simplification for clarity and maintainability (Stage 2, optional via config)
+- **test-writer** (`agents/test-writer.md`): model=sonnet — spec-to-test translation, Red phase TDD (Stage 2, Step 1.9)
+- **developer** (`agents/developer.md`): model=sonnet — implementation, testing, validation, code review
+- **output-verifier** (`agents/output-verifier.md`): model=sonnet — output quality verification: empty test bodies, spec alignment, DoD compliance (Stage 2, Step 2.5)
+- **code-simplifier** (`agents/code-simplifier.md`): model=sonnet — post-phase code simplification for clarity and maintainability (Stage 2, optional via config)
+- **doc-judge** (`agents/doc-judge.md`): model=sonnet — documentation accuracy verification, LLM-as-a-judge (Stage 5, per-phase mode)
 - **tech-writer** (`agents/tech-writer.md`): model=sonnet — feature documentation, API guides, architecture updates
 
 ### Key Files
@@ -36,7 +44,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 - `skills/implement/references/stage-{1-6}-*.md` — Stage-specific coordinator instructions
 - `skills/implement/references/agent-prompts.md` — All agent prompt templates
 - `config/implementation-config.yaml` — Single source of truth for configurable values
-- `templates/implementation-state-template.local.md` — State file schema (v2)
+- `templates/implementation-state-template.local.md` — State file schema (v3)
 - `templates/stage-summary-template.md` — Inter-stage summary contract
 
 ### Required Input Artifacts
@@ -89,7 +97,7 @@ Two throwaway subagents handle the heavy lifting; the orchestrator stays lean:
 
 - All configurable values (lock timeout, severity definitions, review focus areas) live in `config/implementation-config.yaml` — never hardcode in SKILL.md or references
 - Severity definitions (critical/high/medium/low) are canonical in the config file; SKILL.md references them but does not redefine
-- State file is versioned (currently v2); any schema changes must include migration logic in `orchestrator-loop.md`
+- State file is versioned (currently v3); any schema changes must include migration logic in `orchestrator-loop.md` (chain: v1→v2→v3)
 - The 3 quality reviewers in Stage 4 have distinct focus areas defined in config; do not merge or change their specializations without updating the config
 - Cross-plugin naming: product-planning produces `contract.md` (singular), `test-cases/uat/` (not `visual/`), and test IDs like `E2E-*`, `INT-*`, `UT-*`, `UAT-*` (no `TC-` prefix) — always verify against the source plugin before adding new artifact references
 - Handoff contract values (expected files, test-case subdirectories, test ID patterns) are externalized in `config/implementation-config.yaml` under `handoff` — update config, not prose, when planning outputs change
@@ -107,6 +115,8 @@ Two throwaway subagents handle the heavy lifting; the orchestrator stays lean:
 - Convergence detection measures inter-reviewer agreement via Jaccard similarity on technical keywords (Stage 4, Section 4.3a). Opt-in via `quality_review.convergence.enabled` in config. Adapts consolidation strategy (standard merge / weighted merge with divergence flags / present all for manual review).
 - CLI circuit breaker tracks consecutive CLI dispatch failures across stages (Section 1.7b init, cli-dispatch-procedure.md gate). Opt-in via `cli_dispatch.circuit_breaker.enabled` in config. When threshold reached, circuit opens and dispatches skip directly to fallback.
 - Context pack protocol accumulates key decisions, open issues, and risk signals across stages (orchestrator-loop.md context pack builder). Opt-in via `context_protocol.enabled` in config. Each stage contributes `context_contributions` to its summary; the orchestrator compiles and injects a budget-controlled context pack into coordinator prompts.
+- Per-phase delivery cycles (`per_phase_review.enabled` in config, default `true`) restructure the workflow from linear `S1→S2→S3→S4→S5→S6` to `S1 → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → final passes → S6`. Each phase gets validated, reviewed, and documented before the next begins. Auto-commit moves from Stage 2 coordinator (Step 4.5) to orchestrator phase loop. Set `per_phase_review.enabled: false` to restore linear behavior.
+- Doc-judge (LLM-as-a-judge, `doc_judge.enabled` in config) verifies documentation accuracy against actual code after each per-phase tech-writer dispatch (Stage 5 Section 5.2b). Catches hallucinated APIs, wrong signatures, and invented behaviors. One revision cycle on failure.
 
 ## Retrospective & KPI (Stage 6)
 

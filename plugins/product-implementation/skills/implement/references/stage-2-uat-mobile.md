@@ -14,6 +14,16 @@
 
 All availability flags come from Stage 1 summary unless noted.
 
+When any gate fails, log a structured warning identifying the specific gate and fix:
+
+| Gate | Fail Condition | Warning Message |
+|------|---------------|-----------------|
+| 1 | `uat_execution.enabled` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: master switch disabled. Fix: set uat_execution.enabled: true in config.` |
+| 2 | `uat_mobile_tester.enabled` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: CLI dispatch disabled. Fix: set cli_dispatch.stage2.uat_mobile_tester.enabled: true in config.` |
+| 3 | `cli_availability.gemini` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: Gemini CLI not available. Fix: install Gemini CLI and verify with 'gemini --version'.` |
+| 4 | `mobile_mcp_available` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: mobile-mcp not reachable. Fix: start Genymotion emulator and verify mobile-mcp MCP server is running.` |
+| 5 | Phase not relevant | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: no UAT specs or UI files detected. Fix: add UAT-* test IDs to phase tasks or ensure file paths match UI domain indicators.` |
+
 ### Non-Skippable Gate Check
 
 Before skipping UAT, check if `"stage2.uat_mobile_tester"` appears in `cli_dispatch.non_skippable_gates` from config. If it does:

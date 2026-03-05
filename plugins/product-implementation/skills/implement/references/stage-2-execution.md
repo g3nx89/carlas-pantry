@@ -21,11 +21,14 @@ artifacts_written:
   - "tasks.md (updated with [X] marks)"
   - ".implementation-state.local.md (updated phases)"
   - "test files (conditional — created by CLI test author in Step 1.8 if enabled)"
+  - "test files (conditional — created by native test-writer in Step 1.9 if enabled)"
   - "test files (conditional — created by CLI test augmenter in Section 2.1a if enabled)"
   - "source files (conditional — simplified by code-simplifier in Step 3.5 if enabled)"
   - ".uat-evidence/ (conditional — screenshots from UAT mobile testing in Step 3.7 if enabled)"
 agents:
+  - "product-implementation:test-writer"
   - "product-implementation:developer"
+  - "product-implementation:output-verifier"
   - "product-implementation:code-simplifier"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
@@ -169,6 +172,45 @@ Before launching the developer agent, generate executable tests from test-case s
 
 Write boundaries enforced per `cli-dispatch-procedure.md` — the coordinator verifies post-dispatch that the CLI agent wrote only to test directories and did not create or modify source files.
 
+### Step 1.9: Native Test-Writer Agent (Optional)
+
+> **Conditional**: Only runs when ALL of:
+>   1. `native_test_writer.enabled` is `true` in config
+>   2. `test_cases_available` is `true` (from Stage 1 summary)
+>   3. Step 1.8 (CLI Test Author) did NOT run for this phase (mutually exclusive)
+> If any condition is false, skip to Step 2.
+
+Before launching the developer agent, generate executable failing tests from test-case specifications using the native test-writer agent. This creates TDD targets that the developer agent must make pass.
+
+#### Procedure
+
+1. **Identify relevant test-case specs**: Extract test IDs from current phase task descriptions. Map test IDs to spec files in `test-cases/{level}/` (e.g., `UT-001` → `test-cases/unit/UT-001.md`)
+2. **If no relevant specs found** for this phase: skip to Step 2 (developer writes its own tests)
+3. **Dispatch test-writer agent**:
+   ```
+   Task(subagent_type="product-implementation:test-writer")
+   ```
+   Using the Test Writing Prompt from `agent-prompts.md`. Prefill variables:
+   - `{phase_name}` — current phase name
+   - `{FEATURE_DIR}`, `{TASKS_FILE}` — from Stage 1 summary
+   - `{test_specs_summary}` — from Stage 1 summary "Test Specifications" section
+   - `{test_cases_dir}` — `{FEATURE_DIR}/test-cases/`
+   - `{traceability_file}` — `{FEATURE_DIR}/analysis/task-test-traceability.md` or fallback
+   - `{context_summary}` — from Stage 1 summary
+   - `{skill_references}` — resolved in Section 2.0
+   - `{research_context}` — resolved in Section 2.0a
+4. **Verify test files**: Confirm the agent created test files on disk
+5. **Run test suite**: All new tests should FAIL (Red phase confirmation)
+   - If any test passes unexpectedly: log warning (may be tautological)
+   - If tests don't compile: pass compilation errors as `{test_compilation_notes}` to developer in Step 2
+6. **Update Step 2 prompt**: When pre-generated tests exist, add to `{context_summary}`:
+   - Pre-generated test file locations
+   - `"Pre-generated test files exist at: {list}. Make these tests PASS. You may adjust imports/setup but do NOT change assertions or remove tests."`
+
+#### Fallback
+
+If the test-writer agent fails AND `native_test_writer.fallback_to_developer` is `true` in config, skip to Step 2 — the developer agent falls back to full TDD (writes its own tests).
+
 ### Step 2: Launch Developer Agent
 
 Launch a single `developer` agent for the entire phase using the prompt template from `agent-prompts.md` (Section: Phase Implementation Prompt). The agent handles all tasks within the phase internally, including sequencing of parallel `[P]` tasks. Dispatch one agent per phase, not one agent per task.
@@ -188,6 +230,30 @@ Task(subagent_type="product-implementation:developer")
 - `{test_cases_dir}` — If Stage 1 summary has `test_cases_available: true`, set to `{FEATURE_DIR}/test-cases/`. Otherwise set to `"Not available"`.
 - `{traceability_file}` — If `analysis/task-test-traceability.md` was loaded per Stage 1 summary, set to `{FEATURE_DIR}/analysis/task-test-traceability.md`. Otherwise set to `"Not available"`.
 - `{skill_references}` — Resolved in Section 2.0 above. Same value reused for all phases within this Stage 2 dispatch.
+- `{figma_context}` — If `figma_available` is `true` (from Stage 1 summary) AND the current phase has UI tasks (task file paths match UI domain indicators), build the Figma context block:
+
+  ```markdown
+  When Figma is available, follow this workflow for EVERY UI component:
+
+  1. EXTRACT SPEC: Call figma_get_component_for_development(nodeId) to get structured
+     layout, spacing, typography, and colors. Use figma_get_variables(format="filtered")
+     for design tokens. Use figma_execute with Plugin API for text content extraction.
+     NEVER guess visual properties from prose descriptions.
+
+  2. IMPLEMENT FROM DATA: Use the structured JSON values directly — exact dp values for
+     spacing, exact sp values for typography, exact color tokens.
+
+  3. VERIFY PARITY: After implementation, call figma_check_design_parity to get a scored
+     diff. Fix any discrepancies until parity score >= threshold.
+
+  Anti-patterns:
+  - NEVER use figma_take_screenshot for validation (stale REST cache) — use figma_capture_screenshot
+  - ALWAYS call figma_get_status first to verify Desktop Bridge connection
+  - NEVER call figma_get_variables(format="full") — use format="summary" then "filtered"
+  - NEVER guess visual properties from prose when Figma tools are available — the data is structured JSON
+  ```
+
+  If `figma_available` is `false` OR phase has no UI tasks → use fallback: `"Figma not available — implement from planning artifacts (spec.md, design.md). Use best judgment for visual properties not specified in planning docs."`
 
 ### Step 3: Verify Phase Completion
 
@@ -203,6 +269,45 @@ After agent returns, verify:
 If verification fails:
 - For sequential task failure: **Halt execution**. Report which task failed and why.
 - For parallel task `[P]` failure: Continue with successful tasks, collect failures.
+
+### Step 2.5: Output Verification (Optional)
+
+> **Conditional**: Only runs when `output_verifier.enabled` is `true` in config. If disabled, skip to Step 3.5.
+> Note: The verifier runs regardless of whether the test-writer ran — it also verifies developer-written tests.
+
+After the developer agent completes and tests pass, dispatch the output-verifier to check test quality, spec alignment, DoD compliance, and write boundaries.
+
+#### Procedure
+
+1. **Collect verification inputs**:
+   - `{test_files_list}` — test files created/modified in this phase (from git diff and Step 1.9 output)
+   - `{source_files_list}` — source files created/modified by developer (from git diff)
+
+2. **Dispatch output-verifier agent**:
+   ```
+   Task(subagent_type="product-implementation:output-verifier")
+   ```
+   Using the Output Verification Prompt from `agent-prompts.md`. Prefill variables:
+   - `{phase_name}`, `{FEATURE_DIR}`, `{TASKS_FILE}` — from Stage 1 summary
+   - `{test_cases_dir}` — `{FEATURE_DIR}/test-cases/` or `"Not available"`
+   - `{test_files_list}`, `{source_files_list}` — collected above
+
+3. **Process results**:
+   - Parse the structured YAML output from the verifier
+   - If `verification_result: PASS` → log success, proceed to Step 3.5
+   - If `verification_result: FAIL`:
+     - Read `output_verifier.fail_action` from config:
+       - `"fix"` → re-dispatch developer agent with findings to fix (one retry). If still FAIL after retry, log and continue.
+       - `"warn"` → log all findings as warnings, continue to Step 3.5
+     - Record findings in phase-level tracking
+
+4. **Track metrics**: Record in phase-level tracking:
+   - `verification_ran: true`
+   - `verification_result: PASS | FAIL`
+   - `empty_tests_found: {N}`
+   - `missing_test_ids: [{list}]`
+
+Latency: ~5-15s dispatch overhead + 15-60s verification execution per phase.
 
 ### Step 3.5: Code Simplification (Optional)
 
@@ -317,6 +422,8 @@ Latency: ~3-10 minutes per relevant phase.
    ```
 
 ### Step 4.5: Auto-Commit Phase
+
+> **Note**: When `per_phase_review.enabled` is `true` (the default), the auto-commit is owned by the **orchestrator** (after S2→S3→S4→S5 all complete for the phase). In this mode, skip this step — the orchestrator handles the commit at the end of the phase loop iteration. This step only runs when `per_phase_review.enabled` is `false` (linear mode).
 
 After updating progress, optionally commit the phase's changes.
 
@@ -469,6 +576,13 @@ flags:
     # key_decisions: phase completion decisions, build/test strategy choices
     # open_issues: unresolved build warnings, deferred test failures
     # risk_signals: flaky tests, high-complexity files touched, coverage gaps
+  output_verification_stats: null # null if output_verifier.enabled is false.
+    # When enabled, replace null with an object containing these keys:
+    # phases_verified: {N}        — Phases where verification ran
+    # phases_passed: {N}          — Phases where verification_result was PASS
+    # phases_failed: {N}          — Phases where verification_result was FAIL
+    # total_empty_tests: {N}      — Sum of empty_tests_found across all phases
+    # total_missing_test_ids: []  — Union of missing_test_ids across all phases
   uat_results: null              # null if UAT mobile testing disabled or not applicable for any phase.
     # When enabled and run on at least one phase, replace null with an object containing these keys:
     # phases_tested: {N}           — Phases where UAT ran successfully

@@ -28,6 +28,19 @@ additional_references:
 > Read the prior stage summaries to understand what was implemented and validated.
 > **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL Tier C CLI dispatches (correctness, security, domain, UX reviewers), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
+## Phase Scope Mode
+
+When the coordinator prompt includes a `## Phase Scope` block, this stage reviews ONLY the specified phase's modified files:
+- **Review scope**: only files modified in this phase (from the phase's Stage 2 summary or git diff)
+- **Summary path**: write to the path specified in the Phase Scope block (e.g., `phase-{N}-stage-4-summary.md`)
+- **Prior summaries**: read `phase-{N}-stage-2-summary.md` and `phase-{N}-stage-3-summary.md`
+- **Tier A (native reviewers)**: always runs per-phase — code quality review applies to all domains
+- **Figma parity gate**: only for phases with UI tasks AND `figma_available: true` (from Stage 1 summary). When `per_phase_review.figma_parity_gate` is `true`, call `figma_check_design_parity` after reviewing UI components.
+- **Tier B (plugin review)**: per-phase only when `per_phase_review.tier_b_per_phase` is `true`, otherwise save for final pass
+- **Tier C (CLI multi-model)**: per-phase only when `per_phase_review.tier_c_per_phase` is `true`, otherwise save for final pass
+
+When NO Phase Scope is present, this is a **full-project review** (final pass). All tiers run across the entire implementation. Summary path: `final-stage-4-summary.md` or `stage-4-summary.md`.
+
 ## 4.0 Feature Interaction Matrix
 
 When multiple optional features are enabled (stances, convergence, confidence scoring, CoVe), they interact. This matrix shows processing order and pairwise interactions.

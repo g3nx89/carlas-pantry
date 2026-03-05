@@ -5,62 +5,141 @@
 
 ## Dispatch Loop
 
-1. **Read state**: Read `{FEATURE_DIR}/.implementation-state.local.md`. If `state.version == 1` or missing, migrate to v2 (see Migration below).
+1. **Read state**: Read `{FEATURE_DIR}/.implementation-state.local.md`. If `state.version < 3`, migrate (see Migration below).
 
-2. **Read config**: Read `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`. Build `dispatch_table` from SKILL.md Stage Dispatch Table.
+2. **Read config**: Read `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`. Build `dispatch_table` from SKILL.md Stage Dispatch Table. Read `per_phase_review` section.
 
-3. **Iterate stages** (1 through 6): For each stage, execute steps 4-10.
+3. **Stage 1** (inline): If `state.stage_summaries["1"]` is null, execute Stage 1 inline per `stage-1-setup.md`. Write summary. Set `state.stage_summaries["1"] = path`. If already done, skip.
 
-4. **Skip check**: If `state.stage_summaries[stage] != null`, skip (already done). Proceed to next stage.
+4. **Determine dispatch mode**: Read `per_phase_review.enabled` from config (default: `true`).
+   - If `true` → execute **Phase Loop** (step 5)
+   - If `false` → execute **Linear Mode** (step 5L)
 
-5. **Dispatch**: Use the delegation type to determine action:
+### Phase Loop (default — per_phase_review.enabled: true)
 
-   | Delegation | Action |
-   |-----------|--------|
-   | `inline` | Execute stage logic directly (Stage 1 only). Write summary to `{FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md`. |
-   | `coordinator` | Call `DISPATCH_COORDINATOR(stage)` (see below). |
+5. **Phase Loop**: For each phase in `state.phases_remaining` (in order):
 
-6. **Validate summary**: Read `{FEATURE_DIR}/.stage-summaries/stage-{stage}-summary.md`. Check required fields: `stage`, `status`, `checkpoint`, `artifacts_written`, `summary`.
-   - If file missing → `CRASH_RECOVERY(stage)`
-   - If validation fails → apply infrastructure failure handling per autonomy policy:
+   a. Set `state.current_phase = phase`. Extract phase index N from phase name (e.g., "Phase 3: Integration" → N=3).
 
-     | Policy infrastructure action | Behavior |
-     |------------------------------|----------|
-     | `retry_then_continue` | Retry stage once, then continue with degraded summary |
-     | `retry_then_ask` | Retry stage once, then ask user: retry / continue / abort |
-     | *(no policy set)* | Ask user: retry / continue / abort |
+   b. **Stage 2** (per-phase): If `state.phase_stages[phase].s2` != `"completed"`:
+      - Set `state.phase_stages[phase].s2 = "in_progress"`. Write state.
+      - `DISPATCH_COORDINATOR(stage=2, phase_scope=phase)`
+      - `VALIDATE_AND_HANDLE("phase-{N}-stage-2-summary.md", stage=2, phase=phase)`
+      - Set `state.phase_stages[phase].s2 = "completed"`
 
-   - **Cumulative failure check**: After setting `status=failed` or degraded summary, increment `state.orchestrator.coordinator_failures`. If `coordinator_failures >= config.orchestrator.max_coordinator_failures` (default: 3), halt with diagnostic: `"Cumulative coordinator failures ({N}) exceeded threshold. Review system health before continuing."`
+   c. **Stage 3** (per-phase, conditional): If `per_phase_review.s3_per_phase` is `true` AND `state.phase_stages[phase].s3` != `"completed"`:
+      - Set `state.phase_stages[phase].s3 = "in_progress"`. Write state.
+      - `DISPATCH_COORDINATOR(stage=3, phase_scope=phase)`
+      - `VALIDATE_AND_HANDLE("phase-{N}-stage-3-summary.md", stage=3, phase=phase)`
+      - Set `state.phase_stages[phase].s3 = "completed"`
 
-7. **Handle needs-user-input**: If `summary.status == "needs-user-input"`:
-   - When autonomy policy is active, most needs-user-input cases are resolved INSIDE the coordinator. If a coordinator still sets this status, it means (a) the policy doesn't cover this case, or (b) auto-resolution failed. In both cases, the orchestrator falls through to asking the user.
-   - Stage 4 applies an auto-decision matrix internally (see `stage-4-quality-review.md` Section 4.4). Low-severity-only findings are auto-accepted — the orchestrator sees `status=completed`, not `needs-user-input`.
-   - Ask user the question from `summary.flags.block_reason`.
-   - Write answer to `{FEATURE_DIR}/.stage-summaries/stage-{stage}-user-input.md`.
-   - Re-dispatch coordinator (coordinator reads user-input file).
-   - Re-read summary.
+   d. **Stage 4** (per-phase, conditional): If `per_phase_review.s4_per_phase` is `true` AND `state.phase_stages[phase].s4` != `"completed"`:
+      - Set `state.phase_stages[phase].s4 = "in_progress"`. Write state.
+      - `DISPATCH_COORDINATOR(stage=4, phase_scope=phase)`
+      - `VALIDATE_AND_HANDLE("phase-{N}-stage-4-summary.md", stage=4, phase=phase)`
+      - If S4 review requests fixes → re-dispatch S2 for same phase (fix loop), then re-run S3+S4
+      - Set `state.phase_stages[phase].s4 = "completed"`
 
-8. **Handle failed**: If `summary.status == "failed"`:
+   e. **Stage 5** (per-phase, conditional): If `per_phase_review.s5_per_phase` is `true` AND `state.phase_stages[phase].s5` != `"completed"`:
+      - Set `state.phase_stages[phase].s5 = "in_progress"`. Write state.
+      - `DISPATCH_COORDINATOR(stage=5, phase_scope=phase)`
+      - `VALIDATE_AND_HANDLE("phase-{N}-stage-5-summary.md", stage=5, phase=phase)`
+      - Set `state.phase_stages[phase].s5 = "completed"`
 
-   | Policy infrastructure action | Behavior |
-   |------------------------------|----------|
-   | `retry_then_continue` | Retry once; if still failed, skip stage and continue |
-   | `retry_then_ask` | Retry once; if still failed, ask user: retry / skip / abort |
-   | *(no policy set)* | Ask user: retry / skip / abort |
+   f. Move phase from `phases_remaining` to `phases_completed`. Set `state.current_phase = null`.
 
-   If user chooses "abort": `RELEASE_LOCK` and halt.
+   g. **Auto-Commit Phase**: Follow auto-commit dispatch procedure (`auto-commit-dispatch.md`) with `template_key=phase_complete`, `substitution_vars={feature_name=FEATURE_NAME, phase_name=current_phase_name}`, `skip_target=next phase`, `summary_field=append to commits_made`.
 
-9. **Update state**: Set `state.stage_summaries[stage] = summary_path`. Set `state.current_stage = next_stage`. Update checkpoint timestamp. Write state.
+   h. Update `state.last_checkpoint`. Write state.
 
-10. **Continue**: Proceed to next stage (step 3).
+6. **Final Passes** (after all phases complete):
+
+   a. **Final Review Pass** (optional): If `per_phase_review.final_review_pass` is `true`:
+      - `DISPATCH_COORDINATOR(stage=3, phase_scope=null)` → writes `final-stage-3-summary.md`
+      - `VALIDATE_AND_HANDLE("final-stage-3-summary.md", stage=3, phase=null)`
+      - `DISPATCH_COORDINATOR(stage=4, phase_scope=null)` → writes `final-stage-4-summary.md`
+      - `VALIDATE_AND_HANDLE("final-stage-4-summary.md", stage=4, phase=null)`
+
+   b. **Final Documentation Pass**: If `per_phase_review.final_docs_pass` is `true`:
+      - `DISPATCH_COORDINATOR(stage=5, phase_scope=null)` → writes `final-stage-5-summary.md`
+      - `VALIDATE_AND_HANDLE("final-stage-5-summary.md", stage=5, phase=null)`
+      - Lock release happens inside Stage 5 coordinator (same as current behavior)
+
+   c. **Stage 6** (retrospective): `DISPATCH_COORDINATOR(stage=6)`. Validate summary.
+
+### Linear Mode (per_phase_review.enabled: false — backward compatible)
+
+5L. **Iterate stages** (2 through 6): For each stage, execute steps 6L-8L. This restores the original behavior where S2 processes all phases, then S3/S4/S5 run once across the entire implementation.
+
+6L. **Skip check**: If `state.stage_summaries[stage] != null`, skip (already done).
+
+7L. **Dispatch**: `DISPATCH_COORDINATOR(stage=stage, phase_scope=null)`. Summary path: `stage-{N}-summary.md`.
+
+8L. **Validate and handle**: `VALIDATE_AND_HANDLE("stage-{N}-summary.md", stage=stage, phase=null)`. Update `state.stage_summaries[stage]`. Set `state.current_stage = next_stage`.
+
+### Shared: VALIDATE_AND_HANDLE
+
+```
+FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
+  summary_file = "{FEATURE_DIR}/.stage-summaries/{summary_path}"
+  summary = READ(summary_file)
+
+  # Validate required fields
+  IF summary_file missing → CRASH_RECOVERY(stage, phase)
+  IF validation fails → apply infrastructure failure handling per autonomy policy:
+    | Policy infrastructure action | Behavior |
+    |------------------------------|----------|
+    | `retry_then_continue` | Retry stage once, then continue with degraded summary |
+    | `retry_then_ask` | Retry once, then ask user: retry / continue / abort |
+    | *(no policy set)* | Ask user: retry / continue / abort |
+
+  # Cumulative failure check
+  IF status=failed OR degraded:
+    state.orchestrator.coordinator_failures += 1
+    IF coordinator_failures >= config.orchestrator.max_coordinator_failures (default: 3):
+      HALT: "Cumulative coordinator failures ({N}) exceeded threshold."
+
+  # Handle needs-user-input
+  IF summary.status == "needs-user-input":
+    # Autonomy policy already attempted inside coordinator. This is a fallthrough.
+    Ask user the question from summary.flags.block_reason
+    Write answer to "{FEATURE_DIR}/.stage-summaries/{summary_path_base}-user-input.md"
+    Re-dispatch coordinator with continuation_mode=true
+    Re-read summary
+
+  # Handle failed
+  IF summary.status == "failed":
+    | Policy infrastructure action | Behavior |
+    |------------------------------|----------|
+    | `retry_then_continue` | Retry once; if still failed, skip and continue |
+    | `retry_then_ask` | Retry once; if still failed, ask: retry / skip / abort |
+    | *(no policy set)* | Ask: retry / skip / abort |
+    IF user chooses "abort": RELEASE_LOCK and HALT
+```
 
 ## Coordinator Dispatch
 
 ```
-FUNCTION DISPATCH_COORDINATOR(stage, continuation_mode=false):
+FUNCTION DISPATCH_COORDINATOR(stage, phase_scope=null, continuation_mode=false):
   stage_file = dispatch_table[stage].file
-  prior_summaries = dispatch_table[stage].prior_summaries
   checkpoint = dispatch_table[stage].checkpoint
+
+  # Determine summary path and prior summaries based on phase_scope
+  IF phase_scope IS NOT NULL:
+    phase_index = EXTRACT_INDEX(phase_scope)  # "Phase 3: Integration" → 3
+    summary_path = "phase-{phase_index}-stage-{stage}-summary.md"
+    # Per-phase prior summaries (phase-scoped chain)
+    prior_summaries = ["stage-1-summary.md"]  # Always include Stage 1
+    IF stage == 3: prior_summaries += ["phase-{phase_index}-stage-2-summary.md"]
+    IF stage == 4: prior_summaries += ["phase-{phase_index}-stage-2-summary.md", "phase-{phase_index}-stage-3-summary.md"]
+    IF stage == 5: prior_summaries += ["phase-{phase_index}-stage-3-summary.md", "phase-{phase_index}-stage-4-summary.md"]
+  ELIF summary is for a final pass:
+    summary_path = "final-stage-{stage}-summary.md"
+    # Final pass reads all per-phase summaries for this stage
+    prior_summaries = ["stage-1-summary.md"] + ALL "phase-*-stage-{stage-1}-summary.md" files
+  ELSE:
+    summary_path = "stage-{stage}-summary.md"
+    prior_summaries = dispatch_table[stage].prior_summaries
 
   # Context Pack (if enabled)
   context_pack = ""
@@ -100,6 +179,16 @@ FUNCTION DISPATCH_COORDINATOR(stage, continuation_mode=false):
 
   user_input_value = user_input OR "No additional user instructions provided — follow standard workflow."
 
+  # Build phase scope block for coordinator prompt
+  phase_scope_block = ""
+  IF phase_scope IS NOT NULL:
+    phase_scope_block = """
+    ## Phase Scope
+    This coordinator is scoped to a SINGLE PHASE: {phase_scope}
+    Process ONLY tasks, files, and checks relevant to this phase.
+    Write summary to: {FEATURE_DIR}/.stage-summaries/{summary_path}
+    """
+
   prompt = """
     You are coordinating Stage {stage}: {stage_name} of the feature implementation workflow.
 
@@ -107,12 +196,14 @@ FUNCTION DISPATCH_COORDINATOR(stage, continuation_mode=false):
     Read and execute: $CLAUDE_PLUGIN_ROOT/skills/implement/references/{stage_file}
     {IF continuation_mode: "This is a continuation after user input. Skip re-reading already-processed references. Read the user-input file and resume from where you left off."}
 
+    {phase_scope_block}
+
     ## Context
     Feature name: {FEATURE_NAME}
     Feature directory: {FEATURE_DIR}
     Tasks file: {TASKS_FILE}
     User input: {user_input_value}
-    OpenCode model: {OPENCODE_MODEL}
+    OpenCode model: {OPENCODE_MODEL}  # Source: cli_dispatch.cli_defaults.opencode.model from config. Fallback: "not configured"
 
     ## Prior Stage Summaries (read these first)
     {for each summary in prior_summaries: {FEATURE_DIR}/.stage-summaries/{summary}}
@@ -122,7 +213,7 @@ FUNCTION DISPATCH_COORDINATOR(stage, continuation_mode=false):
     ## Output Contract
     1. All output MUST be persisted to files. Your direct response text is not read.
     2. Write artifacts to {FEATURE_DIR}/ as specified in your instructions.
-    3. Write stage summary to: {FEATURE_DIR}/.stage-summaries/stage-{stage}-summary.md
+    3. Write stage summary to: {FEATURE_DIR}/.stage-summaries/{summary_path}
     4. Use summary template: $CLAUDE_PLUGIN_ROOT/templates/stage-summary-template.md
     5. Do NOT interact with the user. If input needed, set status: needs-user-input.
     6. IF context_protocol enabled, include `context_contributions` in summary flags
@@ -142,13 +233,18 @@ FUNCTION DISPATCH_COORDINATOR(stage, continuation_mode=false):
   RETURN
 ```
 
-### Fully Expanded Prompt Example (Stage 3)
+### Fully Expanded Prompt Example (Stage 3, per-phase)
 
 ```
 You are coordinating Stage 3: Completion Validation of the feature implementation workflow.
 
 ## Your Instructions
 Read and execute: $CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-3-validation.md
+
+## Phase Scope
+This coordinator is scoped to a SINGLE PHASE: Phase 2: Core Features
+Process ONLY tasks, files, and checks relevant to this phase.
+Write summary to: specs/001-user-auth/.stage-summaries/phase-2-stage-3-summary.md
 
 ## Context
 Feature name: 001-user-auth
@@ -158,12 +254,12 @@ User input: No additional user instructions provided — follow standard workflo
 
 ## Prior Stage Summaries (read these first)
 specs/001-user-auth/.stage-summaries/stage-1-summary.md
-specs/001-user-auth/.stage-summaries/stage-2-summary.md
+specs/001-user-auth/.stage-summaries/phase-2-stage-2-summary.md
 
 ## Output Contract
 1. All output MUST be persisted to files. Your direct response text is not read.
 2. Write artifacts to specs/001-user-auth/ as specified in your instructions.
-3. Write stage summary to: specs/001-user-auth/.stage-summaries/stage-3-summary.md
+3. Write stage summary to: specs/001-user-auth/.stage-summaries/phase-2-stage-3-summary.md
 4. Use summary template: $CLAUDE_PLUGIN_ROOT/templates/stage-summary-template.md
 5. Do NOT interact with the user. If input needed, set status: needs-user-input.
 6. IF context_protocol enabled, include `context_contributions` in summary flags.
@@ -214,7 +310,9 @@ timestamp: "{ISO_8601}"
 ---
 ```
 
-## v1-to-v2 State Migration
+## State Migration
+
+### v1-to-v2
 
 ```
 ON resume, IF state.version == 1 OR state.version is missing:
@@ -229,14 +327,44 @@ ON resume, IF state.version == 1 OR state.version is missing:
   5. LOG "Migrated state file from v1 to v2"
 
   # Reconstruct stage_summaries from existing checkpoint data:
-  # Use current_stage to infer which stages completed (stages < current_stage)
   FOR each stage IN [1, 2, 3, 4, 5, 6] WHERE stage < state.current_stage:
     IF file exists at {FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md:
       SET state.stage_summaries[stage] = path
-    # (v1 sessions won't have summaries, but artifacts still exist - OK to continue)
 ```
 
-Non-breaking: all existing v1 fields are preserved. Orchestrator continues from last checkpoint.
+### v2-to-v3
+
+```
+ON resume, IF state.version == 2:
+  1. ADD current_phase: null
+  2. ADD phase_stages: {}
+  3. REMOVE stage_summaries keys "2", "3", "4", "5" (per-phase summaries replace these)
+     KEEP stage_summaries keys "1" and "6" only
+  4. SET version: 3
+  5. WRITE updated state
+  6. LOG "Migrated state file from v2 to v3"
+
+  # Reconstruct phase_stages from phases_completed:
+  FOR each phase IN state.phases_completed:
+    phase_index = EXTRACT_INDEX(phase)
+    state.phase_stages[phase] = {}
+    # Check which per-phase summaries exist on disk
+    FOR each stage IN [2, 3, 4, 5]:
+      IF file exists at {FEATURE_DIR}/.stage-summaries/phase-{phase_index}-stage-{stage}-summary.md:
+        state.phase_stages[phase]["s{stage}"] = "completed"
+      ELIF stage == 2:
+        # v2 had a single stage-2-summary.md for ALL phases — mark all completed phases as s2=completed
+        state.phase_stages[phase].s2 = "completed"
+    # Note: v2 sessions ran S3/S4/S5 once for all phases, not per-phase.
+    # Per-phase S3/S4/S5 summaries won't exist. This is OK — phases are already completed.
+
+  # If there's a current stage 2 in progress with some phases done:
+  IF state.current_stage == 2 AND len(state.phases_completed) > 0:
+    # Phase loop will resume from first phase in phases_remaining
+    LOG "v2→v3: Phase loop will resume from first remaining phase"
+```
+
+Non-breaking: all existing fields are preserved. Orchestrator continues from last checkpoint. v1 sessions migrate through v2 to v3 (chain: v1→v2→v3).
 
 ## Lock Release
 
@@ -249,7 +377,8 @@ FUNCTION RELEASE_LOCK:
 ```
 
 Called at:
-- Stage 5 completion (normal path) — Stage 6 runs post-lock-release (read-only analysis)
+- Final Stage 5 completion (normal path — after all phases or final docs pass) — Stage 6 runs post-lock-release (read-only analysis)
+- Per-phase Stage 5 does NOT release the lock (only the final S5 pass does)
 - User chooses "abort" at any crash recovery or failure prompt
 - User chooses "stop here" at validation (Stage 3)
 

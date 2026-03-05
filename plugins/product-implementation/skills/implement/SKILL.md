@@ -28,6 +28,21 @@ allowed-tools:
   - mcp__mobile-mcp__mobile_launch_app
   - mcp__mobile-mcp__mobile_terminate_app
   - mcp__mobile-mcp__mobile_uninstall_app
+  # Figma MCP tools (conditional — design handoff, spec extraction, parity checks)
+  - mcp__figma-console__figma_get_status
+  - mcp__figma-console__figma_get_component_for_development
+  - mcp__figma-console__figma_check_design_parity
+  - mcp__figma-console__figma_get_component_image
+  - mcp__figma-console__figma_capture_screenshot
+  - mcp__figma-console__figma_search_components
+  - mcp__figma-console__figma_get_selection
+  - mcp__figma-console__figma_get_variables
+  - mcp__figma-console__figma_get_styles
+  - mcp__figma-console__figma_get_component_details
+  - mcp__figma-console__figma_get_design_system_summary
+  - mcp__figma-console__figma_get_component
+  - mcp__figma-console__figma_audit_design_system
+  - mcp__figma-console__figma_execute
   # Research MCP tools (conditional — graceful fallback when unavailable)
   - mcp__Ref__ref_search_documentation
   - mcp__Ref__ref_read_url
@@ -65,33 +80,44 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 ┌──────────────────────────────────────────────────────┐
 │              IMPLEMENTATION WORKFLOW                   │
 ├──────────────────────────────────────────────────────┤
-│                                                       │
 │  ┌───────────┐                                        │
 │  │  Stage 1  │  Setup & Context Loading  (inline)     │
 │  └─────┬─────┘                                        │
 │        ↓                                              │
-│  ┌───────────┐                                        │
-│  │  Stage 2  │  Phase-by-Phase Execution (coordinator)│
-│  └─────┬─────┘                                        │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │  FOR EACH PHASE:                                 │  │
+│  │  ┌───────────┐                                   │  │
+│  │  │  Stage 2  │  Test + Implement + Verify (coord)│  │
+│  │  └─────┬─────┘                                   │  │
+│  │        ↓                                          │  │
+│  │  ┌───────────┐                                   │  │
+│  │  │  Stage 3  │  Validate phase       (coord.)    │  │
+│  │  └─────┬─────┘                                   │  │
+│  │        ↓                                          │  │
+│  │  ┌───────────┐                                   │  │
+│  │  │  Stage 4  │  Quality review phase  (coord.)   │  │
+│  │  └─────┬─────┘  (+ figma parity for UI phases)   │  │
+│  │        ↓ fix loop if needed                       │  │
+│  │  ┌───────────┐                                   │  │
+│  │  │  Stage 5  │  Phase docs + doc judge (coord.)  │  │
+│  │  └─────┬─────┘                                   │  │
+│  │        ↓                                          │  │
+│  │  Auto-commit phase                               │  │
+│  └─────────────────────────────────────────────────┘  │
+│        ↓                                              │
+│  Optional: Final S3+S4 pass (cross-phase)             │
 │        ↓                                              │
 │  ┌───────────┐                                        │
-│  │  Stage 3  │  Completion Validation    (coordinator)│
-│  └─────┬─────┘                                        │
-│        ↓                                              │
-│  ┌───────────┐                                        │
-│  │  Stage 4  │  Quality Review           (coordinator)│
-│  └─────┬─────┘                                        │
-│        ↓                                              │
-│  ┌───────────┐                                        │
-│  │  Stage 5  │  Feature Documentation    (coordinator)│
+│  │  Stage 5  │  Final docs synthesis     (coord.)     │
 │  └─────┬─────┘                                        │
 │        ↓        lock released ↑                       │
 │  ┌───────────┐                                        │
 │  │  Stage 6  │  Implementation Retrospective (coord.) │
 │  └───────────┘                                        │
-│                                                       │
 └──────────────────────────────────────────────────────┘
 ```
+
+> When `per_phase_review.enabled` is `false`, the workflow falls back to the original linear mode: S1→S2(all phases)→S3→S4→S5→S6.
 
 ## Latency Trade-off
 
@@ -102,11 +128,11 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 | Stage | Delegation | Reference File | Agents Used | Prior Summaries | User Interaction | Checkpoint |
 |-------|-----------|----------------|-------------|-----------------|------------------|------------|
 | 1 | Inline | `stage-1-setup.md` | — | — | Setup question (1.5b), Policy question (1.9a) | SETUP |
-| 2 | Coordinator | `stage-2-execution.md` | `developer`, `code-simplifier`, `uat-tester (CLI/gemini)` | stage-1 | Auto-resolve per policy (build/test) | EXECUTION |
-| 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 | Auto-resolve per policy (validation) | VALIDATION |
-| 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3+ (Tier A, with optional stances/convergence/CoVe), plugin (Tier B), CLI (Tier C) | stage-2, stage-3 | Auto-resolve per policy (findings) | QUALITY_REVIEW |
-| 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer` | stage-3, stage-4 | Auto-resolve per policy (tasks, docs) | DOCUMENTATION |
-| 6 | Coordinator | `stage-6-retrospective.md` | `tech-writer` | stage-1 through stage-5 | None | RETROSPECTIVE |
+| 2 | Coordinator | `stage-2-execution.md` | `test-writer`, `developer`, `output-verifier`, `code-simplifier`, `uat-tester (CLI/gemini)` | stage-1 (or per-phase chain) | Auto-resolve per policy (build/test) | EXECUTION |
+| 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 (or per-phase chain) | Auto-resolve per policy (validation) | VALIDATION |
+| 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3+ (Tier A, with optional stances/convergence/CoVe), plugin (Tier B), CLI (Tier C) | stage-2, stage-3 (or per-phase chain) | Auto-resolve per policy (findings) | QUALITY_REVIEW |
+| 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer`, `doc-judge` | stage-3, stage-4 (or per-phase chain) | Auto-resolve per policy (tasks, docs) | DOCUMENTATION |
+| 6 | Coordinator | `stage-6-retrospective.md` | `tech-writer` | stage-1 through stage-5 (all per-phase + final summaries) | None | RETROSPECTIVE |
 
 All reference files are in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/`.
 
@@ -116,7 +142,7 @@ All reference files are in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/`.
 
 Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/orchestrator-loop.md`
 
-The loop reads state → dispatches stages in order → reads summaries → handles user interaction → updates state. It includes crash recovery, summary validation, and v1-to-v2 state migration.
+The loop reads state → dispatches stages (per-phase or linear) → reads summaries → handles user interaction → updates state. It includes crash recovery, summary validation, v1→v2→v3 state migration, and per-phase delivery cycles.
 
 ## Stage 1 (Inline)
 
@@ -124,19 +150,24 @@ Execute Stage 1 inline. Read `$CLAUDE_PLUGIN_ROOT/skills/implement/references/st
 
 ## Summary Convention
 
-- **Path:** `{FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md`
+- **Per-phase path:** `{FEATURE_DIR}/.stage-summaries/phase-{N}-stage-{S}-summary.md` (when per_phase_review enabled)
+- **Final pass path:** `{FEATURE_DIR}/.stage-summaries/final-stage-{S}-summary.md`
+- **Linear/global path:** `{FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md` (Stages 1, 6 always use this)
 - **Template:** `$CLAUDE_PLUGIN_ROOT/templates/stage-summary-template.md`
 - **Size:** 20-60 lines (YAML frontmatter + markdown); Stage 1 may reach ~120-130 lines due to context loading duties; Stage 6 ~40 lines
 - **Required YAML fields:** `stage`, `status`, `checkpoint`, `artifacts_written`, `summary`
+- **Per-phase field:** `phase` (string, e.g., `"Phase 2: Core"`) — present when phase_scope is set
 - **Critical section:** "Context for Next Stage" — this is what the next coordinator reads to understand state
 
 ## State Management
 
-State persisted in `{FEATURE_DIR}/.implementation-state.local.md` (version 2):
-- YAML frontmatter tracks stage, decisions, stage_summaries, orchestrator metadata
+State persisted in `{FEATURE_DIR}/.implementation-state.local.md` (version 3):
+- YAML frontmatter tracks stage, phase, decisions, stage_summaries, phase_stages, orchestrator metadata
+- `phase_stages` maps each phase to its per-stage completion status (`s2`, `s3`, `s4`, `s5`)
+- `current_phase` tracks the phase currently being processed (null when between phases)
 - Markdown body contains human-readable log
 - Immutable fields: `user_decisions`
-- Migration: If `version: 1`, see `orchestrator-loop.md` for auto-migration to v2
+- Migration: v1→v2→v3 chain. See `orchestrator-loop.md` for auto-migration
 
 **Template:** `$CLAUDE_PLUGIN_ROOT/templates/implementation-state-template.local.md`
 
@@ -158,11 +189,14 @@ Stage completion is derived from `stage_summaries` (non-null = completed). The `
 
 ## Agents
 
-| Agent | Role | Used In |
-|-------|------|---------|
-| `product-implementation:developer` | Implementation, testing, validation, review | Stages 2, 3, 4, 5 |
-| `product-implementation:code-simplifier` | Code simplification, clarity, maintainability | Stage 2 |
-| `product-implementation:tech-writer` | Feature documentation, API guides, architecture updates, retrospective | Stages 5, 6 |
+| Agent | Role | Model | Used In |
+|-------|------|-------|---------|
+| `product-implementation:test-writer` | Spec-to-test translation (Red phase) | sonnet | Stage 2 |
+| `product-implementation:developer` | Implementation, testing, validation, review | sonnet | Stages 2, 3, 4, 5 |
+| `product-implementation:output-verifier` | Output quality verification (test bodies, spec alignment, DoD) | sonnet | Stage 2 |
+| `product-implementation:code-simplifier` | Code simplification, clarity, maintainability | sonnet | Stage 2 |
+| `product-implementation:doc-judge` | Documentation accuracy verification (LLM-as-a-judge) | sonnet | Stage 5 |
+| `product-implementation:tech-writer` | Feature documentation, API guides, architecture updates, retrospective | sonnet | Stages 5, 6 |
 
 ## Severity Levels (Canonical)
 
@@ -184,7 +218,7 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `tasks.md` | Updated with `[X]` marks for all completed tasks |
 | `.implementation-state.local.md` | Execution state, stage tracking, and implementation log |
 | `.stage-summaries/` | Inter-stage coordinator summary files |
-| Git commits | Auto-commits at phase completion (Stage 2, with simplified code when enabled), review fix (Stage 4), documentation (Stage 5), and retrospective (Stage 6). Controlled by `auto_commit` and `code_simplification` in config. |
+| Git commits | Auto-commits at phase completion (orchestrator-owned when per_phase_review enabled, or Stage 2 when linear), review fix (Stage 4), documentation (Stage 5), and retrospective (Stage 6). Controlled by `auto_commit`, `per_phase_review`, and `code_simplification` in config. |
 
 ### Conditional Artifacts (gated by config or findings)
 
@@ -227,7 +261,7 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | `references/stage-4-plugin-review.md` | Stage 4 (coordinator reads) | Tier B: Plugin-based review via code-review skill, finding normalization |
 | `references/stage-4-cli-review.md` | Stage 4 (coordinator reads) | Tier C: CLI multi-model review, Phase 1/2 dispatch, pattern search, UX/accessibility review |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
-| `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | 9 prompt templates with Common Variables, section markers, fallback annotations |
+| `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | 14 prompt templates with Common Variables, section markers, fallback annotations |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5, 6 (coordinator reads) | Shared auto-commit procedure, exclude patterns, batch strategy |
 | `references/autonomy-policy-procedure.md` | Stages 2-5 (coordinator reads) | Shared autonomy policy check, per-severity iteration, fallback escalation |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
@@ -250,13 +284,14 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 
 1. Ensure `{FEATURE_DIR}/tasks.md` and `plan.md` exist (run `/product-planning:plan` then `/product-planning:tasks`)
 2. Optional: verify `design.md`, `test-plan.md`, `test-strategy.md`, and `test-cases/` are present for richer agent context
-3. **Top 6 config toggles** (in `config/implementation-config.yaml`):
+3. **Top config toggles** (in `config/implementation-config.yaml`):
+   - `quality_preset` — set to `"standard"` / `"comprehensive"` / `"minimal"` to skip the startup question (controls 40+ feature flags)
+   - `external_models` — set to `true` / `false` to skip the external models question
+   - `autonomy_policy.default_level` — set to skip the autonomy question (`full_auto` / `balanced` / `critical_only`)
    - `project_setup.enabled` — enable project setup analysis and configuration generation (Stage 1)
-   - `autonomy_policy.default_level` — set to skip the startup question (`full_auto` / `balanced` / `critical_only`)
    - `code_simplification.enabled` — enable post-phase code simplification
    - `dev_skills.enabled` — enable domain-specific skill injection
    - `research_mcp.enabled` — enable MCP-backed documentation context
-   - `cli_dispatch` — enable external CLI agent dispatch (per-option)
 4. Run `/product-implementation:implement`
 5. Choose autonomy policy when prompted (skipped if `default_level` is set)
 6. Monitor stage-by-stage progress (interruptions depend on chosen policy)

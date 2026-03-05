@@ -9,11 +9,25 @@
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `stage` | string | Yes | Stage number as string (e.g., `"1"`) |
+| `stage` | string | Yes | Stage number as string (e.g., `"3"`) |
+| `phase` | string | Conditional | Phase name (e.g., `"Phase 2: Core"`). Present when `phase_scope` is set. |
 | `status` | enum | Yes | `completed` \| `needs-user-input` \| `failed` |
 | `checkpoint` | string | Yes | Checkpoint name matching dispatch table |
 | `artifacts_written` | array | Yes | List of files written (may be empty) |
 | `summary` | string | Yes | Non-empty natural-language summary |
+
+## Per-Phase Summary Naming
+
+When `per_phase_review.enabled` is `true`, stages 2-5 produce per-phase summaries:
+
+| Context | File Path Pattern | Example |
+|---------|-------------------|---------|
+| Per-phase | `phase-{N}-stage-{S}-summary.md` | `phase-2-stage-3-summary.md` |
+| Final pass | `final-stage-{S}-summary.md` | `final-stage-4-summary.md` |
+| Global (Stages 1, 6) | `stage-{N}-summary.md` | `stage-1-summary.md` |
+| Linear mode | `stage-{N}-summary.md` | `stage-3-summary.md` |
+
+Per-phase summaries include the `phase` field in YAML frontmatter. The schema for each stage is identical whether per-phase or full-project — only the scope of checks/review changes.
 
 ## Stage 1: Setup & Context Loading
 
@@ -39,10 +53,14 @@
 | `extracted_urls` | array | Optional | `[]` | Stage 1 | Stage 2 |
 | `resolved_libraries` | array | Optional | `[]` | Stage 1 | Stages 2, 3, 4 |
 | `private_doc_urls` | array | Optional | `[]` | Stage 1 | Stage 2 |
+| `figma_available` | boolean | Yes | `false` | Stage 1 | Stages 2, 4 |
 | `mobile_mcp_available` | boolean | Yes | `false` | Stage 1 | Stage 2 |
 | `mobile_device_name` | string\|null | Yes | `null` | Stage 1 | Stage 2 |
 | `plugin_availability` | map | Yes | — | Stage 1 | Stage 4 |
 | `autonomy_policy` | string | Yes | — | Stage 1 | All stages |
+| `quality_preset` | string | Yes | — | Stage 1 | All stages |
+| `external_models` | boolean | Yes | — | Stage 1 | Stages 1 (1.7a gate), 2, 3, 4, 5 |
+| `resolved_quality_config` | map | Yes | — | Stage 1 | Stages 2, 3, 4, 5 |
 | `cli_circuit_state` | map\|null | Optional | `null` | Stage 1 | Stages 2, 3, 4 |
 | `context_contributions` | map\|null | Optional | `null` | Stage 1 | Orchestrator |
 
@@ -59,6 +77,7 @@
 | `flags.cli_dispatch_metrics` | map\|null | Optional | `null` | Stage 2 | Stage 6 |
 | `flags.cli_circuit_state` | map\|null | Optional | `null` | Stage 2 | Stages 3, 4 |
 | `flags.context_contributions` | map\|null | Optional | `null` | Stage 2 | Orchestrator |
+| `flags.output_verification_stats` | map\|null | Optional | `null` | Stage 2 | Stages 3, 6 |
 | `flags.uat_results` | map\|null | Optional | `null` | Stage 2 | Stage 6 |
 
 ## Stage 3: Completion Validation
@@ -94,7 +113,10 @@
 | `flags.block_reason` | string\|null | Yes | `null` | Stage 5 | Orchestrator |
 | `flags.documentation_outcome` | enum | Yes | — | Stage 5 | Stage 6 |
 | `flags.commit_sha` | string\|null | Optional | `null` | Stage 5 | Stage 6 |
+| `flags.doc_judge_result` | map\|null | Optional | `null` | Stage 5 | Stage 6 |
 | `flags.context_contributions` | map\|null | Optional | `null` | Stage 5 | Orchestrator |
+
+`doc_judge_result` (when doc_judge enabled and per-phase mode): `{quality: "PASS"|"FAIL", accuracy_score: N, hallucinations: N, revision_cycles: N}`
 
 ## Stage 6: Implementation Retrospective
 

@@ -19,6 +19,7 @@ artifacts_written:
 agents:
   - "product-implementation:developer"
   - "product-implementation:tech-writer"
+  - "product-implementation:doc-judge"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/cli-dispatch-procedure.md"
@@ -31,6 +32,21 @@ additional_references:
 > **COORDINATOR STAGE:** This stage is dispatched by the orchestrator via `Task()`.
 > Read the prior stage summaries to understand validation and review results.
 > **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL CLI dispatches (doc generation), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
+
+## Phase Scope Mode
+
+When the coordinator prompt includes a `## Phase Scope` block, this stage generates **incremental documentation** for a single phase:
+- **Documentation scope**: only new/changed interfaces, components, and APIs from this phase
+- **Summary path**: write to the path specified in the Phase Scope block (e.g., `phase-{N}-stage-5-summary.md`)
+- **Prior summaries**: read `phase-{N}-stage-3-summary.md` and `phase-{N}-stage-4-summary.md`
+- **Doc judge verification**: after tech-writer completes, dispatch `doc-judge` agent to verify accuracy (see Section 5.2b)
+- **Lock release**: per-phase S5 does NOT release the lock — only the final S5 pass releases it
+
+When NO Phase Scope is present, this is a **final documentation pass** (cross-phase synthesis):
+- Generate feature overview, index, architecture diagram updates, cross-cutting concerns
+- This is lighter since per-phase docs already exist — just synthesize and cross-reference
+- **Lock release**: the final S5 pass releases the lock (Section 5.4)
+- Summary path: `final-stage-5-summary.md` or `stage-5-summary.md`
 
 ## 5.1 Implementation Verification
 
@@ -166,6 +182,41 @@ The tech-writer agent should:
    - Include troubleshooting guidance for common issues
    - Maintain proper Markdown formatting
 
+## 5.2b Documentation Judge Verification (Optional — Per-Phase Mode)
+
+> **Conditional**: Only runs when ALL of:
+>   1. Phase Scope is present (per-phase mode)
+>   2. `doc_judge.enabled` is `true` in config
+> If any condition fails, skip to Section 5.2a or 5.3.
+
+After the tech-writer produces per-phase documentation (Section 5.2), dispatch the doc-judge agent to verify documentation accuracy against actual code.
+
+### Procedure
+
+1. **Collect documentation and source files**: List all doc files produced by tech-writer in Section 5.2, and the source files they describe (from the phase's modified file list).
+
+2. **Dispatch doc-judge agent**:
+   ```
+   Task(subagent_type="product-implementation:doc-judge")
+   ```
+   Using the Documentation Verification Prompt from `agent-prompts.md`. Prefill variables:
+   - `{FEATURE_DIR}`, `{FEATURE_NAME}` — from Stage 1 summary
+   - `{doc_files_list}` — doc files produced in Section 5.2
+   - `{source_files_list}` — source files the docs describe
+   - `{phase_name}` — current phase name
+
+3. **Process results**: Parse the structured YAML output from the doc-judge:
+   - If `doc_quality: PASS` → proceed to Section 5.2a or 5.3
+   - If `doc_quality: FAIL` AND `accuracy_score < doc_judge.accuracy_threshold` (default: 70):
+     - Re-dispatch tech-writer with the findings (one revision cycle per `doc_judge.max_revision_cycles`)
+     - Log: `"Doc judge found {N} issues (score: {accuracy_score}) — requesting revision"`
+     - After revision, optionally re-run doc-judge (if revision cycles remain)
+   - If revision cycles exhausted and still FAIL → log findings and proceed
+
+### Latency
+
+~5-15s dispatch overhead + 15-60s verification execution per phase. Revision cycle adds another tech-writer dispatch.
+
 ## 5.2a CLI Documentation Review (Optional)
 
 > **Conditional**: Only runs when ALL of: `cli_dispatch.stage5.doc_reviewer.enabled` is `true` and `cli_availability.opencode` is `true` (from Stage 1 summary). If any condition is false, skip to Section 5.3.
@@ -245,8 +296,9 @@ After documentation completes:
    - Update `last_checkpoint`
    - Append to Implementation Log: "Stage 5: Documentation — completed"
 
-2. Release lock:
+2. Release lock (**final pass only** — when NO Phase Scope is present):
    - Set `lock.acquired: false`
+   - Per-phase S5 dispatches do NOT release the lock — the lock is held until all phases complete and the final documentation pass runs
 
 ## 5.5 Write Stage 5 Summary
 
@@ -265,10 +317,11 @@ artifacts_written:
 summary: |
   Documentation {completed / completed with gaps}.
   {N} files updated, {M} new documents created.
-  Lock released.
+  {Lock released. | Lock held (per-phase — released in final pass).}
 flags:
   block_reason: null
   documentation_outcome: "completed"
+  doc_judge_result: null  # Per-phase mode: {quality: "PASS"|"FAIL", accuracy_score: N, hallucinations: N, revision_cycles: N}
   commit_sha: null  # Auto-commit SHA after documentation (null if disabled, skipped, or failed)
   context_contributions: null
 ---

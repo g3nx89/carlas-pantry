@@ -1,6 +1,6 @@
 # Agent Prompt Templates
 
-All 11 prompts in this file are used by coordinators to launch `developer`, `tech-writer`, and project-setup agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
+All 14 prompts in this file are used by coordinators to launch `developer`, `tech-writer`, `test-writer`, `output-verifier`, `doc-judge`, and project-setup agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
 
 ## Common Variables
 
@@ -60,6 +60,10 @@ When skill references include a compose, UI framework, or frontend skill, you MU
 
 When research context is provided: use it to verify API signatures, follow documented patterns, and diagnose build errors before guessing. Prefer Ref-sourced documentation over ad-hoc searches. When absent, proceed with codebase knowledge and planning artifacts only.
 
+## Figma Design References
+
+{figma_context}
+
 ## Implementation Verification Rules
 
 Follow the Implementation Verification Rules defined in `agents/developer.md` § Implementation Verification Rules.
@@ -82,14 +86,16 @@ Where {N} is the total number of passing tests and {M} is the number of failing 
 - `{traceability_file}` — Path to `analysis/task-test-traceability.md`. **Fallback:** `"Not available"`
 - `{skill_references}` — Domain-specific skill references (see `stage-2-execution.md` Section 2.0). **Fallback:** `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`
 - `{research_context}` — Documentation excerpts from MCP tools (see `stage-2-execution.md` Section 2.0a). **Fallback:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
+- `{figma_context}` — Figma tool guide and design references (see `stage-2-execution.md` Step 2). **Fallback:** `"Figma not available — implement from planning artifacts (spec.md, design.md). Use best judgment for visual properties not specified in planning docs."`
 
 **Agent behavior:**
 1. The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion.
 2. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy.
 3. When skill references are provided, the agent reads the referenced SKILL.md files on-demand — skills are consulted, not followed blindly (codebase conventions take precedence).
 4. When research context is provided, the agent uses it to verify API signatures, follow documented patterns, and diagnose build errors.
-5. The agent follows Implementation Verification Rules from `agents/developer.md`.
-6. The agent MUST run the full test suite as its final action and report `test_count_verified` and `test_failures`.
+5. When Figma context is provided, the agent follows the 3-phase workflow (extract spec → implement from data → verify parity) for every UI component. Structured JSON from Figma tools always takes precedence over prose descriptions.
+6. The agent follows Implementation Verification Rules from `agents/developer.md`.
+7. The agent MUST run the full test suite as its final action and report `test_count_verified` and `test_failures`.
 
 ---
 
@@ -560,6 +566,207 @@ Write `{FEATURE_DIR}/retrospective.md` with these sections. Skip any section whe
 - `{sections_config}` — The `retrospective.sections` block from `config/implementation-config.yaml`, rendered as YAML. Controls which sections the tech-writer includes. **Fallback if config unavailable:** All sections enabled (default `true`).
 
 **Agent behavior:** The tech-writer agent reads the provided structured data (KPI Report Card, transcript extract, stage summaries), synthesizes findings across all three data sources, and produces a narrative retrospective document. The agent respects section toggles from `{sections_config}` — disabled sections are omitted entirely. When transcript data is unavailable, the agent omits session behavior sections and produces a KPI-and-summary-focused retrospective. The agent uses traffic light indicators, tables, and evidence-based language throughout.
+
+---
+
+<!-- SECTION: Test Writing Prompt -->
+## Test Writing Prompt
+
+Used in Stage 2 Step 1.9 when native test-writer is enabled and test-case specs are available.
+
+```markdown
+**Goal**: Write executable, failing tests for {phase_name} based on test-case specifications.
+
+FEATURE_DIR: {FEATURE_DIR}
+TASKS_FILE: {TASKS_FILE}
+Phase: {phase_name}
+
+## Test Specifications
+
+{test_specs_summary}
+Test cases directory: {test_cases_dir}
+Task-test traceability: {traceability_file}
+
+## Planning Context
+
+{context_summary}
+
+## Instructions
+
+For each test ID referenced in this phase's tasks:
+1. LOCATE the spec in test-cases/{level}/
+2. READ existing test patterns in the project (discover framework, assertion style, imports)
+3. TRANSLATE: Precondition→@Before/setup, Steps→test actions, Expected→assertions (≥1 each)
+4. Write executable test files that COMPILE but FAIL when run (Red phase)
+
+For test IDs without specs, write tests from the task description.
+
+ABSOLUTE CONSTRAINTS:
+- ONLY write to test directories — NEVER touch source files
+- Every test method MUST have ≥1 real assertion (no empty bodies, no assertTrue(true))
+- Report: test_files_created, total_assertions, test_count, test_failures
+
+## Domain-Specific Skill References
+
+{skill_references}
+
+## Research Context
+
+{research_context}
+```
+
+**Variables:** See Common Variables above (except `{user_input}` — not used), plus:
+- `{phase_name}` — Name of the current phase. **Required — always available**
+- `{test_specs_summary}` — Test Specifications section from Stage 1 summary. **Fallback:** `"No test specifications available — write tests from task descriptions."`
+- `{test_cases_dir}` — Path to test-cases/ directory. **Fallback:** `"Not available"`
+- `{traceability_file}` — Path to `analysis/task-test-traceability.md`. **Fallback:** `"Not available"`
+- `{context_summary}` — Context File Summaries from Stage 1 summary. **Fallback:** `"No context summary available."`
+- `{skill_references}` — Domain-specific skill references. **Fallback:** `"No domain-specific skills available — use test patterns discovered from the codebase."`
+- `{research_context}` — Documentation excerpts from MCP tools. **Fallback:** `"No research context available."`
+
+**Agent behavior:**
+1. The test-writer agent reads existing test files to discover framework, assertion style, and naming conventions.
+2. For each test ID in the phase, locates the spec and translates preconditions→setup, steps→actions, expected→assertions.
+3. Writes executable test files that compile but FAIL (Red phase).
+4. MUST NOT write any source files, configuration, or documentation.
+5. Reports structured counts: test_files_created, total_assertions, test_count, test_failures.
+
+---
+
+<!-- SECTION: Output Verification Prompt -->
+## Output Verification Prompt
+
+Used in Stage 2 Step 2.5 after the developer agent completes a phase.
+
+```markdown
+**Goal**: Verify output quality of the test-writer and developer agents for {phase_name}.
+
+FEATURE_DIR: {FEATURE_DIR}
+TASKS_FILE: {TASKS_FILE}
+Phase: {phase_name}
+Test cases directory: {test_cases_dir}
+
+## Files to Verify
+
+Test files: {test_files_list}
+Source files: {source_files_list}
+
+## Verification Checks
+
+1. Every test method has ≥1 assertion call (assert*, expect*, verify*, check*, should*)
+2. No empty test bodies (< 3 meaningful statements)
+3. No tautological assertions (assertTrue(true), assertEquals(x, x))
+4. Every test ID from this phase's tasks has a corresponding test implementation
+5. Test-writer only wrote to test directories (no source file modifications)
+6. Developer did not delete or gut test assertions
+7. Phase DoD items in tasks.md: verify each is checkable
+
+## Output
+
+Report as structured YAML:
+verification_result: PASS | FAIL
+checks:
+  - name: "test_body_quality"
+    result: PASS | FAIL
+    findings: [...]
+  - name: "spec_alignment"
+    result: PASS | FAIL
+    findings: [...]
+  - name: "dod_compliance"
+    result: PASS | FAIL
+    findings: [...]
+  - name: "write_boundary"
+    result: PASS | FAIL
+    findings: [...]
+  - name: "test_count_consistency"
+    result: PASS | FAIL
+    findings: [...]
+empty_tests_found: 0
+missing_test_ids: []
+dod_items_uncheckable: []
+```
+
+**Variables:** See Common Variables above (except `{user_input}` — not used), plus:
+- `{phase_name}` — Name of the current phase. **Required — always available**
+- `{test_cases_dir}` — Path to test-cases/ directory. **Fallback:** `"Not available"`
+- `{test_files_list}` — List of test files created/modified by test-writer and developer. **Required — always available**
+- `{source_files_list}` — List of source files created/modified by developer. **Required — always available**
+
+**Agent behavior:**
+1. The output-verifier reads test files and checks each test method for assertion presence and quality.
+2. Cross-references test IDs from phase tasks against test implementations.
+3. Verifies DoD items from tasks.md are satisfiable.
+4. Checks write boundaries (test-writer only touched test dirs, developer preserved assertions).
+5. Runs the test suite and compares actual count against developer's reported count.
+6. Reports structured YAML with pass/fail per check and specific findings.
+7. MUST NOT modify any files — read-only verification only.
+
+---
+
+<!-- SECTION: Documentation Verification Prompt -->
+## Documentation Verification Prompt
+
+Used in Stage 5 Section 5.2b when doc-judge is enabled (per-phase documentation mode).
+
+```markdown
+**Goal**: Verify documentation accuracy for {phase_name} by cross-referencing generated docs against actual source code. Catch hallucinated APIs, wrong signatures, and invented behaviors.
+
+FEATURE_NAME: {FEATURE_NAME}
+FEATURE_DIR: {FEATURE_DIR}
+Phase: {phase_name}
+
+## Documentation Files
+
+{doc_files_list}
+
+## Source Files
+
+{source_files_list}
+
+## Verification Instructions
+
+For each documented API, function, class, or component:
+1. Search codebase for the actual definition (Glob + Grep)
+2. Compare documented signature against actual: parameter names, types, return types
+3. Flag mismatches as findings
+
+For each code example in documentation:
+1. Check syntax validity
+2. Compare against actual usage patterns in codebase
+3. Flag examples referencing non-existent functions or wrong arguments
+
+For each behavioral description:
+1. Read the described source file
+2. Verify described behavior matches implementation logic
+3. Flag invented behaviors or missing important caveats
+
+## Output
+
+Report as structured YAML at end of response:
+doc_quality: PASS | FAIL
+accuracy_score: 0-100
+files_verified: {N}
+hallucinations_found:
+  - file: "docs/example.md"
+    line: 42
+    type: "wrong_signature | hallucinated_function | invented_behavior | stale_example"
+    description: "Description of the issue"
+signature_mismatches: {N}
+invented_behaviors: {N}
+stale_examples: {N}
+```
+
+**Variables:** See Common Variables above (except `{TASKS_FILE}` — not used), plus:
+- `{phase_name}` — Name of the current phase. **Required — always available**
+- `{doc_files_list}` — Bullet list of documentation files to verify. **Required — always available**
+- `{source_files_list}` — Bullet list of source files the docs describe. **Required — always available**
+
+**Agent behavior:**
+1. The doc-judge reads each documentation file and identifies all API references, code examples, and behavioral descriptions.
+2. For each claim, searches the actual codebase for the referenced entity and compares.
+3. Produces a structured accuracy report with specific findings.
+4. MUST NOT modify any files — read-only verification only.
+5. Conservative scoring: when unsure if something is inaccurate, do not flag it.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: developer
-model: opus
+model: sonnet
 description: Executes implementation tasks with strict adherence to acceptance criteria, leveraging Story Context XML and existing codebase patterns to deliver production-ready code that passes all tests
 ---
 
