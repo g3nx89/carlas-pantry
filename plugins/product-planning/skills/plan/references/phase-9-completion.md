@@ -169,21 +169,80 @@ ELSE:
      LOG: "No asset manifest found — Phase 8b may have been skipped"
      asset_manifest = null
 
-5. EXTRACT test IDs for TDD integration:
-   # Parse test files for ID patterns in markdown headers
-   # Pattern: ^## (UT|INT|E2E|UAT)-\d{3}: or ^### (UT|INT|E2E|UAT)-\d{3}:
-   # Example: "## UT-001: User registration validation" → extracts "UT-001"
+5. EXTRACT test IDs with spec file references for TDD integration:
+   # Parse test files for ID patterns in TWO formats:
+   #
+   # Format A — Markdown headers (used by UAT scripts):
+   #   Pattern: ^#{2,3} (UT|INT|E2E|UAT)-\d{2,3}: (.+)
+   #   Example: "## UAT-01: New User Registration" in test-cases/uat/registration.md
+   #     → extracts { id: "UAT-01", file: "test-cases/uat/registration.md", section: "New User Registration" }
+   #
+   # Format B — Table rows (used by unit/integration/E2E specs):
+   #   Pattern: ^\| (UT|INT|E2E|UAT)-\d{2,3} \|
+   #   Example: "| UT-01 | UserService.create | Valid user | ... |" in test-cases/unit/auth.md
+   #     → extracts { id: "UT-01", file: "test-cases/unit/auth.md", section: "UserService.create — Valid user" }
+   #   Section is derived from Component + Scenario columns (cols 2-3 of table row).
+   #
+   # Both formats produce the same test_spec_map structure.
 
+   test_spec_map = {
+     unit: [
+       { id: "UT-01", file: "test-cases/unit/auth.md", section: "UserService.create — Valid user" },
+       ...
+     ],
+     integration: [
+       { id: "INT-01", file: "test-cases/integration/auth-flow.md", section: "UserRepo + DB — Persist and retrieve" },
+       ...
+     ],
+     e2e: [
+       { id: "E2E-01", file: "test-cases/e2e/login-flow.md", section: "User Registration — Primary flow" },
+       ...
+     ],
+     uat: [
+       { id: "UAT-01", file: "test-cases/uat/registration.md", section: "New User Registration" },
+       ...
+     ]
+   }
+
+   # Keep flat list for backward-compatible validation
    test_ids = {
-     unit: [UT-001, UT-002, ...],      # From test-cases/unit/*.md headers
-     integration: [INT-001, ...],       # From test-cases/integration/*.md headers
-     e2e: [E2E-001, ...],              # From test-cases/e2e/*.md headers
-     uat: [UAT-001, ...]               # From test-cases/uat/*.md headers
+     unit: test_spec_map.unit.map(t => t.id),
+     integration: test_spec_map.integration.map(t => t.id),
+     e2e: test_spec_map.e2e.map(t => t.id),
+     uat: test_spec_map.uat.map(t => t.id)
    }
 
    # Fallback: If no IDs found, generate placeholder IDs based on file count
    IF test_ids.unit is empty AND test-cases/unit/ has files:
      LOG: "Warning: No test IDs found in unit test files, using file-based placeholders"
+
+5b. EXTRACT design/screen references for UI tasks:
+   # Scan spec.md and design.md for screen/component references.
+   # Extraction patterns (check in order):
+   #   1. Markdown headers containing "Screen", "View", "Page", "Component", "Widget":
+   #      Pattern: ^#{1,3} .*(Screen|View|Page|Component|Widget)
+   #      Example: "## Timer Component" → name: "Timer Component"
+   #   2. Bullet items with explicit labels:
+   #      Pattern: ^[-*] \**(Screen|Component|View|Page)\**: (.+)
+   #      Example: "- **Screen**: Workout Timer" → name: "Workout Timer"
+   #   3. Figma/design references:
+   #      Pattern: figma\.com|design\.md §|mockup|wireframe
+   # Map each screen/component to user stories by checking for story refs (US1, "As a user") in same section.
+
+   design_refs = {
+     screens: [
+       { name: "Login Screen", source: "spec.md", stories: ["US1"] },
+       ...
+     ],
+     components: [
+       { name: "Timer Widget", source: "design.md § Timer Component", stories: ["US2"] },
+       ...
+     ]
+   }
+
+   IF design_refs.screens is empty AND design_refs.components is empty:
+     LOG: "Warning: No screen/component references found in spec.md or design.md"
+     design_refs = null
 
 6. EXTRACT user stories with priorities:
    user_stories = PARSE spec.md for stories (P1, P2, P3...)
@@ -261,10 +320,28 @@ Task(
 
     ## Test Artifacts (CRITICAL for TDD integration)
     - test-plan.md: {test_plan_summary}
-    - Unit Test IDs: {test_ids.unit}
-    - Integration Test IDs: {test_ids.integration}
-    - E2E Test IDs: {test_ids.e2e}
-    - UAT Test IDs: {test_ids.uat}
+
+    ### Test Spec Map
+    Each test ID with its source file and section — use these to add spec references in tasks.
+    **Unit:**
+    {FOR t IN test_spec_map.unit: "- {t.id}: {t.file} § {t.section}"}
+    **Integration:**
+    {FOR t IN test_spec_map.integration: "- {t.id}: {t.file} § {t.section}"}
+    **E2E:**
+    {FOR t IN test_spec_map.e2e: "- {t.id}: {t.file} § {t.section}"}
+    **UAT:**
+    {FOR t IN test_spec_map.uat: "- {t.id}: {t.file} § {t.section}"}
+
+    ## Design References
+    {IF design_refs:}
+    Screens and components extracted from spec.md/design.md. Reference these in UI tasks.
+    **Screens:**
+    {FOR s IN design_refs.screens: "- {s.name} (source: {s.source}, stories: {s.stories})"}
+    **Components:**
+    {FOR c IN design_refs.components: "- {c.name} (source: {c.source}, stories: {c.stories})"}
+    {ELSE:}
+    No design references found. For UI tasks, use `(design: TBD)` and flag Uncertainty: High.
+    {END}
 
     ## Optional Artifacts
     - data-model.md: {data_model_summary or "NOT AVAILABLE"}
@@ -285,7 +362,9 @@ Task(
     3. Generate tasks organized by user story (Phase 3+)
     4. Include test references in every task's Definition of Done
     5. Use strict checklist format: `- [ ] [TaskID] [P?] [Story?] Description with file path`
-    6. Map each task to relevant test IDs: UT-*, INT-*, E2E-*, UAT-*
+    6. Map each task to relevant test IDs using `(spec: {file} § {section})` format.
+       The Test Spec Map above provides the file and section for each ID.
+       Example: `- [ ] T010 [US1] Write unit tests UT-01..02 (spec: test-cases/unit/auth.md § UserService.create)`
     7. Identify high-risk tasks for clarification
 
     ## TDD Structure per Task
@@ -440,6 +519,13 @@ WHILE iteration < max_iterations:
      ASSERT format matches: `- [ ] [T###] [P?] [US#?] Description with file path`
      IF NOT → FLAG for correction
 
+4b. VERIFY test spec references:
+    FOR each task IN tasks.md referencing test IDs (UT-*, INT-*, E2E-*, UAT-*):
+      ASSERT task contains structured spec reference (pattern: "\(spec: .+§.+\)" or "\(screen: .+\)")
+      IF NOT → FLAG as missing spec reference
+    spec_ref_compliant = COUNT(tasks with valid spec references)
+    spec_ref_total = COUNT(tasks referencing test IDs)
+
 5. GENERATE validation summary:
    ```yaml
    task_validation:
@@ -447,6 +533,7 @@ WHILE iteration < max_iterations:
      tdd_integration: {compliant_count}/{total_tasks}
      test_mapping: {mapped_tests}/{total_tests}
      format_compliance: {valid_format}/{total_tasks}
+     spec_references: {spec_ref_compliant}/{spec_ref_total}
      high_risk_addressed: {addressed}/{flagged}
    ```
 

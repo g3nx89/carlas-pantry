@@ -356,7 +356,11 @@ Each task MUST include:
 - **Complexity Rating**: Low/Medium/High based on technical difficulty, number of components involved, and integration complexity
 - **Uncertainty Rating**: Low/Medium/High based on unclear requirements, missing information, unproven approaches, or unknown technical areas
 - **Integration Points**: What this task connects with
-- **Definition of Done**: Checklist for task completion INCLUDING "Tests written and passing"
+- **Definition of Done**: Checklist for task completion. Each test criterion in DoD MUST specify:
+  1. The test run command (e.g., `npm test --filter=auth`)
+  2. The target module/file under test
+  3. Minimum assertion count (≥1 assertion per acceptance criterion)
+  Bare "tests passing" without these qualifiers is FORBIDDEN — it enables empty stubs that compile but verify nothing.
 
 ## Output Guidance
 
@@ -611,6 +615,28 @@ Every task MUST strictly follow this format:
 - ❌ WRONG: `- [ ] [US1] Create User model` (missing Task ID)
 - ❌ WRONG: `- [ ] T001 [US1] Create model` (missing file path)
 
+### Test Spec References (REQUIRED for tasks with test IDs)
+
+Every task that references test IDs (UT-*, INT-*, E2E-*, UAT-*) MUST include the spec file path and section so the implementing agent can locate the authoritative test specification.
+
+**Format:** `(spec: {file_path} § {section_name})`
+
+- ✅ `- [ ] T010 [US1] Write unit tests UT-001..002 (spec: test-cases/unit/auth.md § Registration)`
+- ❌ `- [ ] T010 [US1] Write unit tests UT-001, UT-002`
+
+Tasks without spec references produce agents that invent tests from scratch instead of following the planned specifications.
+
+### Design References (REQUIRED for UI tasks)
+
+Every task that involves UI, screens, or visual components MUST reference the source screen or component name from spec.md or design.md so the implementing agent has design anchors.
+
+**Format:** `(screen: {screen_name})` or `(component: {component_name})`
+
+- ✅ `- [ ] T025 [US2] Implement workout timer screen (screen: C25K Timer — design.md § Timer Component)`
+- ❌ `- [ ] T025 [US2] Implement workout timer screen`
+
+If design references are unavailable for a UI task, state `(design: TBD)` and flag `Uncertainty: High` — never silently omit design context for UI work.
+
 ### Task Organization
 
 1. **From User Stories (spec.md)** - PRIMARY ORGANIZATION:
@@ -654,3 +680,4 @@ Every task MUST strictly follow this format:
 | Forward dependencies | Task B depends on Task D (which comes later); execution blocked | Dependencies only on earlier tasks; re-order if needed |
 | Vague task descriptions | "Implement auth" could take 1 hour or 1 week | Specific scope: "Implement JWT token generation in src/auth/jwt.ts" |
 | Ignoring high-risk tasks | Hiding complexity in "Medium" rating; surprises during sprint | Flag High complexity/uncertainty explicitly; offer decomposition |
+| Empty test stubs | `it('should work', () => {})` compiles but tests nothing; DoD satisfied vacuously | Each test DoD specifies run command, target module, and ≥1 assertion per AC |

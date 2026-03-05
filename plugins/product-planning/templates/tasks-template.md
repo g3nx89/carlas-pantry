@@ -89,9 +89,9 @@ These tasks have ZERO story-specific dependencies and enable all subsequent work
 - [ ] T016 [US1] Verify E2E test: E2E-001 passes
 
 **Definition of Done:**
-- [ ] All unit tests (UT-001 to UT-003) passing
-- [ ] Integration test INT-001 passing
-- [ ] E2E test E2E-001 passing
+- [ ] Unit tests UT-001..003 passing ({test_command} --filter={module}) — each has ≥1 assertion per AC
+- [ ] Integration test INT-001 passing ({test_command} --filter={integration_module})
+- [ ] E2E test E2E-001 passing ({e2e_command})
 - [ ] UAT-001 script executable
 
 ---
@@ -114,9 +114,9 @@ These tasks have ZERO story-specific dependencies and enable all subsequent work
 - [ ] T024 [US2] Verify E2E test: E2E-002 passes
 
 **Definition of Done:**
-- [ ] All unit tests (UT-004 to UT-006) passing
-- [ ] Integration test INT-002 passing
-- [ ] E2E test E2E-002 passing
+- [ ] Unit tests UT-004..006 passing ({test_command} --filter={module}) — each has ≥1 assertion per AC
+- [ ] Integration test INT-002 passing ({test_command} --filter={integration_module})
+- [ ] E2E test E2E-002 passing ({e2e_command})
 - [ ] UAT-002 script executable
 
 ---
@@ -234,6 +234,9 @@ format_compliance:
 | **INT-###** | Integration Test ID from test-cases/integration/ |
 | **E2E-###** | End-to-End Test ID from test-cases/e2e/ |
 | **UAT-###** | User Acceptance Test ID from test-cases/uat/ |
+| **ID-NNN..MMM** | Inclusive range of test IDs (e.g., UT-001..003 = UT-001, UT-002, UT-003) |
+| **(spec: file § section)** | Test spec reference linking a task to its authoritative test specification file and section |
+| **(screen: name)** | Design reference linking a UI task to its source screen or component from spec.md/design.md |
 | **DoD** | Definition of Done - criteria for task completion |
 | **Critical Path** | Longest sequence of dependent tasks determining minimum completion time |
 

@@ -183,7 +183,7 @@ FOR EACH phase IN dispatch_table (ordered by phase number):
   # 1. Check entry conditions
   IF phase.min_mode > state.analysis_mode: SKIP
   IF phase.checkpoint already in state.checkpoints: SKIP (already done)
-  IF phase == "8b" AND state.analysis_mode in [rapid, standard]: SKIP
+  IF phase == "8b" AND state.analysis_mode in [rapid]: SKIP
 
   # 2. Resolve prompt variables (see orchestrator-loop.md § Variable Resolution Table)
   prompt = FILL_TEMPLATE(phase.prompt_template, {
