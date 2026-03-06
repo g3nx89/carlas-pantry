@@ -121,7 +121,7 @@ ELSE:
 
 ## Step 1.6: CLI Capability Detection [IF cli_context_isolation]
 
-> **Note:** CLI smoke test verifies binary availability only, not configuration or authentication.
+> **Note:** CLI smoke test verifies binary availability AND functional correctness via a real prompt/response cycle.
 
 ```
 IF feature_flags.cli_context_isolation.enabled:
@@ -138,15 +138,55 @@ IF feature_flags.cli_context_isolation.enabled:
        SET state.cli.mode = "disabled"
        SKIP rest of 1.6
 
-  2. CHECK which CLIs are installed via dispatch script smoke test:
-     # Smoke test each CLI with a 30-second timeout
-     gemini_exit = Bash("{SCRIPT} --cli gemini --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-gemini.txt --timeout 30")
-     codex_exit = Bash("{SCRIPT} --cli codex --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-codex.txt --timeout 30")
-     opencode_exit = Bash("{SCRIPT} --cli opencode --role smoke_test --prompt-file /dev/null --output-file /tmp/cli-smoke-opencode.txt --timeout 30")
+  2. DETECT platform timeout command:
+     IF command -v timeout succeeds: timeout_cmd = "timeout"
+     ELIF command -v gtimeout succeeds: timeout_cmd = "gtimeout"
+     ELSE: timeout_cmd = "none"
+     LOG: "Detected timeout command: {timeout_cmd}"
 
-     gemini_available = (gemini_exit != 3)  # exit 3 = CLI not found
-     codex_available = (codex_exit != 3)
-     opencode_available = (opencode_exit != 3)
+  3. CHECK which CLIs are installed AND functional via real smoke test:
+     # Functional smoke test: send a trivial prompt and verify non-empty meaningful output.
+     # This catches installed-but-broken CLIs (wrong flags, auth expired, untrusted dir).
+     # Uses dispatch script's own timeout handling — NEVER wrap with external `timeout`.
+     # Smoke prompt and expected response from config.cli_integration.cli_commands.{cli}.
+
+     verified_commands = {}
+
+     FOR each CLI_NAME IN [gemini, codex, opencode]:
+       smoke_prompt = config.cli_integration.cli_commands.{CLI_NAME}.smoke_prompt
+       smoke_expect = config.cli_integration.cli_commands.{CLI_NAME}.smoke_expect
+       smoke_prompt_file = /tmp/cli-smoke-prompt-{CLI_NAME}.txt
+       smoke_output_file = /tmp/cli-smoke-output-{CLI_NAME}.txt
+
+       WRITE smoke_prompt to smoke_prompt_file
+
+       # Use CLI_CMD_OVERRIDE to test the config template — ensures the same command
+       # used in real dispatch is the one validated by the smoke test (ISSUE-02 fix).
+       cmd_template = config.cli_integration.cli_commands.{CLI_NAME}.template
+       exit_code = Bash("CLI_CMD_OVERRIDE='{cmd_template}' {SCRIPT} --cli {CLI_NAME} --role smoke_test --prompt-file {smoke_prompt_file} --output-file {smoke_output_file} --timeout 30")
+
+       IF exit_code == 3:
+         # CLI binary not found
+         {CLI_NAME}_available = false
+         LOG: "{CLI_NAME}: not found in PATH"
+       ELIF exit_code == 0 AND file_size(smoke_output_file) > 0:
+         output = READ(smoke_output_file)
+         IF output contains smoke_expect:
+           {CLI_NAME}_available = true
+           verified_commands[CLI_NAME] = config.cli_integration.cli_commands.{CLI_NAME}.template
+           LOG: "{CLI_NAME}: smoke test PASSED — command verified"
+         ELSE:
+           # CLI responded but output unexpected — mark available but unverified
+           {CLI_NAME}_available = true
+           verified_commands[CLI_NAME] = config.cli_integration.cli_commands.{CLI_NAME}.template
+           LOG: "{CLI_NAME}: smoke test responded but output unexpected (proceeding anyway)"
+       ELSE:
+         # CLI found but failed (exit 1/2/4 — wrong flags, timeout, 0-byte)
+         {CLI_NAME}_available = false
+         LOG: "{CLI_NAME}: smoke test FAILED (exit {exit_code}) — marking unavailable"
+
+       DELETE smoke_prompt_file, smoke_output_file
+
      available_count = COUNT(true values in [gemini_available, codex_available, opencode_available])
 
      # Determine CLI mode
@@ -165,7 +205,7 @@ IF feature_flags.cli_context_isolation.enabled:
        cli_mode = "disabled"
        LOG: "No CLIs available — skipping CLI integration"
 
-  3. IF cli_mode != "disabled" AND feature_flags.cli_custom_roles.enabled:
+  4. IF cli_mode != "disabled" AND feature_flags.cli_custom_roles.enabled:
      # Auto-deploy role templates to project
      SOURCE = "$CLAUDE_PLUGIN_ROOT/templates/cli-roles/"
      TARGET = "PROJECT_ROOT/conf/cli_clients/"
@@ -179,7 +219,7 @@ IF feature_flags.cli_context_isolation.enabled:
        LOG: "CLI role templates already deployed and up to date"
        roles_deployed = true
 
-  4. UPDATE state:
+  5. UPDATE state:
      cli:
        available: {available_count >= 1}
        capabilities:
@@ -192,6 +232,12 @@ IF feature_flags.cli_context_isolation.enabled:
          script_available: {script_available}
          jq_available: {jq_available}
          python3_available: {python3_available}
+         timeout_cmd: {timeout_cmd}
+       verified_commands:
+         gemini: {verified_commands.gemini or null}
+         codex: {verified_commands.codex or null}
+         opencode: {verified_commands.opencode or null}
+       consecutive_failures: 0
 
 ELSE:
   SET state.cli.available = false
@@ -390,9 +436,17 @@ IF config.mode_suggestion.enabled:
      │ Rationale: {rationale}                                       │
      └─────────────────────────────────────────────────────────────┘
 
-  5. ASK user to confirm or override:
-     - Accept suggestion
-     - Choose different mode
+  5. ASK user to confirm or override using SAFE_ASK_USER (see orchestrator-loop.md):
+     selected_mode = SAFE_ASK_USER(
+       question: "Which analysis mode would you like to use?",
+       options: [
+         {label: "Complete", description: "MPA + ThinkDeep + Consensus + Full Test (~{cost_estimate})"},
+         {label: "Advanced", description: "MPA + ThinkDeep + Test Plan"},
+         {label: "Standard", description: "MPA only + Basic Test Plan"},
+         {label: "Rapid", description: "Single agent + Minimal Test Plan"}
+       ],
+       confirm_irreversible: true  # Mode cannot be changed after selection
+     )
 ```
 
 ## Step 1.10: Team Preset Selection [IF s10_team_presets] [USER]
@@ -420,16 +474,16 @@ IF feature_flags.s10_team_presets.enabled:
      │                                                              │
      └─────────────────────────────────────────────────────────────┘
 
-  2. ASK user via AskUserQuestion:
-     header: "Team Preset"
-     question: "Which agent team preset would you like?"
-     options:
-       - label: "balanced (Recommended)"
-         description: "All MPA agents, full analysis"
-       - label: "rapid_prototype"
-         description: "Minimal agents, faster execution"
-       - label: "Skip"
-         description: "Use default mode configuration"
+  2. ASK user via SAFE_ASK_USER (see orchestrator-loop.md):
+     selected_preset = SAFE_ASK_USER(
+       question: "Which agent team preset would you like?",
+       options: [
+         {label: "balanced (Recommended)", description: "All MPA agents, full analysis"},
+         {label: "rapid_prototype", description: "Minimal agents, faster execution"},
+         {label: "Skip", description: "Use default mode configuration"}
+       ],
+       confirm_irreversible: false  # Team preset is less critical than mode
+     )
 
   3. SAVE to state:
      team_preset: {selected_preset or null}

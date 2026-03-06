@@ -222,6 +222,15 @@ feature_flags:
     modes: [complete, advanced, standard]
     cost_impact: "~100-500 tokens additional context per coordinator dispatch"
 
+  # Phase 9 Performance
+  phase_9_parallel_generation:
+    enabled: false
+    description: "Split Phase 9 into per-implementation-phase sub-agents for parallel task generation"
+    rollback: "Set false for single tech-lead sequential generation"
+    modes: [complete, advanced]
+    min_task_threshold: 50  # Only parallelize when estimated tasks exceed this
+    cost_impact: "~20% more tokens (parallel agents + merge); ~2.7x faster wall-clock"
+
 # =============================================================================
 # ADAPTIVE RESEARCH DEPTH (A3)
 # =============================================================================
@@ -1564,6 +1573,27 @@ cli_integration:
   # Dispatch script configuration
   dispatch:
     script_path: "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
+
+  # CLI command templates (used by dispatch script via CLI_CMD_OVERRIDE env var)
+  # {PROMPT_FILE} is replaced with the actual prompt file path at dispatch time.
+  # These are the canonical source of truth — update here when CLI flags change.
+  cli_commands:
+    gemini:
+      template: 'gemini -p "$(cat {PROMPT_FILE})" --yolo -o json'
+      smoke_prompt: "Reply with exactly one word: SMOKE_OK"
+      smoke_expect: "SMOKE_OK"
+    codex:
+      template: 'codex exec --json --skip-git-repo-check -C {PROMPT_FILE}'
+      smoke_prompt: "Reply with exactly one word: SMOKE_OK"
+      smoke_expect: "SMOKE_OK"
+    opencode:
+      template: 'opencode run --format json -f {PROMPT_FILE}'
+      smoke_prompt: "Reply with exactly one word: SMOKE_OK"
+      smoke_expect: "SMOKE_OK"
+
+  # Pending agent timeout (for context resume — see orchestrator-loop.md)
+  pending_agent_timeout_minutes: 30
+  pending_agent_check_interval_seconds: 60
 
   # Instrumentation
   instrumentation:

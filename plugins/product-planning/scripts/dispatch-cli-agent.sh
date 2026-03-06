@@ -46,22 +46,34 @@ else
 fi
 
 # Build the CLI invocation command
-case "$CLI_NAME" in
-  codex)
-    CLI_CMD="codex exec --json -C $PROMPT_FILE"
-    ;;
-  gemini)
-    CLI_CMD="gemini --non-interactive --yolo --output-format json < $PROMPT_FILE"
-    ;;
-  opencode)
-    # Instruction text can be overridden via OPENCODE_INSTRUCTION env var
-    OPENCODE_INSTRUCTION="${OPENCODE_INSTRUCTION:-Execute the analysis instructions in the attached file. Return your complete findings in the specified output format.}"
-    CLI_CMD="opencode run --format json -f $PROMPT_FILE '$OPENCODE_INSTRUCTION'"
-    ;;
-  *)
-    CLI_CMD="$CLI_NAME < $PROMPT_FILE"
-    ;;
-esac
+# Override priority: 1) CLI_CMD_OVERRIDE env var  2) .cli-overrides.json file  3) hardcoded defaults
+# See config/planning-config.yaml cli_integration.cli_commands for canonical templates.
+if [[ -n "${CLI_CMD_OVERRIDE:-}" ]]; then
+  CLI_CMD="${CLI_CMD_OVERRIDE//\{PROMPT_FILE\}/$PROMPT_FILE}"
+elif [[ -f "${CLI_OVERRIDES_FILE:-.cli-overrides.json}" ]] && command -v jq &>/dev/null; then
+  FILE_OVERRIDE="$(jq -r --arg cli "$CLI_NAME" '.[$cli] // empty' "${CLI_OVERRIDES_FILE:-.cli-overrides.json}" 2>/dev/null)"
+  if [[ -n "$FILE_OVERRIDE" ]]; then
+    CLI_CMD="${FILE_OVERRIDE//\{PROMPT_FILE\}/$PROMPT_FILE}"
+  fi
+fi
+
+# Fallback to hardcoded defaults if no override matched
+if [[ -z "${CLI_CMD:-}" ]]; then
+  case "$CLI_NAME" in
+    codex)
+      CLI_CMD="codex exec --json --skip-git-repo-check -C \"$PROMPT_FILE\""
+      ;;
+    gemini)
+      CLI_CMD="gemini -p \"\$(cat \"$PROMPT_FILE\")\" --yolo -o json"
+      ;;
+    opencode)
+      CLI_CMD="opencode run --format json -f \"$PROMPT_FILE\""
+      ;;
+    *)
+      CLI_CMD="$CLI_NAME < \"$PROMPT_FILE\""
+      ;;
+  esac
+fi
 
 # --- Platform-aware dispatch ---
 TIMED_OUT=false
@@ -109,6 +121,12 @@ fi
 if [[ "$EXIT_CODE" -eq 124 || "$EXIT_CODE" -eq 137 ]]; then
   TIMED_OUT=true
   EXIT_CODE=2
+fi
+
+# Check for silent failure: exit 0 but 0 bytes output (ISSUE-07)
+if [[ "$EXIT_CODE" -eq 0 ]] && [[ ! -s "$RAW_OUTPUT" ]]; then
+  echo "[DISPATCH_WARNING] CLI '$CLI_NAME' exited 0 but produced 0 bytes of output" > "$RAW_OUTPUT"
+  EXIT_CODE=4  # Treat as Tier 4 — no usable content
 fi
 
 TIMESTAMP_END="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -203,6 +221,10 @@ fi
 rm -f "$RAW_OUTPUT"
 
 # --- Metrics sidecar ---
+# Escape fields_missing for valid JSON (handles quotes and backslashes in field names)
+FIELDS_MISSING_ESCAPED="${FIELDS_MISSING//\\/\\\\}"
+FIELDS_MISSING_ESCAPED="${FIELDS_MISSING_ESCAPED//\"/\\\"}"
+
 cat > "$METRICS_FILE" <<SIDECAR
 {
   "dispatch_id": "$DISPATCH_ID",
@@ -222,7 +244,7 @@ cat > "$METRICS_FILE" <<SIDECAR
   "dispatch_method": "$DISPATCH_METHOD",
   "cli_version": "$CLI_VERSION",
   "fields_validated": $FIELDS_VALIDATED,
-  "fields_missing": "$FIELDS_MISSING"
+  "fields_missing": "$FIELDS_MISSING_ESCAPED"
 }
 SIDECAR
 

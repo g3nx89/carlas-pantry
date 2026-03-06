@@ -35,6 +35,7 @@ feature_flags:
   - "cli_context_isolation"
   - "cli_custom_roles"
   - "dev_skills_integration"
+  - "phase_9_parallel_generation"
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/templates/tasks-template.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md"
@@ -46,13 +47,16 @@ additional_references:
 |-------|-------|----------|----------|----------|-------|
 | 9.1   | ✓     | ✓        | ✓        | ✓        | Optional entry point |
 | 9.2   | ✓     | ✓        | ✓        | ✓        | — |
+| 9.2b  | ✓     | ✓        | ✓        | ✓        | Pre-compute test spec map |
 | 9.3   | —     | ✓        | ✓        | ✓        | `(dev_skills_integration)` |
 | 9.4   | ✓     | ✓        | ✓        | ✓        | — |
 | 9.5   | ✓     | ✓        | ✓        | ✓        | ST for Adv/Complete; inline for Rapid/Std |
+| 9.5p  | —     | —        | ✓        | ✓        | `(phase_9_parallel_generation)` — parallel alternative to 9.5 |
 | 9.6   | ✓     | ✓        | ✓        | ✓        | User interaction if high-risk tasks found |
 | 9.7   | ✓     | ✓        | ✓        | ✓        | — |
 | 9.8   | —     | —        | ✓        | ✓        | CLI task audit |
 | 9.9   | ✓     | ✓        | ✓        | ✓        | — |
+| 9.9b  | ✓     | ✓        | ✓        | ✓        | Traceability matrix (delegated) |
 | 9.10  | ✓     | ✓        | ✓        | ✓        | — |
 | 9.11  | ✓     | ✓        | ✓        | ✓        | — |
 | 9.12  | ✓     | ✓        | ✓        | ✓        | — |
@@ -169,48 +173,10 @@ ELSE:
      LOG: "No asset manifest found — Phase 8b may have been skipped"
      asset_manifest = null
 
-5. EXTRACT test IDs with spec file references for TDD integration:
-   # Parse test files for ID patterns in TWO formats:
-   #
-   # Format A — Markdown headers (used by UAT scripts):
-   #   Pattern: ^#{2,3} (UT|INT|E2E|UAT)-\d{2,3}: (.+)
-   #   Example: "## UAT-01: New User Registration" in test-cases/uat/registration.md
-   #     → extracts { id: "UAT-01", file: "test-cases/uat/registration.md", section: "New User Registration" }
-   #
-   # Format B — Table rows (used by unit/integration/E2E specs):
-   #   Pattern: ^\| (UT|INT|E2E|UAT)-\d{2,3} \|
-   #   Example: "| UT-01 | UserService.create | Valid user | ... |" in test-cases/unit/auth.md
-   #     → extracts { id: "UT-01", file: "test-cases/unit/auth.md", section: "UserService.create — Valid user" }
-   #   Section is derived from Component + Scenario columns (cols 2-3 of table row).
-   #
-   # Both formats produce the same test_spec_map structure.
-
-   test_spec_map = {
-     unit: [
-       { id: "UT-01", file: "test-cases/unit/auth.md", section: "UserService.create — Valid user" },
-       ...
-     ],
-     integration: [
-       { id: "INT-01", file: "test-cases/integration/auth-flow.md", section: "UserRepo + DB — Persist and retrieve" },
-       ...
-     ],
-     e2e: [
-       { id: "E2E-01", file: "test-cases/e2e/login-flow.md", section: "User Registration — Primary flow" },
-       ...
-     ],
-     uat: [
-       { id: "UAT-01", file: "test-cases/uat/registration.md", section: "New User Registration" },
-       ...
-     ]
-   }
-
-   # Keep flat list for backward-compatible validation
-   test_ids = {
-     unit: test_spec_map.unit.map(t => t.id),
-     integration: test_spec_map.integration.map(t => t.id),
-     e2e: test_spec_map.e2e.map(t => t.id),
-     uat: test_spec_map.uat.map(t => t.id)
-   }
+5. BUILD test_spec_map and test_ids via Step 9.2b (see below).
+   # Step 9.2b extracts test IDs from all test-case files and writes
+   # a pre-computed map to .phase-summaries/phase-9-test-map.md.
+   # The flat test_ids list is also derived there for backward-compatible validation.
 
    # Fallback: If no IDs found, generate placeholder IDs based on file count
    IF test_ids.unit is empty AND test-cases/unit/ has files:
@@ -250,6 +216,69 @@ ELSE:
 7. LOG context summary:
    "Task generation context: {story_count} stories, {test_count} tests, {entity_count} entities"
 ```
+
+## Step 9.2b: Pre-compute Test Spec Map
+
+**Purpose:** Extract test IDs with file/section references BEFORE dispatching the tech-lead agent. This reduces the tech-lead's parsing burden from ~50KB of raw test-case files to a ~5KB pre-computed map. Runs inline (parsing, not reasoning).
+
+```
+test_spec_map = { unit: [], integration: [], e2e: [], uat: [] }
+
+FOR each level IN [unit, integration, e2e, uat]:
+  FOR each file IN {FEATURE_DIR}/test-cases/{level}/*.md:
+    content = READ(file)
+
+    # Format A — Markdown headers (used by UAT scripts):
+    #   Pattern: ^#{2,3} (UT|INT|E2E|UAT)-\d{2,3}: (.+)
+    FOR each match OF /^#{2,3}\s+((?:UT|INT|E2E|UAT)-\d{2,3}):\s+(.+)/gm IN content:
+      APPEND { id: match[1], file: relative_path(file), section: match[2] } to test_spec_map[level]
+
+    # Format B — Table rows (used by unit/integration/E2E specs):
+    #   Pattern: ^\| (UT|INT|E2E|UAT)-\d{2,3} \|
+    FOR each match OF /^\|\s+((?:UT|INT|E2E|UAT)-\d{2,3})\s+\|\s+([^|]+)\|\s+([^|]+)\|/gm IN content:
+      section = TRIM(match[2]) + " — " + TRIM(match[3])
+      APPEND { id: match[1], file: relative_path(file), section: section } to test_spec_map[level]
+
+total_count = SUM(LEN(test_spec_map[level]) for level in [unit, integration, e2e, uat])
+
+# Write pre-computed map for tech-lead consumption
+WRITE to {FEATURE_DIR}/.phase-summaries/phase-9-test-map.md:
+  """
+  ---
+  total_tests: {total_count}
+  unit_count: {LEN(test_spec_map.unit)}
+  integration_count: {LEN(test_spec_map.integration)}
+  e2e_count: {LEN(test_spec_map.e2e)}
+  uat_count: {LEN(test_spec_map.uat)}
+  ---
+
+  # Pre-computed Test Spec Map
+
+  ## Unit Tests
+  {FOR t IN test_spec_map.unit: "- {t.id}: {t.file} § {t.section}"}
+
+  ## Integration Tests
+  {FOR t IN test_spec_map.integration: "- {t.id}: {t.file} § {t.section}"}
+
+  ## E2E Tests
+  {FOR t IN test_spec_map.e2e: "- {t.id}: {t.file} § {t.section}"}
+
+  ## UAT Tests
+  {FOR t IN test_spec_map.uat: "- {t.id}: {t.file} § {t.section}"}
+  """
+
+LOG: "Pre-computed test map: {total_count} tests across {file_count} files"
+
+# Keep flat list for backward-compatible validation
+test_ids = {
+  unit: test_spec_map.unit.map(t => t.id),
+  integration: test_spec_map.integration.map(t => t.id),
+  e2e: test_spec_map.e2e.map(t => t.id),
+  uat: test_spec_map.uat.map(t => t.id)
+}
+```
+
+> **Note:** Step 9.5 tech-lead prompt now reads `phase-9-test-map.md` instead of parsing raw test-case files inline. The raw files are still listed in `artifacts_read` for validation (Step 9.7).
 
 ## Step 9.3: Dev-Skills Context Loading [IF dev_skills_integration]
 
@@ -320,17 +349,9 @@ Task(
 
     ## Test Artifacts (CRITICAL for TDD integration)
     - test-plan.md: {test_plan_summary}
-
-    ### Test Spec Map
-    Each test ID with its source file and section — use these to add spec references in tasks.
-    **Unit:**
-    {FOR t IN test_spec_map.unit: "- {t.id}: {t.file} § {t.section}"}
-    **Integration:**
-    {FOR t IN test_spec_map.integration: "- {t.id}: {t.file} § {t.section}"}
-    **E2E:**
-    {FOR t IN test_spec_map.e2e: "- {t.id}: {t.file} § {t.section}"}
-    **UAT:**
-    {FOR t IN test_spec_map.uat: "- {t.id}: {t.file} § {t.section}"}
+    - Pre-computed test map: {FEATURE_DIR}/.phase-summaries/phase-9-test-map.md
+      READ this file for all test IDs with source file and section references.
+      Use `(spec: {file} § {section})` format when mapping tasks to tests.
 
     ## Design References
     {IF design_refs:}
@@ -416,6 +437,96 @@ IF feature_flags.st_task_decomposition.enabled AND analysis_mode in {complete, a
     totalThoughts: 4,
     nextThoughtNeeded: false
   })
+```
+
+## Step 9.5p: Parallel Task Generation [IF phase_9_parallel_generation]
+
+**Purpose:** Split task generation into per-implementation-phase sub-agents for ~2.7× speedup on large specs. Only activates when the flag is enabled AND estimated task count exceeds the configured threshold.
+
+**Replaces Step 9.5** when active. Falls back to Step 9.5 (single tech-lead) otherwise.
+
+```
+IF feature_flags.phase_9_parallel_generation.enabled
+   AND analysis_mode IN {complete, advanced}:
+
+  # Estimate task count from plan.md phase sections
+  phases = EXTRACT implementation phase sections from {FEATURE_DIR}/plan.md
+  # Typical: Phase 0 (assets), Phase A (foundation), Phase B-E (features)
+  estimated_tasks = SUM(estimated_task_count per phase)
+
+  IF estimated_tasks < config.feature_flags.phase_9_parallel_generation.min_task_threshold:
+    LOG: "Estimated {estimated_tasks} tasks < threshold — using sequential Step 9.5"
+    → FALL THROUGH to Step 9.5
+
+  LOG: "Estimated {estimated_tasks} tasks — activating parallel generation across {LEN(phases)} phases"
+
+  # --- Phase 0 (assets) — conditional ---
+  IF asset_manifest exists AND asset_manifest.status == "validated":
+    agent_0 = Task(subagent_type="general-purpose", prompt="""
+      Generate Phase 0: Asset Preparation tasks.
+      READ: {FEATURE_DIR}/asset-manifest.md
+      WRITE to: {FEATURE_DIR}/.phase-summaries/phase-9-tasks-phase0.md
+      Format: Standard task checklist. Task IDs: T001-T0XX.
+      No TDD structure (assets are not code) but include validation criteria.
+      All tasks marked [P] (parallelizable).
+    """)
+
+  # --- Per-implementation-phase agents (parallel) ---
+  agents = []
+  FOR each impl_phase IN phases:
+    agent = Task(subagent_type="product-planning:tech-lead", prompt="""
+      **Goal**: Generate tasks for Implementation Phase {impl_phase.letter}: {impl_phase.name}
+
+      ## Scoped Context (read ONLY these sections)
+      - {FEATURE_DIR}/spec.md — focus on user stories: {impl_phase.stories}
+      - {FEATURE_DIR}/design.md — focus on components: {impl_phase.components}
+      - {FEATURE_DIR}/plan.md — focus on Phase {impl_phase.letter} section
+      - {FEATURE_DIR}/.phase-summaries/phase-9-test-map.md — test ID references
+      - {FEATURE_DIR}/constitution.md — project conventions
+
+      ## Constraints
+      - TDD structure: TEST (RED) → IMPLEMENT (GREEN) → VERIFY
+      - Map tasks to test IDs using `(spec: {file} § {section})` format
+      - Task IDs: T{impl_phase.id_prefix}01, T{impl_phase.id_prefix}02, ...
+      - Reference dependencies on earlier phases by task ID range
+      - Each task completable in 1-2 days
+
+      ## Output
+      WRITE to: {FEATURE_DIR}/.phase-summaries/phase-9-tasks-{impl_phase.letter}.md
+      Format: Standard task checklist with TDD structure per task
+    """)
+    agents.APPEND(agent)
+
+  # Wait for all parallel agents to complete
+  WAIT_ALL(agents + [agent_0] if asset_manifest)
+
+  # --- Merge step (sequential — validates cross-phase dependencies) ---
+  Task(subagent_type="general-purpose", prompt="""
+    **Goal**: Merge per-phase task files into final tasks.md
+
+    ## Input Files
+    READ all {FEATURE_DIR}/.phase-summaries/phase-9-tasks-*.md files
+
+    ## Instructions
+    1. Combine all tasks into {FEATURE_DIR}/tasks.md
+    2. Renumber task IDs sequentially: T001, T002, ... (preserve phase ordering)
+    3. Update ALL cross-phase dependency references to use the new sequential IDs
+       (e.g., if Phase B task "TB03" depended on Phase A task "TA02", and TA02 is now T005,
+       update TB03's dependency to reference T005)
+    4. Validate cross-phase dependencies — no circular references
+    5. Deduplicate infrastructure/setup tasks that appear in multiple phases
+    6. Verify all test IDs from phase-9-test-map.md are referenced by at least one task
+    7. Add header with generation metadata (date, mode, task count, parallel phases)
+
+    ## Output
+    WRITE merged result to: {FEATURE_DIR}/tasks.md
+    Using template: $CLAUDE_PLUGIN_ROOT/templates/tasks-template.md
+  """)
+
+  # Cleanup temporary per-phase files
+  DELETE {FEATURE_DIR}/.phase-summaries/phase-9-tasks-*.md
+
+  → SKIP Step 9.5 (already generated tasks via parallel path)
 ```
 
 ## Step 9.6: Task Clarification Loop [USER]
@@ -595,15 +706,37 @@ IF audit has blocking findings (missing tasks, invalid paths):
    - Include critical path information
    - Add MVP scope recommendation
 
-4. GENERATE traceability matrix:
-   Write to {FEATURE_DIR}/analysis/task-test-traceability.md:
+4. GENERATE traceability matrix — delegate to Step 9.9b below.
+```
 
-   | Task ID | User Story | Tests Referenced | Test Level |
-   |---------|------------|------------------|------------|
-   | T001    | Setup      | -                | -          |
-   | T010    | US1        | UT-001, UT-002   | Unit       |
-   | T011    | US1        | INT-001          | Integration|
-   ...
+## Step 9.9b: Generate Traceability Matrix (Delegated)
+
+**Purpose:** Generate the task-to-test traceability matrix as a separate subagent. This is mechanical mapping (task ID → test IDs → test level) that doesn't require opus-level reasoning, freeing the coordinator to continue with the summary report.
+
+```
+Task(subagent_type="general-purpose", prompt="""
+  **Goal**: Generate a traceability matrix from tasks.md and test spec map.
+
+  ## Input
+  - {FEATURE_DIR}/tasks.md — task list with test references
+  - {FEATURE_DIR}/.phase-summaries/phase-9-test-map.md — pre-computed test IDs
+
+  ## Instructions
+  1. For each task in tasks.md, extract:
+     - Task ID (T###)
+     - User Story reference (US#)
+     - Test IDs referenced in the task (UT-*, INT-*, E2E-*, UAT-*)
+     - Test level for each referenced test ID
+  2. Generate a Markdown table with columns:
+     | Task ID | User Story | Tests Referenced | Test Level |
+  3. Add a coverage summary at the bottom:
+     - Total tasks with test references: X/Y (Z%)
+     - Unmapped test IDs (tests not referenced by any task): [list]
+     - Unmapped tasks (tasks with no test references): [list]
+
+  ## Output
+  WRITE to: {FEATURE_DIR}/analysis/task-test-traceability.md
+""")
 ```
 
 ## Step 9.10: Output Artifacts Summary

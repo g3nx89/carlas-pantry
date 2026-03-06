@@ -128,7 +128,7 @@ State is persisted in `{FEATURE_DIR}/.planning-state.local.md` (YAML frontmatter
 
 Checkpoints: SETUP → RESEARCH → CLARIFICATION → ARCHITECTURE → THINKDEEP → VALIDATION → EXPERT_REVIEW → TEST_STRATEGY → TEST_COVERAGE_VALIDATION → ASSET_CONSOLIDATION → COMPLETION → RETROSPECTIVE
 
-State file version 2 adds `phase_summaries` tracking and `orchestrator` metadata. v1 files are auto-migrated on resume.
+State file version 3 adds `pending_agents` tracking (context resume resilience), `cli.verified_commands` (cross-phase CLI fix propagation), and `cli.dispatch_infrastructure.timeout_cmd` (platform detection). v1 and v2 files are auto-migrated on resume.
 
 ### Dev-Skills Loading by Phase
 
@@ -326,4 +326,4 @@ Used in Phases 2, 4, and 7 for authoritative documentation lookup.
 
 ---
 
-*Last updated: 2026-02-20 — Multi-agent collaboration improvements (Phases A+B): S6 context protocol, S8 specify gate, CB circuit breaker, S7 risk hook, S2 convergence, S1 MPA deliberation, S9 confidence-gated review, S5 team presets*
+*Last updated: 2026-03-05 — Session forensic fixes (v1.3.0): CLI dispatch command fix, SAFE_ASK_USER validation, pending agents tracking (state v3), config-driven CLI commands, functional smoke test, cross-phase CLI propagation, orchestrator log append, Phase 9 pre-computed test map + parallel generation flag + delegated traceability matrix*

@@ -1,7 +1,7 @@
 ---
 name: feature-planning
 description: This skill should be used when the user asks to "plan a feature", "create an implementation plan", "design the architecture", "break down a feature into tasks", "decompose a specification", "plan development", "plan tests", or needs multi-perspective analysis for feature implementation. Provides 9-phase workflow with MPA agents, CLI deep analysis, V-Model test planning, and consensus scoring.
-version: 3.0.0
+version: 3.1.0
 allowed-tools:
   # File operations
   - Read
@@ -168,12 +168,12 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for ~78% o
 | 7 | `phase-7-test-strategy.md` | phase-4, phase-5, phase-6 | — | teststrategist | TEST_STRATEGY | `st_revision`, `st_redteam`, `st_tao`, `s3_judge`, `cli_*`, `dev_skills`, `deep_reasoning`, `s7_mpa`, `s8_convergence`, `s10_team` | spec.md, design.md, plan.md, thinkdeep-insights.md, test-strategy.md | — |
 | 8 | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | — | TEST_COVERAGE_VALIDATION | `cli_*` | test-plan.md, spec.md, test-strategy.md | `∥` |
 | 8b | `phase-8b-asset-consolidation.md` | phase-8 | Validate manifest | — | ASSET_CONSOLIDATION | — | spec.md, design.md, plan.md, test-plan.md, research.md, expert-review.md | `∥` |
-| 9 | `phase-9-completion.md` | phase-4, phase-6, phase-7, phase-8, phase-8b | Clarify tasks | taskauditor | COMPLETION | `st_task_decomp`, `a5_post_menu`, `cli_*`, `dev_skills` | spec.md, plan.md, design.md, test-plan.md, test-cases/*, asset-manifest.md | — |
+| 9 | `phase-9-completion.md` | phase-4, phase-6, phase-7, phase-8, phase-8b | Clarify tasks | taskauditor | COMPLETION | `st_task_decomp`, `a5_post_menu`, `cli_*`, `dev_skills`, `p9_parallel` | spec.md, plan.md, design.md, test-plan.md, test-cases/*, asset-manifest.md | — |
 | 10 | `phase-10-retrospective.md` | phase-1 through phase-9 | None | — | RETROSPECTIVE | — | `.planning-state.local.md` | — |
 
 All phase files are in `$CLAUDE_PLUGIN_ROOT/skills/plan/references/`. Delegation: Phase 1 inline, Phase 3 conditional (inline for Standard/Rapid), all others coordinator.
 
-> **Flag abbreviations:** `cli_*` = `cli_context_isolation` + `cli_custom_roles`, `s5_tot` = `s5_tot_architecture`, `s4_adaptive` = `s4_adaptive_strategy`, `s3_judge` = `s3_judge_gates`, `st_fork_join` = `st_fork_join_architecture`, `st_tao` = `st_tao_loops`, `dev_skills` = `dev_skills_integration`, `deep_reasoning` = `deep_reasoning_escalation`, `s7_mpa` = `s7_mpa_deliberation`, `s8_convergence` = `s8_convergence_detection`, `s10_team` = `s10_team_presets`, `a1_flow` = `a1_flow_analysis`, `a4_expert` = `a4_expert_review`, `s13_confidence` = `s13_confidence_gated_review`, `s6_debate` = `s6_multi_judge_debate`, `st_task_decomp` = `st_task_decomposition`, `a5_post_menu` = `a5_post_planning_menu`.
+> **Flag abbreviations:** `cli_*` = `cli_context_isolation` + `cli_custom_roles`, `s5_tot` = `s5_tot_architecture`, `s4_adaptive` = `s4_adaptive_strategy`, `s3_judge` = `s3_judge_gates`, `st_fork_join` = `st_fork_join_architecture`, `st_tao` = `st_tao_loops`, `dev_skills` = `dev_skills_integration`, `deep_reasoning` = `deep_reasoning_escalation`, `s7_mpa` = `s7_mpa_deliberation`, `s8_convergence` = `s8_convergence_detection`, `s10_team` = `s10_team_presets`, `a1_flow` = `a1_flow_analysis`, `a4_expert` = `a4_expert_review`, `s13_confidence` = `s13_confidence_gated_review`, `s6_debate` = `s6_multi_judge_debate`, `st_task_decomp` = `st_task_decomposition`, `a5_post_menu` = `a5_post_planning_menu`, `p9_parallel` = `phase_9_parallel_generation`.
 
 ## Orchestrator Dispatch Loop
 
@@ -246,11 +246,11 @@ Execute Phase 1 inline. Read `$CLAUDE_PLUGIN_ROOT/skills/plan/references/phase-1
 
 ## State Management
 
-State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 2):
-- YAML frontmatter tracks phase, mode, decisions, phase_summaries, orchestrator metadata
+State persisted in `{FEATURE_DIR}/.planning-state.local.md` (version 3):
+- YAML frontmatter tracks phase, mode, decisions, phase_summaries, pending_agents, cli state, orchestrator metadata
 - Markdown body contains human-readable log
 - Immutable fields: `user_decisions`, `approved_architecture`, `approved_test_strategy`
-- Migration: If `version: 1`, see `orchestrator-loop.md` for auto-migration to v2
+- Migration: If `version: 1` or `version: 2`, see `orchestrator-loop.md` for auto-migration to v3
 
 ## MPA Agents
 
