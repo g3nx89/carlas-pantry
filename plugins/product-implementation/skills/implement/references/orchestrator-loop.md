@@ -148,14 +148,20 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
         LOG "[{timestamp}] Ralph output decline (stage {stage}): summary shrank from {previous_length} to {current_length} chars (ratio {ratio})"
     state.orchestrator.ralph_last_summary_lengths[length_key] = current_length
 
+  # Validate summary content minimum (I2: ported from planning 0-byte output fix)
+  IF summary_file exists AND LEN(summary) < config.orchestrator.min_summary_bytes (default: 50):
+    LOG warning: "Coordinator summary trivially small ({LEN(summary)} bytes < {min_summary_bytes}) — treating as degraded"
+    SET summary.status = "degraded"
+    state.orchestrator.coordinator_failures += 1
+
   # Validate required fields
   IF summary_file missing → CRASH_RECOVERY(stage, phase)
   IF validation fails → apply infrastructure failure handling per autonomy policy:
     | Policy infrastructure action | Behavior |
     |------------------------------|----------|
     | `retry_then_continue` | Retry stage once, then continue with degraded summary |
-    | `retry_then_ask` | Retry once, then ask user: retry / continue / abort |
-    | *(no policy set)* | Ask user: retry / continue / abort |
+    | `retry_then_ask` | Retry once, then SAFE_ASK_USER: retry / continue / abort |
+    | *(no policy set)* | SAFE_ASK_USER: retry / continue / abort |
 
   # Cumulative failure check
   IF status=failed OR degraded:
@@ -192,7 +198,7 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
       CONTINUE  # skip the interactive path below
     # --- End Ralph Mode Guard ---
 
-    Ask user the question from summary.flags.block_reason
+    answer = SAFE_ASK_USER(summary.flags.block_reason, summary.flags.options or [])
     Write answer to "{FEATURE_DIR}/.stage-summaries/{summary_path_base}-user-input.md"
     Re-dispatch coordinator with continuation_mode=true
     Re-read summary
@@ -246,8 +252,8 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
     | Policy infrastructure action | Behavior |
     |------------------------------|----------|
     | `retry_then_continue` | Retry once; if still failed, skip and continue |
-    | `retry_then_ask` | Retry once; if still failed, ask: retry / skip / abort |
-    | *(no policy set)* | Ask: retry / skip / abort |
+    | `retry_then_ask` | Retry once; if still failed, SAFE_ASK_USER: retry / skip / abort |
+    | *(no policy set)* | SAFE_ASK_USER: retry / skip / abort |
     IF user chooses "abort": RELEASE_LOCK and HALT
 
   # --- Ralph Mode Test Result Stall Detection (T2-9) ---
@@ -453,8 +459,8 @@ FUNCTION CRASH_RECOVERY(stage):
 
   infra_action = LOOKUP policy infrastructure action from config (autonomy_policy.levels.{policy}.infrastructure)
   IF infra_action == "retry_then_continue": RETRY stage once; if still no summary, continue with degraded summary
-  ELIF infra_action == "retry_then_ask": RETRY stage once; if still no summary, ASK user: Retry / Continue / Abort
-  ELSE: ASK user: Retry stage / Continue with degraded summary / Abort
+  ELIF infra_action == "retry_then_ask": RETRY stage once; if still no summary, SAFE_ASK_USER("Coordinator failed after retry. How to proceed?", [{label: "Retry"}, {label: "Continue"}, {label: "Abort"}])
+  ELSE: SAFE_ASK_USER("Coordinator produced no output. How to proceed?", [{label: "Retry stage"}, {label: "Continue with degraded summary"}, {label: "Abort"}])
   IF user chooses "Abort": RELEASE_LOCK and HALT
 ```
 
@@ -463,7 +469,7 @@ FUNCTION CRASH_RECOVERY(stage):
 Coordinators NEVER interact with users directly. All user interaction flows through the orchestrator:
 
 1. Coordinator writes summary with `status: needs-user-input` and `flags.block_reason` explaining what is needed
-2. Orchestrator reads summary, presents question to user via `AskUserQuestion`
+2. Orchestrator reads summary, presents question to user via `SAFE_ASK_USER` (validates non-empty response, retries on widget failures — see Helper: Safe Ask User)
 3. Orchestrator writes user's answer to `{FEATURE_DIR}/.stage-summaries/stage-{N}-user-input.md`
 4. Orchestrator re-dispatches same coordinator with `continuation_mode: true` (coordinator reads the user-input file, skips re-reading already-processed references, and resumes)
 
@@ -559,7 +565,9 @@ Required fields in every stage summary YAML:
 - `artifacts_written` (array, may be empty)
 - `summary` (non-empty string)
 
-If validation fails, mark summary as degraded and ask user whether to retry, continue, or abort.
+If validation fails, mark summary as degraded and SAFE_ASK_USER whether to retry, continue, or abort.
+
+Additionally, summaries smaller than `config.orchestrator.min_summary_bytes` (default: 50) are treated as degraded before field validation (see VALIDATE_AND_HANDLE minimum content check).
 
 ## Late Agent Notifications
 
@@ -570,6 +578,74 @@ If a background coordinator `Task()` returns AFTER the orchestrator has already 
 3. **Do not overwrite** — the existing summary (reconstructed or user-resolved) takes precedence
 
 The forward-only dispatch loop (`stage_summaries[stage] != null` -> SKIP) naturally handles this. Dismiss late notifications with a single-line acknowledgment to minimize context waste.
+
+### Per-Phase Dispatch Deduplication
+
+In per-phase mode, the same stage (2-5) is dispatched for each phase. The per-phase summary uses a unique key (`phase-{N}-stage-{S}-summary.md`), so late returns from Phase 1 Stage 2 cannot collide with Phase 2 Stage 2.
+
+However, if crash recovery retries a coordinator for the *same* phase+stage combination, a race is possible: the first dispatch may complete after the retry already wrote a summary. Guard:
+
+```
+BEFORE dispatching coordinator for (phase, stage):
+  expected_summary = "phase-{phase}-stage-{stage}-summary.md"
+  IF expected_summary ALREADY EXISTS on disk AND was written AFTER the current dispatch attempt started:
+    LOG: "Summary already written by prior dispatch — skipping re-dispatch"
+    READ existing summary and CONTINUE
+```
+
+This prevents duplicate work when a crash-recovery retry races with a slow original dispatch.
+
+## Helper: Safe Ask User
+
+Utility function for all orchestrator-level user prompts. Validates non-empty responses
+and provides graceful fallback to text-based questions. Use for all interactive `AskUserQuestion`
+calls — especially irreversible decisions (autonomy policy, quality preset).
+
+> **Note:** This function is ONLY called in the interactive (non-ralph) path. In ralph mode,
+> all AskUserQuestion calls are intercepted by the ralph mode guard (auto-resolve) before
+> reaching the interactive path. SAFE_ASK_USER is never invoked when `ralph_mode == true`.
+
+```
+FUNCTION SAFE_ASK_USER(question, options, max_retries=2, confirm_irreversible=false):
+  FOR attempt IN [1..max_retries]:
+    response = AskUserQuestion(question, options)
+
+    # Guard 1: Empty response (race condition with SessionStart hooks — ported from planning ISSUE-01)
+    IF response is empty OR response == "." OR response matches /^User has answered.*:\s*\.?$/:
+      LOG: "SAFE_ASK_USER: Empty response (attempt {attempt}/{max_retries})"
+      IF attempt == max_retries:
+        # Fallback: present as numbered text and parse user's text response
+        DISPLAY: "The selection widget didn't work. Please type the number of your choice:"
+        FOR i, opt IN enumerate(options):
+          DISPLAY: "  {i+1}. {opt.label}" + (IF opt.description: " — {opt.description}" ELSE "")
+        text_response = WAIT for user text message
+        response = PARSE number from text_response → map to options[number - 1].label
+        IF parse fails:
+          # Try matching option label directly from text
+          response = MATCH text_response against options.labels (case-insensitive)
+      ELSE:
+        CONTINUE
+
+    # Guard 2: Response matches a known option (if options provided)
+    IF options is not empty AND response NOT IN [opt.label for opt in options]:
+      LOG: "SAFE_ASK_USER: Unrecognized response '{response}' — re-asking"
+      IF attempt < max_retries:
+        CONTINUE
+
+    # Guard 3: Confirmation for irreversible decisions
+    IF confirm_irreversible AND response is valid:
+      confirm = AskUserQuestion(
+        "Confirm: **{response}**. This cannot be changed later. Proceed?",
+        [{label: "Yes, proceed"}, {label: "Change selection"}]
+      )
+      IF confirm contains "Change":
+        CONTINUE  # Re-ask the original question
+
+    RETURN response
+
+  # Should not reach here — last attempt always returns via fallback
+  ERROR: "SAFE_ASK_USER: Failed after {max_retries} attempts"
+```
 
 ## Helper: Identify Stuck Task
 

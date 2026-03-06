@@ -30,7 +30,7 @@ When `orchestrator.ralph_mode` is `true` in the state file:
 
 | Behavior | Normal Mode | Ralph Mode |
 |----------|-------------|------------|
-| AskUserQuestion | Interactive prompt | Auto-resolved via autonomy policy |
+| AskUserQuestion | SAFE_ASK_USER (empty response validation + text fallback) | Auto-resolved via autonomy policy (SAFE_ASK_USER bypassed) |
 | Project setup (1.5b) | User selects categories | Skipped entirely |
 | Quality preset (1.9b) | Ask if null | Use pre-seed default |
 | Autonomy policy (1.9a) | Ask if null | Use pre-seed default |

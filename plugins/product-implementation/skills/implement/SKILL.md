@@ -7,7 +7,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 3.2.0
+version: 3.3.0
 allowed-tools:
   # File operations
   - Read
@@ -72,7 +72,7 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 9. **Lock Protocol** — Acquire lock at start, release at completion. Check for stale locks (>60 min per `config/implementation-config.yaml`).
 10. **Delegation Protocol** — Delegated stages execute via `Task(subagent_type="general-purpose")` coordinators. Stage 1 is inline. See dispatch table below.
 11. **Summary-Only Context** — Between stages, read ONLY summary files from `{FEATURE_DIR}/.stage-summaries/`. Never read full reference files or raw artifacts in orchestrator context.
-12. **No User Interaction from Coordinators** — Coordinators set `status: needs-user-input` in their summary. The orchestrator mediates ALL user prompts via `AskUserQuestion`.
+12. **No User Interaction from Coordinators** — Coordinators set `status: needs-user-input` in their summary. The orchestrator mediates ALL user prompts via `SAFE_ASK_USER` (validates non-empty responses, retries on widget failures). In ralph mode, auto-resolve guard intercepts before SAFE_ASK_USER.
 
 ## Workflow Overview
 

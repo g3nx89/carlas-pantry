@@ -236,6 +236,9 @@ Ralph wraps the implement skill invocation (outer loop). The skill's checkpoint-
 - Blockers excluded from auto-commit: `.implementation-blockers` pattern in `auto_commit.exclude_patterns`
 - Status file excluded from auto-commit: `.implementation-ralph-status` pattern in `auto_commit.exclude_patterns`
 - Cross-iteration learnings (`ralph_loop.learnings.enabled` in config, default `true`) capture fail→succeed deltas as operational learnings in `{FEATURE_DIR}/.implementation-learnings.local.md`. Stage 1 Section 1.0c reads the file and injects up to 10 recent entries into the summary. FIFO-capped at `max_entries` (default 20). Excluded from auto-commit (`.implementation-learnings` pattern).
+- SAFE_ASK_USER (`orchestrator-loop.md` Helper) wraps all interactive AskUserQuestion calls with empty response validation (race condition with SessionStart hooks), option matching, and text-based fallback. Used by orchestrator needs-user-input relay, crash recovery, and Stage 1 inline calls (Sections 1.1, 1.5b, 1.9a, 1.9b). Bypassed entirely in ralph mode — the auto-resolve guard intercepts before SAFE_ASK_USER is reached. Ported from product-planning v1.3.0 post-mortem fix.
+- Coordinator summary minimum content check (`orchestrator.min_summary_bytes` in config, default `50`) treats coordinator summaries smaller than the threshold as degraded output, triggering crash recovery. Prevents 0-byte or trivially short outputs from being accepted as valid summaries.
+- Per-phase dispatch deduplication guard (`orchestrator-loop.md` Late Agent Notifications) prevents crash-recovery retries from racing with slow original dispatches in per-phase mode. Checks if the expected summary file was already written after the dispatch attempt started.
 
 ## UAT Mobile Testing Integration
 

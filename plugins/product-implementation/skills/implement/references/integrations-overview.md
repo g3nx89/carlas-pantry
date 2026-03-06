@@ -75,7 +75,7 @@ Controls how the system resolves findings, failures, and incomplete tasks — re
 | `balanced` | Balanced | Fix C/H, defer M, accept L | Document as-is | Retry → continue |
 | `critical_only` | Minimal | Fix C, defer H, accept M/L | Document as-is | Retry → ask |
 
-**Selection:** If `autonomy_policy.default_level` is set in config, the question is skipped. Otherwise, the user is asked via `AskUserQuestion` at Stage 1 startup.
+**Selection:** If `autonomy_policy.default_level` is set in config, the question is skipped. Otherwise, the user is asked via `SAFE_ASK_USER` at Stage 1 startup (validates non-empty responses).
 
 **Auto-resolution logging:** All auto-resolved decisions are logged with prefix `[AUTO-{policy}]` in stage logs for full traceability.
 

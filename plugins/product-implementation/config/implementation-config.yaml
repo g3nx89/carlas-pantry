@@ -100,6 +100,7 @@ autonomy_policy:
 # Referenced by: orchestrator-loop.md step 6 (cumulative failure check)
 orchestrator:
   max_coordinator_failures: 3  # Halt with diagnostic when cumulative coordinator failures reach this threshold
+  min_summary_bytes: 50        # Coordinator summaries smaller than this are treated as degraded (catches 0-byte/trivial output)
 
 # Lock protocol
 lock:

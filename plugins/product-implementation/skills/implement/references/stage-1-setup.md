@@ -54,9 +54,9 @@ Check if the session is running inside a ralph loop by looking for the ralph-loo
 
 When `ralph_mode: true`:
 - Section 1.5b (project setup analysis) is skipped entirely
-- Section 1.9a (autonomy policy) uses pre-seeded config value directly, never calls `AskUserQuestion`
-- Section 1.9b (quality config) uses pre-seeded config values directly, never calls `AskUserQuestion`
-- All downstream `AskUserQuestion` calls are intercepted by the orchestrator guard (see `orchestrator-loop.md`)
+- Section 1.9a (autonomy policy) uses pre-seeded config value directly, never calls `SAFE_ASK_USER`
+- Section 1.9b (quality config) uses pre-seeded config values directly, never calls `SAFE_ASK_USER`
+- All downstream user prompts are intercepted by the orchestrator ralph mode guard — `SAFE_ASK_USER` is never invoked in ralph mode (see `orchestrator-loop.md`)
 
 ## 1.0c Cross-Iteration Learnings (Ralph Mode)
 
@@ -87,7 +87,7 @@ git branch --show-current
 - `FEATURE_DIR` = `specs/{FEATURE_NAME}` (e.g., `specs/001-user-auth`)
 - `TASKS_FILE` = `{FEATURE_DIR}/tasks.md`
 
-**Fallback:** If branch does not match the expected format, ask the user to provide FEATURE_NAME explicitly via `AskUserQuestion`.
+**Fallback:** If branch does not match the expected format, ask the user to provide FEATURE_NAME explicitly via `SAFE_ASK_USER` (see `orchestrator-loop.md` Helper: Safe Ask User). Stage 1 runs inline in the orchestrator, so this function is directly available.
 
 ## 1.2 Required Files
 
@@ -203,7 +203,7 @@ Skip this section entirely (set status to `"skipped"`) if ANY of:
 
 4. **If no recommendations remain** → log "Project setup analysis found no improvements needed", set status to `"skipped"`, skip to Section 1.6.
 
-5. **Present to user** via `AskUserQuestion`:
+5. **Present to user** via `SAFE_ASK_USER` (see `orchestrator-loop.md`):
    - Question: "I've analyzed your project setup. Which improvements should I apply?"
    - Header: "Setup"
    - multiSelect: `true`
@@ -558,7 +558,7 @@ Determine how the system should handle issues (findings, failures, incomplete ta
    - If valid: set `autonomy_policy` to the configured value, log: `"Autonomy policy: {label} (from config default)"`
    - If invalid: log warning, fall through to user question
 3. If `autonomy_policy.default_level` is null (or invalid):
-   - Ask the user via `AskUserQuestion`:
+   - Ask the user via `SAFE_ASK_USER` (see `orchestrator-loop.md`):
      - **Question:** "How should I handle issues during implementation?"
      - **Options:**
        1. **Full Auto** — "Fix everything automatically, don't interrupt me" (description from config: `levels.full_auto.description`)
@@ -592,7 +592,7 @@ Determine the quality tier and external model availability. These two settings c
 
 1. Read `quality_preset` from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
 2. If `quality_preset` is `null`:
-   - Ask user via `AskUserQuestion`:
+   - Ask user via `SAFE_ASK_USER` (see `orchestrator-loop.md`):
      - **Question:** "What quality level should I use for this implementation?"
      - **Header:** "Quality"
      - **Options:**
@@ -603,7 +603,7 @@ Determine the quality tier and external model availability. These two settings c
 
 3. Read `external_models` from config
 4. If `external_models` is `null` AND selected preset is NOT `minimal`:
-   - Ask user via `AskUserQuestion`:
+   - Ask user via `SAFE_ASK_USER` (see `orchestrator-loop.md`):
      - **Question:** "Should I use external AI models (Codex, Gemini, OpenCode) for review and testing?"
      - **Header:** "Models"
      - **Options:**
