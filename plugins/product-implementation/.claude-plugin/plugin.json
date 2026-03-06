@@ -1,7 +1,7 @@
 {
   "name": "product-implementation",
-  "version": "3.0.0",
-  "description": "Execute implementation plans produced by product-planning, orchestrating TDD cycles, code generation, quality review, documentation, and implementation retrospective with KPI framework",
+  "version": "3.2.0",
+  "description": "Execute implementation plans produced by product-planning, orchestrating TDD cycles, code generation, quality review, documentation, and implementation retrospective with KPI framework. Supports autonomous execution via ralph-loop.",
   "author": {
     "name": "Alessandro Fato",
     "email": "afato@example.com"

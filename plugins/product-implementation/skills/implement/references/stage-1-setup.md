@@ -26,6 +26,51 @@ additional_references:
 > After completion, the orchestrator MUST write a Stage 1 summary to
 > `{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`.
 
+## 1.0b Ralph Mode Detection
+
+Check if the session is running inside a ralph loop by looking for the ralph-loop state file.
+
+### Procedure
+
+1. Check if `.claude/ralph-loop.local.md` exists in `PROJECT_ROOT`
+2. IF file exists AND `config.ralph_loop.enabled` is `true` (default):
+   - Set `ralph_mode: true` in the implementation state file (under `orchestrator.ralph_mode`)
+   - Read `ralph_loop.pre_seed_defaults` from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+   - For each startup question (`quality_preset`, `external_models`, `autonomy_policy.default_level`):
+     - IF the config value is `null` AND `pre_seed_defaults` has a value → use pre-seed default
+     - ELIF the config value is `null` AND no pre-seed default → HALT: "Ralph mode requires pre-seeded config. Set `{field}` in `implementation-config.yaml` or pass via `--quality`/`--autonomy`/`--external-models`"
+   - Skip Section 1.5b (project setup analysis) entirely — it requires user selection via `AskUserQuestion`
+   - Log: `"[{timestamp}] Ralph mode detected — autonomous execution, no user interaction"`
+   - Write `ralph_mode: true` to Stage 1 summary YAML frontmatter
+3. ELIF file exists AND `config.ralph_loop.enabled` is `false`:
+   - Log: `"[{timestamp}] Ralph loop file detected but ralph_loop.enabled is false — running in normal mode"`
+   - Set `ralph_mode: false` in state file
+   - Write `ralph_mode: false` to Stage 1 summary YAML frontmatter
+4. ELSE:
+   - Set `ralph_mode: false` in state file (default)
+   - Write `ralph_mode: false` to Stage 1 summary YAML frontmatter
+
+### Impact
+
+When `ralph_mode: true`:
+- Section 1.5b (project setup analysis) is skipped entirely
+- Section 1.9a (autonomy policy) uses pre-seeded config value directly, never calls `AskUserQuestion`
+- Section 1.9b (quality config) uses pre-seeded config values directly, never calls `AskUserQuestion`
+- All downstream `AskUserQuestion` calls are intercepted by the orchestrator guard (see `orchestrator-loop.md`)
+
+## 1.0c Cross-Iteration Learnings (Ralph Mode)
+
+If `ralph_mode` is `true` AND `config.ralph_loop.learnings.enabled` is `true`:
+
+1. Check if `{FEATURE_DIR}/.implementation-learnings.local.md` exists
+2. If it exists:
+   - Read the file
+   - Extract up to 10 most recent entries (last 10 `###` blocks)
+   - Store as `operational_learnings` for inclusion in Stage 1 summary (Section 1.10)
+3. If it does not exist: set `operational_learnings: []`
+
+The learnings are included in the Stage 1 summary body under "## Operational Learnings" so downstream coordinators can avoid repeating past mistakes.
+
 ## 1.1 Branch Parsing
 
 Derive implementation variables from the current git branch:
@@ -651,6 +696,7 @@ project_setup:                  # from Section 1.5b (all null/disabled if projec
   architecture_pattern: "{pattern or null}"
   detected_languages: [{list}]
   detected_frameworks: [{list}]
+ralph_mode: {true/false}  # from Section 1.0b (true if .claude/ralph-loop.local.md exists)
 autonomy_policy: "{full_auto/balanced/critical_only}"  # from Section 1.9a (user-selected or config default)
 quality_preset: "{standard/comprehensive/minimal}"  # from Section 1.9b (user-selected or config value)
 external_models: {true/false}  # from Section 1.9b (user-selected or config value)
@@ -685,6 +731,7 @@ context_contributions:
 - Total tasks: {M}
 - Phases remaining: {list}
 - Resume from: {phase_name or "beginning"}
+- Ralph mode: {true (autonomous — no user interaction) / false (interactive)}
 - Project setup: {status} — build={build_system}, languages={list}, frameworks={list}, hooks={N active} (or "disabled")
 - Detected domains: {list, e.g., ["kotlin", "compose", "api"] or [] if detection disabled}
 - CLI availability: {map, e.g., codex=true, gemini=false or "no CLI options enabled"}
@@ -745,10 +792,20 @@ For each loaded optional/expected file, provide a 1-line summary of its key cont
 - **Traceability file**: {Loaded / Not found} (`analysis/task-test-traceability.md`)
 - **Cross-validation**: {All test IDs in tasks.md have matching specs / {N} orphaned references}
 
+## Operational Learnings
+
+*(This section is only present if `ralph_mode: true` AND learnings file exists with entries)*
+
+Learnings from previous ralph iterations (fail→succeed patterns). Coordinators should
+consider these when encountering similar situations.
+
+{operational_learnings — up to 10 most recent entries from .implementation-learnings.local.md}
+
 ## Stage Log
 
 Use ISO 8601 timestamps with seconds precision per `config/implementation-config.yaml` `timestamps` section (e.g., `2026-02-10T14:30:45Z`). Never round to hours or minutes.
 
+- [{timestamp}] Ralph mode: {true — autonomous execution / false — interactive} (from Section 1.0b)
 - [{timestamp}] Branch parsed: {branch_name}
 - [{timestamp}] Context loaded: {N} phases, {M} tasks
 - [{timestamp}] Expected file warnings: {list or "none"}

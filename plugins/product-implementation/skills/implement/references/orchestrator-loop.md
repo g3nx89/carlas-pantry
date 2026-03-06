@@ -7,6 +7,22 @@
 
 1. **Read state**: Read `{FEATURE_DIR}/.implementation-state.local.md`. If `state.version < 3`, migrate (see Migration below).
 
+1a. **Top-of-loop stall check** (ralph mode only): If `state.orchestrator.ralph_mode` is `true`:
+    ```
+    entry_fingerprint = HASH(state.current_stage, state.current_phase,
+                             len(state.phases_completed), state.phase_stages)
+    IF entry_fingerprint == state.orchestrator.ralph_last_fingerprint:
+      state.orchestrator.ralph_stall_count += 1
+      APPLY_GRADUATED_STALL_RESPONSE(state.orchestrator.ralph_stall_count)
+    ELSE:
+      state.orchestrator.ralph_stall_count = 0
+      state.orchestrator.ralph_stall_level = 0
+    state.orchestrator.ralph_last_fingerprint = entry_fingerprint
+    WRITE_STATUS_FILE(state, "top-of-loop stall check")
+    WRITE state
+    ```
+    This catches stalls where the orchestrator never reaches a coordinator dispatch (e.g., state file corruption, config error). The end-of-phase check (step 5i) updates the fingerprint again after progress is made.
+
 2. **Read config**: Read `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`. Build `dispatch_table` from SKILL.md Stage Dispatch Table. Read `per_phase_review` section.
 
 3. **Stage 1** (inline): If `state.stage_summaries["1"]` is null, execute Stage 1 inline per `stage-1-setup.md`. Write summary. Set `state.stage_summaries["1"] = path`. If already done, skip.
@@ -47,10 +63,28 @@
       - Set `state.phase_stages[phase].s5 = "completed"`
 
    f. Move phase from `phases_remaining` to `phases_completed`. Set `state.current_phase = null`.
+      If `state.orchestrator.ralph_mode` is `true`: reset `ralph_same_error_count = 0`, `ralph_last_error = null` (phase success clears error accumulator).
 
    g. **Auto-Commit Phase**: Follow auto-commit dispatch procedure (`auto-commit-dispatch.md`) with `template_key=phase_complete`, `substitution_vars={feature_name=FEATURE_NAME, phase_name=current_phase_name}`, `skip_target=next phase`, `summary_field=append to commits_made`.
 
-   h. Update `state.last_checkpoint`. Write state.
+   h. Update `state.last_checkpoint`. Write state. If `state.orchestrator.ralph_mode` is `true`: `WRITE_STATUS_FILE(state, "phase {phase} checkpoint")`.
+
+   i. **Stall Detection** (ralph mode only): If `state.orchestrator.ralph_mode` is `true` AND `config.ralph_loop.circuit_breaker` exists:
+      ```
+      current_fingerprint = HASH(state.current_stage, state.current_phase,
+                                  len(state.phases_completed), state.phase_stages)
+
+      IF current_fingerprint == state.orchestrator.ralph_last_fingerprint:
+        state.orchestrator.ralph_stall_count += 1
+        APPLY_GRADUATED_STALL_RESPONSE(state.orchestrator.ralph_stall_count)
+      ELSE:
+        state.orchestrator.ralph_stall_count = 0
+        state.orchestrator.ralph_stall_level = 0
+
+      state.orchestrator.ralph_last_fingerprint = current_fingerprint
+      WRITE_STATUS_FILE(state, "end-of-phase stall check")
+      WRITE state
+      ```
 
 6. **Final Passes** (after all phases complete):
 
@@ -67,6 +101,13 @@
 
    c. **Stage 6** (retrospective): `DISPATCH_COORDINATOR(stage=6)`. Validate summary.
 
+   d. **Ralph Completion Signal** (ralph mode only): If `state.orchestrator.ralph_mode` is `true` AND Stage 6 summary status is `"completed"`:
+      - Output the completion promise tag so the ralph-loop Stop Hook detects it:
+        ```
+        <promise>{config.ralph_loop.completion_promise}</promise>
+        ```
+      - The Stop Hook will read this from the transcript and allow the session to exit
+
 ### Linear Mode (per_phase_review.enabled: false — backward compatible)
 
 5L. **Iterate stages** (2 through 6): For each stage, execute steps 6L-8L. This restores the original behavior where S2 processes all phases, then S3/S4/S5 run once across the entire implementation.
@@ -77,12 +118,35 @@
 
 8L. **Validate and handle**: `VALIDATE_AND_HANDLE("stage-{N}-summary.md", stage=stage, phase=null)`. Update `state.stage_summaries[stage]`. Set `state.current_stage = next_stage`.
 
+8La. **Stall Detection** (linear mode, ralph mode only): If `state.orchestrator.ralph_mode` is `true` AND `config.ralph_loop.circuit_breaker` exists:
+      ```
+      current_fingerprint = HASH(state.current_stage, len(state.stage_summaries), state.orchestrator.coordinator_failures)
+      # Same comparison logic as step 5i (fingerprint match → increment stall count → APPLY_GRADUATED_STALL_RESPONSE)
+      WRITE_STATUS_FILE(state, "linear mode stage completion")
+      ```
+
+9L. **Ralph Completion Signal** (linear mode, ralph mode only): After Stage 6 completes, if `state.orchestrator.ralph_mode` is `true`, output `<promise>{config.ralph_loop.completion_promise}</promise>`.
+
 ### Shared: VALIDATE_AND_HANDLE
 
 ```
 FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
   summary_file = "{FEATURE_DIR}/.stage-summaries/{summary_path}"
   summary = READ(summary_file)
+
+  # Output-decline detection (T2-7, ralph mode only)
+  # Only compare within the same stage to avoid false positives (Stage 3 summaries are
+  # naturally shorter than Stage 2 summaries). Tracks per-stage baseline.
+  IF state.orchestrator.ralph_mode == true AND summary_file exists:
+    current_length = LEN(summary)
+    length_key = "stage_{stage}"  # e.g., "stage_2", "stage_3"
+    previous_length = state.orchestrator.ralph_last_summary_lengths[length_key] OR null
+    IF previous_length IS NOT NULL AND previous_length > 0:
+      ratio = current_length / previous_length
+      IF ratio < config.ralph_loop.circuit_breaker.output_decline_threshold:
+        state.orchestrator.ralph_stall_count += 1
+        LOG "[{timestamp}] Ralph output decline (stage {stage}): summary shrank from {previous_length} to {current_length} chars (ratio {ratio})"
+    state.orchestrator.ralph_last_summary_lengths[length_key] = current_length
 
   # Validate required fields
   IF summary_file missing → CRASH_RECOVERY(stage, phase)
@@ -102,6 +166,32 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
   # Handle needs-user-input
   IF summary.status == "needs-user-input":
     # Autonomy policy already attempted inside coordinator. This is a fallthrough.
+
+    # --- Ralph Mode Guard ---
+    # In ralph mode, no user is present. Auto-resolve ALL questions.
+    IF state.orchestrator.ralph_mode == true:
+      question = summary.flags.block_reason
+      # Derive answer from question type using keyword matching on block_reason.
+      # Categories are matched by checking if question contains any keyword from the set.
+      # First match wins. Catchall ensures the loop never blocks.
+      IF question MATCHES_ANY("validation", "check failed", "spec alignment", "coverage", "test count"):
+        answer = "proceed"           # Stage 3 validation outcomes
+      ELIF question MATCHES_ANY("review", "finding", "fix", "severity", "critical", "high"):
+        answer = "fix"               # Stage 4 review findings — full_auto default; policy already resolved critical/high
+      ELIF question MATCHES_ANY("documentation", "doc", "tech-writer", "incomplete"):
+        answer = "complete"          # Stage 5 documentation decisions
+      ELIF question MATCHES_ANY("infrastructure", "timeout", "unreachable", "CLI", "dispatch failed"):
+        answer = "continue"          # Infrastructure failures — ralph will retry next iteration if needed
+      ELSE:
+        LOG warning: "Unhandled AskUserQuestion in ralph mode: {question}"
+        answer = "continue"          # safe default — never block
+      Write answer to "{FEATURE_DIR}/.stage-summaries/{summary_path_base}-user-input.md"
+      LOG "[{timestamp}] [AUTO-ralph] Stage {state.current_stage} Phase {state.current_phase}: auto-resolved '{question}' -> '{answer}' (flags: {summary.flags})"
+      Re-dispatch coordinator with continuation_mode=true
+      Re-read summary
+      CONTINUE  # skip the interactive path below
+    # --- End Ralph Mode Guard ---
+
     Ask user the question from summary.flags.block_reason
     Write answer to "{FEATURE_DIR}/.stage-summaries/{summary_path_base}-user-input.md"
     Re-dispatch coordinator with continuation_mode=true
@@ -109,12 +199,79 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
 
   # Handle failed
   IF summary.status == "failed":
+    # --- Ralph Mode Rate Limit / Timeout Exemption (T2-8) ---
+    IF state.orchestrator.ralph_mode == true:
+      raw_error_lower = LOWERCASE(summary.flags.block_reason OR summary.summary OR "unknown error")
+      rate_limit_patterns = config.ralph_loop.circuit_breaker.rate_limit_patterns
+      timeout_patterns = config.ralph_loop.circuit_breaker.timeout_patterns
+      IF raw_error_lower MATCHES_ANY(rate_limit_patterns) OR raw_error_lower MATCHES_ANY(timeout_patterns):
+        state.orchestrator.ralph_rate_limit_count += 1
+        tag = "[RATE-LIMIT]" IF MATCHES_ANY(rate_limit_patterns) ELSE "[TIMEOUT]"
+        LOG "[{timestamp}] {tag} Rate limit/timeout detected — exempt from stall counting. Backing off {config.ralph_loop.circuit_breaker.rate_limit_backoff_seconds}s"
+        WAIT config.ralph_loop.circuit_breaker.rate_limit_backoff_seconds
+        RETRY stage once
+        WRITE_STATUS_FILE(state, "rate limit backoff retry")
+        WRITE state
+        CONTINUE  # skip normal error-pattern tracking
+    # --- End Rate Limit / Timeout Exemption ---
+
+    # --- Ralph Mode Error-Pattern Tracking ---
+    IF state.orchestrator.ralph_mode == true:
+      # Normalize error: extract core error message, strip timestamps/paths/line numbers
+      raw_error = summary.flags.block_reason OR summary.summary OR "unknown error"
+      normalized_error = REGEX_REPLACE(raw_error, r'[\d]{4}-[\d]{2}-[\d]{2}[T\s][\d:]+[Z]?', '')  # strip timestamps
+      normalized_error = REGEX_REPLACE(normalized_error, r'/[\w/\-\.]+/(\w+[\.\w]*)', '\1')      # strip directory paths, keep basename
+      normalized_error = REGEX_REPLACE(normalized_error, r'line \d+', 'line <N>')                 # strip line numbers
+      normalized_error = TRIM(normalized_error)
+
+      IF normalized_error == state.orchestrator.ralph_last_error:
+        state.orchestrator.ralph_same_error_count += 1
+        IF ralph_same_error_count >= config.ralph_loop.circuit_breaker.same_error_threshold:
+          LOG "[{timestamp}] Ralph same-error stall: {ralph_same_error_count} iterations with error: {normalized_error}"
+          APPLY_GRADUATED_STALL_RESPONSE(ralph_same_error_count)
+      ELSE:
+        state.orchestrator.ralph_same_error_count = 1  # first occurrence of new error
+      state.orchestrator.ralph_last_error = normalized_error
+      WRITE state
+
+      # In ralph mode: retry once, then continue (never ask, never abort)
+      RETRY stage once
+      IF retry succeeded AND config.ralph_loop.learnings.enabled:
+        APPEND_LEARNING(category="error", learning="Stage {stage} Phase {phase}: failed with '{normalized_error}', succeeded on retry")
+      IF still failed:
+        LOG "[{timestamp}] [AUTO-ralph] Stage {stage} failed after retry — continuing with degraded summary"
+        CONTINUE  # ralph loop will detect stall if this persists
+    # --- End Ralph Mode Guard (failed) ---
+
     | Policy infrastructure action | Behavior |
     |------------------------------|----------|
     | `retry_then_continue` | Retry once; if still failed, skip and continue |
     | `retry_then_ask` | Retry once; if still failed, ask: retry / skip / abort |
     | *(no policy set)* | Ask: retry / skip / abort |
     IF user chooses "abort": RELEASE_LOCK and HALT
+
+  # --- Ralph Mode Test Result Stall Detection (T2-9) ---
+  # Runs AFTER the failed/needs-user-input handlers. Only fires when Stage 3 completes
+  # (status != "failed") but still reports failing tests. Uses a dedicated counter
+  # (ralph_test_stall_count) independent of ralph_same_error_count.
+  IF state.orchestrator.ralph_mode == true AND stage == 3 AND summary.status != "failed":
+    failing_tests = EXTRACT_FAILING_TEST_NAMES(summary)
+    IF failing_tests IS NOT EMPTY:
+      test_signature = JOIN(SORT(failing_tests), ",")
+      IF test_signature == state.orchestrator.ralph_last_test_signature:
+        state.orchestrator.ralph_test_stall_count += 1
+        LOG "[{timestamp}] Ralph test-result stall: same {LEN(failing_tests)} test(s) failing for {ralph_test_stall_count} iterations"
+        IF ralph_test_stall_count >= config.ralph_loop.circuit_breaker.same_error_threshold:
+          APPLY_GRADUATED_STALL_RESPONSE(ralph_test_stall_count)
+      ELSE:
+        state.orchestrator.ralph_test_stall_count = 1  # new failure set
+      state.orchestrator.ralph_last_test_signature = test_signature
+    ELSE:
+      # All tests passing — clear test signature and counter
+      state.orchestrator.ralph_last_test_signature = null
+      state.orchestrator.ralph_test_stall_count = 0
+    WRITE state
+  # --- End Test Result Stall Detection ---
 ```
 
 ## Coordinator Dispatch
@@ -283,6 +440,17 @@ FUNCTION CRASH_RECOVERY(stage):
   SET state.orchestrator.coordinator_failures += 1
 
   policy = READ autonomy_policy from Stage 1 summary (or null if Stage 1 not yet complete)
+
+  # --- Ralph Mode Guard (crash recovery) ---
+  IF state.orchestrator.ralph_mode == true:
+    RETRY stage once
+    IF retry produced summary AND config.ralph_loop.learnings.enabled:
+      APPEND_LEARNING(category="error", learning="Stage {stage}: crash recovery succeeded on retry (coordinator produced no output initially)")
+    IF still no summary:
+      LOG "[{timestamp}] [AUTO-ralph] Crash recovery: coordinator produced no output after retry — continuing with degraded summary"
+      CONTINUE with degraded summary  # ralph loop will detect stall if this persists
+  # --- End Ralph Mode Guard (crash recovery) ---
+
   infra_action = LOOKUP policy infrastructure action from config (autonomy_policy.levels.{policy}.infrastructure)
   IF infra_action == "retry_then_continue": RETRY stage once; if still no summary, continue with degraded summary
   ELIF infra_action == "retry_then_ask": RETRY stage once; if still no summary, ASK user: Retry / Continue / Abort
@@ -402,6 +570,195 @@ If a background coordinator `Task()` returns AFTER the orchestrator has already 
 3. **Do not overwrite** — the existing summary (reconstructed or user-resolved) takes precedence
 
 The forward-only dispatch loop (`stage_summaries[stage] != null` -> SKIP) naturally handles this. Dismiss late notifications with a single-line acknowledgment to minimize context waste.
+
+## Helper: Identify Stuck Task
+
+```
+FUNCTION IDENTIFY_STUCK_TASK(phase_stages):
+  # Returns the description of the first incomplete task in the current phase.
+  # Used by Level 3 graduated stall to annotate the stuck task in tasks.md.
+  phase = state.current_phase
+  phase_section = FIND_SECTION(READ("{FEATURE_DIR}/tasks.md"), phase)
+
+  # Find the first task line not marked [X] (completed)
+  FOR EACH line IN phase_section:
+    IF line MATCHES r'^\s*- \[[ ]\]':   # unchecked task checkbox
+      RETURN TRIM(line)
+  # If all tasks are checked, return the phase name itself (stall is in stage logic, not tasks)
+  RETURN phase
+```
+
+## Helper: Extract Failing Test Names
+
+```
+FUNCTION EXTRACT_FAILING_TEST_NAMES(summary):
+  # Extracts failing test names from a Stage 3 validation summary.
+  # Stage 3 summaries include a "failing_tests" list in flags when tests fail.
+  # Falls back to parsing the summary body for test name patterns.
+  IF summary.flags.failing_tests IS NOT NULL:
+    RETURN summary.flags.failing_tests  # already a list
+
+  # Fallback: scan summary body for lines matching common test failure patterns
+  failing = []
+  FOR EACH line IN summary.body:
+    IF line MATCHES r'(FAIL|FAILED|✗|✘|×)\s+(.+)':
+      failing += [MATCH_GROUP(2)]
+    ELIF line MATCHES r'^\s*-\s+(test_\w+|it\s+".+"|\w+Test\.\w+).*(?:FAIL|ERROR)':
+      failing += [MATCH_GROUP(1)]
+  RETURN failing
+```
+
+## Graduated Stall Response
+
+```
+FUNCTION APPLY_GRADUATED_STALL_RESPONSE(stall_count):
+  # Determine response level based on stall_count and config thresholds.
+  # Backward compatible: stall_action "write_blockers" or "halt" still work as before.
+  stall_action = config.ralph_loop.circuit_breaker.stall_action
+  threshold = config.ralph_loop.circuit_breaker.no_progress_threshold
+
+  # Legacy mode: non-graduated stall actions
+  IF stall_action == "write_blockers":
+    IF stall_count >= threshold:
+      WRITE blockers file to {FEATURE_DIR}/.implementation-blockers.local.md
+      LOG "[{timestamp}] Ralph stall: {stall_count} iterations — writing blockers (legacy mode)"
+    RETURN
+  IF stall_action == "halt":
+    IF stall_count >= threshold:
+      WRITE blockers file
+      LOG "[{timestamp}] Ralph stall: {stall_count} iterations — halting (legacy mode)"
+      RELEASE_LOCK and HALT
+    RETURN
+
+  # Graduated mode (stall_action == "graduated")
+  offsets = config.ralph_loop.circuit_breaker.graduated_levels
+  level_2_trigger = threshold + offsets.level_2_offset   # default: 3+0 = 3
+  level_3_trigger = threshold + offsets.level_3_offset   # default: 3+2 = 5
+  level_4_trigger = threshold + offsets.level_4_offset   # default: 3+4 = 7
+
+  # Levels are CHAINED: higher levels always perform lower-level actions first.
+  # This ensures blockers file and plan annotations are always produced even on jumps.
+
+  # --- Level 1+ (Warning): always fires when stall_count >= 1 ---
+  state.orchestrator.ralph_stall_level = 1
+  LOG "[{timestamp}] Ralph graduated stall Level 1 (WARNING): {stall_count} iterations — no progress"
+
+  # --- Level 2+ (Blockers): write diagnostic file ---
+  IF stall_count >= level_2_trigger:
+    state.orchestrator.ralph_stall_level = 2
+    WRITE blockers file to {FEATURE_DIR}/.implementation-blockers.local.md
+    LOG "[{timestamp}] Ralph graduated stall Level 2 (BLOCKERS): {stall_count} iterations"
+
+  # --- Level 3+ (Scope Reduce): annotate stuck tasks and skip phase ---
+  IF stall_count >= level_3_trigger:
+    state.orchestrator.ralph_stall_level = 3
+    LOG "[{timestamp}] Ralph graduated stall Level 3 (SCOPE REDUCE): {stall_count} iterations"
+    IF config.ralph_loop.plan_mutability.enabled:
+      stuck_phase = state.current_phase
+      stuck_task = IDENTIFY_STUCK_TASK(state.phase_stages[stuck_phase])
+      annotation = config.ralph_loop.plan_mutability.annotation_format
+      annotation = annotation.replace("{reason}", "Stalled after {stall_count} iterations at stage {state.current_stage}")
+
+      # Annotate task in tasks.md (HTML comment preserves rendering)
+      APPEND annotation to the stuck task line in {FEATURE_DIR}/tasks.md
+
+      # Record in state
+      state.ralph_blocked_tasks += [{
+        phase: stuck_phase,
+        task: stuck_task,
+        stall_count: stall_count,
+        timestamp: NOW_ISO8601()
+      }]
+
+      # Skip to next phase if configured
+      IF config.ralph_loop.plan_mutability.skip_blocked_phases:
+        MOVE stuck_phase from phases_remaining to phases_completed with status "blocked"
+        state.current_phase = null
+        state.orchestrator.ralph_stall_count = 0  # reset for next phase
+        state.orchestrator.ralph_stall_level = 0
+        LOG "[{timestamp}] Skipped blocked phase: {stuck_phase}"
+
+  # --- Level 4 (Halt): terminal ---
+  IF stall_count >= level_4_trigger:
+    state.orchestrator.ralph_stall_level = 4
+    LOG "[{timestamp}] Ralph graduated stall Level 4 (HALT): {stall_count} iterations"
+    RELEASE_LOCK and HALT
+
+  WRITE state
+```
+
+## Iteration Status File
+
+```
+FUNCTION WRITE_STATUS_FILE(state, last_action):
+  # Write a monitoring-friendly status file after each stage/phase transition.
+  # Only active in ralph mode when config.ralph_loop.status_file.enabled is true.
+  IF NOT state.orchestrator.ralph_mode: RETURN
+  IF NOT config.ralph_loop.status_file.enabled: RETURN
+
+  filename = config.ralph_loop.status_file.filename  # default: ".implementation-ralph-status.local.md"
+  status_path = "{FEATURE_DIR}/{filename}"
+
+  phases_completed_count = LEN(state.phases_completed)
+  phases_remaining_count = LEN(state.phases_remaining)
+  total_phases = phases_completed_count + phases_remaining_count
+
+  # Determine test status from latest Stage 3 summary (if available)
+  tests_status = "unknown"
+  IF state.orchestrator.ralph_last_test_signature IS NOT NULL:
+    tests_status = "failing"
+  ELIF state.current_stage > 3 OR phases_completed_count > 0:
+    tests_status = "passing"
+
+  WRITE to status_path:
+    ---
+    timestamp: "{NOW_ISO8601()}"
+    current_stage: {state.current_stage}
+    current_phase: "{state.current_phase}"
+    phases_completed: {phases_completed_count}
+    phases_remaining: {phases_remaining_count}
+    total_phases: {total_phases}
+    stall_count: {state.orchestrator.ralph_stall_count}
+    stall_level: {state.orchestrator.ralph_stall_level}
+    same_error_count: {state.orchestrator.ralph_same_error_count}
+    rate_limit_count: {state.orchestrator.ralph_rate_limit_count}
+    last_action: "{last_action}"
+    tests_status: "{tests_status}"
+    blocked_tasks_count: {LEN(state.ralph_blocked_tasks)}
+    coordinator_failures: {state.orchestrator.coordinator_failures}
+    ---
+```
+
+**Call sites:** After phase checkpoint update (step 5h), after linear mode stage completion (step 8L), after top-of-loop stall check (step 1a).
+
+## Cross-Iteration Learning
+
+```
+FUNCTION APPEND_LEARNING(category, learning):
+  # Appends a learning entry to the cross-iteration learnings file.
+  # Only called when config.ralph_loop.learnings.enabled is true.
+  learnings_file = "{FEATURE_DIR}/.implementation-learnings.local.md"
+  max_entries = config.ralph_loop.learnings.max_entries  # default: 20
+  timestamp = NOW_ISO8601()
+
+  IF learnings_file does not exist:
+    WRITE learnings_file from template ($CLAUDE_PLUGIN_ROOT/templates/ralph-learnings-template.local.md)
+
+  READ learnings_file
+  current_count = frontmatter.entry_count
+
+  # FIFO truncation: if at max, remove oldest entry (first ### block after frontmatter)
+  IF current_count >= max_entries:
+    REMOVE oldest entry (first ### heading block)
+    current_count -= 1
+
+  APPEND to file body:
+    ### [{timestamp}] {category}
+    {learning}
+
+  UPDATE frontmatter.entry_count = current_count + 1
+  WRITE learnings_file
+```
 
 > **ADR:** Coordinator delegation was chosen over direct dispatch for context reduction and fault isolation.
 > Full rationale: see `references/README.md` § Architecture Decision Records.

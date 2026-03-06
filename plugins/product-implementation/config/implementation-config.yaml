@@ -406,6 +406,9 @@ auto_commit:
     - "transcript-extract.json"
     - ".project-setup-analysis"
     - ".project-setup-proposal"
+    - ".implementation-blockers"
+    - ".implementation-learnings"
+    - ".implementation-ralph-status"
 
 # Code simplification (Stage 2 post-phase)
 # When enabled, a code-simplifier agent runs after each phase's developer agent completes.
@@ -796,3 +799,44 @@ doc_judge:
   model: "sonnet"                 # Needs code comprehension to detect hallucinated APIs
   max_revision_cycles: 1          # Re-dispatch tech-writer once on FAIL
   accuracy_threshold: 70          # Below this score → FAIL → triggers revision cycle
+
+# Ralph loop integration (autonomous execution mode)
+# When enabled, the implement skill can be invoked via ralph-loop for
+# walk-away autonomous execution of the entire tasks.md plan.
+# Requires pre-seeding of startup questions to avoid AskUserQuestion blocking.
+# Referenced by: commands/ralph-implement.md, stage-1-setup.md Section 1.0b,
+#   orchestrator-loop.md (AskUserQuestion guard, stall detection)
+ralph_loop:
+  enabled: true
+  iteration_budget:
+    per_phase_multiplier: 8       # estimated iterations per phase (S2+S3+S4+S5 + retries)
+    stage1_budget: 2              # iterations for setup stage
+    stage6_budget: 2              # iterations for retrospective
+    safety_margin: 1.5            # multiplier applied to calculated budget
+  circuit_breaker:
+    no_progress_threshold: 3      # halt after N iterations with no state change
+    same_error_threshold: 5       # halt after N iterations with same error
+    stall_action: "graduated"     # "graduated" (4-level response) | "write_blockers" | "halt"
+    graduated_levels:             # Only used when stall_action: "graduated"
+      level_2_offset: 0           # Level 2 (write blockers) triggers at no_progress_threshold + this
+      level_3_offset: 2           # Level 3 (scope reduce) triggers at no_progress_threshold + this
+      level_4_offset: 4           # Level 4 (halt) triggers at no_progress_threshold + this
+    output_decline_threshold: 0.3 # If summary length < this ratio of previous, count as stall
+    rate_limit_backoff_seconds: 60
+    rate_limit_patterns: ["rate_limit", "429", "too many requests", "overloaded", "at capacity", "over capacity"]
+    timeout_patterns: ["timeout", "timed out", "ETIMEDOUT"]
+  plan_mutability:
+    enabled: true                   # Allow ralph to annotate and skip blocked tasks at graduated Level 3
+    annotation_format: "<!-- [BLOCKED: {reason}] -->"  # HTML comment preserves markdown rendering
+    skip_blocked_phases: true       # Move blocked phase to phases_completed with status "blocked"
+  completion_promise: "IMPLEMENTATION COMPLETE"
+  status_file:
+    enabled: true                     # Write .implementation-ralph-status.local.md after each stage/phase
+    filename: ".implementation-ralph-status.local.md"
+  learnings:
+    enabled: true                       # capture cross-iteration learnings (fail→succeed deltas)
+    max_entries: 20                     # FIFO cap — oldest entries removed when exceeded
+  pre_seed_defaults:
+    quality_preset: "standard"          # applied if config value is null at ralph startup
+    autonomy_policy: "full_auto"        # applied if config value is null at ralph startup
+    external_models: false              # applied if config value is null at ralph startup

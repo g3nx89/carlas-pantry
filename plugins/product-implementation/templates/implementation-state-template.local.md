@@ -30,6 +30,17 @@ orchestrator:
   delegation_model: "lean_orchestrator"
   coordinator_failures: 0
   summaries_reconstructed: 0
+  ralph_mode: false                # true when running inside ralph loop
+  ralph_stall_count: 0             # consecutive iterations with no progress
+  ralph_stall_level: 0             # graduated stall response level (0-4)
+  ralph_last_fingerprint: null     # hash of last iteration's state for stall detection
+  ralph_same_error_count: 0        # consecutive iterations with same error pattern
+  ralph_last_error: null           # normalized error string from last failed coordinator
+  ralph_rate_limit_count: 0        # cumulative rate limit/timeout events (monitoring only)
+  ralph_last_summary_lengths: {}   # per-stage summary length baselines (e.g., {"stage_2": 5000, "stage_3": 1500})
+  ralph_last_test_signature: null  # sorted failing test names from Stage 3 (test result stall detection)
+  ralph_test_stall_count: 0        # consecutive iterations with same test failures (independent of ralph_same_error_count)
+ralph_blocked_tasks: []            # tasks annotated as blocked by graduated stall Level 3
 last_checkpoint: "{ISO_TIMESTAMP}"
 ---
 ## Implementation Log

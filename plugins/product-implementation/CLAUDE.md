@@ -198,6 +198,45 @@ Domain indicators (file extensions, framework keywords) are defined in `config/i
 
 Stage 4 can launch additional reviewer agents beyond the base 3 when `detected_domains` match entries in `dev_skills.conditional_review`. Example: `web_frontend` triggers an accessibility reviewer using `accessibility-auditor` skill.
 
+## Ralph Loop Integration (Autonomous Execution)
+
+When invoked via `/product-implementation:ralph-implement`, the implement skill runs autonomously inside a ralph loop. The ralph-loop plugin's Stop Hook feeds the same prompt back on each session exit; the implement skill resumes from its checkpoint.
+
+### Architecture (Outer Loop)
+
+Ralph wraps the implement skill invocation (outer loop). The skill's checkpoint-based resume handles cross-iteration state persistence. Each ralph iteration gets a fresh context window.
+
+1. **Stage 1** (inline) Section 1.0b detects `.claude/ralph-loop.local.md` → sets `ralph_mode: true`
+2. **Orchestrator** AskUserQuestion guard auto-resolves all user prompts via autonomy policy
+3. **Stall detection** compares state fingerprints across iterations; writes `.implementation-blockers.local.md` if stuck
+4. **Completion signal**: `<promise>IMPLEMENTATION COMPLETE</promise>` after Stage 6
+
+### Key Constraints
+
+- **No user interaction**: ALL `AskUserQuestion` calls intercepted — auto-resolved with `[AUTO-ralph]` prefix
+- **Pre-seeded config required**: `quality_preset`, `autonomy_policy.default_level`, `external_models` must be non-null (setup script applies `pre_seed_defaults` if needed)
+- **Project setup skipped**: Section 1.5b requires interactive category selection — skipped in ralph mode
+- **Crash recovery**: Retry once then continue (never abort, never ask user)
+- **Graduated stall response**: 4-level progressive response (warn → write blockers → scope reduce/skip → halt). Configurable: `graduated` (default), `write_blockers` (legacy), `halt` (legacy)
+- **Rate limit exemption**: API throttling/timeouts are exempt from stall counting — backoff + retry instead. Patterns configured in `circuit_breaker.rate_limit_patterns` and `timeout_patterns`
+- **Output decline detection**: Summary length drops >70% compared to previous trigger stall count increment. Threshold: `circuit_breaker.output_decline_threshold`
+- **Test result stall**: Identical Stage 3 test failures across iterations count toward `same_error_threshold`
+- **Plan mutability**: At graduated Level 3, stuck tasks are annotated in tasks.md with HTML comments and phase is optionally skipped. Config: `ralph_loop.plan_mutability.*`
+- **Status file**: Writes `.implementation-ralph-status.local.md` after each stage/phase transition for external monitoring. Config: `ralph_loop.status_file.*`
+
+### Configuration
+
+- Master switch: `ralph_loop.enabled`
+- Iteration budget: `ralph_loop.iteration_budget.*` (per_phase_multiplier, stage budgets, safety margin)
+- Circuit breaker: `ralph_loop.circuit_breaker.*` (no_progress_threshold, stall_action, graduated_levels, output_decline_threshold, rate_limit_backoff_seconds, rate_limit_patterns, timeout_patterns)
+- Plan mutability: `ralph_loop.plan_mutability.*` (enabled, annotation_format, skip_blocked_phases)
+- Status file: `ralph_loop.status_file.*` (enabled, filename)
+- Completion promise: `ralph_loop.completion_promise`
+- Pre-seed defaults: `ralph_loop.pre_seed_defaults.*` (quality_preset, autonomy_policy, external_models)
+- Blockers excluded from auto-commit: `.implementation-blockers` pattern in `auto_commit.exclude_patterns`
+- Status file excluded from auto-commit: `.implementation-ralph-status` pattern in `auto_commit.exclude_patterns`
+- Cross-iteration learnings (`ralph_loop.learnings.enabled` in config, default `true`) capture fail→succeed deltas as operational learnings in `{FEATURE_DIR}/.implementation-learnings.local.md`. Stage 1 Section 1.0c reads the file and injects up to 10 recent entries into the summary. FIFO-capped at `max_entries` (default 20). Excluded from auto-commit (`.implementation-learnings` pattern).
+
 ## UAT Mobile Testing Integration
 
 When UAT is enabled and a Genymotion emulator is running with mobile-mcp available, Stage 2 runs per-phase behavioral acceptance testing and Figma visual verification against the running app after each relevant phase completes.

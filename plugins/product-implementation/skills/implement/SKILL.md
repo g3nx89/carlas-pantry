@@ -7,7 +7,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 3.0.0
+version: 3.2.0
 allowed-tools:
   # File operations
   - Read
@@ -232,6 +232,7 @@ Canonical definitions — sourced from `config/implementation-config.yaml`:
 | `.uat-evidence/` | UAT enabled + relevant phases | UAT screenshots organized by phase |
 | `retrospective.md` | Stage 6 runs | Implementation retrospective narrative with KPI analysis |
 | `.implementation-report-card.local.md` | Stage 6 runs (excluded from auto-commit) | Machine-readable KPI Report Card |
+| `.implementation-ralph-status.local.md` | Ralph mode enabled (excluded from auto-commit) | Iteration status for external monitoring |
 
 ## Integration Architecture
 
@@ -267,6 +268,7 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
 | `references/cli-dispatch-procedure.md` | Stages 2, 3, 4, 5 (coordinator reads) | Shared CLI dispatch, timeout, parsing, circuit breaker, fallback |
 | `references/summary-schemas.md` | When adding/modifying summary fields | YAML schemas for all 6 stage summaries, producer/consumer mapping |
+| `references/ralph-loop-integration.md` | When debugging ralph mode | Ralph mode detection, AskUserQuestion guard, stall detection, completion signal |
 | `references/stage-6-retrospective.md` | Stage 6 (coordinator) | KPI Report Card, transcript extraction, retrospective composition |
 
 ## Error Handling
@@ -279,6 +281,26 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 - **Interrupted execution** — Resume from checkpoint via state file
 - **Coordinator crash** — See `orchestrator-loop.md` for crash recovery and summary reconstruction
 - **Auto-commit failure** — Warning only (no halt). Commit subagent failures are logged and skipped; changes remain on disk and will be included in subsequent commits
+
+## Ralph Mode (Autonomous Execution)
+
+When invoked via `/product-implementation:ralph-implement`, the implement skill runs inside a ralph loop for walk-away autonomous execution. The ralph-loop plugin's Stop Hook feeds the same prompt back on each session exit, and the implement skill resumes from its last checkpoint.
+
+**Behavioral contract in ralph mode:**
+1. **No user interaction** — ALL `AskUserQuestion` calls are auto-resolved via autonomy policy
+2. **Pre-seeded config** — `quality_preset`, `external_models`, `autonomy_policy.default_level` must be non-null
+3. **Skip project setup** — Stage 1 Section 1.5b is skipped entirely (requires user selection)
+4. **Graduated stall response** — 4-level progressive response: warn → write blockers → scope reduce (annotate + skip) → halt
+5. **Rate limit exemption** — API throttling/timeouts exempt from stall counting; backoff + retry instead
+6. **Output decline detection** — summary length drops >70% trigger stall count increment
+7. **Test result stall** — identical Stage 3 test failures across iterations count toward same_error_threshold
+8. **Plan mutability** — at Level 3, stuck tasks annotated in tasks.md and phase optionally skipped
+9. **Status file** — writes `.implementation-ralph-status.local.md` after each transition for external monitoring
+10. **Completion signal** — orchestrator outputs `<promise>IMPLEMENTATION COMPLETE</promise>` after Stage 6
+
+**Detection:** Stage 1 Section 1.0b checks for `.claude/ralph-loop.local.md` in PROJECT_ROOT. If present, sets `ralph_mode: true` in state file and Stage 1 summary.
+
+**Configuration:** `config/implementation-config.yaml` under `ralph_loop` (iteration budget, circuit breaker, pre-seed defaults).
 
 ## Quick Start
 
