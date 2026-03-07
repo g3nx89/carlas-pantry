@@ -15,13 +15,14 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 ### Per-Phase Delivery Cycles (v3 Architecture)
 
 When `per_phase_review.enabled` is `true` (default), stages 2-5 run per-phase inside a loop:
-`S1 → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → optional final S3+S4 → final S5 → S6`
+`S1a(inline) → S1b(coord) → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → optional final S3+S4 → final S5 → S6`
 
-When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `S1→S2→S3→S4→S5→S6`.
+When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `S1a→S1b→S2→S3→S4→S5→S6`.
 
 | Stage | Name | Dispatch | Agent(s) |
 |-------|------|----------|----------|
-| 1 | Setup & Context Loading | Inline | None (orchestrator) |
+| 1a | Setup & Context Loading | Inline | None (orchestrator) |
+| 1b | Probes & Configuration | Coordinator | None (probes, config) |
 | 2 | Phase-by-Phase Execution | Coordinator (per-phase) | test-writer + developer + output-verifier + code-simplifier + uat-tester (per phase, CLI/gemini) |
 | 3 | Completion Validation | Coordinator (per-phase + final) | developer |
 | 4 | Quality Review | Coordinator (per-phase + final) | 3x+ developer (parallel, conditionally extended) |
@@ -41,7 +42,9 @@ When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `
 
 - `skills/implement/SKILL.md` — Lean orchestrator dispatch table (entry point)
 - `skills/implement/references/orchestrator-loop.md` — Dispatch loop, crash recovery, state migration
-- `skills/implement/references/stage-{1-6}-*.md` — Stage-specific coordinator instructions
+- `skills/implement/references/stage-1-setup.md` — Stage 1a inline setup instructions
+- `skills/implement/references/stage-1b-probes.md` — Stage 1b coordinator: all probes, detection, configuration
+- `skills/implement/references/stage-{2-6}-*.md` — Stage-specific coordinator instructions
 - `skills/implement/references/agent-prompts.md` — All agent prompt templates
 - `config/implementation-config.yaml` — Single source of truth for configurable values
 - `templates/implementation-state-template.local.md` — State file schema (v3)
@@ -62,7 +65,15 @@ The implement skill expects these files in the feature directory (produced by pr
 
 `commands/04-implement.md` and `commands/05-document.md` are superseded by the implement skill. They are retained for reference but should not be used directly.
 
-## Project Setup Analysis (Stage 1 Section 1.5b)
+## Stage 1 Split Architecture (v3.4.0)
+
+Stage 1 is split into two parts to prevent LLM compliance degradation:
+- **Stage 1a** (inline, ~280 lines): Branch parsing, file loading, tasks validation, lock, state init. Writes partial summary.
+- **Stage 1b** (coordinator, ~600 lines): ALL probes (MCP, mobile, Figma, CLI), domain detection, project setup, autonomy policy, quality config. Reads partial summary, writes FULL Stage 1 summary.
+
+The orchestrator validates the full summary via `VALIDATE_STAGE1_SUMMARY` (fail-closed gate) before proceeding. Missing probe fields cause HALT, not silent skip.
+
+## Project Setup Analysis (Stage 1b Section 1.5b)
 
 Stage 1 includes an optional project setup analysis phase that scans the target project and proposes Claude configuration improvements.
 

@@ -25,7 +25,14 @@
 
 2. **Read config**: Read `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`. Build `dispatch_table` from SKILL.md Stage Dispatch Table. Read `per_phase_review` section.
 
-3. **Stage 1** (inline): If `state.stage_summaries["1"]` is null, execute Stage 1 inline per `stage-1-setup.md`. Write summary. Set `state.stage_summaries["1"] = path`. If already done, skip.
+3. **Stage 1** (1a inline + 1b coordinator): If `state.stage_summaries["1"]` is null:
+   a. **Stage 1a** (inline): Execute Stage 1a inline per `stage-1-setup.md`. Write partial summary to `{FEATURE_DIR}/.stage-summaries/stage-1a-partial.md`. This covers: branch parsing, file existence, context loading, tasks validation, lock acquisition, state initialization.
+   b. **Stage 1b** (coordinator): `DISPATCH_COORDINATOR(stage="1b", phase_scope=null)` — dispatches to `stage-1b-probes.md`. The coordinator reads the partial summary, executes all probes (MCP, mobile, Figma, CLI), domain detection, project setup, autonomy policy, quality config, pre-summary checklist. Writes the FULL Stage 1 summary to `stage-1-summary.md`.
+   c. `VALIDATE_AND_HANDLE("stage-1-summary.md", stage="1b", phase=null)` — validate coordinator output.
+   d. Delete partial summary: remove `{FEATURE_DIR}/.stage-summaries/stage-1a-partial.md` (no longer needed).
+   e. Set `state.stage_summaries["1"] = path`. If already done, skip entire step 3.
+
+3a. **Validate Stage 1 Summary**: Read Stage 1 summary. Call `VALIDATE_STAGE1_SUMMARY(summary)`. This is a fail-closed gate — missing probe fields cause HALT (not silent skip). See Helper: Validate Stage 1 Summary.
 
 4. **Determine dispatch mode**: Read `per_phase_review.enabled` from config (default: `true`).
    - If `true` → execute **Phase Loop** (step 5)
@@ -42,6 +49,8 @@
       - `DISPATCH_COORDINATOR(stage=2, phase_scope=phase)`
       - `VALIDATE_AND_HANDLE("phase-{N}-stage-2-summary.md", stage=2, phase=phase)`
       - Set `state.phase_stages[phase].s2 = "completed"`
+
+   b2. **Verify Non-Skippable Gates**: Call `VERIFY_NON_SKIPPABLE_GATES(phase, stage2_summary, stage1_summary)`. This checks that gates like UAT actually ran when their prerequisites were met. See Helper: Verify Non-Skippable Gates.
 
    c. **Stage 3** (per-phase, conditional): If `per_phase_review.s3_per_phase` is `true` AND `state.phase_stages[phase].s3` != `"completed"`:
       - Set `state.phase_stages[phase].s3 = "in_progress"`. Write state.
@@ -65,7 +74,53 @@
    f. Move phase from `phases_remaining` to `phases_completed`. Set `state.current_phase = null`.
       If `state.orchestrator.ralph_mode` is `true`: reset `ralph_same_error_count = 0`, `ralph_last_error = null` (phase success clears error accumulator).
 
+   f2. **Vertical Slice Checkpoint** (conditional): If `per_phase_review.vertical_slice_checkpoint.enabled` is `true` AND phase name contains `config.per_phase_review.vertical_slice_checkpoint.phase_keyword` (case-insensitive):
+      - **Interactive mode**: Call `SAFE_ASK_USER` with the configured `prompt_message` and options:
+        `[{label: "Verified — continue"}, {label: "Issues found — abort"}]`
+        If user selects "abort": `RELEASE_LOCK` and HALT.
+      - **Ralph mode**: Log checkpoint, rely on F5 app launch gate for automated verification.
+
    g. **Auto-Commit Phase**: Follow auto-commit dispatch procedure (`auto-commit-dispatch.md`) with `template_key=phase_complete`, `substitution_vars={feature_name=FEATURE_NAME, phase_name=current_phase_name}`, `skip_target=next phase`, `summary_field=append to commits_made`.
+
+   g2. **App Launch Gate** (conditional): If `config.app_launch_gate.enabled` is `true` AND `phase_index >= config.app_launch_gate.trigger_from_phase_index`:
+
+      This gate runs at ORCHESTRATOR level — not delegated to a coordinator. It catches broken builds that passing tests can miss.
+
+      1. **Build**: Determine build command from (in order): `config.app_launch_gate.build_command` → `stage1_summary.project_setup.build_command` → halt if none found.
+         ```
+         result = Bash(build_command)
+         IF result.exit_code != 0:
+           IF state.orchestrator.ralph_mode == true:
+             APPEND_LEARNING(category="build", learning="Phase {phase}: build failed after tests passed — {error_excerpt}")
+             LOG "[{timestamp}] App launch gate: build failed — continuing (ralph mode)"
+           ELSE:
+             answer = SAFE_ASK_USER(
+               "App build failed after phase {phase} despite tests passing. This may indicate a configuration or manifest issue.",
+               [{label: "Continue anyway"}, {label: "Abort"}]
+             )
+             IF answer CONTAINS "Abort": RELEASE_LOCK and HALT
+           SKIP steps 2-3 below
+         ```
+
+      2. **Install + Launch** (only if `stage1_summary.mobile_mcp_available == true`):
+         ```
+         package_name = config.app_launch_gate.package_name OR EXTRACT_FROM(plan.md, "applicationId")
+         IF package_name IS NULL:
+           LOG "[{timestamp}] App launch gate: cannot determine package name — skipping install/launch"
+           SKIP step 3
+         mobile_install_app(apk_path=<built APK path>)
+         mobile_launch_app(package_name=package_name)
+         WAIT 5 seconds  # Allow app to render
+         ```
+
+      3. **Screenshot**: Save screenshot to `{FEATURE_DIR}/{config.app_launch_gate.screenshot_dir}/phase-{phase_index}-launch.png`
+         ```
+         screenshot = mobile_take_screenshot()  # or equivalent mobile-mcp tool
+         WRITE screenshot to evidence directory
+         LOG "[{timestamp}] App launch gate: screenshot saved for phase {phase_index}"
+         ```
+
+      NOT skippable by autonomy policy — this is a ground-truth verification gate.
 
    h. Update `state.last_checkpoint`. Write state. If `state.orchestrator.ralph_mode` is `true`: `WRITE_STATUS_FILE(state, "phase {phase} checkpoint")`.
 
@@ -645,6 +700,159 @@ FUNCTION SAFE_ASK_USER(question, options, max_retries=2, confirm_irreversible=fa
 
   # Should not reach here — last attempt always returns via fallback
   ERROR: "SAFE_ASK_USER: Failed after {max_retries} attempts"
+```
+
+## Helper: Validate Stage 1 Summary
+
+```
+FUNCTION VALIDATE_STAGE1_SUMMARY(summary):
+  # Fail-closed validation: missing probe fields indicate skipped sections (LLM compliance
+  # degradation). HALT by default to prevent silent gate bypass.
+  # Only runs when config.stage1_validation.enabled is true.
+  IF NOT config.stage1_validation.enabled: RETURN
+
+  required = config.stage1_validation.required_fields
+  missing_fields = []
+
+  # Always-required fields
+  # NOTE: These fields are top-level YAML keys in the Stage 1 summary (NOT nested under flags).
+  # e.g., summary.detected_domains, summary.mobile_mcp_available, summary.autonomy_policy
+  FOR EACH field IN required.always:
+    IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
+      missing_fields += [field]
+
+  # Conditional: UAT-related fields
+  IF config.uat_execution.enabled OR config.cli_dispatch.stage2.uat_mobile_tester.enabled:
+    FOR EACH field IN required.when_uat_enabled:
+      IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
+        missing_fields += [field]
+
+  # Conditional: Figma-related fields (only when UI domains detected)
+  ui_domains = ["compose", "android", "web_frontend"]
+  detected = summary.detected_domains OR []
+  has_ui_domains = ANY(domain IN ui_domains FOR domain IN detected)
+  IF config.figma.enabled AND has_ui_domains:
+    FOR EACH field IN required.when_figma_enabled:
+      IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
+        missing_fields += [field]
+
+  # Conditional: CLI availability
+  IF summary.external_models == true:
+    FOR EACH field IN required.when_external_models:
+      IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
+        missing_fields += [field]
+
+  # Conditional: Research MCP
+  IF config.research_mcp.enabled:
+    FOR EACH field IN required.when_research_mcp:
+      IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
+        missing_fields += [field]
+
+  IF missing_fields IS EMPTY: RETURN  # All fields present — validation passed
+
+  # --- Missing fields detected ---
+  LOG "[{timestamp}] STAGE 1 VALIDATION FAILED: Missing fields: {missing_fields}"
+
+  # Read gate_prerequisites policy from autonomy level
+  policy_level = summary.autonomy_policy OR "balanced"  # default to strictest if not set
+  gate_action = config.autonomy_policy.levels[policy_level].gate_prerequisites OR "halt"
+
+  IF gate_action == "halt":
+    # Ralph mode: retry Stage 1 once, then halt
+    IF state.orchestrator.ralph_mode == true:
+      LOG "[{timestamp}] [AUTO-ralph] Stage 1 validation failed — retrying Stage 1 (1a inline + 1b coordinator)"
+      DELETE state.stage_summaries["1"]
+      DELETE partial summary if exists
+      RE-EXECUTE Stage 1a inline per stage-1-setup.md  # re-writes partial summary
+      RE-DISPATCH Stage 1b coordinator per stage-1b-probes.md  # re-writes full summary
+      RE-READ summary
+      # Re-validate after retry
+      missing_after_retry = VALIDATE_STAGE1_SUMMARY_CHECK(summary)  # same field check logic
+      IF missing_after_retry IS NOT EMPTY:
+        LOG "[{timestamp}] [AUTO-ralph] Stage 1 validation still failed after retry. Missing: {missing_after_retry}"
+        RELEASE_LOCK and HALT: "Stage 1 summary is missing required fields after retry: {missing_after_retry}. This indicates a structural problem — manual intervention required."
+      RETURN  # Retry succeeded
+
+    # Interactive mode: halt with clear error
+    HALT: "Stage 1 summary is missing required fields: {missing_fields}. These fields are required because their corresponding config gates are enabled. Possible causes: (1) Stage 1 instruction sections were skipped, (2) MCP tools are unreachable but config expects them. Fix: re-run Stage 1 or disable the gates in config."
+
+  ELIF gate_action == "warn_and_continue":
+    LOG "[{timestamp}] WARNING: Stage 1 missing fields (proceeding per full_auto policy): {missing_fields}"
+    # Set missing fields to safe defaults (fail-closed within downstream stages)
+    FOR EACH field IN missing_fields:
+      IF field == "mobile_mcp_available": summary.mobile_mcp_available = false
+      IF field == "figma_available": summary.figma_available = false
+      IF field == "cli_availability": summary.cli_availability = {}
+      IF field == "mcp_availability": summary.mcp_availability = {ref: false, context7: false, tavily: false}
+    RETURN
+
+  ELIF gate_action == "ask":
+    answer = SAFE_ASK_USER(
+      "Stage 1 is missing required fields: {missing_fields}. This may cause quality gates to be silently skipped. How should I proceed?",
+      [{label: "Re-run Stage 1"}, {label: "Continue anyway (gates may be disabled)"}, {label: "Abort"}]
+    )
+    IF answer == "Re-run Stage 1":
+      DELETE state.stage_summaries["1"]
+      RE-EXECUTE Stage 1a inline + RE-DISPATCH Stage 1b coordinator
+      RETURN
+    ELIF answer == "Abort":
+      RELEASE_LOCK and HALT
+    # else: continue with missing fields
+```
+
+## Helper: Verify Non-Skippable Gates
+
+```
+FUNCTION VERIFY_NON_SKIPPABLE_GATES(phase, stage2_summary, stage1_summary):
+  # Checks that gates listed in config.non_skippable_gates actually ran.
+  # Called after each phase's Stage 2 completes.
+  gates = config.non_skippable_gates OR []
+  IF gates IS EMPTY: RETURN
+
+  FOR EACH gate IN gates:
+    IF gate == "stage2.uat_mobile_tester":
+      # Three-way diagnosis:
+      # 1. Check phase relevance first — if no UI tasks, gate is not applicable
+      phase_tasks = EXTRACT_TASK_FILE_PATHS(phase, tasks_file)
+      ui_indicators = config.dev_skills.domain_mapping  # compose, android, web_frontend indicators
+      phase_has_ui = ANY(task_path MATCHES ANY ui_indicator FOR task_path IN phase_tasks)
+      IF NOT phase_has_ui: CONTINUE  # Gate not applicable — skip silently
+
+      # 2. Check if UAT ran
+      # NOTE: uat_results is in stage2_summary.flags (Stage 2 summary nests under flags);
+      # mobile_mcp_available and autonomy_policy are top-level in stage1_summary.
+      uat_results = stage2_summary.flags.uat_results OR null
+      IF uat_results IS NOT NULL AND uat_results.phases_tested > 0:
+        CONTINUE  # OK — UAT ran
+
+      # 3. Diagnose WHY UAT didn't run
+      mobile_available = stage1_summary.mobile_mcp_available
+      IF mobile_available == true:
+        # Mobile was available but UAT didn't run — this is the bug F3 prevents
+        LOG "[{timestamp}] NON-SKIPPABLE GATE FAILURE: UAT mobile testing was available (mobile_mcp_available=true) but did not run for phase {phase}"
+
+        policy_level = stage1_summary.autonomy_policy OR "balanced"
+        gate_skip_action = config.autonomy_policy.levels[policy_level].gate_skip OR "ask"
+
+        IF gate_skip_action == "halt":
+          HALT: "UAT mobile testing did not run for {phase} despite mobile_mcp_available=true. Re-dispatch Stage 2 for this phase."
+        ELIF gate_skip_action == "ask":
+          answer = SAFE_ASK_USER(
+            "UAT mobile testing was available but did not run for {phase}. This may indicate a coordinator compliance issue.",
+            [{label: "Re-run Stage 2 for this phase"}, {label: "Continue without UAT"}, {label: "Abort"}]
+          )
+          IF answer CONTAINS "Re-run": RE-DISPATCH Stage 2 for phase; RETURN
+          IF answer CONTAINS "Abort": RELEASE_LOCK and HALT
+        ELSE:  # warn_and_continue
+          LOG "[{timestamp}] WARNING: UAT skipped for {phase} despite mobile being available — continuing per policy"
+
+      ELIF mobile_available == false:
+        # Mobile not available — expected skip, just log
+        LOG "[{timestamp}] Gate stage2.uat_mobile_tester: skipped for {phase} (mobile_mcp_available=false)"
+
+      ELIF mobile_available IS NULL:
+        # Should have been caught by VALIDATE_STAGE1_SUMMARY (F1)
+        LOG "[{timestamp}] WARNING: mobile_mcp_available is null — Stage 1 validation may have been bypassed"
 ```
 
 ## Helper: Identify Stuck Task

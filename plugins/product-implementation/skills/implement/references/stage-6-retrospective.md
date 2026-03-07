@@ -174,6 +174,38 @@ phase2:
 - This file is excluded from auto-commit (local analysis artifact)
 ```
 
+### 6.2.4 Reality Check Matrix
+
+After compiling the Report Card, verify that gates which were ENABLED in config actually EXECUTED during the implementation. This catches the "all green but nothing ran" failure mode.
+
+| Check | Config Gate | Evidence Field | Source |
+|-------|-----------|---------------|--------|
+| UAT Execution | `uat_execution.enabled` AND `uat_mobile_tester.enabled` | Stage 2 summary `uat_results.phases_tested > 0` | Per-phase Stage 2 summaries |
+| Figma Parity | `figma.enabled` AND `per_phase_review.figma_parity_gate` | Stage 4 summary contains `figma_parity_score` | Per-phase Stage 4 summaries |
+| App Launch Gate | `app_launch_gate.enabled` | Launch gate screenshots exist in `.uat-evidence/launch-gate/` | File system |
+| Mobile Probe | `uat_execution.enabled` | Stage 1 `mobile_mcp_available` is NOT null | Stage 1 summary |
+| Figma Probe | `figma.enabled` AND UI domains detected | Stage 1 `figma_available` is NOT null | Stage 1 summary |
+| CLI Dispatch | `external_models: true` | Stage 1 `cli_availability` has at least one key | Stage 1 summary |
+
+**Evaluation per check:**
+- **GREEN**: Gate executed (evidence field present and non-null/non-zero) OR gate disabled in config (intentionally off)
+- **RED**: Gate enabled in config BUT evidence field is absent/null/zero (process failure — gate was supposed to run but didn't)
+- **GREY**: Gate disabled in config (feature intentionally turned off)
+
+**Output:** Add `reality_checks` to the Report Card YAML:
+
+```yaml
+reality_checks:
+  uat_execution: "GREEN"       # or "RED" or "GREY"
+  figma_parity: "GREEN"
+  app_launch_gate: "RED"       # enabled but no screenshots found
+  mobile_probe: "GREEN"
+  figma_probe: "GREY"          # figma.enabled: false
+  cli_dispatch: "GREEN"
+```
+
+**CRITICAL RULE for tech-writer (Section 6.4):** If ANY reality check is RED, the overall retrospective verdict CANNOT be "all green" or "successful". The tech-writer MUST acknowledge the RED checks as process failures in the "What Didn't Work" section, regardless of test pass rates or other KPIs. A 100% test pass rate with RED reality checks means the tests don't cover what the gates were designed to catch.
+
 ## 6.3 Transcript Extraction (Conditional)
 
 > **Gate**: `retrospective.transcript_analysis.enabled` must be `true`. If `false`, set `transcript_available: false` and skip to Section 6.4.

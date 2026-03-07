@@ -86,7 +86,7 @@ Where {N} is the total number of passing tests and {M} is the number of failing 
 - `{traceability_file}` — Path to `analysis/task-test-traceability.md`. **Fallback:** `"Not available"`
 - `{skill_references}` — Domain-specific skill references (see `stage-2-execution.md` Section 2.0). **Fallback:** `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`
 - `{research_context}` — Documentation excerpts from MCP tools (see `stage-2-execution.md` Section 2.0a). **Fallback:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
-- `{figma_context}` — Figma tool guide and design references (see `stage-2-execution.md` Step 2). **Fallback:** `"Figma not available — implement from planning artifacts (spec.md, design.md). Use best judgment for visual properties not specified in planning docs."`
+- `{figma_context}` — Figma tool guide and design references (see `stage-2-execution.md` Step 2). **Fallback:** `"Figma not available. For UI tasks: use ONLY explicit values from design.md, spec.md, or HANDOFF-SUPPLEMENT.md. For any visual property (dp, sp, color, radius, elevation) NOT documented in planning artifacts, annotate the code with a [NEEDS_FIGMA] comment and use a placeholder value (e.g., \`// [NEEDS_FIGMA] padding — using 16.dp as placeholder\`). Do NOT guess or invent visual measurements. Stage 4 reviewers will flag [NEEDS_FIGMA] markers."`
 
 **Agent behavior:**
 1. The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion.

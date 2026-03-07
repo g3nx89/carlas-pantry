@@ -253,7 +253,7 @@ Task(subagent_type="product-implementation:developer")
   - NEVER guess visual properties from prose when Figma tools are available — the data is structured JSON
   ```
 
-  If `figma_available` is `false` OR phase has no UI tasks → use fallback: `"Figma not available — implement from planning artifacts (spec.md, design.md). Use best judgment for visual properties not specified in planning docs."`
+  If `figma_available` is `false` OR phase has no UI tasks → use fallback: `"Figma not available. For UI tasks: use ONLY explicit values from design.md, spec.md, or HANDOFF-SUPPLEMENT.md. For any visual property (dp, sp, color, radius, elevation) NOT documented in planning artifacts, annotate the code with a [NEEDS_FIGMA] comment and use a placeholder value (e.g., \`// [NEEDS_FIGMA] padding — using 16.dp as placeholder\`). Do NOT guess or invent visual measurements. Stage 4 reviewers will flag [NEEDS_FIGMA] markers."`
 
 ### Step 3: Verify Phase Completion
 

@@ -7,7 +7,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 3.3.0
+version: 3.4.0
 allowed-tools:
   # File operations
   - Read
@@ -81,7 +81,11 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 │              IMPLEMENTATION WORKFLOW                   │
 ├──────────────────────────────────────────────────────┤
 │  ┌───────────┐                                        │
-│  │  Stage 1  │  Setup & Context Loading  (inline)     │
+│  │ Stage 1a  │  Setup & Context Loading  (inline)     │
+│  └─────┬─────┘                                        │
+│        ↓                                              │
+│  ┌───────────┐                                        │
+│  │ Stage 1b  │  Probes & Configuration   (coord.)     │
 │  └─────┬─────┘                                        │
 │        ↓                                              │
 │  ┌─────────────────────────────────────────────────┐  │
@@ -127,7 +131,8 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 
 | Stage | Delegation | Reference File | Agents Used | Prior Summaries | User Interaction | Checkpoint |
 |-------|-----------|----------------|-------------|-----------------|------------------|------------|
-| 1 | Inline | `stage-1-setup.md` | — | — | Setup question (1.5b), Policy question (1.9a) | SETUP |
+| 1a | Inline | `stage-1-setup.md` | — | — | Branch fallback (1.1) | SETUP_PARTIAL |
+| 1b | Coordinator | `stage-1b-probes.md` | — | stage-1a partial | Setup question (1.5b), Policy question (1.9a) | SETUP |
 | 2 | Coordinator | `stage-2-execution.md` | `test-writer`, `developer`, `output-verifier`, `code-simplifier`, `uat-tester (CLI/gemini)` | stage-1 (or per-phase chain) | Auto-resolve per policy (build/test) | EXECUTION |
 | 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 (or per-phase chain) | Auto-resolve per policy (validation) | VALIDATION |
 | 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3+ (Tier A, with optional stances/convergence/CoVe), plugin (Tier B), CLI (Tier C) | stage-2, stage-3 (or per-phase chain) | Auto-resolve per policy (findings) | QUALITY_REVIEW |
@@ -253,8 +258,9 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 |------|-------------|---------|
 | `references/orchestrator-loop.md` | Workflow start (always) | Dispatch loop, crash recovery, state migration, context packs |
 | `references/integrations-overview.md` | When understanding integration architecture | Dev-Skills, Research MCP, CLI Dispatch, Autonomy Policy — full detail |
-| `references/stage-1-setup.md` | Stage 1 (inline) | Branch parsing, file loading, project setup, lock, state init, domain detection |
-| `references/stage-1-project-setup.md` | Stage 1 (inline, conditional) | Project analysis checklist, hook patterns, CLAUDE.md rubric, generator rules |
+| `references/stage-1-setup.md` | Stage 1a (inline) | Branch parsing, file loading, tasks validation, lock, state init |
+| `references/stage-1b-probes.md` | Stage 1b (coordinator) | All probes (MCP, mobile, Figma, CLI), domain detection, project setup, autonomy policy, quality config, pre-summary checklist, full summary |
+| `references/stage-1-project-setup.md` | Stage 1b (conditional) | Project analysis checklist, hook patterns, CLAUDE.md rubric, generator rules |
 | `references/stage-2-execution.md` | Stage 2 (coordinator) | Skill resolution, phase loop, task parsing, error handling |
 | `references/stage-2-uat-mobile.md` | Stage 2 (coordinator, conditional) | UAT mobile testing gate check, APK build/install, CLI dispatch, result processing |
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |

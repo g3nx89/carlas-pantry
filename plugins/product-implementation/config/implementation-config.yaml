@@ -6,7 +6,7 @@
 # Three tiers: minimal (fast prototyping), standard (recommended), comprehensive (full quality).
 # When null, the orchestrator asks the user at Stage 1 startup (Section 1.9b).
 # Resolution order: explicit config value > preset default > base default (false).
-# Referenced by: stage-1-setup.md Section 1.9b
+# Referenced by: stage-1b-probes.md Section 1.9b
 quality_preset: null    # null = ask at start; "minimal" | "standard" | "comprehensive"
 external_models: null   # null = ask at start; true (check CLI availability) | false (native only)
 
@@ -60,7 +60,7 @@ quality_presets:
 # Controls how the system handles findings, failures, and issues during execution.
 # When default_level is null, the orchestrator asks the user at Stage 1 startup.
 # When default_level is set, the question is skipped and the chosen level applies automatically.
-# Referenced by: stage-1-setup.md Section 1.9a, orchestrator-loop.md, stage-2-execution.md,
+# Referenced by: stage-1b-probes.md Section 1.9a, orchestrator-loop.md, stage-2-execution.md,
 #   stage-3-validation.md, stage-4-quality-review.md, stage-5-documentation.md
 autonomy_policy:
   default_level: null  # null = ask at start; "full_auto" | "balanced" | "critical_only"
@@ -75,6 +75,8 @@ autonomy_policy:
         low: "accept"         # Accept silently
       incomplete_tasks: "fix"              # Auto-fix: launch developer agent to complete
       infrastructure: "retry_then_continue"  # Retry 1x, then continue with degraded state
+      gate_prerequisites: "warn_and_continue"  # Behavior when a required probe field is ABSENT (probe not executed)
+      gate_skip: "warn_and_continue"           # Behavior when a gate is intentionally skipped (prerequisite available=false)
     balanced:
       label: "Balanced"
       description: "Fix critical/high automatically, defer medium, accept low"
@@ -85,6 +87,8 @@ autonomy_policy:
         low: "accept"         # Accept silently
       incomplete_tasks: "document_as_is"   # Proceed to documentation noting gaps
       infrastructure: "retry_then_continue"  # Retry 1x, then continue with degraded state
+      gate_prerequisites: "halt"             # Behavior when a required probe field is ABSENT (probe not executed)
+      gate_skip: "ask"                       # Behavior when a gate is intentionally skipped (prerequisite available=false)
     critical_only:
       label: "Minimal"
       description: "Fix only critical blockers, defer the rest"
@@ -95,12 +99,35 @@ autonomy_policy:
         low: "accept"         # Accept silently
       incomplete_tasks: "document_as_is"   # Proceed to documentation noting gaps
       infrastructure: "retry_then_ask"     # Retry 1x, then ask user
+      gate_prerequisites: "halt"             # Behavior when a required probe field is ABSENT (probe not executed)
+      gate_skip: "ask"                       # Behavior when a gate is intentionally skipped (prerequisite available=false)
 
 # Orchestrator settings
 # Referenced by: orchestrator-loop.md step 6 (cumulative failure check)
 orchestrator:
   max_coordinator_failures: 3  # Halt with diagnostic when cumulative coordinator failures reach this threshold
   min_summary_bytes: 50        # Coordinator summaries smaller than this are treated as degraded (catches 0-byte/trivial output)
+
+# Stage 1 summary validation (fail-closed gate enforcement)
+# After Stage 1 completes, the orchestrator validates that all required probe fields are present.
+# Missing fields indicate skipped sections (LLM compliance degradation) — triggers HALT by default.
+# Referenced by: orchestrator-loop.md VALIDATE_STAGE1_SUMMARY helper
+stage1_validation:
+  enabled: true                          # Set to false to skip validation (NOT recommended — disables fail-closed gates)
+  required_fields:
+    always:                              # Fields that MUST be present regardless of config
+      - "detected_domains"
+      - "autonomy_policy"
+      - "resolved_quality_config"
+      - "plugin_availability"
+    when_uat_enabled:                    # Required when uat_execution.enabled OR uat_mobile_tester.enabled
+      - "mobile_mcp_available"
+    when_figma_enabled:                  # Required when figma.enabled AND UI domains detected
+      - "figma_available"
+    when_external_models:                # Required when external_models is true
+      - "cli_availability"
+    when_research_mcp:                   # Required when research_mcp.enabled
+      - "mcp_availability"
 
 # Lock protocol
 lock:
@@ -109,7 +136,7 @@ lock:
 # Project setup analysis (Stage 1 Section 1.5b)
 # Analyzes target project structure and Claude configuration, proposes improvements.
 # Uses Subagent-Delegated Context Injection: throwaway subagent scans project, writes compact analysis.
-# Referenced by: stage-1-setup.md Section 1.5b, stage-1-project-setup.md
+# Referenced by: stage-1b-probes.md Section 1.5b, stage-1-project-setup.md
 project_setup:
   enabled: true                        # Set to false to skip project analysis entirely
   skip_if_analyzed: true               # Skip re-analysis if .project-setup-analysis.local.md already exists
@@ -375,11 +402,23 @@ research_mcp:
     escalation_after: 1          # Escalate to next tool after this many failed lookups
 
 # Figma integration (conditional — developer agents use figma-console MCP for design spec extraction and parity verification)
-# Referenced by: stage-1-setup.md Section 1.6g, stage-2-execution.md Step 2, stage-4-quality-review.md
+# Referenced by: stage-1b-probes.md Section 1.6g, stage-2-execution.md Step 2, stage-4-quality-review.md
 figma:
   enabled: true                  # Set to false to skip Figma probing and all design handoff features
   parity_threshold: 0.85         # Minimum figma_check_design_parity score to pass parity gate
   auto_fix_below_threshold: true # If parity score < threshold, re-dispatch developer to fix discrepancies
+
+# App launch gate (orchestrator-level build + launch verification per phase)
+# Builds the app and optionally installs/launches/screenshots on emulator after each phase.
+# Runs at ORCHESTRATOR level (not inside coordinator) — catches broken builds that tests miss.
+# Referenced by: orchestrator-loop.md step 5g2
+app_launch_gate:
+  enabled: true                    # Set to false to skip build/launch verification entirely
+  trigger_from_phase_index: 1      # Phase index (1-based) from which the gate starts firing
+  build_command: null              # null = auto-detect from project_setup.build_command or plan.md
+  package_name: null               # null = auto-detect from plan.md applicationId
+  screenshot_dir: ".uat-evidence/launch-gate"  # Relative to FEATURE_DIR
+  build_failure_action: "warn"     # "warn" (log + continue) or "halt" (block phase progression)
 
 # Branch format
 branch:
@@ -410,6 +449,7 @@ auto_commit:
     - ".implementation-blockers"
     - ".implementation-learnings"
     - ".implementation-ralph-status"
+    - ".uat-evidence/launch-gate"
 
 # Code simplification (Stage 2 post-phase)
 # When enabled, a code-simplifier agent runs after each phase's developer agent completes.
@@ -436,7 +476,7 @@ code_simplification:
 # When enabled, runs behavioral acceptance scenarios and Figma visual verification
 # against a running app on a Genymotion emulator after each relevant phase.
 # Requires: Genymotion emulator running, mobile-mcp MCP server available, Gemini CLI installed.
-# Referenced by: stage-1-setup.md Section 1.6e, stage-2-execution.md Step 3.7
+# Referenced by: stage-1b-probes.md Section 1.6e, stage-2-execution.md Step 3.7
 uat_execution:
   enabled: true                          # Master switch (also requires cli_dispatch.stage2.uat_mobile_tester.enabled)
   emulator:
@@ -482,12 +522,8 @@ cli_dispatch:
     capture_cli_version: true       # Include CLI tool version string in sidecar
     sidecar_retention: "session"    # "session" = cleaned up in Stage 6; "permanent" = kept indefinitely
 
-  # Non-skippable gates — dispatches that autonomy policy cannot auto-skip
-  non_skippable_gates:
-    - "stage2.uat_mobile_tester"    # UAT behavioral testing cannot be auto-skipped even under full_auto policy
-
   # Cross-stage circuit breaker for CLI dispatch failures
-  # Referenced by: stage-1-setup.md Section 1.7b, cli-dispatch-procedure.md
+  # Referenced by: stage-1b-probes.md Section 1.7b, cli-dispatch-procedure.md
   circuit_breaker:
     enabled: true
     consecutive_failure_threshold: 3
@@ -771,6 +807,16 @@ per_phase_review:
   final_review_pass: true         # Run full S3+S4 after all phases complete (cross-phase validation)
   final_docs_pass: true           # Run S5 after all phases for cross-phase doc synthesis (overview, index)
   figma_parity_gate: true         # Enable figma_check_design_parity per-phase for UI phases only
+  vertical_slice_checkpoint:
+    enabled: true                  # Prompt user to verify app after vertical slice phase
+    phase_keyword: "vertical slice" # Case-insensitive contains match on phase name
+    prompt_message: "Vertical slice phase complete. Please verify the app is working as expected before continuing. Launch the app and check core functionality."
+
+# Non-skippable gates — gates that MUST run when their prerequisites are met.
+# Verified by VERIFY_NON_SKIPPABLE_GATES after each phase's Stage 2.
+# Referenced by: orchestrator-loop.md step 5b2
+non_skippable_gates:
+  - "stage2.uat_mobile_tester"     # UAT mobile testing — if mobile_mcp_available, UAT must run
 
 # Native verification agents (Stage 2)
 # These are native Claude agents (not CLI-dispatched), grouped here alongside doc_judge

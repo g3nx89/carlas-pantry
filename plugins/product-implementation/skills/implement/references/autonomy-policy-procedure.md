@@ -55,3 +55,23 @@ Simplification test failures are a special sub-case: revert is always safe (rest
 ## Logging Convention
 
 All auto-resolved decisions use the prefix `[AUTO-{policy}]` where `{policy}` is the level key (e.g., `full_auto`, `balanced`, `critical_only`). This enables Stage 6 retrospective to count auto-resolutions via log scanning.
+
+## Gate Policy Dimensions
+
+Two additional policy fields control behavior for gates and probes — independent of finding severity.
+
+| Field | Controls | Options |
+|-------|----------|---------|
+| `gate_prerequisites` | Behavior when a required probe field is ABSENT (probe was not executed) | `halt`, `warn_and_continue`, `ask` |
+| `gate_skip` | Behavior when a gate is intentionally skipped (prerequisite reports available=false) | `halt`, `warn_and_continue`, `ask` |
+
+**Defaults per level:**
+- `full_auto`: prerequisites=`warn_and_continue`, skip=`warn_and_continue` (never block)
+- `balanced`: prerequisites=`halt`, skip=`ask` (missing probes are serious; skipped gates need confirmation)
+- `critical_only`: prerequisites=`halt`, skip=`ask` (same as balanced — missing probes always halt)
+
+**Backward compatibility:** If `gate_prerequisites` or `gate_skip` fields are absent from a policy level definition, the system falls back to the current default behavior for that level (halt for balanced/critical_only, warn for full_auto).
+
+**Consumers:**
+- `VALIDATE_STAGE1_SUMMARY` (orchestrator-loop.md) reads `gate_prerequisites` to decide halt vs warn when required summary fields are missing
+- `VERIFY_NON_SKIPPABLE_GATES` (orchestrator-loop.md) reads `gate_skip` to decide halt vs ask when a gate was skipped despite prerequisites being available
