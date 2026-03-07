@@ -1,6 +1,6 @@
 # Convergence Protocol
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Scope**: Anti-regression rules and operation journaling for Figma design workflows. For batch scripting, subagent delegation, session snapshots, and compact recovery, see `convergence-execution.md` (Tier 2). For the Draft-to-Handoff workflow that uses these patterns, see the `design-handoff` skill (product-definition plugin). For error recovery, see `anti-patterns.md`.
 

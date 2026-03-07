@@ -1,6 +1,6 @@
 # Essential Rules
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Scope**: Complete MUST and AVOID rules for figma-console-mastery workflows.
 > SKILL.md contains a top-8 summary; this file has the full list.

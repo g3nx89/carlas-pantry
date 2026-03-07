@@ -1,6 +1,6 @@
 # Recipes — Foundation Patterns & Layouts
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > For Plugin API details, see `plugin-api.md`. For M3 specs, see `design-rules.md`. For common errors, see `anti-patterns.md`.
 > For component recipes (cards, buttons, forms, tables, etc.), see `recipes-components.md`. For composition and advanced patterns, see `recipes-advanced.md`.

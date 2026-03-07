@@ -1,6 +1,6 @@
 # Compound Learning Protocol
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Scope**: Cross-session knowledge persistence for figma-console-mastery. Captures API quirks,
 > effective strategies, error recovery patterns, and performance insights discovered during Figma
@@ -92,7 +92,7 @@ During Phase 4 Validation, review the session for these triggers:
 |---|---------|----------|---------|
 | T1 | **>1 attempt to solve** — an operation required retry with a different approach | API Quirks & Workarounds | `figma_set_layout` silently ignored because parent had constraints |
 | T2 | **Workaround discovered** — standard approach failed, non-obvious alternative worked | API Quirks & Workarounds | Using `figma_execute` batch instead of individual `figma_set_fill` for gradient nodes |
-| T3 | **Non-obvious recovery** — error recovery required investigation beyond anti-patterns.md | Error Recovery | CDP connection dropped mid-batch; re-launching with port reset resolved |
+| T3 | **Non-obvious recovery** — error recovery required investigation beyond anti-patterns.md | Error Recovery | WebSocket connection dropped mid-batch; re-launching plugin resolved |
 | T4 | **Strategy significantly outperformed** — a chosen approach was measurably better | Effective Strategies | Processing component variants in dependency order eliminated rework |
 | T5 | **Performance surprise** — unexpected token/time savings or costs | Performance Patterns | `figma_render` JSX for 8+ nodes was 3x faster than individual `figma_create_*` |
 | T6 | **Quality audit reveals systematic gap** — same dimension scored <7.0/10 across 2+ screens or 2+ sessions (see `quality-dimensions.md`) | Effective Strategies or Performance Patterns | Token binding consistently low — batch binding at phase boundary is more effective than per-screen |

@@ -1,18 +1,18 @@
 ---
 name: figma-console-mastery
-version: 1.1.0
+version: 1.2.0
 description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", or when developing skills/commands that use the figma-console MCP server.
 ---
 
 # Figma Console Mastery
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
-> **Scope**: Design creation, manipulation, and quality assurance via figma-console MCP (Southleft, 60 tools) — Plugin API access, variable CRUD, debugging, screenshots. This skill is a **Figma API technique library** providing two flows: Design Session (creation/restructuring/audit) and Handoff QA (quality assurance for code handoff readiness). For Draft-to-Handoff and Code Handoff **orchestration**, use the `design-handoff` skill (product-definition plugin), which delegates Figma operations here.
+> **Scope**: Design creation, manipulation, and quality assurance via figma-console MCP (Southleft, 61 tools) — Plugin API access, variable CRUD, debugging, screenshots. This skill is a **Figma API technique library** providing two flows: Design Session (creation/restructuring/audit) and Handoff QA (quality assurance for code handoff readiness). For Draft-to-Handoff and Code Handoff **orchestration**, use the `design-handoff` skill (product-definition plugin), which delegates Figma operations here.
 
 ## Overview
 
-**figma-console** (Southleft, 60 tools) connects to Figma Desktop via the Desktop Bridge Plugin (WebSocket ports 9223-9232). It provides native tools for search, instantiation, screenshots, variable management, and `figma_execute` for Plugin API access.
+**figma-console** (Southleft, 61 tools) connects to Figma Desktop via the Desktop Bridge Plugin (WebSocket ports 9223-9232). It provides native tools for search, instantiation, screenshots, variable management, and `figma_execute` for Plugin API access. Transport is **WebSocket only** — CDP support was removed in v1.11.0 after Figma blocked `--remote-debugging-port`.
 
 **Core principles**:
 1. **Native-tools-first** — use figma-console native tools for standard operations; `figma_execute` for everything else
@@ -36,6 +36,8 @@ description: This skill should be used when the user asks to "create a Figma des
 ## Quick Start
 
 **Check & navigate**: `figma_get_status` (always first) → `figma_list_open_files` → `figma_navigate`
+
+**Design system discovery**: `figma_get_design_system_kit` (preferred — tokens + components + styles in one call) | `figma_get_design_system_summary` (lightweight overview)
 
 **Components**: `figma_search_components(query="Button")` → `figma_instantiate_component(componentKey, { variant, overrides })`
 
@@ -69,7 +71,7 @@ Unified flow for design creation, restructuring, targeted fixes, and audits. **F
 **Ambiguous intent?** If user intent maps to multiple modes (e.g., "fix the colors" could be Audit or Restructure), ask the user to clarify scope: "Should I apply targeted fixes to specific elements (Audit), or systematically restructure the screen (Restructure)?" Always include "Let's discuss this" option.
 
 ### Phase 1 — Preflight & Discovery (inline)
-Shared: `figma_get_status` → `figma_list_open_files` → `figma_navigate` → build/validate Session Index → load learnings → `figma_get_design_system_summary` → `figma_get_variables`. Mode-specific additions via subagent (Sonnet). See `flow-procedures.md` §1.1.
+Shared: `figma_get_status` → `figma_list_open_files` → `figma_navigate` → build/validate Session Index → load learnings → `figma_get_design_system_kit` (preferred, or `figma_get_design_system_summary` + `figma_get_variables` for lighter context). Mode-specific additions via subagent (Sonnet). See `flow-procedures.md` §1.1.
 
 ### Phase 2 — Analysis & Planning (Create/Restructure only)
 Expanded Socratic Protocol with 11 categories (Cat. 0-10). **Question templates**: `references/socratic-protocol.md`. **Procedures**: `flow-procedures.md` §1.2. Do NOT proceed to Phase 3 until user approves checklist.
@@ -95,14 +97,15 @@ Quality assurance for code handoff readiness. Does NOT generate manifest. **Full
 
 | Gate | Question | Path | Primary Tool |
 |------|----------|------|-------------|
-| **G0: Exists?** | Standard component in Team Library? | INSTANTIATE | `figma_search_components` → `figma_instantiate_component` |
+| **G0: DS Kit?** | Need full design system context (tokens + components + styles)? | DS-KIT | `figma_get_design_system_kit` (preferred) |
+| **G0b: Exists?** | Standard component in Team Library? | INSTANTIATE | `figma_search_components` → `figma_instantiate_component` |
 | **G1a: Native batch?** | Dedicated batch/read/audit tool? | NATIVE-BATCH | `figma_batch_create_variables`, `figma_capture_screenshot` |
 | **G1b: Native modify?** | Single-property modification? | NATIVE-MODIFY | `figma_set_fills`, `figma_rename_node`, `figma_set_text` |
 | **G2: Simple?** | 1-2 operations, no cross-node dependencies? | EXECUTE-SIMPLE | `figma_execute` with idempotency |
 | **G3: Complex?** | 3+ same-type operations OR multi-step with cross-node dependencies (e.g., parent layout affects child constraints)? | EXECUTE-BATCH | `figma_execute` batch script |
 | **G4: Not covered?** | None of the above? | ESCALATE | Ask user for clarification |
 
-Evaluate G0→G1a→G1b→G2→G3→G4 in order. **Full decision tree**: `references/tool-playbook.md`
+Evaluate G0→G0b→G1a→G1b→G2→G3→G4 in order. **Full decision tree**: `references/tool-playbook.md`
 
 ## Essential Rules (Top 8)
 
@@ -145,7 +148,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-pr
 # Convergence execution — batch scripting, subagent delegation, snapshots, recovery
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-execution.md
 
-# Tool selection — which of the 60 tools to call and when
+# Tool selection — which of the 61 tools to call and when
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md
 
 # Plugin API reference — writing figma_execute code
@@ -226,7 +229,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/field-learning
 | Screenshot shows stale content | Use `figma_capture_screenshot` (see Essential Rules MUST #5) |
 | Node IDs lost after compaction | Re-read per-screen journal + `session-state.json` |
 
-**Full troubleshooting index (37 entries)**: `references/anti-patterns.md` § Quick Troubleshooting Index
+**Full troubleshooting index (34 entries)**: `references/anti-patterns.md` § Quick Troubleshooting Index
 
 ## When NOT to Use This Skill
 

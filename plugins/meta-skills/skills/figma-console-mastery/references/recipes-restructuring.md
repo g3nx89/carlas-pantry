@@ -1,6 +1,6 @@
 # Recipes — Restructuring Freehand Designs
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Prerequisites**: Load `recipes-foundation.md` first — restructuring recipes assume familiarity with the IIFE wrapper, font preloading, and node reference patterns.
 >

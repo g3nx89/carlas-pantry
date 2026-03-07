@@ -1,6 +1,6 @@
 # Flow Procedures
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Scope**: Detailed phase procedures for Flow 1 (Design Session, 4 modes) and Flow 2 (Handoff QA).
 > Subagents load this file when dispatched for phase execution.
@@ -31,8 +31,7 @@ Unified flow for design creation, restructuring, targeted fixes, and audits. Rep
 3. `figma_navigate` → open target page/file if needed
 4. **Build/validate Session Index** — if `specs/figma/session-index.jsonl` does not exist or meta `file_key` differs from current file, call `figma_get_file_data(verbosity='summary', depth=1)` and write the index (see `session-index-protocol.md`). If the index exists and is fresh (< 5 min), skip.
 5. **Load compound learnings** — if `~/.figma-console-mastery/learnings.md` exists, read entries relevant to the current task type
-6. `figma_get_design_system_summary` → understand existing tokens, components, styles
-7. `figma_get_variables(format="summary")` → catalog available variables
+6. `figma_get_design_system_kit(format="summary")` → unified extraction of tokens, components, styles (preferred). Alternatively: `figma_get_design_system_summary` + `figma_get_variables(format="summary")` for lighter context
 
 #### Restructure mode additions (Sonnet subagent)
 

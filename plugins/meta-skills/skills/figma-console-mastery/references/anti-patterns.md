@@ -1,8 +1,8 @@
 # Anti-Patterns and Error Recovery
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 
-This reference catalogs the most common failures, anti-patterns, and hard constraints encountered when working with figma-console-mcp. Each entry includes a clear recovery path. For correct patterns, see `plugin-api.md`. For design rules, see `design-rules.md`. For GUI-only recovery steps (plugin setup, cache refresh, CDP launch), see `gui-walkthroughs.md`.
+This reference catalogs the most common failures, anti-patterns, and hard constraints encountered when working with figma-console-mcp. Each entry includes a clear recovery path. For correct patterns, see `plugin-api.md`. For design rules, see `design-rules.md`. For GUI-only recovery steps (plugin setup, cache refresh), see `gui-walkthroughs.md`.
 
 ---
 
@@ -127,7 +127,7 @@ These errors recur across sessions because context compaction discards previousl
 
 ## Connection and Transport Errors
 
-The server tries WebSocket first (ports 9223-9232), then falls back to CDP (port 9222). Connection issues are the most common barrier to getting started.
+The server uses WebSocket transport (ports 9223-9232). CDP support was removed in v1.11.0 after Figma blocked `--remote-debugging-port`. Connection issues are the most common barrier to getting started.
 
 **Diagnostic sequence for connection failures:**
 
@@ -137,11 +137,10 @@ The server tries WebSocket first (ports 9223-9232), then falls back to CDP (port
 
 | Error | Cause | Recovery |
 |-------|-------|---------|
-| `Failed to connect to Figma Desktop` | No transport available (neither WebSocket nor CDP) | Guide user through plugin setup — see `gui-walkthroughs.md` (Initial Setup + Per-Session sections) |
+| `Failed to connect to Figma Desktop` | No WebSocket transport available | Guide user through plugin setup — see `gui-walkthroughs.md` (Initial Setup + Per-Session sections) |
 | `EADDRINUSE` port conflict | Multiple MCP instances competing for same port (pre-v1.10.0) | Update to v1.10.0+ for automatic port fallback (9223-9232). Guide user through re-import — see `gui-walkthroughs.md` (Post-Update section) |
 | `Variables cache empty` | Plugin cache not populated or stale | Guide user through cache refresh — see `gui-walkthroughs.md` (Cache Refresh section) |
 | `No plugin UI found` | Desktop Bridge Plugin not running in current file | Guide user through activation — see `gui-walkthroughs.md` (Per-Session section) |
-| `ECONNREFUSED localhost:9222` | CDP not available | Informational if WebSocket works. For CDP setup, see `gui-walkthroughs.md` (Alternative Transport section) |
 
 ---
 
@@ -169,7 +168,7 @@ These workflow-level mistakes cause wasted iterations, silent data loss, or sess
 | **Not involving user for complex screen conversions** | The agent wastes tokens making assumptions about ambiguous elements, constraint types, and component matching — then discovers issues only at visual validation (too late) | Analyze the screen FIRST, present findings + questions to user for MODERATE/COMPLEX screens BEFORE cloning. Trivial screens proceed autonomously — see `design-handoff` skill (product-definition plugin) |
 | **Using `figma_take_screenshot` to validate recent Plugin API mutations** | `figma_take_screenshot` uses the Figma REST API, which renders from the cloud-synced file state. Changes made via `figma_execute` are NOT reflected until the file is saved and synced. The REST API also caches renders — identical byte sizes across repeated calls confirm cache hits. There is no public API to force cache invalidation. Note: `figma.saveVersionHistoryAsync("label", "desc")` does NOT flush the CDN cache — the REST API may still serve stale renders for 30-120s after the save completes | Use `figma_capture_screenshot` (Desktop Bridge transport) which exports from the live plugin runtime state. `figma_take_screenshot` is only safe for validating already-saved designs |
 | **Splitting page-switch and data-read across `figma_execute` calls** | `setCurrentPageAsync()` inside an async IIFE only sets the active page for that IIFE's execution. The next `figma_execute` call reverts to whichever page Figma Desktop has open — `figma.currentPage.findOne()` then searches the wrong page and returns null | All reads AND `setCurrentPageAsync()` must be in the **same async IIFE**. Or capture the page object reference once (`const p = figma.root.children.find(n => n.id === "24:2")`) and use `p.findOne()` directly — page object references remain valid across calls |
-| **Assuming Desktop Bridge persists through long async sequences** | After successful sequential `figma_execute` calls (especially async IIFEs with font loading), the Desktop Bridge WebSocket may silently drop. Subsequent calls fail with `"Desktop Bridge plugin UI not found"`. CDP transport (REST screenshots) stays active but Plugin API is blocked | Gate multi-step sessions with `figma_get_status` between major steps. On dropout, instruct user to reopen the plugin from Figma's plugin menu. Do not assume Bridge availability persists indefinitely |
+| **Assuming Desktop Bridge persists through long async sequences** | After successful sequential `figma_execute` calls (especially async IIFEs with font loading), the Desktop Bridge WebSocket may silently drop. Subsequent calls fail with `"Desktop Bridge plugin UI not found"` | Gate multi-step sessions with `figma_get_status` between major steps. On dropout, instruct user to reopen the plugin from Figma's plugin menu. Do not assume Bridge availability persists indefinitely |
 
 ---
 
@@ -264,7 +263,7 @@ Remote mode connects via Cloudflare Workers and is restricted to read-only opera
 - **No variable management** -- all CRUD operations require local mode
 - **No Desktop Bridge Plugin** -- remote cannot connect to localhost
 - **Variables require Enterprise plan** -- REST API endpoint is Enterprise-gated (local mode bypasses this)
-- **Only ~21 read-only tools** available (~35% of the full 60 tool set)
+- **Only ~21 read-only tools** available (~34% of the full 61 tool set)
 
 ### IMAGE Fill Limitation (CRITICAL for Draft-to-Handoff)
 
@@ -317,7 +316,7 @@ Comprehensive reference including detection method and recovery steps. Use `figm
 | Infinite screenshot loop | Agent keeps finding minor issues | Session stalls with repeated screenshot-fix cycles | Hard cap: 3 cycles. Set acceptance criteria before starting |
 | Rate limiting (HTTP 429) | Figma REST API limits exceeded | API calls return 429 status | Wait and retry. Limits vary by plan (see below) |
 | Claude Code SSE transport bug | Known bug in Claude Code native `--transport sse` | Connection fails in Claude Code | Use `mcp-remote` workaround: `npx -y mcp-remote@latest https://...` |
-| `figma_navigate` does not navigate | WebSocket-only mode lacks browser-level navigation | Tool returns file info instead of navigating | Expected behavior in WebSocket mode. Ensure correct file is already open. Use CDP transport for actual navigation |
+| `figma_navigate` does not navigate | WebSocket mode returns file info with guidance | Tool returns file info instead of navigating | Expected behavior. Ensure correct file is already open in Figma Desktop |
 | Truncated responses on large files | File data exceeds response size | Response appears incomplete | Use `figma_get_file_for_plugin` instead of `figma_get_file_data`. Use filtered variable queries. Target specific nodes rather than entire file |
 | `No plugin UI found` | Desktop Bridge Plugin not running | `figma_get_status` shows no plugin connection | Guide user through `gui-walkthroughs.md` (Per-Session) |
 

@@ -1,6 +1,6 @@
 # Sequential Thinking Integration Templates for Figma Console Mastery
 
-> **Compatibility**: Verified against ST server v0.2.0 (npm 2025.12.18), figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against ST server v0.2.0 (npm 2025.12.18), figma-console-mcp v1.11.2 (February 2026)
 >
 > **Prerequisites**: `mcp__sequential-thinking__sequentialthinking` MCP server must be configured.
 > For full ST documentation, see the `sequential-thinking-mastery` skill.
@@ -64,7 +64,7 @@ Templates below use `{braces}` placeholders. Fill them from actual tool outputs:
 ```
 Thought 1: Frame scope → Action: Deep Node Tree Analysis
 Thought 2: Analyze deviations → Action: Repeated Pattern Detection
-Thought 3: Assess patterns → Action: figma_get_design_system_summary + figma_get_variables
+Thought 3: Assess patterns → Action: figma_get_design_system_kit (or figma_get_design_system_summary + figma_get_variables)
 Thought 4: Cross-reference tokens → Action: figma_audit_design_system
 Thought 5: Integrate health score (Rule of 5 checkpoint)
 Thought 6: Compile findings summary (phase boundary checkpoint)
@@ -110,7 +110,7 @@ Thought 7: Determine recommended path → nextThoughtNeeded: false
 }
 ```
 
-> **Action**: `figma_get_design_system_summary` + `figma_get_variables(format="summary")`
+> **Action**: `figma_get_design_system_kit(format="summary")` (preferred) or `figma_get_design_system_summary` + `figma_get_variables(format="summary")`
 
 **If tool output contradicts initial hypothesis** (e.g., tokens exist but are not bound), use revision:
 

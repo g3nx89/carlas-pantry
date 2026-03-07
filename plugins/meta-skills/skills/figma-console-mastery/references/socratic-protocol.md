@@ -1,6 +1,6 @@
 # Socratic Protocol
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Scope**: Interactive planning protocol for Flow 1 Phase 2 (Create and Restructure modes).
 > Captures user-approved design decisions before execution via 11 structured question categories (Cat. 0-10).

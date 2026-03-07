@@ -1,6 +1,6 @@
 # Session Index Protocol
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Scope**: L2 session-scoped cache for name-to-ID resolution. Sits between L1 (native tool server-side cache) and L3 (deep `figma_execute` queries). Built once per session from `figma_get_file_data`, consulted via `Grep`, invalidated via `figma_get_design_changes`.
 >

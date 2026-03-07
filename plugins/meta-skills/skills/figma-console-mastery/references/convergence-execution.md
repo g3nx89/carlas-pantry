@@ -1,6 +1,6 @@
 # Convergence Execution Patterns
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Scope**: Batch scripting, subagent delegation, session snapshots, and compact recovery for Figma design workflows. Builds on the journal format and convergence rules defined in `convergence-protocol.md`.
 >

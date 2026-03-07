@@ -1,6 +1,6 @@
 # Quality Procedures
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > Spot/Standard/Deep audit execution procedures, fix cycles, judge templates, journal integration, and compound learning.
 > Part of the Unified Quality Model for figma-console design validation.

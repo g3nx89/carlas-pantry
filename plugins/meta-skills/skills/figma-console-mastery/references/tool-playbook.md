@@ -1,8 +1,8 @@
 # Tool Playbook — Choosing Which Tool to Call
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 
-This reference covers tool selection decisions across the full 60 tool surface area. For Plugin API code patterns used inside `figma_execute`, see `plugin-api.md`. For error recovery procedures, see `anti-patterns.md`.
+This reference covers tool selection decisions across the full 61 tool surface area. For Plugin API code patterns used inside `figma_execute`, see `plugin-api.md`. For error recovery procedures, see `anti-patterns.md`.
 
 ---
 
@@ -15,6 +15,7 @@ Need to check connection or navigate?
 └── List open files?   → figma_list_open_files
 
 Need to understand existing design system?
+├── Full DS context?   → figma_get_design_system_kit (PREFERRED — tokens+components+styles in one call)
 ├── Overview?          → figma_get_design_system_summary
 ├── Variables/tokens?  → figma_get_variables (format="summary" first)
 ├── Styles?            → figma_get_styles
@@ -57,6 +58,7 @@ Need to validate or debug?
 | Tool | Purpose |
 |------|---------|
 | `figma_get_status` | Verify connection (always first) |
+| `figma_get_design_system_kit` | Full DS extraction in one call (tokens + components + styles) — preferred over separate calls |
 | `figma_search_components` | Find library components before creating |
 | `figma_instantiate_component` | Place component with variant properties |
 | `figma_execute` | Run Plugin API code (creation, modification, complex logic) |
@@ -67,9 +69,9 @@ Need to validate or debug?
 | `figma_batch_update_variables` | Bulk variable updates (up to 100) |
 | `figma_get_design_system_summary` | Overview of tokens, components, styles |
 | `figma_audit_design_system` | 0-100 health scorecard |
-| `figma_generate_component_doc` | Document created components |
+| `figma_generate_component_doc` | Document created components (v1.11.1: Storybook links, improved variant tables) |
 
-**Full tool reference**: See Tool Categories at a Glance and detailed sections below (60 tools)
+**Full tool reference**: See Tool Categories at a Glance and detailed sections below (61 tools)
 
 ---
 
@@ -78,7 +80,7 @@ Need to validate or debug?
 | Category | Tool Count | Mode Required | Key Tools |
 |----------|-----------|---------------|-----------|
 | Navigation / Status | 5 | All | `figma_get_status`, `figma_navigate`, `figma_list_open_files`, `figma_get_selection` |
-| Design System Extraction | 7 | All | `figma_get_variables`, `figma_get_design_system_summary`, `figma_get_component` |
+| Design System Extraction | 8 | All | `figma_get_design_system_kit`, `figma_get_variables`, `figma_get_design_system_summary`, `figma_get_component` |
 | Design Creation | 5 | Local | `figma_execute`, `figma_search_components`, `figma_instantiate_component` |
 | Variable Management | 11 | Local | `figma_batch_create_variables`, `figma_setup_design_tokens` |
 | Node Manipulation | 10 | Local | `figma_move_node`, `figma_resize_node`, `figma_set_fills`, `figma_set_text` |
@@ -97,21 +99,22 @@ These tools work in all modes (Local and Remote SSE). Always call `figma_get_sta
 
 | Tool | When to Use | Key Params | Output | Pitfalls |
 |------|-------------|------------|--------|----------|
-| `figma_get_status` | **Always first.** Gate check before any operation. Verify transport, port, mode | None | Connection status, transport type (WebSocket/CDP), port, active instances | In multi-instance mode, verify connection to the correct file |
-| `figma_navigate` | Open a specific Figma file or page by URL | `url` (string, required) | Opens file in Figma or returns connected file info | WebSocket-only mode cannot perform browser-level navigation; returns file info with guidance instead. CDP required for actual navigation |
+| `figma_get_status` | **Always first.** Gate check before any operation. Verify transport, port, mode | None | Connection status, transport type (WebSocket), port, `preferredPort`, `portFallbackUsed`, `otherInstances`, active file info | CDP fields removed in v1.11.0. In multi-instance mode, verify connection to the correct file |
+| `figma_navigate` | Open a specific Figma file or page by URL | `url` (string, required) | Opens file in Figma or returns connected file info with guidance | WebSocket mode returns file info with actionable guidance rather than performing browser-level navigation |
 | `figma_list_open_files` | List all currently open Figma files to confirm target file is active | None | Array of open file identifiers with names and URLs | Use during Preflight to verify the correct file is connected before operations |
-| `figma_reconnect` | Re-establish connection to Figma Desktop when transport is lost | None | Reconnection status | Try this before restarting Figma. Faster recovery than full restart |
+| `figma_reconnect` | Re-establish WebSocket connection to Figma Desktop when transport is lost | None | Reconnection status (correctly reports WebSocket transport since v1.11.0) | Try this before restarting Figma. Faster recovery than full restart |
 | `figma_get_selection` | Returns currently selected nodes with optional verbose details | `verbose` (boolean, optional) | Selected node IDs, names, types (verbose adds full properties) | Returns empty array if nothing is selected |
 
 ---
 
 ## Design System Extraction Tools
 
-All extraction tools work in both modes. Start every discovery phase with `figma_get_design_system_summary`.
+All extraction tools work in both modes. Prefer `figma_get_design_system_kit` for comprehensive extraction; use `figma_get_design_system_summary` for a lightweight overview.
 
 | Tool | When to Use | Key Params | Output | Pitfalls |
 |------|-------------|------------|--------|----------|
-| `figma_get_design_system_summary` | First step in discovery — understand what tokens, components, and styles exist | `fileUrl` | Summary statistics of variables, components, styles | High-level only; follow up with specific tools for details |
+| `figma_get_design_system_kit` | **PREFERRED** — Full design system in one call. Replaces separate `figma_get_styles` + `figma_get_variables` + `figma_get_component` calls (v1.11.0+) | `fileKey` (optional, auto-detected), `include` (array: `"tokens"` / `"components"` / `"styles"`, defaults to all), `componentIds` (optional filter), `includeImages` (boolean, default false), `format` (`"full"` / `"summary"` / `"compact"`) | Unified `DesignSystemKit` with tokens, components, styles, visual specs, and AI code-generation guidance | Auto-compresses above 500KB regardless of format param. `includeImages` adds latency. Individual tools still useful for targeted lookups |
+| `figma_get_design_system_summary` | Quick overview when full kit is not needed — understand what tokens, components, and styles exist | `fileUrl` | Summary statistics of variables, components, styles | High-level only; follow up with `figma_get_design_system_kit` or specific tools for details |
 | `figma_get_variables` | Extract design tokens and variable values | `fileUrl` (required), `format` (`"summary"` / `"filtered"` / `"full"`), optional `collection`, `namePattern`, `mode`, `refreshCache` | Variables with `id`, `name`, `resolvedType`, `valuesByMode`; collections with modes | Use `"summary"` first (~2-5K tokens). `"full"` auto-summarizes above 25K tokens. Cache: 5-min TTL, LRU eviction (max 10 files). Enterprise plan required in Remote mode; local mode bypasses this |
 | `figma_get_styles` | Extract color, text, and effect styles | `fileUrl` | Structured style data | -- |
 | `figma_get_component` | Get component metadata or a machine-readable reconstruction spec | Component identifier, `format` (`"metadata"` / `"reconstruction"`) | Component data in chosen format | Reconstruction format provides specs for programmatic recreation via `figma_execute` |
@@ -206,10 +209,10 @@ These tools work in all modes and form the visual feedback loop for autonomous d
 
 | Tool | When to Use | Key Params | Output | Pitfalls |
 |------|-------------|------------|--------|----------|
-| `figma_take_screenshot` | Capture **full canvas/viewport** for general layout verification | `fileUrl` (optional) | Base64 screenshot of current viewport | Captures everything visible on canvas, including elements outside the target design |
+| `figma_take_screenshot` | Capture **full canvas/viewport** for general layout verification | `fileUrl` (optional) | Base64 screenshot of current viewport | Captures everything visible on canvas, including elements outside the target design. v1.11.2 fix: works without explicit `nodeId` in WebSocket mode |
 | `figma_capture_screenshot` | Capture a **specific node** for targeted validation | `nodeId` (required), `fileUrl` (optional) | Rendered image of the specific node | Requires knowing the node ID; use after `figma_execute` returns the ID |
 | `figma_get_component_image` | Export a component as PNG or SVG | Component identifier, format options | Image data of the component | For documentation and reference, not for in-progress validation |
-| `figma_get_console_logs` | Retrieve plugin console logs for debugging | Filter options (type, count) | Array of log entries | Only captures logs from after monitoring begins (not historical). CDP captures page-level logs; WebSocket captures plugin-context logs only |
+| `figma_get_console_logs` | Retrieve plugin console logs for debugging | Filter options (type, count) | Array of log entries | Only captures logs from after monitoring begins (not historical). WebSocket captures plugin-context logs only |
 | `figma_watch_console` | Stream logs in real-time during plugin execution | Duration (seconds) | Real-time log stream | Blocks for the specified duration |
 | `figma_clear_console` | Reset log buffer before a new debugging session | None | Confirmation | -- |
 | `figma_get_design_changes` | Returns buffered design changes since last check | `since` (timestamp, optional), `clear` (boolean, optional) | Array of change events with node IDs and change types | Useful for tracking what changed between operations |
@@ -390,8 +393,9 @@ These tools control the MCP App interfaces programmatically:
 ### What figma-console Offers
 
 - **Full Plugin API access** via `figma_execute` — arbitrary JavaScript in the plugin sandbox
-- **60 specialized tools** spanning navigation, design system extraction, creation, variable management, node manipulation, visual validation, debugging, component properties, and auditing
-- **Dual transport modes**: WebSocket Desktop Bridge (local, ports 9223-9232) + Remote SSE (cloud/CI, read-only)
+- **61 specialized tools** spanning navigation, design system extraction, creation, variable management, node manipulation, visual validation, debugging, component properties, and auditing
+- **Unified DS extraction** via `figma_get_design_system_kit` — tokens, components, and styles in one call with adaptive compression (v1.11.0+)
+- **WebSocket transport** (local, ports 9223-9232) + Remote SSE (cloud/CI, read-only) — CDP removed in v1.11.0
 - **Variable CRUD without Enterprise plan** — local mode bypasses REST API plan restrictions
 - **Interactive MCP Apps** (Token Browser, Design System Dashboard) — requires `ENABLE_MCP_APPS=true`
 - **Plugin debugging** — real-time console log capture via `figma_get_console_logs`

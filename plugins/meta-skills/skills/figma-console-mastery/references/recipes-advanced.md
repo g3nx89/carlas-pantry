@@ -1,6 +1,6 @@
 # Recipes — Composition, Advanced Patterns & Full Pages
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Prerequisites**: Load `recipes-foundation.md` and `recipes-components.md` first. Foundation provides the IIFE wrapper, font preloading, and node reference patterns. Component recipes provide the sidebar, form, and button patterns reused in composition and full-page recipes below.
 >

@@ -1,6 +1,6 @@
 # GUI Walkthrough Instructions
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 
 Step-by-step GUI instructions for Figma Desktop operations that have no MCP tool or CLI equivalent. The coding agent should read this file when a connection or setup issue requires the user to interact with the Figma Desktop application directly.
 
@@ -52,26 +52,9 @@ After updating the `figma-console-mcp` npm package, re-import the plugin to pick
 
 ---
 
-## Alternative Transport: Launching Figma with CDP
+## ~~Alternative Transport: Launching Figma with CDP~~ (REMOVED)
 
-**When needed**: WebSocket transport (Desktop Bridge) is unavailable or debugging requires CDP access.
-
-**macOS:**
-```bash
-/Applications/Figma.app/Contents/MacOS/Figma --remote-debugging-port=9222
-```
-
-**Windows:**
-```cmd
-"C:\Users\<user>\AppData\Local\Figma\Figma.exe" --remote-debugging-port=9222
-```
-
-**Linux:**
-```bash
-figma --remote-debugging-port=9222
-```
-
-**Important**: Quit Figma completely before relaunching with the flag. Both CDP (port 9222) and WebSocket (Desktop Bridge, ports 9223-9232) transports can be active simultaneously.
+> **Removed in v1.11.0**: Figma blocked `--remote-debugging-port`, making CDP transport non-functional. figma-console-mcp now uses WebSocket (Desktop Bridge) exclusively. This section is preserved for historical reference only — do NOT instruct users to launch Figma with `--remote-debugging-port`.
 
 ---
 
@@ -112,7 +95,7 @@ figma.currentPage.selection = [node]
 2. Run the Desktop Bridge Plugin in the newly opened file (see Per-Session section above)
 3. Call `figma_get_status` to verify connection to the correct file
 
-**Note**: `figma_navigate` can open a file by URL in CDP transport mode. In WebSocket-only mode, it returns file info without navigating — guide the user to open the file manually.
+**Note**: `figma_navigate` returns file info with actionable guidance in WebSocket mode rather than performing browser-level navigation — guide the user to open the file manually.
 
 ---
 

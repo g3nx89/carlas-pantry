@@ -1,6 +1,6 @@
 # Field Learnings — Production Strategies & Workflows
 
-> **Compatibility**: Verified against figma-console-mcp v1.10.0 (February 2026)
+> **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
 > **Scope**: Effective strategies, workflows, and patterns empirically discovered during production Figma sessions. These are NOT API errors (see `anti-patterns.md`) or API reference (see `plugin-api.md`) — they are hard-won "how to do it right" patterns from building real screens.
 >
