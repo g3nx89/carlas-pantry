@@ -120,7 +120,16 @@
          LOG "[{timestamp}] App launch gate: screenshot saved for phase {phase_index}"
          ```
 
-      NOT skippable by autonomy policy — this is a ground-truth verification gate.
+      NOT skippable by autonomy policy — this is a non_overridable_gate (ground-truth verification).
+
+      **Build failure is a BLOCKER in non-ralph mode**: If the build fails after a phase, do NOT
+      proceed to Stage 3 for that phase. The build must succeed before validation begins. This
+      prevents the "596 green tests but broken app" failure mode where tests pass in isolation
+      but the app doesn't compile/link/launch.
+
+      **When mobile-mcp is available, install+launch is also non-skippable**: If Stage 1 reported
+      `mobile_mcp_available: true`, steps 2-3 (install + launch + screenshot) MUST be attempted.
+      Skipping them when the tools are available is a protocol violation.
 
    h. Update `state.last_checkpoint`. Write state. If `state.orchestrator.ralph_mode` is `true`: `WRITE_STATUS_FILE(state, "phase {phase} checkpoint")`.
 
@@ -223,6 +232,32 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
     state.orchestrator.coordinator_failures += 1
     IF coordinator_failures >= config.orchestrator.max_coordinator_failures (default: 3):
       HALT: "Cumulative coordinator failures ({N}) exceeded threshold."
+
+  # Protocol compliance verification with remediation (v3.5.0)
+  IF stage IN [2, 3, 4, 5]:
+    protocol_status = VERIFY_STAGE_PROTOCOL(summary, stage)
+    IF protocol_status != "compliant":
+      # Check if this is the first protocol failure for this stage (allow one retry)
+      retry_key = "protocol_retry_stage_{stage}"
+      IF state.orchestrator[retry_key] IS NOT SET:
+        state.orchestrator[retry_key] = true
+        WRITE state
+        LOG "[{timestamp}] PROTOCOL REMEDIATION: Stage {stage} non-compliant ({protocol_status}) — re-dispatching coordinator"
+        # Re-dispatch the same coordinator with explicit compliance instruction
+        GOTO DISPATCH_COORDINATOR(stage) with additional prompt suffix:
+          """
+          PROTOCOL COMPLIANCE REMEDIATION:
+          Your previous execution was flagged as non-compliant. Specifically: {protocol_status}.
+          You MUST include a valid `protocol_evidence` map in your summary YAML frontmatter.
+          Read $CLAUDE_PLUGIN_ROOT/skills/implement/references/protocol-compliance-checklist.md
+          for the required checklist items. Every item must be TRUE or have an explicit exception.
+          """
+      ELSE:
+        # Already retried once — accept degraded output and record for retrospective
+        LOG "[{timestamp}] WARNING: Stage {stage} still non-compliant after retry — proceeding with degraded output"
+        # Mechanical verification as secondary check
+        Bash("$CLAUDE_PLUGIN_ROOT/scripts/verify_protocol.sh {FEATURE_DIR} {stage}")
+        # Output is logged regardless — visible in Stage 6 retrospective
 
   # Handle needs-user-input
   IF summary.status == "needs-user-input":
@@ -443,6 +478,14 @@ FUNCTION DISPATCH_COORDINATOR(stage, phase_scope=null, continuation_mode=false):
        The `ask` async queue has no stage scoping and returns stale results
        from prior stages. This rule overrides global CLAUDE.md CCB config.
   """
+
+  # --- ANTI-PARALLEL GUARD ---
+  # NEVER use run_in_background=true for stage coordinator dispatches.
+  # NEVER dispatch multiple coordinators simultaneously.
+  # Each coordinator MUST complete and return summary before next dispatch.
+  # Violation = protocol breach logged in state file under orchestrator.protocol_violations.
+  # This guard is a non_overridable_gate — cannot be disabled by autonomy policy.
+  # --- END ANTI-PARALLEL GUARD ---
 
   # Coordinator health: if Task() exceeds max_turns or context limit,
   # it will return with partial output. Check for summary file after return.
@@ -853,6 +896,82 @@ FUNCTION VERIFY_NON_SKIPPABLE_GATES(phase, stage2_summary, stage1_summary):
       ELIF mobile_available IS NULL:
         # Should have been caught by VALIDATE_STAGE1_SUMMARY (F1)
         LOG "[{timestamp}] WARNING: mobile_mcp_available is null — Stage 1 validation may have been bypassed"
+```
+
+## Helper: Verify Stage Protocol
+
+```
+FUNCTION VERIFY_STAGE_PROTOCOL(summary, stage):
+  # Validates that the coordinator followed the lean orchestrator protocol:
+  # - Used proper agent types (not direct dispatch from orchestrator)
+  # - Used prompt templates from agent-prompts.md
+  # - Executed phases sequentially (not in parallel)
+  # Called from VALIDATE_AND_HANDLE after summary parsing, before proceeding to next stage.
+
+  # 1. Check protocol_evidence exists
+  IF summary.protocol_evidence IS MISSING OR summary.protocol_evidence IS EMPTY:
+    LOG "[{timestamp}] WARNING: Stage {stage} summary missing protocol_evidence"
+    IF stage IN [2, 3, 4]:  # critical stages where agent dispatch is essential
+      state.orchestrator.coordinator_failures += 1
+    RETURN "degraded — missing protocol evidence"
+
+  evidence = summary.protocol_evidence
+
+  # 2. Check agent dispatch compliance
+  IF stage == 2:
+    required_agents = ["developer"]
+    # Conditionally required agents
+    IF config.native_test_writer.enabled AND summary.flags.test_cases_available:
+      required_agents += ["test-writer"]
+    IF config.output_verifier.enabled:
+      required_agents += ["output-verifier"]
+
+    dispatched_types = [a.type FOR a IN evidence.agents_dispatched]
+    FOR agent IN required_agents:
+      IF agent NOT IN dispatched_types:
+        LOG "[{timestamp}] PROTOCOL VIOLATION: Stage 2 missing required agent: {agent}"
+        # Record violation — don't auto-fix, but make it visible
+        state.orchestrator.protocol_violations = (state.orchestrator.protocol_violations OR [])
+        state.orchestrator.protocol_violations += ["Stage 2: missing {agent}"]
+
+  IF stage == 3:
+    dispatched_types = [a.type FOR a IN evidence.agents_dispatched]
+    IF "developer" NOT IN dispatched_types:
+      LOG "[{timestamp}] PROTOCOL VIOLATION: Stage 3 missing required agent: developer"
+      state.orchestrator.protocol_violations = (state.orchestrator.protocol_violations OR [])
+      state.orchestrator.protocol_violations += ["Stage 3: missing developer"]
+
+  IF stage == 4:
+    dispatched_types = [a.type FOR a IN evidence.agents_dispatched]
+    reviewer_count = COUNT(a FOR a IN evidence.agents_dispatched WHERE a.type == "developer" AND a.template_used == "Quality Review Prompt")
+    IF reviewer_count < 3:
+      LOG "[{timestamp}] PROTOCOL VIOLATION: Stage 4 dispatched {reviewer_count} reviewers (expected >= 3)"
+      state.orchestrator.protocol_violations = (state.orchestrator.protocol_violations OR [])
+      state.orchestrator.protocol_violations += ["Stage 4: only {reviewer_count} reviewers dispatched"]
+
+  IF stage == 5:
+    dispatched_types = [a.type FOR a IN evidence.agents_dispatched]
+    IF "tech-writer" NOT IN dispatched_types:
+      LOG "[{timestamp}] PROTOCOL VIOLATION: Stage 5 missing required agent: tech-writer"
+      state.orchestrator.protocol_violations = (state.orchestrator.protocol_violations OR [])
+      state.orchestrator.protocol_violations += ["Stage 5: missing tech-writer"]
+
+  # 3. Check sequential execution
+  IF evidence.phases_executed_sequentially == false:
+    LOG "[{timestamp}] PROTOCOL VIOLATION: Stage {stage} executed phases in parallel"
+    state.orchestrator.protocol_violations = (state.orchestrator.protocol_violations OR [])
+    state.orchestrator.protocol_violations += ["Stage {stage}: parallel phase execution"]
+
+  # 4. Check prompt template usage
+  IF evidence.prompt_templates_used IS EMPTY:
+    LOG "[{timestamp}] PROTOCOL VIOLATION: Stage {stage} used no prompt templates (likely ad-hoc instructions)"
+    state.orchestrator.protocol_violations = (state.orchestrator.protocol_violations OR [])
+    state.orchestrator.protocol_violations += ["Stage {stage}: no prompt templates used"]
+
+  WRITE state
+  IF state.orchestrator.protocol_violations IS NOT EMPTY:
+    RETURN "degraded — protocol violations detected"
+  RETURN "compliant"
 ```
 
 ## Helper: Identify Stuck Task

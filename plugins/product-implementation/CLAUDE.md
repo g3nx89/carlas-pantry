@@ -281,3 +281,61 @@ The orchestrator NEVER touches UAT, mobile-mcp, or Figma. All logic lives in:
 - Gradle build: `cli_dispatch.stage2.uat_mobile_tester.gradle_build` (command, apk_search_pattern, timeout)
 - MCP tool budgets: `cli_dispatch.mcp_tool_budgets.per_cli_dispatch.mobile_mcp` and `.figma`
 - Emulator/install: `uat_execution.emulator` and `uat_execution.apk_install`
+
+## Protocol Compliance Enforcement (v3.5.0)
+
+Defense-in-depth mechanisms to prevent LLM compliance degradation where the orchestrator silently bypasses the lean orchestrator pattern (direct agent dispatch, parallel phases, skipped specialized agents, ad-hoc prompts).
+
+### Non-Overridable Gates
+
+Five gates in `config/implementation-config.yaml` under `non_overridable_gates` that cannot be disabled by autonomy policy or full_auto mode:
+- `sequential_phase_execution` — phases must run one-at-a-time, never in parallel
+- `coordinator_mediated_dispatch` — all agents dispatch through coordinators, never directly from orchestrator
+- `protocol_evidence_required` — Stages 2, 3, 4 must include `protocol_evidence` in summaries
+- `app_launch_gate` — build+install+launch when emulator available (build failure blocks Stage 3)
+- `prompt_template_usage` — agents must use templates from `agent-prompts.md`
+
+### Protocol Evidence in Summaries
+
+Stages 2-5 summaries include a `protocol_evidence` map documenting actual dispatch records:
+- `agents_dispatched` — list of `{type, template_used, phase}` for each agent dispatch
+- `prompt_templates_used` — template names from `agent-prompts.md`
+- `phases_executed_sequentially` — boolean confirmation
+- `per_phase_steps_completed` — map of phase → step IDs completed
+
+Schema defined in `references/summary-schemas.md`. Template in `templates/stage-summary-template.md`.
+
+### Pre-Summary Checklists
+
+Shared checklist in `references/protocol-compliance-checklist.md` with universal + per-stage sections. Each stage file (2-5) cross-references it from their checklist section (2.2a, 3.4a, 4.4a, 5.3a). Stage 3 retains Check 15 (vertical slice wiring) inline since it has stage-specific detail.
+
+### VERIFY_STAGE_PROTOCOL Function
+
+Orchestrator-level verification in `orchestrator-loop.md` called from VALIDATE_AND_HANDLE after summary parsing:
+- Checks `protocol_evidence` exists and is non-empty
+- Validates required agents were dispatched (Stage 2: developer, test-writer, output-verifier; Stage 3: developer; Stage 4: 3+ reviewers; Stage 5: tech-writer)
+- Detects parallel phase execution
+- Detects missing prompt template usage
+- **Remediation**: On first failure, re-dispatches the coordinator with explicit compliance instructions. On second failure, runs `scripts/verify_protocol.sh` for mechanical verification and proceeds with degraded output.
+- Records violations in `state.orchestrator.protocol_violations` for Stage 6 retrospective
+
+### Mechanical Verification Script
+
+`scripts/verify_protocol.sh` — Bash script that parses stage summary YAML files to mechanically check for `protocol_evidence` fields. Breaks the LLM-checking-LLM trust boundary. Called by VERIFY_STAGE_PROTOCOL on second failure as a secondary check. Can also be run standalone: `verify_protocol.sh <feature_dir> [stage_number]`.
+
+### Retrospective KPIs 1.6-1.10 (Outcome KPIs)
+
+Stage 6 computes 5 additional outcome-based KPIs from `protocol_evidence`:
+- **1.6 Protocol Compliance Score** — % of stages with valid protocol_evidence
+- **1.7 Agent Diversity Score** — unique agent types dispatched vs. expected
+- **1.8 Wiring Verification** — did vertical slice checks pass?
+- **1.9 Build Success Rate** — builds attempted vs. succeeded
+- **1.10 N/A Audit** — count of N/A values that had available tooling (should be 0)
+
+Rule: "N/A ≠ GREEN" — any KPI marked N/A when tooling was available is a RED flag.
+
+### Configuration
+
+- Non-overridable gates: `config/implementation-config.yaml` under `non_overridable_gates`
+- Prompt registry: `references/prompt-registry.yaml` (machine-readable template lookup)
+- Critical Rules 13-15 in `SKILL.md` (no direct dispatch, sequential phases, prompt templates)

@@ -91,6 +91,22 @@ Compute 10 Phase 1 KPIs from the collected data:
 
 **Null handling**: If a source field is absent (feature disabled, stage skipped), set the KPI value to `null` and traffic light to `"N/A"`.
 
+### 6.2.2b Outcome KPIs — Protocol Compliance (Phase 1 Extension)
+
+Compute 5 additional outcome-based KPIs from `protocol_evidence` fields in stage summaries:
+
+| ID | KPI Name | Computation | Traffic Light |
+|----|----------|-------------|---------------|
+| 1.6 | Protocol Compliance Score | Count of stages (2-5) with valid `protocol_evidence` / total stages that ran × 100 | Green: 100%, Yellow: >=75%, Red: <75% |
+| 1.7 | Agent Diversity Score | Count of unique agent types in all `protocol_evidence.agents_dispatched` entries / expected unique types × 100. Expected types from `prompt-registry.yaml` per stage. | Green: 100%, Yellow: >=80%, Red: <80% |
+| 1.8 | Wiring Verification | Did Stage 3 protocol_evidence include `check_15_wiring` in `per_phase_steps_completed`? (`true`/`false`) | Green: true, Red: false |
+| 1.9 | Build Success Rate | Builds attempted (from app_launch_gate evidence) vs. succeeded. Count from `reality_checks.app_launch_gate` and launch screenshots. | Green: 100%, Yellow: >=80%, Red: <80%, N/A: gate disabled |
+| 1.10 | N/A Audit | Count of KPIs marked `"N/A"` where the corresponding config gate was enabled (should be 0). Cross-reference each N/A KPI's config gate against actual config. | Green: 0, Yellow: 1, Red: 2+ |
+
+**CRITICAL RULE: N/A ≠ GREEN.** Any KPI marked N/A when the corresponding tooling/config was enabled is a RED flag, not a neutral one. The tech-writer MUST treat N/A-with-enabled-config as a process failure in the retrospective narrative.
+
+**Data source:** Read `protocol_evidence` from per-phase and final stage summaries (Stages 2-5). Read `protocol_violations` from state file `orchestrator` section. Cross-reference with `reality_checks` from Section 6.2.4.
+
 ### 6.2.3 Write Report Card
 
 Write `{FEATURE_DIR}/.implementation-report-card.local.md`:
@@ -150,6 +166,26 @@ kpis:
     id: "5.5"
     value: {N}
     traffic_light: "{green|yellow|red|N/A}"
+  protocol_compliance_score:
+    id: "1.6"
+    value: {N}    # percentage
+    traffic_light: "{green|yellow|red}"
+  agent_diversity_score:
+    id: "1.7"
+    value: {N}    # percentage
+    traffic_light: "{green|yellow|red}"
+  wiring_verification:
+    id: "1.8"
+    value: {true|false}
+    traffic_light: "{green|red}"
+  build_success_rate:
+    id: "1.9"
+    value: {N}    # percentage
+    traffic_light: "{green|yellow|red|N/A}"
+  na_audit:
+    id: "1.10"
+    value: {N}    # count of N/A KPIs with enabled config
+    traffic_light: "{green|yellow|red}"
 # --- Phase 2 KPIs (future — null placeholders for forward-compatibility) ---
 phase2:
   cove_effectiveness: null         # KPI 2.1: cove_stats.findings_removed / cove_stats.findings_before (null if CoVe didn't run)
@@ -356,7 +392,7 @@ summary: |
 flags:
   skipped: false
   transcript_analyzed: true  # false if transcript unavailable or extraction disabled
-  kpis_computed: 10          # Number of Phase 1 KPIs successfully computed
+  kpis_computed: 15          # Number of Phase 1 KPIs successfully computed (10 original + 5 outcome KPIs 1.6-1.10)
   kpis_null: {N}             # Number of KPIs set to null (feature disabled)
   commit_sha: null            # Auto-commit SHA (null if disabled, skipped, or failed)
   context_contributions: null

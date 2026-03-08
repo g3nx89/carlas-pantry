@@ -275,7 +275,11 @@ Feature: {FEATURE_NAME}
 Documentation complete / Documentation complete with noted gaps
 ```
 
-## 5.3a Auto-Commit Documentation
+## 5.3a Protocol Compliance Checklist
+
+Before writing the Stage 5 summary, complete the **Stage 5** checklist in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/protocol-compliance-checklist.md` (Universal Checks + Stage 5 section). Record results in `protocol_evidence`.
+
+## 5.3b Auto-Commit Documentation
 
 After capturing the documentation summary, optionally commit the documentation changes. Follow the Auto-Commit Dispatch Procedure in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/auto-commit-dispatch.md` with:
 

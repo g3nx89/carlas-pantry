@@ -457,6 +457,10 @@ If orchestrator provides a user-input file:
 
 1. Set `review_outcome: "accepted"` in summary
 
+## 4.4a Protocol Compliance Checklist
+
+Before writing the Stage 4 summary, complete the **Stage 4** checklist in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/protocol-compliance-checklist.md` (Universal Checks + Stage 4 section). Record results in `protocol_evidence`.
+
 ## 4.5 Write Stage 4 Summary
 
 Write summary to `{FEATURE_DIR}/.stage-summaries/stage-4-summary.md`:

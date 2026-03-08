@@ -79,6 +79,13 @@ Per-phase summaries include the `phase` field in YAML frontmatter. The schema fo
 | `flags.context_contributions` | map\|null | Optional | `null` | Stage 2 | Orchestrator |
 | `flags.output_verification_stats` | map\|null | Optional | `null` | Stage 2 | Stages 3, 6 |
 | `flags.uat_results` | map\|null | Optional | `null` | Stage 2 | Stage 6 |
+| `protocol_evidence` | map | Yes (Stages 2-5) | `{}` | Stage 2 | Orchestrator, Stage 6 |
+| `protocol_evidence.agents_dispatched` | array | Yes | `[]` | Stage 2 | Orchestrator |
+| `protocol_evidence.prompt_templates_used` | array | Yes | `[]` | Stage 2 | Orchestrator |
+| `protocol_evidence.phases_executed_sequentially` | boolean | Yes | `true` | Stage 2 | Orchestrator |
+| `protocol_evidence.per_phase_steps_completed` | map | Yes | `{}` | Stage 2 | Stage 6 |
+
+> **Note:** `protocol_evidence` uses the same schema in Stages 2-5. Each stage populates it with its own dispatch records. The orchestrator validates this field via `VERIFY_STAGE_PROTOCOL` (see `orchestrator-loop.md`). Stage 1 and Stage 6 do not require `protocol_evidence`.
 
 ## Stage 3: Completion Validation
 

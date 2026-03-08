@@ -1,0 +1,187 @@
+# Prompt Registry — Machine-readable lookup for agent prompt templates
+#
+# Each entry maps a prompt template from agent-prompts.md to its agent type,
+# required/optional variables, and usage context. Coordinators use this registry
+# to verify they are using the correct template and populating all required variables.
+#
+# Referenced by: stage-2-execution.md, stage-3-validation.md, stage-4-quality-review.md,
+#   stage-5-documentation.md, stage-6-retrospective.md (pre-summary checklists)
+# Source of truth: agent-prompts.md (this file is a structured index, not a replacement)
+
+templates:
+  - template_name: "Phase Implementation Prompt"
+    agent_type: "product-implementation:developer"
+    used_in_stage: 2
+    used_in_step: "Step 2 (Launch Developer Agent)"
+    required_variables:
+      - "{phase_name}"
+      - "{user_input}"
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{TASKS_FILE}"
+      - "{context_summary}"
+      - "{test_specs_summary}"
+      - "{test_cases_dir}"
+      - "{traceability_file}"
+      - "{skill_references}"
+      - "{research_context}"
+      - "{figma_context}"
+    optional_variables: []
+
+  - template_name: "Code Simplification Prompt"
+    agent_type: "product-implementation:code-simplifier"
+    used_in_stage: 2
+    used_in_step: "Step 3.5 (Code Simplification)"
+    required_variables:
+      - "{modified_files_list}"
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{phase_name}"
+      - "{skill_references}"
+    optional_variables: []
+
+  - template_name: "Completion Validation Prompt"
+    agent_type: "product-implementation:developer"
+    used_in_stage: 3
+    used_in_step: "Section 3.1 (Validation Agent)"
+    required_variables:
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{TASKS_FILE}"
+      - "{user_input}"
+      - "{test_cases_dir}"
+      - "{traceability_file}"
+      - "{research_context}"
+    optional_variables: []
+
+  - template_name: "Quality Review Prompt"
+    agent_type: "product-implementation:developer"
+    used_in_stage: 4
+    used_in_step: "Section 4.2 (Tier A Native Review)"
+    required_variables:
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{TASKS_FILE}"
+      - "{focus_area}"
+      - "{skill_references}"
+      - "{research_context}"
+      - "{reviewer_stance}"
+    optional_variables: []
+
+  - template_name: "Review Fix Prompt"
+    agent_type: "product-implementation:developer"
+    used_in_stage: 4
+    used_in_step: "Section 4.4 (On Fix Now)"
+    required_variables:
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{TASKS_FILE}"
+      - "{findings_list}"
+      - "{baseline_test_count}"
+    optional_variables: []
+
+  - template_name: "Incomplete Task Fix Prompt"
+    agent_type: "product-implementation:developer"
+    used_in_stage: 5
+    used_in_step: "Section 5.1 (On Fix Now)"
+    required_variables:
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{TASKS_FILE}"
+      - "{incomplete_tasks}"
+    optional_variables: []
+
+  - template_name: "Documentation Update Prompt"
+    agent_type: "product-implementation:tech-writer"
+    used_in_stage: 5
+    used_in_step: "Section 5.2 (Documentation Update)"
+    required_variables:
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{skill_references}"
+      - "{research_context}"
+    optional_variables: []
+
+  - template_name: "Auto-Commit Prompt"
+    agent_type: "general-purpose"
+    used_in_stage: ["2", "4", "5", "6"]
+    used_in_step: "auto-commit-dispatch.md"
+    required_variables:
+      - "{FEATURE_DIR}"
+      - "{commit_message}"
+      - "{exclude_patterns}"
+    optional_variables: []
+
+  - template_name: "Retrospective Composition Prompt"
+    agent_type: "product-implementation:tech-writer"
+    used_in_stage: 6
+    used_in_step: "Section 6.4.2 (Dispatch Tech-Writer)"
+    required_variables:
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{report_card_data}"
+      - "{stage_summaries_compiled}"
+      - "{sections_config}"
+    optional_variables:
+      - "{transcript_extract}"
+
+  - template_name: "Test Writing Prompt"
+    agent_type: "product-implementation:test-writer"
+    used_in_stage: 2
+    used_in_step: "Step 1.9 (Native Test-Writer Agent)"
+    required_variables:
+      - "{phase_name}"
+      - "{FEATURE_DIR}"
+      - "{TASKS_FILE}"
+      - "{test_specs_summary}"
+      - "{test_cases_dir}"
+      - "{traceability_file}"
+      - "{context_summary}"
+      - "{skill_references}"
+      - "{research_context}"
+    optional_variables: []
+
+  - template_name: "Output Verification Prompt"
+    agent_type: "product-implementation:output-verifier"
+    used_in_stage: 2
+    used_in_step: "Step 2.5 (Output Verification)"
+    required_variables:
+      - "{phase_name}"
+      - "{FEATURE_DIR}"
+      - "{TASKS_FILE}"
+      - "{test_cases_dir}"
+      - "{test_files_list}"
+      - "{source_files_list}"
+    optional_variables: []
+
+  - template_name: "Documentation Verification Prompt"
+    agent_type: "product-implementation:doc-judge"
+    used_in_stage: 5
+    used_in_step: "Section 5.2b (Doc-Judge Verification)"
+    required_variables:
+      - "{FEATURE_DIR}"
+      - "{FEATURE_NAME}"
+      - "{doc_files_list}"
+      - "{source_files_list}"
+      - "{phase_name}"
+    optional_variables: []
+
+  - template_name: "Project Analysis Prompt"
+    agent_type: "general-purpose"
+    used_in_stage: ["1b"]
+    used_in_step: "Section 1.5b (Project Setup Analysis)"
+    required_variables:
+      - "{PROJECT_ROOT}"
+      - "{plan_content}"
+      - "{max_files_to_scan}"
+    optional_variables: []
+
+  - template_name: "Project Setup Generator Prompt"
+    agent_type: "general-purpose"
+    used_in_stage: ["1b"]
+    used_in_step: "Section 1.5b (Project Setup Generator)"
+    required_variables:
+      - "{PROJECT_ROOT}"
+      - "{selected_categories}"
+      - "{analysis_results}"
+    optional_variables: []

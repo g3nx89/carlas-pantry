@@ -7,7 +7,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 3.4.0
+version: 3.5.0
 allowed-tools:
   # File operations
   - Read
@@ -73,6 +73,9 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 10. **Delegation Protocol** — Delegated stages execute via `Task(subagent_type="general-purpose")` coordinators. Stage 1 is inline. See dispatch table below.
 11. **Summary-Only Context** — Between stages, read ONLY summary files from `{FEATURE_DIR}/.stage-summaries/`. Never read full reference files or raw artifacts in orchestrator context.
 12. **No User Interaction from Coordinators** — Coordinators set `status: needs-user-input` in their summary. The orchestrator mediates ALL user prompts via `SAFE_ASK_USER` (validates non-empty responses, retries on widget failures). In ralph mode, auto-resolve guard intercepts before SAFE_ASK_USER.
+13. **No Direct Agent Dispatch** — NEVER dispatch `developer`, `test-writer`, `output-verifier`, `code-simplifier`, `tech-writer`, or `doc-judge` agents directly from the orchestrator. ALL agent dispatches go through stage coordinators. The orchestrator dispatches only `general-purpose` coordinators via `Task()`.
+14. **Sequential Phase Execution** — Phases MUST execute sequentially within per-phase loops. NEVER dispatch multiple phases in parallel or background. Each phase's S2→S3→S4→S5 cycle must complete before the next phase begins.
+15. **Prompt Template Discipline** — Agent prompts MUST use templates from `agent-prompts.md` with all required variables populated. NEVER write ad-hoc agent instructions inline. Coordinators log which templates they used in `protocol_evidence`.
 
 ## Workflow Overview
 
@@ -273,7 +276,9 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | `references/autonomy-policy-procedure.md` | Stages 2-5 (coordinator reads) | Shared autonomy policy check, per-severity iteration, fallback escalation |
 | `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
 | `references/cli-dispatch-procedure.md` | Stages 2, 3, 4, 5 (coordinator reads) | Shared CLI dispatch, timeout, parsing, circuit breaker, fallback |
-| `references/summary-schemas.md` | When adding/modifying summary fields | YAML schemas for all 6 stage summaries, producer/consumer mapping |
+| `references/protocol-compliance-checklist.md` | Stages 2-5 (coordinator reads) | Shared protocol compliance checklist — universal + per-stage checks, protocol_evidence examples |
+| `references/prompt-registry.yaml` | Stages 2-5 (coordinator reads) | Machine-readable registry of all 14 prompt templates — template names, agent types, required variables, stage/step usage |
+| `references/summary-schemas.md` | When adding/modifying summary fields | YAML schemas for all 6 stage summaries, producer/consumer mapping, protocol_evidence schema |
 | `references/ralph-loop-integration.md` | When debugging ralph mode | Ralph mode detection, AskUserQuestion guard, stall detection, completion signal |
 | `references/stage-6-retrospective.md` | Stage 6 (coordinator) | KPI Report Card, transcript extraction, retrospective composition |
 

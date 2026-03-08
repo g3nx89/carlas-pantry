@@ -172,13 +172,15 @@ Before launching the developer agent, generate executable tests from test-case s
 
 Write boundaries enforced per `cli-dispatch-procedure.md` — the coordinator verifies post-dispatch that the CLI agent wrote only to test directories and did not create or modify source files.
 
-### Step 1.9: Native Test-Writer Agent (Optional)
+### Step 1.9: Native Test-Writer Agent (Mandatory When Conditions Met)
 
 > **Conditional**: Only runs when ALL of:
 >   1. `native_test_writer.enabled` is `true` in config
 >   2. `test_cases_available` is `true` (from Stage 1 summary)
 >   3. Step 1.8 (CLI Test Author) did NOT run for this phase (mutually exclusive)
 > If any condition is false, skip to Step 2.
+>
+> **MANDATORY**: When all conditions above are TRUE, this step MUST be executed. Skipping this step is a protocol violation that will be detected by the protocol compliance checklist (Section 2.2a) and flagged by VERIFY_STAGE_PROTOCOL in the orchestrator.
 
 Before launching the developer agent, generate executable failing tests from test-case specifications using the native test-writer agent. This creates TDD targets that the developer agent must make pass.
 
@@ -270,10 +272,12 @@ If verification fails:
 - For sequential task failure: **Halt execution**. Report which task failed and why.
 - For parallel task `[P]` failure: Continue with successful tasks, collect failures.
 
-### Step 2.5: Output Verification (Optional)
+### Step 2.5: Output Verification (Mandatory When Enabled)
 
 > **Conditional**: Only runs when `output_verifier.enabled` is `true` in config. If disabled, skip to Step 3.5.
 > Note: The verifier runs regardless of whether the test-writer ran — it also verifies developer-written tests.
+>
+> **MANDATORY**: When `output_verifier.enabled` is `true`, this step MUST be executed for every phase. Skipping this step is a protocol violation that will be detected by the protocol compliance checklist (Section 2.2a) and flagged by VERIFY_STAGE_PROTOCOL in the orchestrator.
 
 After the developer agent completes and tests pass, dispatch the output-verifier to check test quality, spec alignment, DoD compliance, and write boundaries.
 
@@ -532,6 +536,10 @@ After EVERY completed task (not just phase), the developer agent must mark it `[
 - Crash recovery can identify exactly where execution stopped
 - Resume picks up at the correct task, not just phase
 - User has real-time visibility into progress
+
+## 2.2a Protocol Compliance Checklist
+
+Before writing the Stage 2 summary, complete the **Stage 2** checklist in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/protocol-compliance-checklist.md` (Universal Checks + Stage 2 section). Record results in `protocol_evidence`.
 
 ## 2.3 Write Stage 2 Summary
 

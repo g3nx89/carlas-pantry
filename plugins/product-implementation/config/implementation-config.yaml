@@ -102,6 +102,30 @@ autonomy_policy:
       gate_prerequisites: "halt"             # Behavior when a required probe field is ABSENT (probe not executed)
       gate_skip: "ask"                       # Behavior when a gate is intentionally skipped (prerequisite available=false)
 
+# Non-overridable gates (v3.5.0 — protocol compliance enforcement)
+# These gates cannot be disabled by autonomy policy or full_auto mode.
+# Referenced by: orchestrator-loop.md (ANTI-PARALLEL GUARD, VERIFY_STAGE_PROTOCOL, app_launch_gate)
+non_overridable_gates:
+  description: "Gates that cannot be disabled by autonomy policy or full_auto mode"
+  gates:
+    - name: "sequential_phase_execution"
+      enforced: true
+      description: "Phases must execute sequentially, never in parallel"
+    - name: "coordinator_mediated_dispatch"
+      enforced: true
+      description: "All agent dispatches must go through stage coordinators"
+    - name: "protocol_evidence_required"
+      enforced: true
+      stages: [2, 3, 4, 5]
+      description: "These stages must include protocol_evidence in summary"
+    - name: "app_launch_gate"
+      enforced: true
+      when: "mobile_mcp_available == true"
+      description: "Build+install+launch verification when emulator available"
+    - name: "prompt_template_usage"
+      enforced: true
+      description: "Agent prompts must use templates from agent-prompts.md"
+
 # Orchestrator settings
 # Referenced by: orchestrator-loop.md step 6 (cumulative failure check)
 orchestrator:

@@ -216,6 +216,23 @@ If orchestrator provides a user-input file with "Fix now":
 3. Re-validate
 4. Rewrite the stage summary with updated results
 
+## 3.4a Protocol Compliance Checklist
+
+Before writing the Stage 3 summary, complete the **Stage 3** checklist in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/protocol-compliance-checklist.md` (Universal Checks + Stage 3 section). Record results in `protocol_evidence`.
+
+### Check 15: Vertical Slice Wiring Verification
+
+In addition to the existing 14 checks, verify that the implemented feature's vertical slice actually wires together:
+
+- **Navigation**: Routes/screens declared in the navigation graph are reachable from entry points
+- **Service bindings**: Services declared in DI containers or manifests are properly bound and injectable
+- **Database**: Migrations run, tables exist, DAOs are accessible from the expected repositories
+- **API integration**: API client is configured, endpoints are reachable from the calling layer
+
+This is NOT a functional test — it's a smoke test that the layers connect. Report findings as:
+- Missing wiring = **High** severity (feature exists but is unreachable)
+- Partial wiring = **Medium** severity (some paths work, others don't)
+
 ## 3.5 Write Stage 3 Summary
 
 Write summary to `{FEATURE_DIR}/.stage-summaries/stage-3-summary.md`:
