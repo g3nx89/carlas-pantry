@@ -130,7 +130,9 @@ For each domain in the mapping, check if ANY of its `indicators` appear (case-se
 
 ### Output
 
-Store the result as `detected_domains` in the Stage 1 summary YAML frontmatter (top-level field, not under `flags`; see Section 1.10). Flag domains with only a single indicator match as `tentative` — downstream stages may treat tentative domains with lower priority for skill injection.
+Store the result as `detected_domains` in the Stage 1 summary YAML frontmatter (top-level field, not under `flags`; see Section 1.10). Flag domains with only a single indicator match as `tentative` — downstream stages may treat tentative domains with lower priority.
+
+> **Note**: `detected_domains` is used by Stage 2 for **vertical agent selection** (android-developer, frontend-developer, backend-developer, or generic developer) and by Stage 4 for conditional quality reviewer resolution. Skills are baked into agent .md files — no runtime skill injection is performed.
 
 ```yaml
 detected_domains: ["kotlin", "compose", "android", "api"]

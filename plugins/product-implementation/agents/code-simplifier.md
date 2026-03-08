@@ -226,3 +226,11 @@ test_failures: {M}
 ```
 
 Where {N} is the total number of passing tests and {M} is the number of failing tests (MUST be 0). This count will be cross-validated — run the actual tests and report the real count.
+
+## Domain Skills (Progressive Disclosure)
+
+1. **Phase 1** (on first encounter): Read first 50 lines for decision framework
+2. **Phase 2** (during implementation): Grep for specific section, then read targeted lines
+
+### Always Available
+- **clean-code**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/clean-code/SKILL.md` — SOLID, naming, guard clauses, simplification patterns

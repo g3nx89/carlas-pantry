@@ -23,7 +23,7 @@ When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `
 |-------|------|----------|----------|
 | 1a | Setup & Context Loading | Inline | None (orchestrator) |
 | 1b | Probes & Configuration | Coordinator | None (probes, config) |
-| 2 | Phase-by-Phase Execution | Coordinator (per-phase) | test-writer + developer + output-verifier + code-simplifier + uat-tester (per phase, CLI/gemini) |
+| 2 | Phase-by-Phase Execution | Coordinator (per-phase) | test-writer + integration-test-writer + {vertical_agent_type} + output-verifier + code-simplifier + uat-tester (per phase, CLI/gemini) |
 | 3 | Completion Validation | Coordinator (per-phase + final) | developer |
 | 4 | Quality Review | Coordinator (per-phase + final) | 3x+ developer (parallel, conditionally extended) |
 | 5 | Feature Documentation | Coordinator (per-phase + final) | developer + tech-writer + doc-judge |
@@ -31,12 +31,17 @@ When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `
 
 ### Agent Assignments
 
-- **test-writer** (`agents/test-writer.md`): model=sonnet — spec-to-test translation, Red phase TDD (Stage 2, Step 1.9)
-- **developer** (`agents/developer.md`): model=sonnet — implementation, testing, validation, code review
+- **test-writer** (`agents/test-writer.md`): model=sonnet — unit test spec-to-test translation, Red phase TDD (Stage 2, Step 1.9)
+- **integration-test-writer** (`agents/integration-test-writer.md`): model=sonnet — E2E/integration test specialist, wiring verification, flow testing (Stage 2, Step 1.9)
+- **developer** (`agents/developer.md`): model=sonnet — generic implementation, testing, validation, code review (fallback vertical)
+- **android-developer** (`agents/android-developer.md`): model=sonnet — Android/Kotlin/Compose specialist with baked-in domain skills (Stage 2 vertical)
+- **frontend-developer** (`agents/frontend-developer.md`): model=sonnet — Frontend/web specialist with baked-in domain skills (Stage 2 vertical)
+- **backend-developer** (`agents/backend-developer.md`): model=sonnet — Backend/API/database specialist with baked-in domain skills (Stage 2 vertical)
+- **debugger** (`agents/debugger.md`): model=sonnet — systematic bug diagnosis via UNDERSTAND→REPRODUCE→ISOLATE→FIX (Stage 2 task override)
 - **output-verifier** (`agents/output-verifier.md`): model=sonnet — output quality verification: empty test bodies, spec alignment, DoD compliance (Stage 2, Step 2.5)
 - **code-simplifier** (`agents/code-simplifier.md`): model=sonnet — post-phase code simplification for clarity and maintainability (Stage 2, optional via config)
 - **doc-judge** (`agents/doc-judge.md`): model=sonnet — documentation accuracy verification, LLM-as-a-judge (Stage 5, per-phase mode)
-- **tech-writer** (`agents/tech-writer.md`): model=sonnet — feature documentation, API guides, architecture updates
+- **tech-writer** (`agents/tech-writer.md`): model=sonnet — feature documentation with static doc skills (mermaid, c4-architecture), API guides, architecture updates
 
 ### Key Files
 
@@ -182,24 +187,36 @@ OpenCode provides the UX/Product lens across Stages 2-5, complementing Codex (co
 
 ## Dev-Skills Integration
 
-When the `dev-skills` plugin is installed alongside `product-implementation`, agents receive conditional domain-specific skill references that enhance implementation quality with patterns, anti-patterns, and decision trees.
+When the `dev-skills` plugin is installed alongside `product-implementation`, vertical developer agents use domain-specific skills via progressive disclosure — skills are baked into agent `.md` files, not injected at runtime.
 
-### Architecture (Orchestrator-Transparent)
+### Architecture (Vertical Agents + Static Skills)
 
-The orchestrator NEVER reads or references dev-skills. All skill resolution happens inside coordinator subagents:
+The orchestrator NEVER reads or references dev-skills. Skill knowledge is distributed:
 
 1. **Stage 1** (inline) detects technology domains from task file paths and plan.md content → writes `detected_domains` to summary
-2. **Stage 2** coordinator reads `detected_domains`, resolves applicable skills from `config/implementation-config.yaml` `dev_skills` section, and populates `{skill_references}` in developer agent prompts
-3. **Stage 4** coordinator adds conditional review dimensions (e.g., accessibility for UI projects) and injects skill references into reviewer prompts
-4. **Stage 5** coordinator injects diagram and documentation skills into tech-writer prompts
+2. **Stage 2** coordinator reads `detected_domains`, selects a vertical agent type (`android-developer`, `frontend-developer`, `backend-developer`, or generic `developer`) via priority-ordered matching in Section 2.0
+3. **Vertical agents** have domain skills baked into their `.md` files with progressive disclosure protocol (read first 50 lines for decision framework, grep+targeted read on-demand)
+4. **Stage 4** coordinator resolves conditional reviewers (e.g., accessibility for UI projects) from `dev_skills.conditional_review` config — triggers extra reviewer agent dispatches
+5. **Tech-writer** and **test-writer** agents have static documentation/testing skills baked in — no coordinator skill injection needed
 
 ### Key Constraints
 
-- **Max 3 skills per dispatch** (configurable via `dev_skills.max_skills_per_dispatch`) — prevents context bloat
-- **On-demand reading** — agents read skill SKILL.md files only when encountering relevant decisions, not upfront
+- **Progressive disclosure** — agents read skill SKILL.md files in 2 phases: first 50 lines for decision framework, then grep for specific sections on-demand. Never read entire skill files upfront
+- **Shared core** — all developer-family agents (developer, android-developer, frontend-developer, backend-developer, debugger) read `references/developer-core-instructions.md` for shared engineering process, quality standards, and verification rules
 - **Codebase conventions take precedence** — CLAUDE.md and constitution.md override skill guidance
-- **Graceful degradation** — if dev-skills not installed, all injection is silently skipped (fallback text used)
-- **Config-driven** — domain-to-skill mapping lives in `config/implementation-config.yaml`, not in prose
+- **Graceful degradation** — if dev-skills not installed, agents proceed without domain skills (no runtime failure)
+- **Config-driven selection** — vertical agent mapping and domain indicators live in `config/implementation-config.yaml` under `dev_skills`
+- **Task-level debugger override** — within a phase, tasks with debugging indicators dispatch `debugger` agent instead of the vertical developer
+- **Test level split** — unit tests (UT-*) dispatch `test-writer`, e2e/integration tests (E2E-*/INT-*) dispatch `integration-test-writer`
+
+### Vertical Agent Selection (Stage 2, Section 2.0)
+
+| Domain(s) | Agent | Key Skills |
+|-----------|-------|------------|
+| android, compose, kotlin, kotlin_async, gradle | `android-developer` | kotlin-expert, compose-expert, android-expert |
+| web_frontend | `frontend-developer` | frontend-design, accessibility-auditor |
+| api, database | `backend-developer` | api-patterns, database-schema-designer |
+| (fallback) | `developer` | clean-code |
 
 ### Domain Detection Indicators
 

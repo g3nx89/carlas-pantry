@@ -114,7 +114,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    S2_START(["Stage 2: Phase-by-Phase Execution"]) --> SKILL_RES["2.0 Skill Reference Resolution\nResolve dev-skills for developer\nagent prompts (once)"]
+    S2_START(["Stage 2: Phase-by-Phase Execution"]) --> SKILL_RES["2.0 Vertical Agent Selection\nSelect vertical agent type from\ndetected_domains (once)"]
     SKILL_RES --> RESEARCH_RES["2.0a Research Context Resolution\nPre-read URLs via Ref,\nquery Context7 libraries (once)"]
     RESEARCH_RES --> PHASE_LOOP
 
@@ -220,7 +220,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    S4_START(["Stage 4: Quality Review"]) --> SKILL_REV["4.1a Skill Reference Resolution\nResolve skills + conditional\nreview dimensions"]
+    S4_START(["Stage 4: Quality Review"]) --> SKILL_REV["4.1a Conditional Reviewer Resolution\nResolve conditional reviewers from\ndetected_domains + config"]
     SKILL_REV --> RESEARCH_REV["4.1b Research Context Resolution\nRe-read accumulated URLs (Ref cache)\nContext7 pitfalls/deprecations"]
     RESEARCH_REV --> DISPATCH_TIERS["4.1 Three-Tier Dispatch\n(all available tiers in parallel)"]
 
@@ -307,7 +307,7 @@ flowchart TD
     REVERIFY --> COMPLETE
     NOTE_GAPS --> SKILL_DOC
 
-    SKILL_DOC["5.1a Skill Reference Resolution\nResolve documentation skills\n(mermaid-diagrams, etc.)"]
+    SKILL_DOC["5.1a Research Context Resolution\nResolve documentation context\n(mermaid-diagrams, etc.)"]
     SKILL_DOC --> RESEARCH_DOC["5.1b Research Context Resolution\nRe-read accumulated URLs (Ref)\nLink generation, examples,\nmigration notes"]
     RESEARCH_DOC --> TECH_WRITER["5.2 Launch Tech-Writer Agent\nTask(tech-writer)"]
 

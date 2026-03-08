@@ -42,7 +42,7 @@ Launch these reviewers in parallel. All dispatches follow the Shared CLI Dispatc
 2. If available: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_correctness_reviewer.txt`. Inject variables:
    - `{FEATURE_DIR}`, `{TASKS_FILE}` — from Stage 1 summary
    - `{modified_files}` — file list from tasks.md `[X]` entries
-   - `{skill_references}` — resolved in Section 4.1a (or fallback text)
+   - `{detected_domains}` — from Stage 1 summary
 3. Dispatch via `cli-dispatch-procedure.md` with:
    - `cli_name="codex"`, `role="correctness_reviewer"`
    - `fallback_behavior="native"`, `fallback_agent="product-implementation:developer"`, `fallback_prompt=` Quality Review Prompt from `agent-prompts.md` with focus "bugs, functional correctness, and edge case handling"
@@ -80,7 +80,7 @@ Launch these reviewers in parallel. All dispatches follow the Shared CLI Dispatc
 1. Check `cli_availability.opencode` and domain match
 2. If both satisfied: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/opencode_ux_reviewer.txt`. Inject variables:
    - `{FEATURE_DIR}`, `{TASKS_FILE}`, `{modified_files}`, `{detected_domains}`
-   - `{skill_references}` — resolved in Section 4.1a (or fallback text)
+   - `{detected_domains}` — from Stage 1 summary
 3. Dispatch with:
    - `cli_name="opencode"`, `role="ux_reviewer"`
    - `fallback_behavior="skip"`

@@ -10,7 +10,7 @@
 
 templates:
   - template_name: "Phase Implementation Prompt"
-    agent_type: "product-implementation:developer"
+    agent_type: "product-implementation:{vertical_agent_type}"
     used_in_stage: 2
     used_in_step: "Step 2 (Launch Developer Agent)"
     required_variables:
@@ -23,7 +23,6 @@ templates:
       - "{test_specs_summary}"
       - "{test_cases_dir}"
       - "{traceability_file}"
-      - "{skill_references}"
       - "{research_context}"
       - "{figma_context}"
     optional_variables: []
@@ -37,7 +36,6 @@ templates:
       - "{FEATURE_NAME}"
       - "{FEATURE_DIR}"
       - "{phase_name}"
-      - "{skill_references}"
     optional_variables: []
 
   - template_name: "Completion Validation Prompt"
@@ -63,7 +61,6 @@ templates:
       - "{FEATURE_DIR}"
       - "{TASKS_FILE}"
       - "{focus_area}"
-      - "{skill_references}"
       - "{research_context}"
       - "{reviewer_stance}"
     optional_variables: []
@@ -98,7 +95,6 @@ templates:
     required_variables:
       - "{FEATURE_NAME}"
       - "{FEATURE_DIR}"
-      - "{skill_references}"
       - "{research_context}"
     optional_variables: []
 
@@ -128,7 +124,7 @@ templates:
   - template_name: "Test Writing Prompt"
     agent_type: "product-implementation:test-writer"
     used_in_stage: 2
-    used_in_step: "Step 1.9 (Native Test-Writer Agent)"
+    used_in_step: "Step 1.9 (Native Test-Writer Agent — unit tests)"
     required_variables:
       - "{phase_name}"
       - "{FEATURE_DIR}"
@@ -137,8 +133,20 @@ templates:
       - "{test_cases_dir}"
       - "{traceability_file}"
       - "{context_summary}"
-      - "{skill_references}"
       - "{research_context}"
+    optional_variables: []
+
+  - template_name: "Integration Test Writing Prompt"
+    agent_type: "product-implementation:integration-test-writer"
+    used_in_stage: 2
+    used_in_step: "Step 1.9 (Integration Test-Writer Agent — E2E/INT tests)"
+    required_variables:
+      - "{phase_name}"
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{phase_tasks}"
+      - "{test_case_specs}"
+      - "{existing_test_patterns}"
     optional_variables: []
 
   - template_name: "Output Verification Prompt"

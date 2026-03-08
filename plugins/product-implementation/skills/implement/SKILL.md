@@ -76,6 +76,7 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 13. **No Direct Agent Dispatch** — NEVER dispatch `developer`, `test-writer`, `output-verifier`, `code-simplifier`, `tech-writer`, or `doc-judge` agents directly from the orchestrator. ALL agent dispatches go through stage coordinators. The orchestrator dispatches only `general-purpose` coordinators via `Task()`.
 14. **Sequential Phase Execution** — Phases MUST execute sequentially within per-phase loops. NEVER dispatch multiple phases in parallel or background. Each phase's S2→S3→S4→S5 cycle must complete before the next phase begins.
 15. **Prompt Template Discipline** — Agent prompts MUST use templates from `agent-prompts.md` with all required variables populated. NEVER write ad-hoc agent instructions inline. Coordinators log which templates they used in `protocol_evidence`.
+16. **Vertical Agent Selection** — Select vertical agent type based on `detected_domains`. Use `android-developer` for Android/Kotlin/Compose, `frontend-developer` for web, `backend-developer` for API/database, generic `developer` as fallback. Use `debugger` for debugging-typed tasks. Skills are baked into agent .md files — no runtime skill injection.
 
 ## Workflow Overview
 
@@ -199,8 +200,13 @@ Stage completion is derived from `stage_summaries` (non-null = completed). The `
 
 | Agent | Role | Model | Used In |
 |-------|------|-------|---------|
-| `product-implementation:test-writer` | Spec-to-test translation (Red phase) | sonnet | Stage 2 |
-| `product-implementation:developer` | Implementation, testing, validation, review | sonnet | Stages 2, 3, 4, 5 |
+| `product-implementation:test-writer` | Unit test spec-to-test translation (Red phase) | sonnet | Stage 2 |
+| `product-implementation:integration-test-writer` | E2E/integration test specialist (wiring, flows, contracts) | sonnet | Stage 2 |
+| `product-implementation:developer` | Generic implementation, testing, validation, review (fallback) | sonnet | Stages 2, 3, 4, 5 |
+| `product-implementation:android-developer` | Android/Kotlin/Compose specialist (vertical) | sonnet | Stage 2 |
+| `product-implementation:frontend-developer` | Frontend/web specialist (vertical) | sonnet | Stage 2 |
+| `product-implementation:backend-developer` | Backend/API/database specialist (vertical) | sonnet | Stage 2 |
+| `product-implementation:debugger` | Systematic bug diagnosis (UNDERSTAND→REPRODUCE→ISOLATE→FIX) | sonnet | Stage 2 |
 | `product-implementation:output-verifier` | Output quality verification (test bodies, spec alignment, DoD) | sonnet | Stage 2 |
 | `product-implementation:code-simplifier` | Code simplification, clarity, maintainability | sonnet | Stage 2 |
 | `product-implementation:doc-judge` | Documentation accuracy verification (LLM-as-a-judge) | sonnet | Stage 5 |
@@ -248,7 +254,7 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 
 | Integration | Summary |
 |-------------|---------|
-| Dev-Skills | Domain-specific skill references, capped at 3 per dispatch |
+| Dev-Skills | Vertical agent selection + static skills (baked into agent .md files via progressive disclosure) |
 | Research MCP | Documentation context from Ref/Context7/Tavily, budget-controlled |
 | CLI Dispatch | Multi-model dispatch via Codex/Gemini/OpenCode, opt-in per option |
 | Autonomy Policy | Auto-resolution: full_auto, balanced, critical_only. Selected at Stage 1 |
@@ -274,7 +280,7 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | 14 prompt templates with Common Variables, section markers, fallback annotations |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5, 6 (coordinator reads) | Shared auto-commit procedure, exclude patterns, batch strategy |
 | `references/autonomy-policy-procedure.md` | Stages 2-5 (coordinator reads) | Shared autonomy policy check, per-severity iteration, fallback escalation |
-| `references/skill-resolution.md` | Stages 2, 4, 5 (coordinator reads) | Shared skill resolution algorithm for domain-specific skill injection |
+| `references/developer-core-instructions.md` | All developer agents (read at dispatch) | Shared core engineering process, quality standards, verification rules |
 | `references/cli-dispatch-procedure.md` | Stages 2, 3, 4, 5 (coordinator reads) | Shared CLI dispatch, timeout, parsing, circuit breaker, fallback |
 | `references/protocol-compliance-checklist.md` | Stages 2-5 (coordinator reads) | Shared protocol compliance checklist — universal + per-stage checks, protocol_evidence examples |
 | `references/prompt-registry.yaml` | Stages 2-5 (coordinator reads) | Machine-readable registry of all 14 prompt templates — template names, agent types, required variables, stage/step usage |

@@ -601,16 +601,22 @@ const example = () => {
    - Status of the overall project after this phase
 
 
-## Research MCP Awareness
+## Documentation Skills (Progressive Disclosure)
 
-Your prompt may include a `## Research Context` section containing documentation excerpts, library references, and API details gathered from MCP tools (Ref, Context7).
+You have access to domain-specific skills. Use progressive disclosure:
+1. **Phase 1** (on first encounter): Read first 50 lines of the skill's SKILL.md for decision framework
+2. **Phase 2** (during implementation): Grep for specific section, then read targeted lines
 
-When present:
-- Use for **documentation accuracy**: verify API descriptions, parameter names, and code examples against official documentation
-- Use for **enrichment links**: include references to official docs, migration guides, and best practice resources where relevant
-- Use for **code example verification**: confirm that documented code examples use correct and current API signatures
+### Always Available
+- **mermaid-diagrams**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/mermaid-diagrams/SKILL.md` — Flowcharts, sequence diagrams, class diagrams
+- **c4-architecture**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/c4-architecture/SKILL.md` — System context, container, component diagrams
 
-When absent: proceed normally using codebase knowledge and planning artifacts only. Research context is always optional.
+### On-Demand (based on feature domain)
+- **api-patterns**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/api-patterns/SKILL.md` — When documenting API endpoints
+- **database-schema-designer**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/database-schema-designer/SKILL.md` — When documenting data models
+
+### Meta-Skills (Progressive Disclosure)
+- **research-mcp-mastery**: `$CLAUDE_PLUGIN_ROOT/../meta-skills/skills/research-mcp-mastery/SKILL.md` — When looking up official library docs for inclusion in feature documentation
 
 ## Core Documentation Philosophy
 

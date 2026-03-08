@@ -56,29 +56,25 @@ When multiple optional features are enabled (stances, convergence, confidence sc
 | Confidence | CoVe | Confidence filters before CoVe runs | CoVe only verifies findings that survived confidence thresholds |
 | Stances | CoVe | Divergent-stance findings may need more verification | CoVe treats all Critical/High equally regardless of stance origin |
 
-## 4.1a Skill Reference Resolution for Review
+## 4.1a Conditional Reviewer Resolution
 
-Before selecting the review strategy, resolve domain-specific skill references and conditional review dimensions.
+Before selecting the review strategy, resolve conditional review dimensions based on detected domains.
 
 ### Procedure
 
 1. Read `detected_domains` from the Stage 1 summary YAML frontmatter
 2. Read `dev_skills` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-3. If `dev_skills.enabled` is `false` or `detected_domains` is empty, set `skill_references` to fallback text and `conditional_reviewers` to empty. Skip to Section 4.1.
+3. If `dev_skills.enabled` is `false` or `detected_domains` is empty, set `conditional_reviewers` to empty. Skip to Section 4.1.
 
-4. **Resolve skill references** for review agents (same algorithm as Stage 2, Section 2.0):
-   - Start with `always_include`, add domain-matched skills, deduplicate, cap at `max_skills_per_dispatch`
-   - Format as skill reference block
-
-5. **Resolve conditional reviewers** from `dev_skills.conditional_review`:
+4. **Resolve conditional reviewers** from `dev_skills.conditional_review`:
    - For each entry, check if ANY of its `domains` appear in `detected_domains`
-   - If matched, add its `focus` as an additional review dimension and note its `skill` for the reviewer prompt
+   - If matched, add its `focus` as an additional review dimension
    - Each conditional reviewer is launched as an additional `developer` agent alongside the base 3
+   - Cap at `dev_skills.max_conditional_reviewers` (default: 2)
 
 ### Output
 
-- `skill_references`: formatted block for all review agent prompts
-- `conditional_reviewers`: list of `{focus, skill}` pairs for additional reviewer dispatches
+- `conditional_reviewers`: list of `{focus}` pairs for additional reviewer dispatches
 
 ### Impact on Agent Count
 
@@ -147,14 +143,13 @@ Task(subagent_type="product-implementation:developer")  # x3+ parallel
 
 If `conditional_reviewers` was populated in Section 4.1a, launch additional `developer` agents — one per conditional entry — using the same review prompt template but with:
 - `{focus_area}` set to the conditional entry's `focus` value
-- `{skill_references}` including the conditional entry's `skill` path (the reviewer should consult this skill for domain-specific review criteria)
 
 Example conditional reviewers:
 
-| Agent | Focus Area | Triggered By | Skill Reference |
-|-------|------------|-------------|-----------------|
-| Reviewer 4 | **Accessibility / WCAG 2.1 AA** | `web_frontend`, `compose`, `android` in `detected_domains` | `accessibility-auditor` |
-| Reviewer 5 | **Web Best Practices / Performance** | `web_frontend` in `detected_domains` | `web-design-guidelines` |
+| Agent | Focus Area | Triggered By |
+|-------|------------|-------------|
+| Reviewer 4 | **Accessibility / WCAG 2.1 AA** | `web_frontend`, `compose`, `android` in `detected_domains` |
+| Reviewer 5 | **Web Best Practices / Performance** | `web_frontend` in `detected_domains` |
 
 All conditional reviewers run in parallel with the base 3.
 

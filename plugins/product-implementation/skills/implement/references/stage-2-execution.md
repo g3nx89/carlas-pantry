@@ -27,7 +27,9 @@ artifacts_written:
   - ".uat-evidence/ (conditional — screenshots from UAT mobile testing in Step 3.7 if enabled)"
 agents:
   - "product-implementation:test-writer"
-  - "product-implementation:developer"
+  - "product-implementation:integration-test-writer"
+  - "product-implementation:{vertical_agent_type}"
+  - "product-implementation:debugger"
   - "product-implementation:output-verifier"
   - "product-implementation:code-simplifier"
 additional_references:
@@ -43,39 +45,35 @@ additional_references:
 > and the list of phases to execute.
 > **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL CLI dispatches (test author, test augmenter, code simplifier), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
-## 2.0 Skill Reference Resolution
+## 2.0 Vertical Agent Selection
 
-Before entering the phase loop, resolve domain-specific skill references for developer agent prompts. This step runs ONCE per Stage 2 dispatch, not per phase.
+Select the appropriate developer agent type based on `detected_domains` from Stage 1 summary. This step runs ONCE per Stage 2 dispatch, not per phase.
 
-### Procedure
+### Selection Algorithm
 
 1. Read `detected_domains` from the Stage 1 summary YAML frontmatter
-2. If `detected_domains` is empty or not present, set `skill_references` to the fallback text: `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`  and skip to Section 2.1
-3. Read `dev_skills` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-4. If `dev_skills.enabled` is `false`, use fallback text and skip to Section 2.1
-5. Build the skill reference list:
+2. Read `dev_skills` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+3. If `dev_skills.enabled` is `false` or `detected_domains` is empty, set `vertical_agent_type` to `"developer"` (generic fallback) and skip to Section 2.0a
+4. Apply priority-ordered matching using `dev_skills.vertical_agents`:
+   - If ANY of `android`, `compose`, `kotlin`, `kotlin_async`, `gradle` appear in `detected_domains` → `android-developer`
+   - If ANY of `web_frontend` appear in `detected_domains` → `frontend-developer`
+   - If ANY of `api`, `database` appear in `detected_domains` → `backend-developer`
+   - If NONE match → `developer` (generic fallback)
+5. Store selected type as `vertical_agent_type` for use in all phase dispatches
 
-   a. Start with `always_include` skills (e.g., `clean-code`)
-   b. For each domain in `detected_domains`, look up `domain_mapping[domain].skills` and add them
-   c. Deduplicate
-   d. Cap at `max_skills_per_dispatch` (default: 3). If more skills matched, keep `always_include` first, then prioritize by order of appearance in `detected_domains`
+### Task-Level Override: Debugger
 
-6. Format `skill_references` as:
+Within a phase, if a task's description contains debugging indicators (`fix bug`, `debug`, `investigate`, `diagnose`, `regression`, `broken`), dispatch `debugger` agent for that specific task instead of the vertical developer.
 
-```markdown
-The following dev-skills are relevant to this implementation domain. Consult their SKILL.md
-for patterns, anti-patterns, and decision trees. Read on-demand — do NOT read all upfront.
-Codebase conventions (CLAUDE.md, constitution.md) always take precedence over skill guidance.
+### Multiple Domains
 
-{for each skill:}
-- **{skill_name}**: `$PLUGINS_DIR/{plugin_path}/skills/{skill_name}/SKILL.md` — {reason or domain}
-```
-
-Where `$PLUGINS_DIR` resolves to the plugins installation directory and `{plugin_path}` comes from `dev_skills.plugin_path` in config.
+If `detected_domains` spans multiple verticals (e.g., `android` + `api`):
+- Use the domain with MORE tasks in `tasks.md` for the primary vertical agent
+- The selected vertical has on-demand skills for the secondary domain
 
 ### Context Budget
 
-This resolution adds ~5-10 lines to the agent prompt. The agent reads skill files on-demand only when encountering relevant implementation decisions — it does NOT preload all skills into context.
+No context overhead — vertical agent selection adds zero lines to agent prompts (skills are baked into agent .md files via progressive disclosure).
 
 ## 2.0a Research Context Resolution
 
@@ -188,7 +186,12 @@ Before launching the developer agent, generate executable failing tests from tes
 
 1. **Identify relevant test-case specs**: Extract test IDs from current phase task descriptions. Map test IDs to spec files in `test-cases/{level}/` (e.g., `UT-001` → `test-cases/unit/UT-001.md`)
 2. **If no relevant specs found** for this phase: skip to Step 2 (developer writes its own tests)
-3. **Dispatch test-writer agent**:
+3. **Categorize test specs by level**:
+   - **Unit tests** (UT-* IDs or test-cases/unit/): Will dispatch `test-writer` agent
+   - **E2E/Integration tests** (E2E-*, INT-* IDs or test-cases/e2e/, test-cases/integration/): Will dispatch `integration-test-writer` agent
+   - Both agents may run for the same phase (sequentially, test-writer first)
+
+4. **Dispatch test-writer agent** (for unit test specs, or all specs if no level categorization):
    ```
    Task(subagent_type="product-implementation:test-writer")
    ```
@@ -199,8 +202,18 @@ Before launching the developer agent, generate executable failing tests from tes
    - `{test_cases_dir}` — `{FEATURE_DIR}/test-cases/`
    - `{traceability_file}` — `{FEATURE_DIR}/analysis/task-test-traceability.md` or fallback
    - `{context_summary}` — from Stage 1 summary
-   - `{skill_references}` — resolved in Section 2.0
    - `{research_context}` — resolved in Section 2.0a
+
+5. **Dispatch integration-test-writer agent** (when E2E/INT specs exist for this phase):
+   ```
+   Task(subagent_type="product-implementation:integration-test-writer")
+   ```
+   Using the Integration Test Writing Prompt from `agent-prompts.md`. Prefill variables:
+   - `{phase_name}` — current phase name
+   - `{FEATURE_NAME}`, `{FEATURE_DIR}` — from Stage 1 summary
+   - `{phase_tasks}` — tasks for this phase extracted from tasks.md
+   - `{test_case_specs}` — content of E2E/INT test-case spec files for this phase
+   - `{existing_test_patterns}` — summary of project's existing test infrastructure (framework, assertion style)
 4. **Verify test files**: Confirm the agent created test files on disk
 5. **Run test suite**: All new tests should FAIL (Red phase confirmation)
    - If any test passes unexpectedly: log warning (may be tautological)
@@ -215,11 +228,15 @@ If the test-writer agent fails AND `native_test_writer.fallback_to_developer` is
 
 ### Step 2: Launch Developer Agent
 
-Launch a single `developer` agent for the entire phase using the prompt template from `agent-prompts.md` (Section: Phase Implementation Prompt). The agent handles all tasks within the phase internally, including sequencing of parallel `[P]` tasks. Dispatch one agent per phase, not one agent per task.
+Launch a single developer agent for the entire phase using the prompt template from `agent-prompts.md` (Section: Phase Implementation Prompt). The agent handles all tasks within the phase internally, including sequencing of parallel `[P]` tasks. Dispatch one agent per phase, not one agent per task.
+
+Use the `vertical_agent_type` selected in Section 2.0:
 
 ```
-Task(subagent_type="product-implementation:developer")
+Task(subagent_type="product-implementation:{vertical_agent_type}")
 ```
+
+Where `{vertical_agent_type}` is one of: `developer`, `android-developer`, `frontend-developer`, `backend-developer`, or `debugger` (for debugging tasks).
 
 **Key variables to prefill in prompt:**
 - `{phase_name}` — Current phase name from tasks.md
@@ -231,7 +248,6 @@ Task(subagent_type="product-implementation:developer")
 - `{test_specs_summary}` — From Stage 1 summary "Test Specifications" section. If section not present, use fallback: `"No test specifications available — proceed with standard TDD approach."`
 - `{test_cases_dir}` — If Stage 1 summary has `test_cases_available: true`, set to `{FEATURE_DIR}/test-cases/`. Otherwise set to `"Not available"`.
 - `{traceability_file}` — If `analysis/task-test-traceability.md` was loaded per Stage 1 summary, set to `{FEATURE_DIR}/analysis/task-test-traceability.md`. Otherwise set to `"Not available"`.
-- `{skill_references}` — Resolved in Section 2.0 above. Same value reused for all phases within this Stage 2 dispatch.
 - `{figma_context}` — If `figma_available` is `true` (from Stage 1 summary) AND the current phase has UI tasks (task file paths match UI domain indicators), build the Figma context block:
 
   ```markdown
@@ -338,8 +354,6 @@ After phase completion is verified (all tasks `[X]`, tests passing), optionally 
    - `{FEATURE_NAME}` — from Stage 1 summary
    - `{FEATURE_DIR}` — from Stage 1 summary
    - `{phase_name}` — current phase name
-   - `{skill_references}` — resolved in Section 2.0 (same value as used for the developer agent)
-
 3. **Verify post-simplification**:
    - Extract `test_count_verified`, `test_failures`, `files_simplified`, and `changes_made` from agent output
    - If `test_failures > 0` AND `code_simplification.rollback_on_test_failure` is `true`:
@@ -389,8 +403,6 @@ After tests are written and passing (Step 3), dispatch OpenCode to review test c
    - `{PROJECT_ROOT}` — project root
    - `{test_files}` — list of test files created/modified in this phase
    - `{source_files}` — list of source files the tests cover
-   - `{skill_references}` — resolved in Section 2.0 (or fallback text)
-
 5. **Result processing**: Parse `<SUMMARY>` block. If UX scenario gaps are found:
    - `[High]` gaps (missing accessibility tests on interactive components): log finding, include in phase metrics
    - `[Medium]`/`[Low]` gaps (missing empty/loading state tests): log as warning, continue

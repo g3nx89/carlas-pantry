@@ -1,6 +1,6 @@
 # Agent Prompt Templates
 
-All 14 prompts in this file are used by coordinators to launch `developer`, `tech-writer`, `test-writer`, `output-verifier`, `doc-judge`, and project-setup agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
+All 15 prompts in this file are used by coordinators to launch `developer`, `tech-writer`, `test-writer`, `integration-test-writer`, `output-verifier`, `doc-judge`, and project-setup agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
 
 ## Common Variables
 
@@ -48,12 +48,6 @@ Task-test traceability: {traceability_file}
 
 When test-case specs are available, read the relevant spec file BEFORE writing tests to align with the planned test strategy. If a test ID is referenced in a task, locate its spec in test-cases/ and implement accordingly.
 
-## Domain-Specific Skill References
-
-{skill_references}
-
-When skill references include a compose, UI framework, or frontend skill, you MUST consult the referenced skill for platform-specific anti-patterns BEFORE writing UI code. Composition-time side effects, incorrect sealed class handling, and similar framework-specific pitfalls are common sources of runtime bugs that reviewers will flag.
-
 ## Research Context
 
 {research_context}
@@ -84,14 +78,13 @@ Where {N} is the total number of passing tests and {M} is the number of failing 
 - `{test_specs_summary}` — Test Specifications section from Stage 1 summary. **Fallback:** `"No test specifications available — proceed with standard TDD approach."`
 - `{test_cases_dir}` — Path to test-cases/ directory. **Fallback:** `"Not available"`
 - `{traceability_file}` — Path to `analysis/task-test-traceability.md`. **Fallback:** `"Not available"`
-- `{skill_references}` — Domain-specific skill references (see `stage-2-execution.md` Section 2.0). **Fallback:** `"No domain-specific skills available — proceed with standard implementation patterns from the codebase."`
 - `{research_context}` — Documentation excerpts from MCP tools (see `stage-2-execution.md` Section 2.0a). **Fallback:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
 - `{figma_context}` — Figma tool guide and design references (see `stage-2-execution.md` Step 2). **Fallback:** `"Figma not available. For UI tasks: use ONLY explicit values from design.md, spec.md, or HANDOFF-SUPPLEMENT.md. For any visual property (dp, sp, color, radius, elevation) NOT documented in planning artifacts, annotate the code with a [NEEDS_FIGMA] comment and use a placeholder value (e.g., \`// [NEEDS_FIGMA] padding — using 16.dp as placeholder\`). Do NOT guess or invent visual measurements. Stage 4 reviewers will flag [NEEDS_FIGMA] markers."`
 
 **Agent behavior:**
 1. The developer agent reads its Tasks.md Execution Workflow section and executes all tasks in the specified phase, marking each `[X]` on completion.
 2. When test-case specs are available, the agent reads the relevant spec before writing each test to align with the planned strategy.
-3. When skill references are provided, the agent reads the referenced SKILL.md files on-demand — skills are consulted, not followed blindly (codebase conventions take precedence).
+3. The agent uses domain skills baked into its agent .md file via progressive disclosure (read first 50 lines, grep on-demand).
 4. When research context is provided, the agent uses it to verify API signatures, follow documented patterns, and diagnose build errors.
 5. When Figma context is provided, the agent follows the 3-phase workflow (extract spec → implement from data → verify parity) for every UI component. Structured JSON from Figma tools always takes precedence over prose descriptions.
 6. The agent follows Implementation Verification Rules from `agents/developer.md`.
@@ -144,10 +137,6 @@ Do NOT:
 - Modify test files under any circumstances
 - Make changes that alter observable behavior
 
-## Domain-Specific Skill References
-
-{skill_references}
-
 ## Build Verification Rule
 
 After modifying ANY source file, you MUST compile/build the project before proceeding to the next file. If the build fails, REVERT your last change and move on to the next file. If the project has no explicit build step (interpreted languages), run the linter or type checker instead.
@@ -167,8 +156,6 @@ Where {N} is the total number of passing tests and {M} is the number of failing 
 **Variables:** See Common Variables above (except `{TASKS_FILE}` — not used), plus:
 - `{modified_files_list}` — Bullet list of source files modified in the current phase, filtered per `code_simplification.exclude_patterns`. **Required — always available**
 - `{phase_name}` — Name of the phase just completed. **Required — always available**
-- `{skill_references}` — Domain-specific skill references (same value as developer agent). **Fallback:** `"No domain-specific skills available — simplify using standard clean code principles."`
-
 **Agent behavior:**
 1. The code-simplifier reads each listed file and identifies simplification opportunities (dead code, naming, nesting, duplication).
 2. Applies changes while preserving all functionality, builds after each file change.
@@ -244,7 +231,7 @@ Used in Stage 4. Launched 3 times in parallel with different `{focus_area}` valu
 1. Read TASKS_FILE to identify all files modified during implementation
 2. Read each modified file and review through your assigned lens
 3. Compare against existing codebase patterns (check CLAUDE.md, constitution.md if present)
-4. If domain-specific skill references are provided below, consult them for domain-specific best practices relevant to your focus area
+4. The agent uses domain skills baked into its agent .md file via progressive disclosure for domain-specific best practices relevant to its focus area
 5. Scan test files for tautological assertions (see `config/implementation-config.yaml` under `test_coverage.tautological_patterns` for the authoritative pattern list). Flag any test that passes without exercising real code as Medium severity (or High if it covers a critical feature path with no other test).
 6. **Pattern propagation (R-REV-01)**: After finding any Critical or High severity structural bug (wrong API usage, incorrect state handling, framework anti-pattern), search the ENTIRE codebase for other occurrences of the same pattern before concluding your review. Report all matching locations — a single instance of a bug pattern often indicates systemic misuse.
 7. For each finding, provide structured output as described below
@@ -275,10 +262,6 @@ FEATURE_NAME: {FEATURE_NAME}
 FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
 
-## Domain-Specific Skill References
-
-{skill_references}
-
 ## Research Context
 
 {research_context}
@@ -292,14 +275,13 @@ When research context is provided: use it for documentation-backed review — ve
   - `"bugs, functional correctness, and edge case handling"`
   - `"project conventions, abstractions, and pattern adherence"`
   **Required — always available**
-- `{skill_references}` — Domain-specific skill references (see `stage-4-quality-review.md` Section 4.1a). **Fallback:** `"No domain-specific skills available — review against codebase conventions only."`
 - `{research_context}` — Documentation excerpts from accumulated research URLs (see `stage-4-quality-review.md` Section 4.1b). **Fallback:** `"No research context available — review against codebase conventions only."`
 - `{reviewer_stance}` — Stance instruction (advocate, challenger, neutral) from Stage 4 coordinator (Section 4.2). **Fallback:** `"No specific stance assigned — review objectively using your best judgment."`
 
 **Agent behavior:**
 1. The developer agent reads the changed files (from tasks.md file paths) and reviews code through its assigned lens.
 2. Produces a structured list of findings using the specified output format.
-3. When skill references are provided, consults them for domain-specific anti-patterns relevant to its focus area.
+3. Uses domain skills baked into its agent .md file for domain-specific anti-patterns relevant to its focus area.
 4. When research context is provided, uses it for documentation-backed review (API correctness, deprecated calls, pattern compliance).
 5. When a reviewer stance is provided, adopts it: advocate emphasizes strengths, challenger stress-tests, neutral applies balanced judgment. Stances calibrate severity — they do not change review scope or output format.
 
@@ -381,10 +363,6 @@ FEATURE_NAME: {FEATURE_NAME}
 FEATURE_DIR: {FEATURE_DIR}
 TASKS_FILE: {TASKS_FILE}
 
-## Documentation Skill References
-
-{skill_references}
-
 ## Research Context
 
 {research_context}
@@ -393,7 +371,6 @@ When research context is provided: use it to enrich documentation with links to 
 ```
 
 **Variables:** See Common Variables above, plus:
-- `{skill_references}` — Documentation-oriented skill references (see `stage-5-documentation.md` Section 5.1a). **Fallback:** `"No documentation skills available — produce prose documentation without diagrams."`
 - `{research_context}` — Documentation excerpts from accumulated research URLs (see `stage-5-documentation.md` Section 5.1b). **Fallback:** `"No research context available — proceed with codebase knowledge and planning artifacts only."`
 
 **Agent behavior:**
@@ -606,10 +583,6 @@ ABSOLUTE CONSTRAINTS:
 - Every test method MUST have ≥1 real assertion (no empty bodies, no assertTrue(true))
 - Report: test_files_created, total_assertions, test_count, test_failures
 
-## Domain-Specific Skill References
-
-{skill_references}
-
 ## Research Context
 
 {research_context}
@@ -621,12 +594,70 @@ ABSOLUTE CONSTRAINTS:
 - `{test_cases_dir}` — Path to test-cases/ directory. **Fallback:** `"Not available"`
 - `{traceability_file}` — Path to `analysis/task-test-traceability.md`. **Fallback:** `"Not available"`
 - `{context_summary}` — Context File Summaries from Stage 1 summary. **Fallback:** `"No context summary available."`
-- `{skill_references}` — Domain-specific skill references. **Fallback:** `"No domain-specific skills available — use test patterns discovered from the codebase."`
 - `{research_context}` — Documentation excerpts from MCP tools. **Fallback:** `"No research context available."`
 
 **Agent behavior:**
 1. The test-writer agent reads existing test files to discover framework, assertion style, and naming conventions.
 2. For each test ID in the phase, locates the spec and translates preconditions→setup, steps→actions, expected→assertions.
+3. Writes executable test files that compile but FAIL (Red phase).
+4. MUST NOT write any source files, configuration, or documentation.
+5. Reports structured counts: test_files_created, total_assertions, test_count, test_failures.
+
+---
+
+<!-- SECTION: Integration Test Writing Prompt -->
+## Integration Test Writing Prompt
+
+Used in Stage 2 Step 1.9 for E2E and integration test specs (E2E-*, INT-* IDs).
+
+```markdown
+**Goal**: Write executable, failing E2E and integration tests for {phase_name} that verify system-level wiring, cross-boundary contracts, and complete user flows.
+
+FEATURE_NAME: {FEATURE_NAME}
+FEATURE_DIR: {FEATURE_DIR}
+Phase: {phase_name}
+
+## Phase Tasks
+
+{phase_tasks}
+
+## Test Case Specifications
+
+{test_case_specs}
+
+## Existing Test Patterns
+
+{existing_test_patterns}
+
+## Instructions
+
+For each E2E/INT test ID referenced in this phase's tasks:
+1. LOCATE the spec in test-cases/e2e/ or test-cases/integration/
+2. READ existing integration/e2e test patterns in the project
+3. SET UP realistic fixtures (real-shaped data, not empty mocks)
+4. WRITE tests that verify complete user flows and cross-boundary contracts
+5. ASSERT on user-visible outcomes (screen content, API responses), not internal state
+6. Tests must COMPILE but FAIL when run (Red phase)
+
+ABSOLUTE CONSTRAINTS:
+- ONLY write to test directories — NEVER touch source files
+- Every test method MUST have ≥1 real assertion (no empty bodies, no assertTrue(true))
+- Each test must be independent (no shared state, clean up after itself)
+- Use explicit waits for async operations (never Thread.sleep or arbitrary delays)
+- Report: test_files_created, total_assertions, test_count, test_failures
+```
+
+**Variables:**
+- `{phase_name}` — Name of the current phase. **Required — always available**
+- `{FEATURE_NAME}` — Feature identifier. **Required — always available**
+- `{FEATURE_DIR}` — Path to feature spec directory. **Required — always available**
+- `{phase_tasks}` — Tasks for this phase extracted from tasks.md. **Required — always available**
+- `{test_case_specs}` — Content of E2E/INT test-case spec files for this phase. **Required — always available**
+- `{existing_test_patterns}` — Summary of project's existing test infrastructure. **Fallback:** `"No existing integration tests found — use standard patterns for the project's test framework."`
+
+**Agent behavior:**
+1. The integration-test-writer reads existing e2e/integration test files to discover patterns.
+2. Sets up realistic fixtures and writes tests that verify system-level behavior.
 3. Writes executable test files that compile but FAIL (Red phase).
 4. MUST NOT write any source files, configuration, or documentation.
 5. Reports structured counts: test_files_created, total_assertions, test_count, test_failures.
