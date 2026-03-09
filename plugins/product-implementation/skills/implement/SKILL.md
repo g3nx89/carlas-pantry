@@ -7,7 +7,7 @@ description: |
   or needs to execute tasks defined in tasks.md. Orchestrates stage-by-stage implementation
   using developer agents with TDD, progress tracking, integrated quality review, and feature
   documentation.
-version: 3.5.0
+version: 3.6.0
 allowed-tools:
   # File operations
   - Read
