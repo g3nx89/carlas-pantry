@@ -87,4 +87,4 @@ format_version: 1
 - **Context7** (`resolve-library-id`, `query-docs`): Confirm library API signatures match implementation -- especially for version-specific behavior differences.
 
 ## Shared Conventions
-See config/cli_clients/shared/severity-output-conventions.md
+(Appended by coordinator at dispatch time — see cli-dispatch-procedure.md Step 1.5)

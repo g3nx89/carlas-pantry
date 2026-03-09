@@ -591,6 +591,24 @@ cli_dispatch:
     enabled: true
     consecutive_failure_threshold: 3
 
+  # CLI instruction file management — AGENTS.md and GEMINI.md at PROJECT_ROOT
+  # These files carry shared behavioral standards that CLI tools natively load.
+  # Managed via marker-based idempotent lifecycle in Stage 1b (Section 1.7c).
+  cli_instruction_files:
+    enabled: true
+    agents_md:
+      enabled: true
+      target_file: "AGENTS.md"
+      marker_prefix: "pi-codex"
+      shared_content: "config/cli_clients/shared/cli-instruction-shared.md"
+      cli_specific_content: "config/cli_clients/shared/codex-instruction-extra.md"
+    gemini_md:
+      enabled: true
+      target_file: "GEMINI.md"
+      marker_prefix: "pi-gemini"
+      shared_content: "config/cli_clients/shared/cli-instruction-shared.md"
+      cli_specific_content: "config/cli_clients/shared/gemini-instruction-extra.md"
+
   # MCP tool budgets per CLI dispatch (advisory limits on MCP usage by CLI agents).
   # Injected into CLI agent prompts by coordinators. These are prompt-based guidance,
   # not programmatic hard caps — CLI agents receive the budget as text instructions.

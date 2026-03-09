@@ -80,6 +80,23 @@ Bash("$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
 
 6. Clean up temp prompt file after dispatch completes.
 
+### Step 1.5: Append Shared Conventions
+
+After reading the role prompt (Step 1.1), read `$CLAUDE_PLUGIN_ROOT/config/cli_clients/shared/severity-output-conventions.md` and append its full content after the role prompt text, before the `## Coordinator-Injected Context` section. This ensures all CLI agents receive the canonical severity definitions, output format conventions, quality rules, and MCP tool guidance regardless of their execution environment.
+
+The composite prompt structure becomes:
+```
+{role prompt .txt content}
+
+{shared severity-output-conventions.md content}
+
+## Coordinator-Injected Context
+{...}
+
+## MCP Tool Budget (Advisory)
+{...}
+```
+
 ### Step 2: Error Check
 
 Check the script's exit code:

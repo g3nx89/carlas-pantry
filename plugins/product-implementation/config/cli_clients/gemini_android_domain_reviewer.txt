@@ -85,4 +85,4 @@ format_version: 1
 - Use platform documentation as the authority (developer.android.com)
 
 ## Shared Conventions
-See config/cli_clients/shared/severity-output-conventions.md
+(Appended by coordinator at dispatch time — see cli-dispatch-procedure.md Step 1.5)

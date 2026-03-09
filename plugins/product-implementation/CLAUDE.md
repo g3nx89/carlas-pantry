@@ -291,6 +291,40 @@ All strategies include automatic fallback: if CLI fails, fall back to Claude sub
 - MCP tool budgets: `cli_dispatch.mcp_tool_budgets.per_cli_dispatch.mobile_mcp` and `.figma`
 - Emulator/install: `uat_execution.emulator` and `uat_execution.apk_install`
 
+## CLI Instruction File Management
+
+Stage 1b manages AGENTS.md (for Codex CLI) and GEMINI.md (for Gemini CLI) at PROJECT_ROOT via marker-based idempotent lifecycle. These files carry shared behavioral standards that each CLI natively loads on every invocation.
+
+### Architecture
+
+Source files (single source of truth) live in `config/cli_clients/shared/`:
+- `cli-instruction-shared.md` — Universal content (output standards, severity classification)
+- `codex-instruction-extra.md` — Codex-specific (parallelism, plan tool suppression)
+- `gemini-instruction-extra.md` — Gemini-specific (context window usage)
+
+Managed sections in AGENTS.md/GEMINI.md are delimited by `<!-- pi-codex-begin/end -->` and `<!-- pi-gemini-begin/end -->` markers. User content outside markers is preserved.
+
+### Lifecycle (Section 1.7c)
+
+| Target File | Marker | Condition |
+|-------------|--------|-----------|
+| AGENTS.md | `pi-codex` | File missing → create; marker missing → append; marker found → compare & update if changed |
+| GEMINI.md | `pi-gemini` | Same logic |
+
+### Configuration
+
+- Master switch: `cli_dispatch.cli_instruction_files.enabled` (default: `true`)
+- Per-file toggles: `agents_md.enabled`, `gemini_md.enabled`
+- Shared content source and CLI-specific content source paths in config
+
+### Key Constraints
+
+- **Append-only**: Never overwrites user content outside managed markers
+- **Idempotent**: Running twice produces "unchanged" status on second run
+- **Defense-in-depth**: Role prompt `.txt` files retain Operating Mode and Exploration Strategy as primary source; AGENTS.md/GEMINI.md reinforce output standards and severity classification
+- **Cleanup on uninstall**: To remove managed sections, delete content between `<!-- pi-codex-begin -->` and `<!-- pi-codex-end -->` markers in AGENTS.md (and similarly for GEMINI.md). If the file contains only the managed section, delete the entire file.
+- **Skipped in ralph mode when instruction files already exist**: Section 1.7c checks for existing markers before modifying
+
 ## Protocol Compliance Enforcement (v3.5.0)
 
 Defense-in-depth mechanisms to prevent LLM compliance degradation where the orchestrator silently bypasses the lean orchestrator pattern (direct agent dispatch, parallel phases, skipped specialized agents, ad-hoc prompts).

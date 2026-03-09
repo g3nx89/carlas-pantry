@@ -19,19 +19,23 @@
 #   --figma-refs <path>     Figma reference screenshots directory (optional, or UAT_FIGMA_REFS env)
 #   --gradle-cmd <cmd>      Gradle build command (default: ./gradlew assembleDebug)
 #   --apk-pattern <glob>    APK search pattern (default: **/build/outputs/apk/debug/*.apk)
+#   --stall-timeout <sec>   Kill engine if no log output for N seconds (default: 300, 0=disabled)
+#   --max-duration <sec>    Kill engine after N seconds wall-clock (default: 1800, 0=disabled)
 #   --help                  Show this help message
 #
 # Environment variables:
-#   UAT_ENGINE       Default engine (gemini|codex)
-#   UAT_CODEX_MODEL  Default codex model
-#   UAT_CODEX_EFFORT Default codex effort
-#   UAT_GROUPS       Space-separated group IDs (fallback if none on CLI)
-#   UAT_SPECS        Path to UAT specs file
-#   UAT_REPORT_DIR   Report output directory
-#   UAT_FIGMA_REFS   Figma reference screenshots directory
-#   APK_PATH         Path to APK file
-#   UAT_PACKAGE      App package name
-#   DRY_RUN          Set to "true" to skip engine invocation
+#   UAT_ENGINE        Default engine (gemini|codex)
+#   UAT_CODEX_MODEL   Default codex model
+#   UAT_CODEX_EFFORT  Default codex effort
+#   UAT_GROUPS        Space-separated group IDs (fallback if none on CLI)
+#   UAT_SPECS         Path to UAT specs file
+#   UAT_REPORT_DIR    Report output directory
+#   UAT_FIGMA_REFS    Figma reference screenshots directory
+#   APK_PATH          Path to APK file
+#   UAT_PACKAGE       App package name
+#   DRY_RUN           Set to "true" to skip engine invocation
+#   UAT_STALL_TIMEOUT Stall detection threshold in seconds (default: 300)
+#   UAT_MAX_DURATION  Absolute wall-clock limit per group in seconds (default: 1800)
 
 set -euo pipefail
 
@@ -61,8 +65,10 @@ FINAL_REPORT=""
 # Engine defaults
 BUILD=false
 ENGINE="${UAT_ENGINE:-gemini}"
-CODEX_MODEL="${UAT_CODEX_MODEL:-}"
-CODEX_EFFORT="${UAT_CODEX_EFFORT:-}"
+CODEX_MODEL="${UAT_CODEX_MODEL:-gpt-5.4}"
+CODEX_EFFORT="${UAT_CODEX_EFFORT:-high}"
+STALL_TIMEOUT="${UAT_STALL_TIMEOUT:-300}"
+MAX_DURATION="${UAT_MAX_DURATION:-1800}"
 
 # ── Show help ────────────────────────────────────────────────────────────────
 show_help() {
@@ -88,6 +94,8 @@ for arg in "$@"; do
             figma-refs)    FIGMA_REFS_DIR="$arg" ;;
             gradle-cmd)    GRADLE_CMD="$arg" ;;
             apk-pattern)   APK_PATTERN="$arg" ;;
+            stall-timeout) STALL_TIMEOUT="$arg" ;;
+            max-duration)  MAX_DURATION="$arg" ;;
         esac
         NEXT_ARG=""
         continue
@@ -107,6 +115,8 @@ for arg in "$@"; do
         --figma-refs)     NEXT_ARG="figma-refs" ;;
         --gradle-cmd)     NEXT_ARG="gradle-cmd" ;;
         --apk-pattern)    NEXT_ARG="apk-pattern" ;;
+        --stall-timeout)  NEXT_ARG="stall-timeout" ;;
+        --max-duration)   NEXT_ARG="max-duration" ;;
         --gemini)         ENGINE="gemini" ;;
         --codex)          ENGINE="codex" ;;
         -*)               echo "[ERROR] Unknown option: $arg. Use --help for usage."; exit 1 ;;
@@ -117,6 +127,12 @@ done
 # Validate engine
 if [[ "$ENGINE" != "gemini" && "$ENGINE" != "codex" ]]; then
     echo "[ERROR] Unknown engine: $ENGINE. Use 'gemini' or 'codex'."
+    exit 1
+fi
+
+# Validate trailing arg value
+if [[ -n "$NEXT_ARG" ]]; then
+    echo "[ERROR] Missing value for --$NEXT_ARG"
     exit 1
 fi
 
@@ -141,6 +157,25 @@ if [[ ! -f "$UAT_FILE" ]]; then
     echo "[ERROR] UAT specs file not found: $UAT_FILE"
     exit 1
 fi
+
+# ── Normalize paths to absolute ──────────────────────────────────────────
+resolve_path() {
+    local p="$1"
+    if [[ -z "$p" ]]; then return; fi
+    if command -v realpath &>/dev/null; then
+        realpath "$p" 2>/dev/null || echo "$p"
+    elif command -v readlink &>/dev/null; then
+        readlink -f "$p" 2>/dev/null || echo "$p"
+    else
+        echo "$p"
+    fi
+}
+[[ -n "$APK_PATH" ]]      && APK_PATH=$(resolve_path "$APK_PATH")
+[[ -n "$UAT_FILE" ]]      && UAT_FILE=$(resolve_path "$UAT_FILE")
+[[ -n "$SYSTEM_PROMPT" ]]  && SYSTEM_PROMPT=$(resolve_path "$SYSTEM_PROMPT")
+[[ -n "$REPORT_DIR" ]]     && REPORT_DIR=$(resolve_path "$REPORT_DIR")
+[[ -n "$EVIDENCE_DIR" ]]   && EVIDENCE_DIR=$(resolve_path "$EVIDENCE_DIR")
+[[ -n "$FIGMA_REFS_DIR" ]] && FIGMA_REFS_DIR=$(resolve_path "$FIGMA_REFS_DIR")
 
 # Build APK if requested
 if [[ "$BUILD" == true ]]; then
@@ -217,6 +252,40 @@ cleanup() {
     exit 130
 }
 trap cleanup INT TERM
+
+# ── Stall detection & safety timeout ──────────────────────────────────────
+# Monitors a background engine process for two conditions:
+#   1. Stall: no new log output for STALL_TIMEOUT seconds (process is stuck)
+#   2. Max duration: absolute wall-clock limit exceeded (safety net)
+# Returns: 0=normal exit, 1=stalled, 2=max duration exceeded
+monitor_stall() {
+    local log_file="$1" pid="$2" stall_sec="$3" max_sec="$4"
+    local start_epoch
+    start_epoch=$(date +%s)
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 30
+        local last_mod now idle
+        if [[ "$(uname)" == "Darwin" ]]; then
+            last_mod=$(stat -f %m "$log_file" 2>/dev/null || echo "$start_epoch")
+        else
+            last_mod=$(stat -c %Y "$log_file" 2>/dev/null || echo "$start_epoch")
+        fi
+        now=$(date +%s)
+        idle=$((now - last_mod))
+        if [[ $stall_sec -gt 0 ]] && [[ $idle -gt $stall_sec ]]; then
+            echo "[STALL] No output for ${idle}s (threshold: ${stall_sec}s). Killing PID $pid." >&2
+            kill "$pid" 2>/dev/null; sleep 5; kill -9 "$pid" 2>/dev/null
+            return 1
+        fi
+        local elapsed=$((now - start_epoch))
+        if [[ $max_sec -gt 0 ]] && [[ $elapsed -gt $max_sec ]]; then
+            echo "[MAX_DURATION] ${elapsed}s exceeded limit of ${max_sec}s. Killing PID $pid." >&2
+            kill "$pid" 2>/dev/null; sleep 5; kill -9 "$pid" 2>/dev/null
+            return 2
+        fi
+    done
+    return 0
+}
 
 # Extract UAT scenarios for a given group from the UAT file
 extract_scenarios() {
@@ -322,9 +391,51 @@ $task_prompt"
         engine_pid=$!
     fi
     CHILD_PIDS+=("$engine_pid")
+
+    # Tail log for real-time visibility
+    local tail_pid=""
+    local log_target="${group_report}.log"
+    [[ "$ENGINE" == "gemini" ]] && log_target="$group_report"
+    if [[ -n "$log_target" ]]; then
+        touch "$log_target"
+        tail -f "$log_target" 2>/dev/null &
+        tail_pid=$!
+        CHILD_PIDS+=("$tail_pid")
+    fi
+
+    # Monitor for stalls in background
+    local monitor_pid=""
+    if [[ "$STALL_TIMEOUT" -gt 0 ]] || [[ "$MAX_DURATION" -gt 0 ]]; then
+        monitor_stall "$log_target" "$engine_pid" "$STALL_TIMEOUT" "$MAX_DURATION" &
+        monitor_pid=$!
+        CHILD_PIDS+=("$monitor_pid")
+    fi
+
     wait "$engine_pid"
     local exit_code=$?
+
+    # Clean up tail and monitor
+    [[ -n "$tail_pid" ]] && kill "$tail_pid" 2>/dev/null && wait "$tail_pid" 2>/dev/null || true
+    [[ -n "$monitor_pid" ]] && kill "$monitor_pid" 2>/dev/null && wait "$monitor_pid" 2>/dev/null || true
     set -e
+
+    # Check if stall/timeout killed the process
+    if [[ $exit_code -eq 137 ]] || [[ $exit_code -eq 143 ]]; then
+        # Check if the monitor left a stall/timeout indicator
+        if grep -q '\[STALL\]' "$log_target" 2>/dev/null; then
+            echo "[STALLED] $group was killed due to inactivity."
+            local tmp_file="${group_report}.tmp"
+            echo "# $group — STALLED (no output for ${STALL_TIMEOUT}s)" > "$tmp_file"
+            [[ -f "$group_report" ]] && cat "$group_report" >> "$tmp_file"
+            mv "$tmp_file" "$group_report"
+        elif grep -q '\[MAX_DURATION\]' "$log_target" 2>/dev/null; then
+            echo "[MAX_DURATION] $group exceeded maximum duration of ${MAX_DURATION}s."
+            local tmp_file="${group_report}.tmp"
+            echo "# $group — MAX_DURATION (exceeded ${MAX_DURATION}s limit)" > "$tmp_file"
+            [[ -f "$group_report" ]] && cat "$group_report" >> "$tmp_file"
+            mv "$tmp_file" "$group_report"
+        fi
+    fi
 
     # Strip engine bootstrap noise from report
     if [[ -f "$group_report" ]]; then
@@ -334,6 +445,15 @@ $task_prompt"
             # Codex -o writes only the final agent message, minimal noise
             # But strip any ANSI escape codes that may leak through
             sed_inplace $'s/\x1b\\[[0-9;]*m//g' "$group_report" 2>/dev/null || true
+        fi
+    fi
+
+    # Parse log for actionable errors
+    if [[ -f "${group_report}.log" ]]; then
+        local error_count
+        error_count=$(grep -cE 'ERROR|FATAL|panic|Traceback|SIGTERM' "${group_report}.log" 2>/dev/null || echo 0)
+        if [[ "$error_count" -gt 0 ]]; then
+            echo "[WARN] $error_count error indicator(s) found in log: ${group_report}.log"
         fi
     fi
 

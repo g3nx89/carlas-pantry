@@ -98,4 +98,4 @@ See Shared Conventions for full severity definitions.
 - **Sequential Thinking** (`sequentialthinking`): Use for systematic gap analysis -- enumerate all public interfaces, catalog tested vs untested scenarios, and prioritize by risk.
 
 ## Shared Conventions
-See config/cli_clients/shared/severity-output-conventions.md
+(Appended by coordinator at dispatch time — see cli-dispatch-procedure.md Step 1.5)

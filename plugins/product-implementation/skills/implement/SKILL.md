@@ -289,6 +289,9 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | `references/summary-schemas.md` | When adding/modifying summary fields | YAML schemas for all 6 stage summaries, producer/consumer mapping, protocol_evidence schema |
 | `references/ralph-loop-integration.md` | When debugging ralph mode | Ralph mode detection, AskUserQuestion guard, stall detection, completion signal |
 | `references/stage-6-retrospective.md` | Stage 6 (coordinator) | KPI Report Card, transcript extraction, retrospective composition |
+| `config/cli_clients/shared/cli-instruction-shared.md` | When modifying CLI behavioral standards | Universal content written into AGENTS.md/GEMINI.md managed sections (output standards, severity classification) |
+| `config/cli_clients/shared/codex-instruction-extra.md` | When modifying Codex CLI instructions | Codex-specific content appended after shared section (parallelism, plan tool suppression) |
+| `config/cli_clients/shared/gemini-instruction-extra.md` | When modifying Gemini CLI instructions | Gemini-specific content appended after shared section (context window usage) |
 
 ## Error Handling
 

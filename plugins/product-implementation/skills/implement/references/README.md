@@ -29,6 +29,9 @@ Quick guide to when to read each reference file during skill development or debu
 | `prompt-registry.yaml` | Validating prompt template usage, checking required variables, verifying coordinator dispatch compliance |
 | `protocol-compliance-checklist.md` | Understanding protocol compliance requirements per stage, self-verification items, protocol_evidence examples |
 | `ralph-loop-integration.md` | Debugging ralph mode, autonomous execution, stall detection, AskUserQuestion guard |
+| `config/cli_clients/shared/cli-instruction-shared.md` | Understanding universal CLI behavioral standards written into AGENTS.md/GEMINI.md |
+| `config/cli_clients/shared/codex-instruction-extra.md` | Understanding Codex-specific CLI instruction content (parallelism, plan tool suppression) |
+| `config/cli_clients/shared/gemini-instruction-extra.md` | Understanding Gemini-specific CLI instruction content (context window usage) |
 
 ## By Task
 
@@ -81,6 +84,9 @@ Quick guide to when to read each reference file during skill development or debu
 | `prompt-registry.yaml` | 213 | Machine-readable registry of all 15 prompt templates — template name, agent type, required/optional variables, stage/step usage. Used by coordinators for dispatch compliance verification and by VERIFY_STAGE_PROTOCOL for agent diversity scoring |
 | `summary-schemas.md` | 143 | YAML schemas for all 6 stage summaries — base fields table + per-phase naming convention + per-stage field tables with type, required/optional, default, producer, consumer, protocol_evidence schema (Stages 2-5) |
 | `ralph-loop-integration.md` | 200 | Ralph mode behavioral contract, AskUserQuestion guard locations, graduated stall response (4-level), rate limit exemption, output-decline detection, test-result stall, plan mutability, iteration status file, cross-iteration learning, completion signal, state fields, configuration reference, files involved |
+| `config/cli_clients/shared/cli-instruction-shared.md` | ~11 | Universal CLI behavioral standards (output standards, severity classification) — written into AGENTS.md and GEMINI.md managed sections |
+| `config/cli_clients/shared/codex-instruction-extra.md` | ~20 | Codex-specific CLI instructions (parallelism policy, plan tool suppression) — appended to AGENTS.md after shared content |
+| `config/cli_clients/shared/gemini-instruction-extra.md` | ~20 | Gemini-specific CLI instructions (context window usage guidance) — appended to GEMINI.md after shared content |
 
 ## Cross-References (Key Non-Obvious Data Flows)
 
@@ -104,6 +110,7 @@ Obvious flows (stage file → agent-prompts.md, all stages → config) are omitt
 - **SAFE_ASK_USER shared function**: `orchestrator-loop.md` defines `SAFE_ASK_USER()` with empty response validation, option matching, and text fallback. Called by `orchestrator-loop.md` (needs-user-input relay, crash recovery) and `stage-1-setup.md` (Section 1.1). `stage-1b-probes.md` (Sections 1.5b, 1.9a, 1.9b) references it but cannot call it directly (coordinator limitation — sets `status: needs-user-input` instead). Bypassed entirely in ralph mode (auto-resolve guard intercepts first).
 - **Ralph mode propagation**: `stage-1-setup.md` Section 1.0b detects ralph mode → writes `ralph_mode` to state file and Stage 1 summary → `orchestrator-loop.md` reads `ralph_mode` to activate AskUserQuestion guard, stall detection, and completion signal. Config: `ralph_loop.*`. See `ralph-loop-integration.md` for full behavioral spec.
 - **Cross-iteration learnings**: `orchestrator-loop.md` APPEND_LEARNING writes fail→succeed deltas to `{FEATURE_DIR}/.implementation-learnings.local.md` → `stage-1-setup.md` Section 1.0c reads and injects into summary as "Operational Learnings". Template: `templates/ralph-learnings-template.local.md`. Config: `ralph_loop.learnings.*`.
+- **CLI instruction file lifecycle**: `config/cli_clients/shared/cli-instruction-shared.md` + `codex-instruction-extra.md` / `gemini-instruction-extra.md` are the single source of truth for managed content in AGENTS.md and GEMINI.md. Read and composed by `stage-1b-probes.md` Section 1.7c. Referenced by `cli-dispatch-procedure.md` Step 1.5 for behavior expectations. Config: `cli_dispatch.cli_instruction_files.*`.
 
 ## Architecture Decision Records
 

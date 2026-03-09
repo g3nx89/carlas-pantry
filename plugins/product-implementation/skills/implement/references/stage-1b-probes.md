@@ -14,6 +14,8 @@ artifacts_written:
   - ".claude/hooks/*.sh (conditional — Section 1.5b)"
   - ".claude/settings.json (conditional, merged — Section 1.5b)"
   - "CLAUDE.md (conditional, appended — Section 1.5b)"
+  - "{PROJECT_ROOT}/AGENTS.md (conditional, created/appended/updated — Section 1.7c)"
+  - "{PROJECT_ROOT}/GEMINI.md (conditional, created/appended/updated — Section 1.7c)"
   - "{FEATURE_DIR}/.stage-summaries/stage-1-summary.md"
 agents: []
 additional_references:
@@ -399,6 +401,51 @@ cli_circuit_state:
 
 Only include CLIs where `cli_availability.{cli_name}` is `true`. Omit unavailable CLIs.
 
+## 1.7c CLI Instruction File Management
+
+> Conditional: Only when `cli_dispatch.cli_instruction_files.enabled` is `true` in config.
+> If disabled, set `agents_md_status: "disabled"` and `gemini_md_status: "disabled"` in summary, skip to Section 1.9a.
+
+Manage AGENTS.md and GEMINI.md files at PROJECT_ROOT. These files carry shared behavioral standards that Codex CLI and Gemini CLI natively load on every invocation.
+
+### Procedure
+
+For each instruction file configuration in `cli_instruction_files` (agents_md, gemini_md):
+
+1. **Skip check**: If `{config_key}.enabled` is `false` → set status to `"disabled"`, continue to next file
+2. **Read source content**: Read `$CLAUDE_PLUGIN_ROOT/{shared_content}` and `$CLAUDE_PLUGIN_ROOT/{cli_specific_content}` from config
+3. **Build expected content**: Concatenate shared + CLI-specific content, wrapped in markers:
+   ```
+   <!-- {marker_prefix}-begin -->
+   ## CLI Agent Standards (managed by product-implementation)
+
+   {shared_content}
+
+   {cli_specific_content}
+   <!-- {marker_prefix}-end -->
+   ```
+4. **Read target file**: Read `{PROJECT_ROOT}/{target_file}` (AGENTS.md or GEMINI.md)
+5. **Apply lifecycle logic**:
+   - **File doesn't exist** → Create with managed section only → Status: `"created"`
+   - **File exists, marker NOT found** → Append managed section at end of file → Status: `"appended"`
+   - **File exists, marker found** → Compare content between markers with expected:
+     - If different → Replace in-place (preserve content outside markers) → Status: `"updated"`
+     - If same → Status: `"unchanged"`
+6. **Log result**: `"[{timestamp}] {target_file}: {status}"`
+
+### Output
+
+Store in Stage 1 summary YAML frontmatter:
+
+```yaml
+agents_md_status: "created"      # "created" | "appended" | "updated" | "unchanged" | "disabled"
+gemini_md_status: "created"      # "created" | "appended" | "updated" | "unchanged" | "disabled"
+```
+
+### Cost
+
+2 file reads + 0-2 file writes (~1s total). Skipped entirely when `cli_instruction_files.enabled` is `false`.
+
 ## 1.9a Autonomy Policy Selection
 
 Determine how the system should handle issues (findings, failures, incomplete tasks) during execution. This decision applies to all downstream stages and is stored in the Stage 1 summary for consumption by coordinators and the orchestrator.
@@ -516,6 +563,7 @@ Before writing the Stage 1 summary (Section 1.10), verify that all probe section
 | 1.6g Figma Availability | `figma_available` | No UI domains detected OR `figma.enabled: false` | ☐ |
 | 1.7a CLI Availability | `cli_availability` | No enabled CLI options in config | ☐ |
 | 1.7b Circuit Breaker Init | `cli_circuit_state` | `circuit_breaker.enabled: false` | ☐ |
+| 1.7c CLI Instruction Files | `agents_md_status`, `gemini_md_status` | `cli_instruction_files.enabled: false` | ☐ |
 | 1.9a Autonomy Policy | `autonomy_policy` | *(no valid skip — always execute)* | ☐ |
 | 1.9b Quality Config | `resolved_quality_config` | *(no valid skip — always execute)* | ☐ |
 
@@ -584,6 +632,8 @@ resolved_quality_config:        # from Section 1.9b (three-tier resolved flags)
   circuit_breaker: {true/false}
   cli_features_enabled: [{list of enabled CLI feature keys}]
 cli_circuit_state: null   # from Section 1.7b (null if disabled)
+agents_md_status: "{created/appended/updated/unchanged/disabled}"  # from Section 1.7c
+gemini_md_status: "{created/appended/updated/unchanged/disabled}"  # from Section 1.7c
 # IF context_protocol.enabled:
 context_contributions:
   key_decisions:
@@ -623,6 +673,7 @@ context_contributions:
 - External models: {true/false} ({user selected / from config value})
 - Resolved quality config: {summary of enabled features and CLI features}
 - CLI circuit breaker: {initialized for N CLIs / disabled}
+- CLI instruction files: AGENTS.md={status}, GEMINI.md={status} (or "disabled")
 - Context protocol: {enabled with initial contributions / disabled}
 
 ## Planning Artifacts Summary
@@ -701,6 +752,7 @@ Use ISO 8601 timestamps with seconds precision per `config/implementation-config
 - [{timestamp}] External models: {true/false} ({source: user selected / config value})
 - [{timestamp}] Resolved quality config: {N features enabled, M CLI features enabled}
 - [{timestamp}] Circuit breaker: {initialized for N CLIs / disabled}
+- [{timestamp}] CLI instruction files: AGENTS.md={status}, GEMINI.md={status} (or "disabled")
 - [{timestamp}] Context protocol: {enabled / disabled}
 - [{timestamp}] Lock acquired
 - [{timestamp}] State initialized / resumed from Stage {S}
