@@ -23,8 +23,7 @@ agents:
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/cli-dispatch-procedure.md"
-  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
-  - ".stage-summaries/stage-1-summary.md (for detected_domains)"
+  - ".stage-summaries/stage-1-summary.md (for detected_domains, features, autonomy)"
 ---
 
 # Stage 5: Feature Documentation
@@ -63,10 +62,10 @@ Before documenting, verify that the implementation is complete enough to documen
 
 3. **If incomplete tasks exist**:
 
-   **Check autonomy policy** (read `autonomy_policy` from Stage 1 summary, read policy level from config `autonomy_policy.levels.{policy}`). This uses `policy.incomplete_tasks` (not the severity-based iteration from `autonomy-policy-procedure.md`):
-   - If action is `"fix"`: Auto-fix — launch `developer` agent to complete tasks, log: `"[AUTO-{policy}] Incomplete tasks — auto-fixing before documentation"`. After fix, re-verify. If still incomplete after one fix attempt, fall back to `"document_as_is"` behavior.
-   - If action is `"document_as_is"`: Log: `"[AUTO-{policy}] Incomplete tasks — documenting as-is with noted gaps"`. Note incomplete tasks for tech-writer. Proceed to Section 5.2.
-   - If no policy set (edge case): fall through to manual escalation below.
+   **Check autonomy policy** (read `autonomy` from Stage 1 summary). This uses the incomplete_tasks behavior (not the severity-based iteration from `autonomy-policy-procedure.md`):
+   - If `autonomy` is `"auto"`: Auto-fix — launch `developer` agent to complete tasks, log: `"[AUTO-auto] Incomplete tasks — auto-fixing before documentation"`. After fix, re-verify. If still incomplete after one fix attempt, fall back to `"document_as_is"` behavior.
+   - If `autonomy` is `"interactive"`: Log: `"[AUTO-interactive] Incomplete tasks — documenting as-is with noted gaps"`. Note incomplete tasks for tech-writer. Proceed to Section 5.2.
+   - If no autonomy set (edge case): fall through to manual escalation below.
 
    **Manual escalation** (when no autonomy policy applies):
    Set `status: needs-user-input` in the stage summary with the incomplete task list as `block_reason`.
@@ -97,24 +96,29 @@ Build the `{research_context}` block for the tech-writer agent prompt using accu
 ### Procedure
 
 1. Read `mcp_availability` from the Stage 1 summary
-2. Read `research_mcp` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-3. If `research_mcp.enabled` is `false` OR all MCP tools are unavailable → set `research_context` to the fallback text and skip to Section 5.2
+2. If Research MCP is disabled or all MCP tools are unavailable → set `research_context` to the fallback text and skip to Section 5.2
 
-4. **Re-read accumulated URLs** (Ref — maximum Dropout benefit):
+3. **Re-read accumulated URLs** (Ref — maximum Dropout benefit):
    - Read `research_urls_discovered` from the Stage 2 summary flags
-   - For each URL (up to `ref.max_reads_per_stage`): call `ref_read_url(url)` — by Stage 5, Ref returns only the most documentation-relevant content from session cache
-   - Cap each source at `ref.token_budgets.per_source` tokens
+   - For each URL (up to `max_reads=3` per stage): call `ref_read_url(url)` — by Stage 5, Ref returns only the most documentation-relevant content from session cache
+   - Cap each source at `per_source=2000` tokens
 
-5. **Enrichment protocol**: Assemble `{research_context}` with documentation-specific focus:
+4. **Enrichment protocol**: Assemble `{research_context}` with documentation-specific focus:
    - **Link generation**: Official documentation URLs for inclusion in feature docs
    - **Example verification**: Code examples from official docs for cross-checking against implemented examples
    - **Migration notes**: Version migration or deprecation warnings from documentation
 
-6. Cap at `ref.token_budgets.research_context_total` tokens.
+5. Cap at `total=4000` tokens for the full research context block.
 
-### Context Budget
+### MCP Tool Budgets (Inlined)
 
-Same cap as earlier stages. Maximum Dropout benefit: Ref serves from session cache, returning only documentation-focused content relevant to the feature's libraries.
+| Tool | Budget |
+|------|--------|
+| Ref | max_searches=5, max_reads=3, per_source=2000 tokens, total=4000 tokens |
+| Context7 | max_queries=3 |
+| Tavily | search_depth="basic", max_results=3, max_searches=2 |
+
+Maximum Dropout benefit: Ref serves from session cache, returning only documentation-focused content relevant to the feature's libraries.
 
 ## 5.2 Documentation Update
 
@@ -159,7 +163,7 @@ The tech-writer agent should:
 
 > **Conditional**: Only runs when ALL of:
 >   1. Phase Scope is present (per-phase mode)
->   2. `doc_judge.enabled` is `true` in config
+>   2. `features.doc_judge` is `true` in Stage 1 summary
 > If any condition fails, skip to Section 5.2a or 5.3.
 
 After the tech-writer produces per-phase documentation (Section 5.2), dispatch the doc-judge agent to verify documentation accuracy against actual code.
@@ -180,8 +184,8 @@ After the tech-writer produces per-phase documentation (Section 5.2), dispatch t
 
 3. **Process results**: Parse the structured YAML output from the doc-judge:
    - If `doc_quality: PASS` → proceed to Section 5.2a or 5.3
-   - If `doc_quality: FAIL` AND `accuracy_score < doc_judge.accuracy_threshold` (default: 70):
-     - Re-dispatch tech-writer with the findings (one revision cycle per `doc_judge.max_revision_cycles`)
+   - If `doc_quality: FAIL` AND `accuracy_score < 70`:
+     - Re-dispatch tech-writer with the findings (max_revision_cycles=1)
      - Log: `"Doc judge found {N} issues (score: {accuracy_score}) — requesting revision"`
      - After revision, optionally re-run doc-judge (if revision cycles remain)
    - If revision cycles exhausted and still FAIL → log findings and proceed
@@ -192,7 +196,7 @@ After the tech-writer produces per-phase documentation (Section 5.2), dispatch t
 
 ## 5.2a CLI Documentation Review (Optional)
 
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage5.doc_reviewer.enabled` is `true` and `cli_availability.gemini` is `true` (from Stage 1 summary). If any condition is false, skip to Section 5.3.
+> **Conditional**: Only runs when ALL of: `cli_features_enabled` is `true` in Stage 1 summary AND `cli_availability.gemini` is `true` (from Stage 1 summary). If any condition is false, skip to Section 5.3.
 
 After the tech-writer produces documentation (Section 5.2), dispatch Gemini to review the output from the user's perspective: completeness, accuracy, usability, and accessibility documentation.
 
@@ -202,7 +206,7 @@ After the tech-writer produces documentation (Section 5.2), dispatch Gemini to r
 
 2. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
    - `cli_name="gemini"`, `role="doc_reviewer"`
-   - `fallback_behavior` from `cli_dispatch.stage5.doc_reviewer.fallback_behavior` (default: `"skip"`)
+   - `fallback_behavior="skip"`
    - `expected_fields=["files_reviewed", "features_documented", "findings", "top_gap", "recommendation"]`
 
 3. **Coordinator-Injected Context** (appended per `cli-dispatch-procedure.md` variable injection convention):

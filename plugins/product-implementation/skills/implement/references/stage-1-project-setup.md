@@ -14,8 +14,7 @@ artifacts_written:
   - ".claude/hooks/*.sh (conditional)"
   - ".claude/settings.json (conditional, merged)"
   - "CLAUDE.md (conditional, appended)"
-additional_references:
-  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
+additional_references: []
 ---
 
 # Stage 1 Section 1.5b: Project Setup Analysis

@@ -62,12 +62,35 @@ Per-phase summaries include the `phase` field in YAML frontmatter. The schema fo
 | `figma_refs_dir` | string\|null | Optional | `null` | Stage 1 | Stages 2, 3 |
 | `emulator_type` | string\|null | Optional | `null` | Stage 1 | Stages 2, 3 |
 | `plugin_availability` | map | Yes | — | Stage 1 | Stage 4 |
-| `autonomy_policy` | string | Yes | — | Stage 1 | All stages |
-| `quality_preset` | string | Yes | — | Stage 1 | All stages |
-| `external_models` | boolean | Yes | — | Stage 1 | Stages 1 (1.7a gate), 2, 3, 4, 5 |
-| `resolved_quality_config` | map | Yes | — | Stage 1 | Stages 2, 3, 4, 5 |
 | `cli_circuit_state` | map\|null | Optional | `null` | Stage 1 | Stages 2, 3, 4 |
 | `context_contributions` | map\|null | Optional | `null` | Stage 1 | Orchestrator |
+| `profile` | string | Yes | — | Stage 1 | All stages |
+| `autonomy` | string | Yes | — | Stage 1 | All stages |
+| `vertical_agent_type` | string | Yes | `"developer"` | Stage 1 | Stages 2, 4 |
+| `features` | map | Yes | `{}` | Stage 1 | All stages |
+| `features.per_phase_review` | boolean | Yes | `true` | Stage 1 | Orchestrator |
+| `features.output_verifier` | boolean | Yes | `true` | Stage 1 | Stage 2 |
+| `features.code_simplification` | boolean | Yes | `false` | Stage 1 | Stage 2 |
+| `features.uat_execution` | boolean | Yes | `false` | Stage 1 | Stages 2, 3 |
+| `features.figma_parity` | boolean | Yes | `false` | Stage 1 | Stage 4 |
+| `features.research_mcp` | boolean | Yes | `true` | Stage 1 | Stages 2, 4, 5 |
+| `features.project_setup` | boolean | Yes | `false` | Stage 1 | Stage 1b |
+| `features.stances` | boolean | Yes | `false` | Stage 1 | Stage 4 |
+| `features.convergence` | boolean | Yes | `false` | Stage 1 | Stage 4 |
+| `features.cove` | boolean | Yes | `false` | Stage 1 | Stage 4 |
+| `features.context_protocol` | boolean | Yes | `false` | Stage 1 | Orchestrator |
+| `features.circuit_breaker` | boolean | Yes | `false` | Stage 1 | Stage 1b |
+| `features.external_models` | boolean | Yes | `false` | Stage 1 | Stage 1b |
+| `features.doc_judge` | boolean | Yes | `false` | Stage 1 | Stage 5 |
+| `features.stage5_docs` | boolean | Yes | `true` | Stage 1 | Orchestrator |
+| `features.stage6_retro` | boolean | Yes | `true` | Stage 1 | Orchestrator |
+| `features.app_launch_gate` | boolean | Yes | `true` | Stage 1 | Orchestrator |
+| `cli_features_enabled` | array | Yes | `[]` | Stage 1 | Stages 2, 3, 4, 5 |
+| `codex_model` | string\|null | Optional | `null` | Stage 1 | Stages 2, 3, 4, 5 |
+| `codex_effort` | string\|null | Optional | `null` | Stage 1 | Stages 2, 3, 4, 5 |
+| `uat_strategy` | string\|null | Optional | `null` | Stage 1 | Stages 2, 3 |
+| `uat_engine_per_phase` | string\|null | Optional | `null` | Stage 1 | Stage 2 |
+| `uat_engine_full_sweep` | string\|null | Optional | `null` | Stage 1 | Stage 3 |
 
 ## Stage 2: Phase-by-Phase Execution
 

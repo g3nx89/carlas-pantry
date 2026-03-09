@@ -21,10 +21,10 @@ Before writing ANY stage summary (Stages 2-5), the coordinator MUST complete the
 ## Stage 2: Phase-by-Phase Execution
 
 4. **Sequential phase execution**: Each phase executed sequentially (not in parallel or background)
-5. **test-writer dispatched**: For each phase where `native_test_writer.enabled` is `true` and `test_cases_available` is `true` and CLI test author did NOT run — test-writer agent was dispatched (Step 1.9). **This step is NOT OPTIONAL. Skipping this step is a protocol violation.**
+5. **test-writer dispatched**: For each phase where `features.output_verifier` is `true` (from Stage 1 summary) and `test_cases_available` is `true` and CLI test author did NOT run — test-writer agent was dispatched (Step 1.9). **This step is NOT OPTIONAL. Skipping this step is a protocol violation.**
 6. **developer dispatched with template**: Developer agent dispatched for each phase using the Phase Implementation Prompt template from `agent-prompts.md`
-7. **output-verifier dispatched**: For each phase where `output_verifier.enabled` is `true` — output-verifier agent was dispatched (Step 2.5). **This step is NOT OPTIONAL. Skipping this step is a protocol violation.**
-8. **code-simplifier dispatched if enabled**: When `code_simplification.enabled` is `true` — code-simplifier was dispatched for each eligible phase (Step 3.5)
+7. **output-verifier dispatched**: For each phase where `features.output_verifier` is `true` (from Stage 1 summary) — output-verifier agent was dispatched (Step 2.5). **This step is NOT OPTIONAL. Skipping this step is a protocol violation.**
+8. **code-simplifier dispatched if enabled**: When `features.code_simplification` is `true` (from Stage 1 summary) — code-simplifier was dispatched for each eligible phase (Step 3.5)
 
 ### Stage 2 protocol_evidence Example
 

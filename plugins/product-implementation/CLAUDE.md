@@ -12,12 +12,12 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 
 ## Architecture
 
-### Per-Phase Delivery Cycles (v3 Architecture)
+### Per-Phase Delivery Cycles (v4 Architecture)
 
-When `per_phase_review.enabled` is `true` (default), stages 2-5 run per-phase inside a loop:
+Stages 2-5 run per-phase inside a loop (controlled by a profile feature flag):
 `S1a(inline) → S1b(coord) → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → optional final S3+S4 → final S5 → S6`
 
-When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `S1a→S1b→S2→S3→S4→S5→S6`.
+Stages 2-6 read ONLY from the Stage 1 summary. No direct config reads after Stage 1b.
 
 | Stage | Name | Dispatch | Agent(s) |
 |-------|------|----------|----------|
@@ -53,7 +53,8 @@ When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `
 - `skills/implement/references/stage-1b-probes.md` — Stage 1b coordinator: all probes, detection, configuration
 - `skills/implement/references/stage-{2-6}-*.md` — Stage-specific coordinator instructions
 - `skills/implement/references/agent-prompts.md` — All agent prompt templates
-- `config/implementation-config.yaml` — Single source of truth for configurable values
+- `config/implementation-config.yaml` — User-facing settings (~45 lines): profile, autonomy, project overrides, figma, cli, ralph
+- `config/profile-definitions.yaml` — Internal profile definitions, domain mapping, vertical agents, CLI features (not user-edited)
 - `templates/implementation-state-template.local.md` — State file schema (v3)
 - `templates/stage-summary-template.md` — Inter-stage summary contract
 
@@ -76,7 +77,7 @@ The implement skill expects these files in the feature directory (produced by pr
 
 Stage 1 is split into two parts to prevent LLM compliance degradation:
 - **Stage 1a** (inline, ~280 lines): Branch parsing, file loading, tasks validation, lock, state init. Writes partial summary.
-- **Stage 1b** (coordinator, ~600 lines): ALL probes (MCP, mobile, Figma, CLI), domain detection, project setup, autonomy policy, quality config. Reads partial summary, writes FULL Stage 1 summary.
+- **Stage 1b** (coordinator, ~600 lines): ALL probes (MCP, mobile, Figma, CLI), domain detection, project setup, autonomy level, profile resolution (Section 1.9). Reads partial summary, writes FULL Stage 1 summary with resolved `features.*` flat booleans that all later stages consume.
 
 The orchestrator validates the full summary via `VALIDATE_STAGE1_SUMMARY` (fail-closed gate) before proceeding. Missing probe fields cause HALT, not silent skip.
 
@@ -113,31 +114,31 @@ Two throwaway subagents handle the heavy lifting; the orchestrator stays lean:
 
 ## Development Notes
 
-- All configurable values (lock timeout, severity definitions, review focus areas) live in `config/implementation-config.yaml` — never hardcode in SKILL.md or references
-- Severity definitions (critical/high/medium/low) are canonical in the config file; SKILL.md references them but does not redefine
+- User-facing settings live in `config/implementation-config.yaml` (~45 lines). Operational constants (lock timeout, severity thresholds, reviewer focus areas) are hardcoded in the reference files that use them. Profile definitions live in `config/profile-definitions.yaml` (internal, not user-edited).
 - State file is versioned (currently v3); any schema changes must include migration logic in `orchestrator-loop.md` (chain: v1→v2→v3)
-- The 3 quality reviewers in Stage 4 have distinct focus areas defined in config; do not merge or change their specializations without updating the config
+- The 3 quality reviewers in Stage 4 have distinct focus areas defined in `profile-definitions.yaml`; do not merge or change their specializations without updating the definitions file
 - Cross-plugin naming: product-planning produces `contract.md` (singular), `test-cases/uat/` (not `visual/`), and test IDs like `E2E-*`, `INT-*`, `UT-*`, `UAT-*` (no `TC-` prefix) — always verify against the source plugin before adding new artifact references
 - Handoff contract values (expected files, test-case subdirectories, test ID patterns) are externalized in `config/implementation-config.yaml` under `handoff` — update config, not prose, when planning outputs change
 - Agent prompt templates in `agent-prompts.md` must list variables explicitly per prompt — do not use "Same as X Prompt" shorthand, as coordinators fill only what's listed and omissions cause silent failures
-- Stage 1 summary is the context bus for all later stages: Planning Artifacts Summary table + Context File Summaries + Test Specifications block. When adding new planning artifacts, add them to Stage 1's discovery and summary, not to individual coordinator stages
+- Stage 1 summary is the context bus for all later stages: Planning Artifacts Summary table + Context File Summaries + Test Specifications block + resolved `features.*` flat booleans. Stages 2-6 read ONLY from this summary — never directly from config. When adding new planning artifacts, add them to Stage 1's discovery and summary, not to individual coordinator stages
 - After bulk reference file edits, update `references/README.md` line counts — stale counts mislead developers about file complexity
 - After inserting a new numbered section in any stage file, grep all reference files for the old section numbers and update — cross-file section references (e.g., "Section 1.7") break silently when sections are renumbered
 - When adding a new reference file: register in `references/README.md` (3 tables: usage, file sizes, cross-references) AND `SKILL.md` Reference Map — this wiring step is the most common omission when sessions exhaust context
-- Code simplification runs after each phase in Stage 2 (Step 3.5) when `code_simplification.enabled` is `true` in config. The simplifier never modifies test files and automatically rolls back if tests fail. Configuration lives in `config/implementation-config.yaml` under `code_simplification`
-- UAT mobile testing runs after each relevant phase in Stage 2 (Step 3.7) when `uat_execution.enabled` is `true` and `mobile_mcp_available` is `true`. Supports 3 engines: Claude subagent (native), Codex CLI, Gemini CLI — selected via `uat_execution.engine_strategy`. Full-sweep UAT runs in final Stage 3 (Section 3.2a). Configuration lives in `config/implementation-config.yaml` under `uat_execution`. System prompt in `scripts/uat/uat-system-prompt.md`
-- Autonomy policy (`autonomy_policy` in config) controls how findings/failures are auto-resolved. Three levels: `full_auto` (fix everything), `balanced` (fix critical/high, defer medium), `critical_only` (fix only critical). Selected at Stage 1 startup via AskUserQuestion (or skipped if `default_level` is set). Policy flows through Stage 1 summary to all stages. Auto-resolved decisions are logged with `[AUTO-{policy}]` prefix. If auto-resolution fails, the system falls through to standard user escalation.
-- Stage 6 (Retrospective) runs post-lock-release as read-only analysis. It produces two artifacts: `.implementation-report-card.local.md` (machine-readable KPI Report Card) and `retrospective.md` (narrative document). Both are excluded from auto-commit except the retrospective itself. Configuration lives in `config/implementation-config.yaml` under `retrospective`.
-- CoVe (Chain-of-Verification) post-synthesis dispatches a throwaway subagent to verify Critical/High review findings against actual code (Stage 4, Section 4.3b). Opt-in via `quality_review.cove.enabled` in config. Only triggers when multi-tier review produces >= `min_findings_trigger` Critical+High findings.
-- Reviewer stance assignment assigns advocate/challenger/neutral roles to base reviewers for calibrated scoring (Stage 4, Section 4.2). Opt-in via `quality_review.stances.enabled` in config. Stance divergence analysis flags findings where severity spread >= 2 levels across stances.
-- Convergence detection measures inter-reviewer agreement via Jaccard similarity on technical keywords (Stage 4, Section 4.3a). Opt-in via `quality_review.convergence.enabled` in config. Adapts consolidation strategy (standard merge / weighted merge with divergence flags / present all for manual review).
-- CLI circuit breaker tracks consecutive CLI dispatch failures across stages (Section 1.7b init, cli-dispatch-procedure.md gate). Opt-in via `cli_dispatch.circuit_breaker.enabled` in config. When threshold reached, circuit opens and dispatches skip directly to fallback.
-- CLI dispatch script (`scripts/dispatch-cli-agent.sh`) supports `--model` and `--effort` flags for per-role model/effort overrides (e.g., `--model claude-sonnet-4-5 --effort high`). These are passed through from coordinator dispatch calls; defaults live in each `config/cli_clients/*.json` file.
+- Code simplification runs after each phase in Stage 2 (Step 3.5) when the profile feature flag `features.code_simplification` is `true` in the Stage 1 summary. The simplifier never modifies test files and automatically rolls back if tests fail.
+- UAT mobile testing runs after each relevant phase in Stage 2 (Step 3.7) when the profile feature flag `features.uat` is `true` and `mobile_mcp_available` is `true`. Supports 3 engines: Claude subagent (native), Codex CLI, Gemini CLI — selected via `uat_execution.engine_strategy`. Full-sweep UAT runs in final Stage 3 (Section 3.2a). System prompt in `scripts/uat/uat-system-prompt.md`
+- Autonomy (`autonomy` in config) controls how findings/failures are auto-resolved. Two levels: `auto` (auto-resolve critical/high) and `interactive` (ask user). Selected at Stage 1 startup via AskUserQuestion (or pre-set via `autonomy` in config). Level flows through Stage 1 summary to all stages. Auto-resolved decisions are logged with `[AUTO]` prefix. If auto-resolution fails, the system falls through to standard user escalation.
+- The 3-profile system (`quick` / `standard` / `thorough`) controls which features are enabled. Profile is set in `config/implementation-config.yaml` under `profile`. Feature flags are resolved by Stage 1b (Section 1.9) from `profile-definitions.yaml` and written as flat `features.*` booleans into the Stage 1 summary.
+- Stage 6 (Retrospective) runs post-lock-release as read-only analysis. It produces two artifacts: `.implementation-report-card.local.md` (machine-readable KPI Report Card) and `retrospective.md` (narrative document). Both are excluded from auto-commit except the retrospective itself.
+- CoVe (Chain-of-Verification) post-synthesis dispatches a throwaway subagent to verify Critical/High review findings against actual code (Stage 4, Section 4.3b). Controlled by profile feature flag `features.cove`. Only triggers when multi-tier review produces >= threshold Critical+High findings.
+- Reviewer stance assignment assigns advocate/challenger/neutral roles to base reviewers for calibrated scoring (Stage 4, Section 4.2). Controlled by profile feature flag `features.reviewer_stances`. Stance divergence analysis flags findings where severity spread >= 2 levels across stances.
+- Convergence detection measures inter-reviewer agreement via Jaccard similarity on technical keywords (Stage 4, Section 4.3a). Controlled by profile feature flag `features.convergence`. Adapts consolidation strategy (standard merge / weighted merge with divergence flags / present all for manual review).
+- CLI circuit breaker tracks consecutive CLI dispatch failures across stages (Section 1.7b init, cli-dispatch-procedure.md gate). When threshold reached, circuit opens and dispatches skip directly to fallback.
+- CLI dispatch script (`scripts/dispatch-cli-agent.sh`) supports `--model` and `--effort` flags for per-role model/effort overrides. User-configurable via `cli.codex_model` and `cli.codex_effort` in `config/implementation-config.yaml`; defaults live in each `config/cli_clients/*.json` file.
 - Stage 4 fix path uses the detected `vertical_agent_type` (from Stage 2 summary) when launching the native fix agent — ensures the same specialized vertical agent (android-developer, frontend-developer, backend-developer, or developer) applies fixes, not a generic fallback.
-- Test augmenter artifacts (`.test-augmentation-*`) are excluded from auto-commit to keep feature commits clean. Add `.test-augmentation-` to `auto_commit.exclude_patterns` in config.
-- Context pack protocol accumulates key decisions, open issues, and risk signals across stages (orchestrator-loop.md context pack builder). Opt-in via `context_protocol.enabled` in config. Each stage contributes `context_contributions` to its summary; the orchestrator compiles and injects a budget-controlled context pack into coordinator prompts.
-- Per-phase delivery cycles (`per_phase_review.enabled` in config, default `true`) restructure the workflow from linear `S1→S2→S3→S4→S5→S6` to `S1 → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → final passes → S6`. Each phase gets validated, reviewed, and documented before the next begins. Auto-commit moves from Stage 2 coordinator (Step 4.5) to orchestrator phase loop. Set `per_phase_review.enabled: false` to restore linear behavior.
-- Doc-judge (LLM-as-a-judge, `doc_judge.enabled` in config) verifies documentation accuracy against actual code after each per-phase tech-writer dispatch (Stage 5 Section 5.2b). Catches hallucinated APIs, wrong signatures, and invented behaviors. One revision cycle on failure.
+- Test augmenter artifacts (`.test-augmentation-*`) are excluded from auto-commit to keep feature commits clean. Controlled by profile feature flag `features.external_models` (profile-controlled).
+- Context pack protocol accumulates key decisions, open issues, and risk signals across stages (orchestrator-loop.md context pack builder). Controlled by profile feature flag `features.context_pack`. Each stage contributes `context_contributions` to its summary; the orchestrator compiles and injects a budget-controlled context pack into coordinator prompts.
+- Per-phase delivery cycles restructure the workflow from linear `S1→S2→S3→S4→S5→S6` to `S1 → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → final passes → S6`. Each phase gets validated, reviewed, and documented before the next begins. Auto-commit moves from Stage 2 coordinator (Step 4.5) to orchestrator phase loop. Controlled by profile feature flag `features.per_phase_review`.
+- Doc-judge (LLM-as-a-judge) verifies documentation accuracy against actual code after each per-phase tech-writer dispatch (Stage 5 Section 5.2b). Controlled by profile feature flag `features.doc_judge`. Catches hallucinated APIs, wrong signatures, and invented behaviors. One revision cycle on failure.
 
 ## Retrospective & KPI (Stage 6)
 
@@ -150,17 +151,15 @@ Stage 6 generates a comprehensive implementation retrospective using a three-lay
 ### Key Constraints
 
 - **Post-lock-release**: Stage 6 runs after Stage 5 releases the lock — no lock operations needed
-- **Conditional transcript analysis**: Gated by `retrospective.transcript_analysis.enabled`; if disabled or transcript not found, retrospective is KPI-and-summary-only
+- **Conditional transcript analysis**: Gated by profile feature flag `features.retrospective_transcript`; if disabled or transcript not found, retrospective is KPI-and-summary-only
 - **Forward-compatible schema**: Report Card includes Phase 2 KPI fields as `null` placeholders
-- **Section toggles**: Each retrospective section can be individually disabled via `retrospective.sections` in config
+- **Section toggles**: Each retrospective section can be individually enabled/disabled via profile definitions
 - **Local artifacts excluded**: `.implementation-report-card.local.md` and `transcript-extract.json` are excluded from auto-commit
 
 ### Configuration
 
-- Master switch: `retrospective.enabled` (if `false`, Stage 6 writes minimal "skipped" summary)
-- Transcript analysis: `retrospective.transcript_analysis.*` (enabled, transcript_dir, extraction caps)
-- Section toggles: `retrospective.sections.*` (timeline, what_worked, what_didnt_work, etc.)
-- Auto-commit: `auto_commit.message_templates.retrospective` + exclude patterns for report card and transcript extract
+- Retrospective is always enabled; transcript analysis is profile-controlled via `features.retrospective_transcript`
+- Auto-commit: exclude patterns for report card and transcript extract are hardcoded in orchestrator-loop.md
 
 ## Dev-Skills Integration
 
@@ -173,7 +172,7 @@ The orchestrator NEVER reads or references dev-skills. Skill knowledge is distri
 1. **Stage 1** (inline) detects technology domains from task file paths and plan.md content → writes `detected_domains` to summary
 2. **Stage 2** coordinator reads `detected_domains`, selects a vertical agent type (`android-developer`, `frontend-developer`, `backend-developer`, or generic `developer`) via priority-ordered matching in Section 2.0
 3. **Vertical agents** have domain skills baked into their `.md` files with progressive disclosure protocol (read first 50 lines for decision framework, grep+targeted read on-demand)
-4. **Stage 4** coordinator resolves conditional reviewers (e.g., accessibility for UI projects) from `dev_skills.conditional_review` config — triggers extra reviewer agent dispatches
+4. **Stage 4** coordinator resolves conditional reviewers (e.g., accessibility for UI projects) from `profile-definitions.yaml` conditional_review entries — triggers extra reviewer agent dispatches
 5. **Tech-writer** and **test-writer** agents have static documentation/testing skills baked in — no coordinator skill injection needed
 
 ### Key Constraints
@@ -182,7 +181,7 @@ The orchestrator NEVER reads or references dev-skills. Skill knowledge is distri
 - **Shared core** — all developer-family agents (developer, android-developer, frontend-developer, backend-developer, debugger) read `references/developer-core-instructions.md` for shared engineering process, quality standards, and verification rules
 - **Codebase conventions take precedence** — CLAUDE.md and constitution.md override skill guidance
 - **Graceful degradation** — if dev-skills not installed, agents proceed without domain skills (no runtime failure)
-- **Config-driven selection** — vertical agent mapping and domain indicators live in `config/implementation-config.yaml` under `dev_skills`
+- **Profile-definitions-driven selection** — vertical agent mapping and domain indicators live in `config/profile-definitions.yaml`; dev-skills integration is always enabled (profile controls depth of usage)
 - **Task-level debugger override** — within a phase, tasks with debugging indicators dispatch `debugger` agent instead of the vertical developer
 - **Test level split** — unit tests (UT-*) dispatch `test-writer`, e2e/integration tests (E2E-*/INT-*) dispatch `integration-test-writer`
 
@@ -197,11 +196,11 @@ The orchestrator NEVER reads or references dev-skills. Skill knowledge is distri
 
 ### Domain Detection Indicators
 
-Domain indicators (file extensions, framework keywords) are defined in `config/implementation-config.yaml` under `dev_skills.domain_mapping`. Currently supported: `kotlin`, `compose`, `android`, `kotlin_async`, `web_frontend`, `api`, `database`, `gradle`.
+Domain indicators (file extensions, framework keywords) are defined in `config/profile-definitions.yaml` under `domain_mapping`. Currently supported: `kotlin`, `compose`, `android`, `kotlin_async`, `web_frontend`, `api`, `database`, `gradle`.
 
 ### Conditional Quality Reviewers
 
-Stage 4 can launch additional reviewer agents beyond the base 3 when `detected_domains` match entries in `dev_skills.conditional_review`. Example: `web_frontend` triggers an accessibility reviewer using `accessibility-auditor` skill.
+Stage 4 can launch additional reviewer agents beyond the base 3 when `detected_domains` match entries in `profile-definitions.yaml` under `conditional_review`. Example: `web_frontend` triggers an accessibility reviewer using `accessibility-auditor` skill.
 
 ## Ralph Loop Integration (Autonomous Execution)
 
@@ -212,14 +211,14 @@ When invoked via `/product-implementation:ralph-implement`, the implement skill 
 Ralph wraps the implement skill invocation (outer loop). The skill's checkpoint-based resume handles cross-iteration state persistence. Each ralph iteration gets a fresh context window.
 
 1. **Stage 1** (inline) Section 1.0b detects `.claude/ralph-loop.local.md` → sets `ralph_mode: true`
-2. **Orchestrator** AskUserQuestion guard auto-resolves all user prompts via autonomy policy
+2. **Orchestrator** AskUserQuestion guard auto-resolves all user prompts (always `auto` autonomy in ralph mode)
 3. **Stall detection** compares state fingerprints across iterations; writes `.implementation-blockers.local.md` if stuck
 4. **Completion signal**: `<promise>IMPLEMENTATION COMPLETE</promise>` after Stage 6
 
 ### Key Constraints
 
 - **No user interaction**: ALL `AskUserQuestion` calls intercepted — auto-resolved with `[AUTO-ralph]` prefix
-- **Pre-seeded config required**: `quality_preset`, `autonomy_policy.default_level`, `external_models` must be non-null (setup script applies `pre_seed_defaults` if needed)
+- **Pre-seeded config required**: `profile` and `autonomy` must be set in `config/implementation-config.yaml` (setup script applies `ralph.default_profile` if needed)
 - **Project setup skipped**: Section 1.5b requires interactive category selection — skipped in ralph mode
 - **Crash recovery**: Retry once then continue (never abort, never ask user)
 - **Graduated stall response**: 4-level progressive response (warn → write blockers → scope reduce/skip → halt). Configurable: `graduated` (default), `write_blockers` (legacy), `halt` (legacy)
@@ -232,17 +231,17 @@ Ralph wraps the implement skill invocation (outer loop). The skill's checkpoint-
 ### Configuration
 
 - Master switch: `ralph_loop.enabled`
+- Default profile for ralph: `ralph.default_profile` (single field — replaces legacy three-field pre-seed)
 - Iteration budget: `ralph_loop.iteration_budget.*` (per_phase_multiplier, stage budgets, safety margin)
 - Circuit breaker: `ralph_loop.circuit_breaker.*` (no_progress_threshold, stall_action, graduated_levels, output_decline_threshold, rate_limit_backoff_seconds, rate_limit_patterns, timeout_patterns)
 - Plan mutability: `ralph_loop.plan_mutability.*` (enabled, annotation_format, skip_blocked_phases)
 - Status file: `ralph_loop.status_file.*` (enabled, filename)
 - Completion promise: `ralph_loop.completion_promise`
-- Pre-seed defaults: `ralph_loop.pre_seed_defaults.*` (quality_preset, autonomy_policy, external_models)
-- Blockers excluded from auto-commit: `.implementation-blockers` pattern in `auto_commit.exclude_patterns`
-- Status file excluded from auto-commit: `.implementation-ralph-status` pattern in `auto_commit.exclude_patterns`
+- Blockers excluded from auto-commit: `.implementation-blockers` pattern
+- Status file excluded from auto-commit: `.implementation-ralph-status` pattern
 - Cross-iteration learnings (`ralph_loop.learnings.enabled` in config, default `true`) capture fail→succeed deltas as operational learnings in `{FEATURE_DIR}/.implementation-learnings.local.md`. Stage 1 Section 1.0c reads the file and injects up to 10 recent entries into the summary. FIFO-capped at `max_entries` (default 20). Excluded from auto-commit (`.implementation-learnings` pattern).
 - SAFE_ASK_USER (`orchestrator-loop.md` Helper) wraps all interactive AskUserQuestion calls with empty response validation (race condition with SessionStart hooks), option matching, and text-based fallback. Used by orchestrator needs-user-input relay, crash recovery, and Stage 1 inline calls (Sections 1.1, 1.5b, 1.9a, 1.9b). Bypassed entirely in ralph mode — the auto-resolve guard intercepts before SAFE_ASK_USER is reached. Ported from product-planning v1.3.0 post-mortem fix.
-- Coordinator summary minimum content check (`orchestrator.min_summary_bytes` in config, default `50`) treats coordinator summaries smaller than the threshold as degraded output, triggering crash recovery. Prevents 0-byte or trivially short outputs from being accepted as valid summaries.
+- Coordinator summary minimum content check (threshold hardcoded in orchestrator-loop.md, default 50 bytes) treats coordinator summaries smaller than the threshold as degraded output, triggering crash recovery. Prevents 0-byte or trivially short outputs from being accepted as valid summaries.
 - Per-phase dispatch deduplication guard (`orchestrator-loop.md` Late Agent Notifications) prevents crash-recovery retries from racing with slow original dispatches in per-phase mode. Checks if the expected summary file was already written after the dispatch attempt started.
 
 ## UAT Mobile Testing Integration
@@ -260,7 +259,7 @@ The orchestrator NEVER touches UAT, mobile-mcp, or Figma. All logic lives in:
 
 ### Engine Strategy
 
-User selects at Stage 1 (or pre-configures in `uat_execution.engine_strategy`):
+User selects at Stage 1 (or pre-configures via `uat_execution.engine_strategy` in `config/implementation-config.yaml`):
 
 | Strategy | Per-Phase | Full-Sweep | Use Case |
 |----------|-----------|------------|----------|
@@ -272,7 +271,7 @@ All strategies include automatic fallback: if CLI fails, fall back to Claude sub
 
 ### Key Constraints
 
-- **3 conditional gates**: `uat_execution.enabled` + `mobile_mcp_available` + phase has UAT specs or UI files — ANY false → skip. Claude subagent is always available, so CLI availability is not a gate.
+- **3 conditional gates**: profile feature flag `features.uat` + `mobile_mcp_available` + phase has UAT specs or UI files — ANY false → skip. Claude subagent is always available, so CLI availability is not a gate.
 - **Figma pre-export**: Reference PNGs exported via Figma REST API in Stage 1b (not runtime figma-console-mcp). Deterministic across phases.
 - **Severity gating (policy-aware)**: Critical/high handled per autonomy policy. Medium/low logged as warnings without blocking.
 - **Evidence stored**: Screenshots saved to `{FEATURE_DIR}/.uat-evidence/{phase_name}/` for traceability
@@ -282,14 +281,11 @@ All strategies include automatic fallback: if CLI fails, fall back to Claude sub
 
 ### Configuration
 
-- Master switch: `uat_execution.enabled`
-- Engine strategy: `uat_execution.engine_strategy` (`cli_only` | `hybrid` | `subagent_only` | null=ask)
+- UAT enablement: profile feature flag `features.uat` (resolved in Stage 1b from profile)
+- Engine strategy: `uat_execution.engine_strategy` in `config/implementation-config.yaml` (`cli_only` | `hybrid` | `subagent_only` | null=ask)
 - CLI engine: `uat_execution.cli_engine` (`codex` | `gemini`)
 - Figma references: `uat_execution.figma_references.*` (file_key, page_name, scale)
-- Severity gating: `uat_execution.severity_gating` (block_on / warn_on)
-- Gradle build: `uat_execution.gradle_build` (command, apk_search_pattern, timeout)
-- MCP tool budgets: `cli_dispatch.mcp_tool_budgets.per_cli_dispatch.mobile_mcp` and `.figma`
-- Emulator/install: `uat_execution.emulator` and `uat_execution.apk_install`
+- Severity gating, gradle build, emulator/install: operational constants hardcoded in stage-2 reference file
 
 ## CLI Instruction File Management
 
@@ -313,9 +309,8 @@ Managed sections in AGENTS.md/GEMINI.md are delimited by `<!-- pi-codex-begin/en
 
 ### Configuration
 
-- Master switch: `cli_dispatch.cli_instruction_files.enabled` (default: `true`)
-- Per-file toggles: `agents_md.enabled`, `gemini_md.enabled`
-- Shared content source and CLI-specific content source paths in config
+- Instruction file management is always enabled; per-file toggles (`agents_md.enabled`, `gemini_md.enabled`) are operational constants in stage-1b reference file
+- Shared content source paths live in `config/cli_clients/shared/` (not user-configurable)
 
 ### Key Constraints
 
@@ -331,12 +326,14 @@ Defense-in-depth mechanisms to prevent LLM compliance degradation where the orch
 
 ### Non-Overridable Gates
 
-Five gates in `config/implementation-config.yaml` under `non_overridable_gates` that cannot be disabled by autonomy policy or full_auto mode:
+Five gates hardcoded in `orchestrator-loop.md` that cannot be disabled by any profile or autonomy setting:
 - `sequential_phase_execution` — phases must run one-at-a-time, never in parallel
 - `coordinator_mediated_dispatch` — all agents dispatch through coordinators, never directly from orchestrator
 - `protocol_evidence_required` — Stages 2, 3, 4 must include `protocol_evidence` in summaries
 - `app_launch_gate` — build+install+launch when emulator available (build failure blocks Stage 3)
 - `prompt_template_usage` — agents must use templates from `agent-prompts.md`
+
+These gates cannot be disabled by profile or autonomy settings.
 
 ### Protocol Evidence in Summaries
 
@@ -379,6 +376,6 @@ Rule: "N/A ≠ GREEN" — any KPI marked N/A when tooling was available is a RED
 
 ### Configuration
 
-- Non-overridable gates: `config/implementation-config.yaml` under `non_overridable_gates`
+- Non-overridable gates: hardcoded in `orchestrator-loop.md` (not in config — intentionally inviolable)
 - Prompt registry: `references/prompt-registry.yaml` (machine-readable template lookup)
 - Critical Rules 13-15 in `SKILL.md` (no direct dispatch, sequential phases, prompt templates)

@@ -13,9 +13,8 @@ The skill will automatically:
 4. Handle failures via the configured autonomy policy
 
 ## Pre-configured Settings
-- Quality preset: {quality_preset}
-- Autonomy policy: {autonomy_policy}
-- External models: {external_models}
+- Profile: {profile}
+- Autonomy: auto (always auto in ralph mode)
 
 ## Feature Context
 - Feature: {feature_name}

@@ -5,7 +5,7 @@
 
 ## Dispatch Loop
 
-1. **Read state**: Read `{FEATURE_DIR}/.implementation-state.local.md`. If `state.version < 3`, migrate (see Migration below).
+1. **Read state**: Read `{FEATURE_DIR}/.implementation-state.local.md`. If `state.version < 4`, migrate (see Migration below).
 
 1a. **Top-of-loop stall check** (ralph mode only): If `state.orchestrator.ralph_mode` is `true`:
     ```
@@ -23,7 +23,7 @@
     ```
     This catches stalls where the orchestrator never reaches a coordinator dispatch (e.g., state file corruption, config error). The end-of-phase check (step 5i) updates the fingerprint again after progress is made.
 
-2. **Read config**: Read `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`. Build `dispatch_table` from SKILL.md Stage Dispatch Table. Read `per_phase_review` section.
+2. **Build dispatch table**: Build `dispatch_table` from SKILL.md Stage Dispatch Table. All runtime configuration is read from the Stage 1 summary — no config file reads at this step.
 
 3. **Stage 1** (1a inline + 1b coordinator): If `state.stage_summaries["1"]` is null:
    a. **Stage 1a** (inline): Execute Stage 1a inline per `stage-1-setup.md`. Write partial summary to `{FEATURE_DIR}/.stage-summaries/stage-1a-partial.md`. This covers: branch parsing, file existence, context loading, tasks validation, lock acquisition, state initialization.
@@ -34,11 +34,36 @@
 
 3a. **Validate Stage 1 Summary**: Read Stage 1 summary. Call `VALIDATE_STAGE1_SUMMARY(summary)`. This is a fail-closed gate — missing probe fields cause HALT (not silent skip). See Helper: Validate Stage 1 Summary.
 
-4. **Determine dispatch mode**: Read `per_phase_review.enabled` from config (default: `true`).
+3b. **Probe Availability Check** (interactive mode only):
+    After Stage 1 summary validation, check if enabled features have their required probes available.
+    In quick profile or ralph mode, skip silently (no user prompt).
+
+    IF summary.features.figma_parity == true AND summary.figma_available == false AND NOT ralph_mode AND summary.profile != "quick":
+      answer = SAFE_ASK_USER("Figma Desktop Bridge not connected. Design parity requires Figma.",
+        [{label: "Retry (I connected Figma)"}, {label: "Skip Figma checks for this run"}])
+      IF answer CONTAINS "Retry":
+        Call figma_get_status inline
+        IF connected: update summary.figma_available = true
+        ELSE: override summary.features.figma_parity = false
+      IF answer CONTAINS "Skip":
+        Override summary.features.figma_parity = false for this run
+
+    IF summary.features.uat_execution == true AND summary.mobile_mcp_available == false AND NOT ralph_mode AND summary.profile != "quick":
+      answer = SAFE_ASK_USER("No emulator detected. UAT and app launch gate require an emulator.",
+        [{label: "Retry (I started the emulator)"}, {label: "Skip UAT for this run"}])
+      IF answer CONTAINS "Retry":
+        Call mobile_list_available_devices inline
+        IF available: update summary.mobile_mcp_available = true, store device name
+        ELSE: override summary.features.uat_execution = false, summary.features.app_launch_gate = false
+      IF answer CONTAINS "Skip":
+        Override summary.features.uat_execution = false
+        Override summary.features.app_launch_gate = false
+
+4. **Determine dispatch mode**: Read `features.per_phase_review` from Stage 1 summary (default: `true`).
    - If `true` → execute **Phase Loop** (step 5)
    - If `false` → execute **Linear Mode** (step 5L)
 
-### Phase Loop (default — per_phase_review.enabled: true)
+### Phase Loop (default — features.per_phase_review: true)
 
 5. **Phase Loop**: For each phase in `state.phases_remaining` (in order):
 
@@ -52,20 +77,23 @@
 
    b2. **Verify Non-Skippable Gates**: Call `VERIFY_NON_SKIPPABLE_GATES(phase, stage2_summary, stage1_summary)`. This checks that gates like UAT actually ran when their prerequisites were met. See Helper: Verify Non-Skippable Gates.
 
-   c. **Stage 3** (per-phase, conditional): If `per_phase_review.s3_per_phase` is `true` AND `state.phase_stages[phase].s3` != `"completed"`:
+   c. **Stage 3** (per-phase, conditional): If `summary.features.per_phase_review` is `true` AND `state.phase_stages[phase].s3` != `"completed"`:
+      (S3 per-phase is always enabled when per_phase_review is on — hardcoded)
       - Set `state.phase_stages[phase].s3 = "in_progress"`. Write state.
       - `DISPATCH_COORDINATOR(stage=3, phase_scope=phase)`
       - `VALIDATE_AND_HANDLE("phase-{N}-stage-3-summary.md", stage=3, phase=phase)`
       - Set `state.phase_stages[phase].s3 = "completed"`
 
-   d. **Stage 4** (per-phase, conditional): If `per_phase_review.s4_per_phase` is `true` AND `state.phase_stages[phase].s4` != `"completed"`:
+   d. **Stage 4** (per-phase, conditional): If `summary.features.per_phase_review` is `true` AND `state.phase_stages[phase].s4` != `"completed"`:
+      (S4 per-phase is always enabled when per_phase_review is on — hardcoded; S4 UI-only flag is always false)
       - Set `state.phase_stages[phase].s4 = "in_progress"`. Write state.
       - `DISPATCH_COORDINATOR(stage=4, phase_scope=phase)`
       - `VALIDATE_AND_HANDLE("phase-{N}-stage-4-summary.md", stage=4, phase=phase)`
       - If S4 review requests fixes → re-dispatch S2 for same phase (fix loop), then re-run S3+S4
       - Set `state.phase_stages[phase].s4 = "completed"`
 
-   e. **Stage 5** (per-phase, conditional): If `per_phase_review.s5_per_phase` is `true` AND `state.phase_stages[phase].s5` != `"completed"`:
+   e. **Stage 5** (per-phase, conditional): If `summary.features.per_phase_review` is `true` AND `state.phase_stages[phase].s5` != `"completed"`:
+      (S5 per-phase is always enabled when per_phase_review is on — hardcoded; tier B/C per-phase are always false)
       - Set `state.phase_stages[phase].s5 = "in_progress"`. Write state.
       - `DISPATCH_COORDINATOR(stage=5, phase_scope=phase)`
       - `VALIDATE_AND_HANDLE("phase-{N}-stage-5-summary.md", stage=5, phase=phase)`
@@ -74,7 +102,7 @@
    f. Move phase from `phases_remaining` to `phases_completed`. Set `state.current_phase = null`.
       If `state.orchestrator.ralph_mode` is `true`: reset `ralph_same_error_count = 0`, `ralph_last_error = null` (phase success clears error accumulator).
 
-   f2. **Vertical Slice Checkpoint** (conditional): If `per_phase_review.vertical_slice_checkpoint.enabled` is `true` AND phase name contains `config.per_phase_review.vertical_slice_checkpoint.phase_keyword` (case-insensitive):
+   f2. **Vertical Slice Checkpoint** (conditional): Always enabled — if phase name contains `"vertical slice"` (case-insensitive):
       - **Interactive mode**: Call `SAFE_ASK_USER` with the configured `prompt_message` and options:
         `[{label: "Verified — continue"}, {label: "Issues found — abort"}]`
         If user selects "abort": `RELEASE_LOCK` and HALT.
@@ -82,11 +110,11 @@
 
    g. **Auto-Commit Phase**: Follow auto-commit dispatch procedure (`auto-commit-dispatch.md`) with `template_key=phase_complete`, `substitution_vars={feature_name=FEATURE_NAME, phase_name=current_phase_name}`, `skip_target=next phase`, `summary_field=append to commits_made`.
 
-   g2. **App Launch Gate** (conditional): If `config.app_launch_gate.enabled` is `true` AND `phase_index >= config.app_launch_gate.trigger_from_phase_index`:
+   g2. **App Launch Gate** (conditional): If `summary.features.app_launch_gate` is `true` AND `phase_index >= 1`:
 
       This gate runs at ORCHESTRATOR level — not delegated to a coordinator. It catches broken builds that passing tests can miss.
 
-      1. **Build**: Determine build command from (in order): `config.app_launch_gate.build_command` → `stage1_summary.project_setup.build_command` → halt if none found.
+      1. **Build**: Determine build command from (in order): `stage1_summary.project_setup.build_command` → halt if none found.
          ```
          result = Bash(build_command)
          IF result.exit_code != 0:
@@ -104,7 +132,7 @@
 
       2. **Install + Launch** (only if `stage1_summary.mobile_mcp_available == true`):
          ```
-         package_name = config.app_launch_gate.package_name OR EXTRACT_FROM(plan.md, "applicationId")
+         package_name = EXTRACT_FROM(plan.md, "applicationId")
          IF package_name IS NULL:
            LOG "[{timestamp}] App launch gate: cannot determine package name — skipping install/launch"
            SKIP step 3
@@ -113,7 +141,7 @@
          WAIT 5 seconds  # Allow app to render
          ```
 
-      3. **Screenshot**: Save screenshot to `{FEATURE_DIR}/{config.app_launch_gate.screenshot_dir}/phase-{phase_index}-launch.png`
+      3. **Screenshot**: Save screenshot to `{FEATURE_DIR}/.uat-evidence/launch-gate/phase-{phase_index}-launch.png`
          ```
          screenshot = mobile_take_screenshot()  # or equivalent mobile-mcp tool
          WRITE screenshot to evidence directory
@@ -133,7 +161,7 @@
 
    h. Update `state.last_checkpoint`. Write state. If `state.orchestrator.ralph_mode` is `true`: `WRITE_STATUS_FILE(state, "phase {phase} checkpoint")`.
 
-   i. **Stall Detection** (ralph mode only): If `state.orchestrator.ralph_mode` is `true` AND `config.ralph_loop.circuit_breaker` exists:
+   i. **Stall Detection** (ralph mode only): If `state.orchestrator.ralph_mode` is `true`:
       ```
       current_fingerprint = HASH(state.current_stage, state.current_phase,
                                   len(state.phases_completed), state.phase_stages)
@@ -152,13 +180,13 @@
 
 6. **Final Passes** (after all phases complete):
 
-   a. **Final Review Pass** (optional): If `per_phase_review.final_review_pass` is `true`:
+   a. **Final Review Pass** (optional): Always enabled (hardcoded: final_review_pass=true):
       - `DISPATCH_COORDINATOR(stage=3, phase_scope=null)` → writes `final-stage-3-summary.md`
       - `VALIDATE_AND_HANDLE("final-stage-3-summary.md", stage=3, phase=null)`
       - `DISPATCH_COORDINATOR(stage=4, phase_scope=null)` → writes `final-stage-4-summary.md`
       - `VALIDATE_AND_HANDLE("final-stage-4-summary.md", stage=4, phase=null)`
 
-   b. **Final Documentation Pass**: If `per_phase_review.final_docs_pass` is `true`:
+   b. **Final Documentation Pass**: Always enabled (hardcoded: final_docs_pass=true):
       - `DISPATCH_COORDINATOR(stage=5, phase_scope=null)` → writes `final-stage-5-summary.md`
       - `VALIDATE_AND_HANDLE("final-stage-5-summary.md", stage=5, phase=null)`
       - Lock release happens inside Stage 5 coordinator (same as current behavior)
@@ -168,11 +196,11 @@
    d. **Ralph Completion Signal** (ralph mode only): If `state.orchestrator.ralph_mode` is `true` AND Stage 6 summary status is `"completed"`:
       - Output the completion promise tag so the ralph-loop Stop Hook detects it:
         ```
-        <promise>{config.ralph_loop.completion_promise}</promise>
+        <promise>IMPLEMENTATION COMPLETE</promise>
         ```
       - The Stop Hook will read this from the transcript and allow the session to exit
 
-### Linear Mode (per_phase_review.enabled: false — backward compatible)
+### Linear Mode (features.per_phase_review: false — backward compatible)
 
 5L. **Iterate stages** (2 through 6): For each stage, execute steps 6L-8L. This restores the original behavior where S2 processes all phases, then S3/S4/S5 run once across the entire implementation.
 
@@ -182,14 +210,14 @@
 
 8L. **Validate and handle**: `VALIDATE_AND_HANDLE("stage-{N}-summary.md", stage=stage, phase=null)`. Update `state.stage_summaries[stage]`. Set `state.current_stage = next_stage`.
 
-8La. **Stall Detection** (linear mode, ralph mode only): If `state.orchestrator.ralph_mode` is `true` AND `config.ralph_loop.circuit_breaker` exists:
+8La. **Stall Detection** (linear mode, ralph mode only): If `state.orchestrator.ralph_mode` is `true`:
       ```
       current_fingerprint = HASH(state.current_stage, len(state.stage_summaries), state.orchestrator.coordinator_failures)
       # Same comparison logic as step 5i (fingerprint match → increment stall count → APPLY_GRADUATED_STALL_RESPONSE)
       WRITE_STATUS_FILE(state, "linear mode stage completion")
       ```
 
-9L. **Ralph Completion Signal** (linear mode, ralph mode only): After Stage 6 completes, if `state.orchestrator.ralph_mode` is `true`, output `<promise>{config.ralph_loop.completion_promise}</promise>`.
+9L. **Ralph Completion Signal** (linear mode, ralph mode only): After Stage 6 completes, if `state.orchestrator.ralph_mode` is `true`, output `<promise>IMPLEMENTATION COMPLETE</promise>`.
 
 ### Shared: VALIDATE_AND_HANDLE
 
@@ -207,13 +235,13 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
     previous_length = state.orchestrator.ralph_last_summary_lengths[length_key] OR null
     IF previous_length IS NOT NULL AND previous_length > 0:
       ratio = current_length / previous_length
-      IF ratio < config.ralph_loop.circuit_breaker.output_decline_threshold:
+      IF ratio < 0.3:  # output_decline_threshold (hardcoded)
         state.orchestrator.ralph_stall_count += 1
         LOG "[{timestamp}] Ralph output decline (stage {stage}): summary shrank from {previous_length} to {current_length} chars (ratio {ratio})"
     state.orchestrator.ralph_last_summary_lengths[length_key] = current_length
 
   # Validate summary content minimum (I2: ported from planning 0-byte output fix)
-  IF summary_file exists AND LEN(summary) < config.orchestrator.min_summary_bytes (default: 50):
+  IF summary_file exists AND LEN(summary) < 50:  # min_summary_bytes (hardcoded)
     LOG warning: "Coordinator summary trivially small ({LEN(summary)} bytes < {min_summary_bytes}) — treating as degraded"
     SET summary.status = "degraded"
     state.orchestrator.coordinator_failures += 1
@@ -230,7 +258,7 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
   # Cumulative failure check
   IF status=failed OR degraded:
     state.orchestrator.coordinator_failures += 1
-    IF coordinator_failures >= config.orchestrator.max_coordinator_failures (default: 3):
+    IF coordinator_failures >= 3:  # max_coordinator_failures (hardcoded)
       HALT: "Cumulative coordinator failures ({N}) exceeded threshold."
 
   # Protocol compliance verification with remediation (v3.5.0)
@@ -273,7 +301,7 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
       IF question MATCHES_ANY("validation", "check failed", "spec alignment", "coverage", "test count"):
         answer = "proceed"           # Stage 3 validation outcomes
       ELIF question MATCHES_ANY("review", "finding", "fix", "severity", "critical", "high"):
-        answer = "fix"               # Stage 4 review findings — full_auto default; policy already resolved critical/high
+        answer = "fix"               # Stage 4 review findings — auto default; policy already resolved critical/high
       ELIF question MATCHES_ANY("documentation", "doc", "tech-writer", "incomplete"):
         answer = "complete"          # Stage 5 documentation decisions
       ELIF question MATCHES_ANY("infrastructure", "timeout", "unreachable", "CLI", "dispatch failed"):
@@ -298,13 +326,13 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
     # --- Ralph Mode Rate Limit / Timeout Exemption (T2-8) ---
     IF state.orchestrator.ralph_mode == true:
       raw_error_lower = LOWERCASE(summary.flags.block_reason OR summary.summary OR "unknown error")
-      rate_limit_patterns = config.ralph_loop.circuit_breaker.rate_limit_patterns
-      timeout_patterns = config.ralph_loop.circuit_breaker.timeout_patterns
+      rate_limit_patterns = ["rate_limit", "429", "too many requests", "overloaded", "at capacity", "over capacity"]
+      timeout_patterns = ["timeout", "timed out", "ETIMEDOUT"]
       IF raw_error_lower MATCHES_ANY(rate_limit_patterns) OR raw_error_lower MATCHES_ANY(timeout_patterns):
         state.orchestrator.ralph_rate_limit_count += 1
         tag = "[RATE-LIMIT]" IF MATCHES_ANY(rate_limit_patterns) ELSE "[TIMEOUT]"
-        LOG "[{timestamp}] {tag} Rate limit/timeout detected — exempt from stall counting. Backing off {config.ralph_loop.circuit_breaker.rate_limit_backoff_seconds}s"
-        WAIT config.ralph_loop.circuit_breaker.rate_limit_backoff_seconds
+        LOG "[{timestamp}] {tag} Rate limit/timeout detected — exempt from stall counting. Backing off 60s"
+        WAIT 60  # rate_limit_backoff_seconds (hardcoded)
         RETRY stage once
         WRITE_STATUS_FILE(state, "rate limit backoff retry")
         WRITE state
@@ -322,7 +350,7 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
 
       IF normalized_error == state.orchestrator.ralph_last_error:
         state.orchestrator.ralph_same_error_count += 1
-        IF ralph_same_error_count >= config.ralph_loop.circuit_breaker.same_error_threshold:
+        IF ralph_same_error_count >= 5:  # same_error_threshold (hardcoded)
           LOG "[{timestamp}] Ralph same-error stall: {ralph_same_error_count} iterations with error: {normalized_error}"
           APPLY_GRADUATED_STALL_RESPONSE(ralph_same_error_count)
       ELSE:
@@ -332,7 +360,7 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
 
       # In ralph mode: retry once, then continue (never ask, never abort)
       RETRY stage once
-      IF retry succeeded AND config.ralph_loop.learnings.enabled:
+      IF retry succeeded:
         APPEND_LEARNING(category="error", learning="Stage {stage} Phase {phase}: failed with '{normalized_error}', succeeded on retry")
       IF still failed:
         LOG "[{timestamp}] [AUTO-ralph] Stage {stage} failed after retry — continuing with degraded summary"
@@ -357,7 +385,7 @@ FUNCTION VALIDATE_AND_HANDLE(summary_path, stage, phase):
       IF test_signature == state.orchestrator.ralph_last_test_signature:
         state.orchestrator.ralph_test_stall_count += 1
         LOG "[{timestamp}] Ralph test-result stall: same {LEN(failing_tests)} test(s) failing for {ralph_test_stall_count} iterations"
-        IF ralph_test_stall_count >= config.ralph_loop.circuit_breaker.same_error_threshold:
+        IF ralph_test_stall_count >= 5:  # same_error_threshold (hardcoded)
           APPLY_GRADUATED_STALL_RESPONSE(ralph_test_stall_count)
       ELSE:
         state.orchestrator.ralph_test_stall_count = 1  # new failure set
@@ -396,7 +424,7 @@ FUNCTION DISPATCH_COORDINATOR(stage, phase_scope=null, continuation_mode=false):
 
   # Context Pack (if enabled)
   context_pack = ""
-  IF config.context_protocol.enabled:
+  IF stage1_summary.features.context_protocol:
     decisions = []
     open_issues = []
     risk_signals = []
@@ -409,23 +437,23 @@ FUNCTION DISPATCH_COORDINATOR(stage, phase_scope=null, continuation_mode=false):
         open_issues += contributions.open_issues OR []
         risk_signals += contributions.risk_signals OR []
 
-    # Sort by priority using config-driven strategies, truncate to budget
+    # Sort by priority using hardcoded strategies, truncate to budget
+    # Budgets (hardcoded): decisions=250 tokens, open_issues=200 tokens, risk_signals=150 tokens
     FOR EACH category IN [decisions, open_issues, risk_signals]:
-      strategy = config.context_protocol.truncation_strategies[category]
-      budget = config.context_protocol.category_budgets[category]
-      items[category] = APPLY_STRATEGY(items[category], strategy, budget)
-      # Strategies: "keep_high_confidence_first" → SORT by confidence DESC
-      #             "keep_highest_severity_first" → SORT by severity DESC
+      # decisions → keep_high_confidence_first (SORT by confidence DESC)
+      # open_issues/risk_signals → keep_highest_severity_first (SORT by severity DESC)
+      budgets = {decisions: 250, open_issues: 200, risk_signals: 150}
+      items[category] = APPLY_STRATEGY(items[category], budgets[category])
 
     IF any non-empty:
       context_pack = FORMAT as "## Accumulated Context Pack" with 3 subsections
 
-    # Post-formatting validation: approximate total token count
+    # Post-formatting validation: approximate total token count (budget: 600 tokens hardcoded)
     total_chars = len(context_pack)
     approx_tokens = total_chars / 4
-    IF approx_tokens > config.context_protocol.total_budget_tokens:
+    IF approx_tokens > 600:
       # Truncate lowest-priority items until within budget
-      WHILE approx_tokens > config.context_protocol.total_budget_tokens:
+      WHILE approx_tokens > 600:
         REMOVE last item from lowest-priority category (risk_signals → open_issues → decisions)
         REFORMAT context_pack
         approx_tokens = len(context_pack) / 4
@@ -468,8 +496,8 @@ FUNCTION DISPATCH_COORDINATOR(stage, phase_scope=null, continuation_mode=false):
     3. Write stage summary to: {FEATURE_DIR}/.stage-summaries/{summary_path}
     4. Use summary template: $CLAUDE_PLUGIN_ROOT/templates/stage-summary-template.md
     5. Do NOT interact with the user. If input needed, set status: needs-user-input.
-    6. IF context_protocol enabled, include `context_contributions` in summary flags
-       with any new key_decisions, open_issues, or risk_signals from this stage.
+    6. IF stage1_summary.features.context_protocol is true, include `context_contributions`
+       in summary flags with any new key_decisions, open_issues, or risk_signals from this stage.
     7. On unrecoverable error, write last line as: COORDINATOR_ERROR: {description}
     8. CLI DISPATCH: For ALL multi-model analysis (code review, test authoring,
        documentation generation), use ONLY `dispatch-cli-agent.sh` via Bash().
@@ -542,22 +570,22 @@ FUNCTION CRASH_RECOVERY(stage):
   # Track cumulative failures
   SET state.orchestrator.coordinator_failures += 1
 
-  policy = READ autonomy_policy from Stage 1 summary (or null if Stage 1 not yet complete)
+  policy = READ autonomy from Stage 1 summary (or null if Stage 1 not yet complete)
 
   # --- Ralph Mode Guard (crash recovery) ---
   IF state.orchestrator.ralph_mode == true:
     RETRY stage once
-    IF retry produced summary AND config.ralph_loop.learnings.enabled:
+    IF retry produced summary:
       APPEND_LEARNING(category="error", learning="Stage {stage}: crash recovery succeeded on retry (coordinator produced no output initially)")
     IF still no summary:
       LOG "[{timestamp}] [AUTO-ralph] Crash recovery: coordinator produced no output after retry — continuing with degraded summary"
       CONTINUE with degraded summary  # ralph loop will detect stall if this persists
   # --- End Ralph Mode Guard (crash recovery) ---
 
-  infra_action = LOOKUP policy infrastructure action from config (autonomy_policy.levels.{policy}.infrastructure)
-  IF infra_action == "retry_then_continue": RETRY stage once; if still no summary, continue with degraded summary
-  ELIF infra_action == "retry_then_ask": RETRY stage once; if still no summary, SAFE_ASK_USER("Coordinator failed after retry. How to proceed?", [{label: "Retry"}, {label: "Continue"}, {label: "Abort"}])
-  ELSE: SAFE_ASK_USER("Coordinator produced no output. How to proceed?", [{label: "Retry stage"}, {label: "Continue with degraded summary"}, {label: "Abort"}])
+  # Both autonomy levels use retry_then_continue for infrastructure failures
+  RETRY stage once; if still no summary:
+    IF policy == "auto": continue with degraded summary
+    ELSE: SAFE_ASK_USER("Coordinator failed after retry. How to proceed?", [{label: "Retry"}, {label: "Continue"}, {label: "Abort"}])
   IF user chooses "Abort": RELEASE_LOCK and HALT
 ```
 
@@ -637,6 +665,29 @@ ON resume, IF state.version == 2:
 
 Non-breaking: all existing fields are preserved. Orchestrator continues from last checkpoint. v1 sessions migrate through v2 to v3 (chain: v1→v2→v3).
 
+### v3-to-v4
+
+```
+ON resume, IF state.version == 3:
+  1. MAP quality_preset → profile:
+     - "minimal" → "quick"
+     - "standard" → "standard"
+     - "comprehensive" → "thorough"
+  2. MAP autonomy_policy → autonomy:
+     - "full_auto" → "auto"
+     - "balanced" → "interactive"
+     - "critical_only" → "interactive"
+  3. REMOVE fields: external_models, resolved_quality_config, quality_preset, autonomy_policy
+  4. SET version: 4
+  5. WRITE updated state
+  6. LOG "Migrated state file from v3 to v4"
+
+  # Note: Stage 1 summary is NOT migrated — it will be re-generated on next
+  # Stage 1 execution. The state migration allows resume from any checkpoint.
+```
+
+Non-breaking: v1 sessions migrate through the chain v1→v2→v3→v4.
+
 ## Lock Release
 
 ```
@@ -664,7 +715,7 @@ Required fields in every stage summary YAML:
 
 If validation fails, mark summary as degraded and SAFE_ASK_USER whether to retry, continue, or abort.
 
-Additionally, summaries smaller than `config.orchestrator.min_summary_bytes` (default: 50) are treated as degraded before field validation (see VALIDATE_AND_HANDLE minimum content check).
+Additionally, summaries smaller than 50 bytes (min_summary_bytes, hardcoded) are treated as degraded before field validation (see VALIDATE_AND_HANDLE minimum content check).
 
 ## Late Agent Notifications
 
@@ -750,22 +801,19 @@ FUNCTION SAFE_ASK_USER(question, options, max_retries=2, confirm_irreversible=fa
 FUNCTION VALIDATE_STAGE1_SUMMARY(summary):
   # Fail-closed validation: missing probe fields indicate skipped sections (LLM compliance
   # degradation). HALT by default to prevent silent gate bypass.
-  # Only runs when config.stage1_validation.enabled is true.
-  IF NOT config.stage1_validation.enabled: RETURN
-
-  required = config.stage1_validation.required_fields
+  # Always enabled (hardcoded — no config gate).
   missing_fields = []
 
-  # Always-required fields
-  # NOTE: These fields are top-level YAML keys in the Stage 1 summary (NOT nested under flags).
-  # e.g., summary.detected_domains, summary.mobile_mcp_available, summary.autonomy_policy
-  FOR EACH field IN required.always:
+  # Always-required fields (top-level YAML keys in Stage 1 summary)
+  always_required = ["detected_domains", "profile", "autonomy", "features",
+                     "plugin_availability", "vertical_agent_type"]
+  FOR EACH field IN always_required:
     IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
       missing_fields += [field]
 
   # Conditional: UAT-related fields
-  IF config.uat_execution.enabled:
-    FOR EACH field IN required.when_uat_enabled:
+  IF summary.features.uat_execution == true:
+    FOR EACH field IN ["mobile_mcp_available"]:
       IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
         missing_fields += [field]
 
@@ -773,20 +821,20 @@ FUNCTION VALIDATE_STAGE1_SUMMARY(summary):
   ui_domains = ["compose", "android", "web_frontend"]
   detected = summary.detected_domains OR []
   has_ui_domains = ANY(domain IN ui_domains FOR domain IN detected)
-  IF config.figma.enabled AND has_ui_domains:
-    FOR EACH field IN required.when_figma_enabled:
+  IF summary.features.figma_parity == true AND has_ui_domains:
+    FOR EACH field IN ["figma_available"]:
       IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
         missing_fields += [field]
 
   # Conditional: CLI availability
-  IF summary.external_models == true:
-    FOR EACH field IN required.when_external_models:
+  IF summary.features.external_models == true:
+    FOR EACH field IN ["cli_availability"]:
       IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
         missing_fields += [field]
 
   # Conditional: Research MCP
-  IF config.research_mcp.enabled:
-    FOR EACH field IN required.when_research_mcp:
+  IF summary.features.research_mcp == true:
+    FOR EACH field IN ["mcp_availability"]:
       IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
         missing_fields += [field]
 
@@ -795,31 +843,25 @@ FUNCTION VALIDATE_STAGE1_SUMMARY(summary):
   # --- Missing fields detected ---
   LOG "[{timestamp}] STAGE 1 VALIDATION FAILED: Missing fields: {missing_fields}"
 
-  # Read gate_prerequisites policy from autonomy level
-  policy_level = summary.autonomy_policy OR "balanced"  # default to strictest if not set
-  gate_action = config.autonomy_policy.levels[policy_level].gate_prerequisites OR "halt"
-
-  IF gate_action == "halt":
+  # Determine action from mode (no config lookup)
+  IF state.orchestrator.ralph_mode == true:
     # Ralph mode: retry Stage 1 once, then halt
-    IF state.orchestrator.ralph_mode == true:
-      LOG "[{timestamp}] [AUTO-ralph] Stage 1 validation failed — retrying Stage 1 (1a inline + 1b coordinator)"
-      DELETE state.stage_summaries["1"]
-      DELETE partial summary if exists
-      RE-EXECUTE Stage 1a inline per stage-1-setup.md  # re-writes partial summary
-      RE-DISPATCH Stage 1b coordinator per stage-1b-probes.md  # re-writes full summary
-      RE-READ summary
-      # Re-validate after retry
-      missing_after_retry = VALIDATE_STAGE1_SUMMARY_CHECK(summary)  # same field check logic
-      IF missing_after_retry IS NOT EMPTY:
-        LOG "[{timestamp}] [AUTO-ralph] Stage 1 validation still failed after retry. Missing: {missing_after_retry}"
-        RELEASE_LOCK and HALT: "Stage 1 summary is missing required fields after retry: {missing_after_retry}. This indicates a structural problem — manual intervention required."
-      RETURN  # Retry succeeded
+    LOG "[{timestamp}] [AUTO-ralph] Stage 1 validation failed — retrying Stage 1 (1a inline + 1b coordinator)"
+    DELETE state.stage_summaries["1"]
+    DELETE partial summary if exists
+    RE-EXECUTE Stage 1a inline per stage-1-setup.md  # re-writes partial summary
+    RE-DISPATCH Stage 1b coordinator per stage-1b-probes.md  # re-writes full summary
+    RE-READ summary
+    # Re-validate after retry
+    missing_after_retry = VALIDATE_STAGE1_SUMMARY_CHECK(summary)  # same field check logic
+    IF missing_after_retry IS NOT EMPTY:
+      LOG "[{timestamp}] [AUTO-ralph] Stage 1 validation still failed after retry. Missing: {missing_after_retry}"
+      RELEASE_LOCK and HALT: "Stage 1 summary is missing required fields after retry: {missing_after_retry}. This indicates a structural problem — manual intervention required."
+    RETURN  # Retry succeeded
 
-    # Interactive mode: halt with clear error
-    HALT: "Stage 1 summary is missing required fields: {missing_fields}. These fields are required because their corresponding config gates are enabled. Possible causes: (1) Stage 1 instruction sections were skipped, (2) MCP tools are unreachable but config expects them. Fix: re-run Stage 1 or disable the gates in config."
-
-  ELIF gate_action == "warn_and_continue":
-    LOG "[{timestamp}] WARNING: Stage 1 missing fields (proceeding per full_auto policy): {missing_fields}"
+  ELIF summary.autonomy == "auto":
+    # Auto mode: warn and set safe defaults
+    LOG "[{timestamp}] WARNING: Stage 1 missing fields (proceeding per auto mode): {missing_fields}"
     # Set missing fields to safe defaults (fail-closed within downstream stages)
     FOR EACH field IN missing_fields:
       IF field == "mobile_mcp_available": summary.mobile_mcp_available = false
@@ -828,73 +870,61 @@ FUNCTION VALIDATE_STAGE1_SUMMARY(summary):
       IF field == "mcp_availability": summary.mcp_availability = {ref: false, context7: false, tavily: false}
     RETURN
 
-  ELIF gate_action == "ask":
-    answer = SAFE_ASK_USER(
-      "Stage 1 is missing required fields: {missing_fields}. This may cause quality gates to be silently skipped. How should I proceed?",
-      [{label: "Re-run Stage 1"}, {label: "Continue anyway (gates may be disabled)"}, {label: "Abort"}]
-    )
-    IF answer == "Re-run Stage 1":
-      DELETE state.stage_summaries["1"]
-      RE-EXECUTE Stage 1a inline + RE-DISPATCH Stage 1b coordinator
-      RETURN
-    ELIF answer == "Abort":
-      RELEASE_LOCK and HALT
-    # else: continue with missing fields
+  ELSE:
+    # Interactive mode: halt with clear error
+    HALT: "Stage 1 summary is missing required fields: {missing_fields}. Possible causes: (1) Stage 1 instruction sections were skipped, (2) MCP tools are unreachable. Fix: re-run Stage 1."
 ```
 
 ## Helper: Verify Non-Skippable Gates
 
 ```
 FUNCTION VERIFY_NON_SKIPPABLE_GATES(phase, stage2_summary, stage1_summary):
-  # Checks that gates listed in config.non_skippable_gates actually ran.
+  # Checks that non-skippable gates actually ran.
+  # Gate list (hardcoded): ["stage2.uat"]
   # Called after each phase's Stage 2 completes.
-  gates = config.non_skippable_gates OR []
-  IF gates IS EMPTY: RETURN
 
-  FOR EACH gate IN gates:
-    IF gate == "stage2.uat":
-      # Three-way diagnosis:
-      # 1. Check phase relevance first — if no UI tasks, gate is not applicable
-      phase_tasks = EXTRACT_TASK_FILE_PATHS(phase, tasks_file)
-      ui_indicators = config.dev_skills.domain_mapping  # compose, android, web_frontend indicators
-      phase_has_ui = ANY(task_path MATCHES ANY ui_indicator FOR task_path IN phase_tasks)
-      IF NOT phase_has_ui: CONTINUE  # Gate not applicable — skip silently
+  # Gate: stage2.uat
+  # Three-way diagnosis:
+  # 1. Check phase relevance first — if no UI tasks, gate is not applicable
+  phase_tasks = EXTRACT_TASK_FILE_PATHS(phase, tasks_file)
+  # UI domain indicators (hardcoded): compose, android, web_frontend
+  ui_indicators = ["compose", "android", "web_frontend", ".kt", ".swift", ".tsx", ".jsx", "Activity", "Fragment", "ViewModel"]
+  phase_has_ui = ANY(task_path MATCHES ANY ui_indicator FOR task_path IN phase_tasks)
+  IF NOT phase_has_ui: RETURN  # Gate not applicable — skip silently
 
-      # 2. Check if UAT ran
-      # NOTE: uat_results is in stage2_summary.flags (Stage 2 summary nests under flags);
-      # mobile_mcp_available and autonomy_policy are top-level in stage1_summary.
-      uat_results = stage2_summary.flags.uat_results OR null
-      IF uat_results IS NOT NULL AND uat_results.phases_tested > 0:
-        CONTINUE  # OK — UAT ran
+  # 2. Check if UAT ran
+  # NOTE: uat_results is in stage2_summary.flags (Stage 2 summary nests under flags);
+  # mobile_mcp_available and autonomy are top-level in stage1_summary.
+  uat_results = stage2_summary.flags.uat_results OR null
+  IF uat_results IS NOT NULL AND uat_results.phases_tested > 0:
+    RETURN  # OK — UAT ran
 
-      # 3. Diagnose WHY UAT didn't run
-      mobile_available = stage1_summary.mobile_mcp_available
-      IF mobile_available == true:
-        # Mobile was available but UAT didn't run — this is the bug F3 prevents
-        LOG "[{timestamp}] NON-SKIPPABLE GATE FAILURE: UAT mobile testing was available (mobile_mcp_available=true) but did not run for phase {phase}"
+  # 3. Diagnose WHY UAT didn't run
+  mobile_available = stage1_summary.mobile_mcp_available
+  IF mobile_available == true:
+    # Mobile was available but UAT didn't run — this is the bug F3 prevents
+    LOG "[{timestamp}] NON-SKIPPABLE GATE FAILURE: UAT mobile testing was available (mobile_mcp_available=true) but did not run for phase {phase}"
 
-        policy_level = stage1_summary.autonomy_policy OR "balanced"
-        gate_skip_action = config.autonomy_policy.levels[policy_level].gate_skip OR "ask"
+    IF state.orchestrator.ralph_mode == true:
+      LOG "[{timestamp}] WARNING: UAT skipped for {phase} despite mobile being available — continuing (ralph mode)"
+    ELIF stage1_summary.autonomy == "auto":
+      LOG "[{timestamp}] WARNING: UAT skipped for {phase} despite mobile being available — continuing (auto mode)"
+    ELSE:
+      # Interactive mode — ask user
+      answer = SAFE_ASK_USER(
+        "UAT mobile testing was available but did not run for {phase}. This may indicate a coordinator compliance issue.",
+        [{label: "Re-run Stage 2 for this phase"}, {label: "Continue without UAT"}, {label: "Abort"}]
+      )
+      IF answer CONTAINS "Re-run": RE-DISPATCH Stage 2 for phase; RETURN
+      IF answer CONTAINS "Abort": RELEASE_LOCK and HALT
 
-        IF gate_skip_action == "halt":
-          HALT: "UAT mobile testing did not run for {phase} despite mobile_mcp_available=true. Re-dispatch Stage 2 for this phase."
-        ELIF gate_skip_action == "ask":
-          answer = SAFE_ASK_USER(
-            "UAT mobile testing was available but did not run for {phase}. This may indicate a coordinator compliance issue.",
-            [{label: "Re-run Stage 2 for this phase"}, {label: "Continue without UAT"}, {label: "Abort"}]
-          )
-          IF answer CONTAINS "Re-run": RE-DISPATCH Stage 2 for phase; RETURN
-          IF answer CONTAINS "Abort": RELEASE_LOCK and HALT
-        ELSE:  # warn_and_continue
-          LOG "[{timestamp}] WARNING: UAT skipped for {phase} despite mobile being available — continuing per policy"
+  ELIF mobile_available == false:
+    # Mobile not available — expected skip, just log
+    LOG "[{timestamp}] Gate stage2.uat: skipped for {phase} (mobile_mcp_available=false)"
 
-      ELIF mobile_available == false:
-        # Mobile not available — expected skip, just log
-        LOG "[{timestamp}] Gate stage2.uat: skipped for {phase} (mobile_mcp_available=false)"
-
-      ELIF mobile_available IS NULL:
-        # Should have been caught by VALIDATE_STAGE1_SUMMARY (F1)
-        LOG "[{timestamp}] WARNING: mobile_mcp_available is null — Stage 1 validation may have been bypassed"
+  ELIF mobile_available IS NULL:
+    # Should have been caught by VALIDATE_STAGE1_SUMMARY (F1)
+    LOG "[{timestamp}] WARNING: mobile_mcp_available is null — Stage 1 validation may have been bypassed"
 ```
 
 ## Helper: Verify Stage Protocol
@@ -919,10 +949,10 @@ FUNCTION VERIFY_STAGE_PROTOCOL(summary, stage):
   # 2. Check agent dispatch compliance
   IF stage == 2:
     required_agents = ["developer"]
-    # Conditionally required agents
-    IF config.native_test_writer.enabled AND summary.flags.test_cases_available:
+    # Conditionally required agents — read from Stage 1 summary features
+    IF summary.flags.test_cases_available:
       required_agents += ["test-writer"]
-    IF config.output_verifier.enabled:
+    IF stage1_summary.features.output_verifier:
       required_agents += ["output-verifier"]
 
     dispatched_types = [a.type FOR a IN evidence.agents_dispatched]
@@ -1014,29 +1044,15 @@ FUNCTION EXTRACT_FAILING_TEST_NAMES(summary):
 
 ```
 FUNCTION APPLY_GRADUATED_STALL_RESPONSE(stall_count):
-  # Determine response level based on stall_count and config thresholds.
-  # Backward compatible: stall_action "write_blockers" or "halt" still work as before.
-  stall_action = config.ralph_loop.circuit_breaker.stall_action
-  threshold = config.ralph_loop.circuit_breaker.no_progress_threshold
+  # Determine response level based on stall_count and hardcoded thresholds.
+  # Hardcoded: stall_action="graduated", no_progress_threshold=3, same_error_threshold=5
+  # Graduated level offsets: level_2_offset=0, level_3_offset=2, level_4_offset=4
+  threshold = 3  # no_progress_threshold (hardcoded)
 
-  # Legacy mode: non-graduated stall actions
-  IF stall_action == "write_blockers":
-    IF stall_count >= threshold:
-      WRITE blockers file to {FEATURE_DIR}/.implementation-blockers.local.md
-      LOG "[{timestamp}] Ralph stall: {stall_count} iterations — writing blockers (legacy mode)"
-    RETURN
-  IF stall_action == "halt":
-    IF stall_count >= threshold:
-      WRITE blockers file
-      LOG "[{timestamp}] Ralph stall: {stall_count} iterations — halting (legacy mode)"
-      RELEASE_LOCK and HALT
-    RETURN
-
-  # Graduated mode (stall_action == "graduated")
-  offsets = config.ralph_loop.circuit_breaker.graduated_levels
-  level_2_trigger = threshold + offsets.level_2_offset   # default: 3+0 = 3
-  level_3_trigger = threshold + offsets.level_3_offset   # default: 3+2 = 5
-  level_4_trigger = threshold + offsets.level_4_offset   # default: 3+4 = 7
+  # Graduated mode (always "graduated" — hardcoded)
+  level_2_trigger = threshold + 0   # 3+0 = 3
+  level_3_trigger = threshold + 2   # 3+2 = 5
+  level_4_trigger = threshold + 4   # 3+4 = 7
 
   # Levels are CHAINED: higher levels always perform lower-level actions first.
   # This ensures blockers file and plan annotations are always produced even on jumps.
@@ -1052,28 +1068,28 @@ FUNCTION APPLY_GRADUATED_STALL_RESPONSE(stall_count):
     LOG "[{timestamp}] Ralph graduated stall Level 2 (BLOCKERS): {stall_count} iterations"
 
   # --- Level 3+ (Scope Reduce): annotate stuck tasks and skip phase ---
+  # Hardcoded: plan_mutability.enabled=true, skip_blocked_phases=true
+  # annotation_format: "<!-- [BLOCKED: {reason}] -->"
   IF stall_count >= level_3_trigger:
     state.orchestrator.ralph_stall_level = 3
     LOG "[{timestamp}] Ralph graduated stall Level 3 (SCOPE REDUCE): {stall_count} iterations"
-    IF config.ralph_loop.plan_mutability.enabled:
-      stuck_phase = state.current_phase
-      stuck_task = IDENTIFY_STUCK_TASK(state.phase_stages[stuck_phase])
-      annotation = config.ralph_loop.plan_mutability.annotation_format
-      annotation = annotation.replace("{reason}", "Stalled after {stall_count} iterations at stage {state.current_stage}")
+    stuck_phase = state.current_phase
+    stuck_task = IDENTIFY_STUCK_TASK(state.phase_stages[stuck_phase])
+    annotation = "<!-- [BLOCKED: Stalled after {stall_count} iterations at stage {state.current_stage}] -->"
 
-      # Annotate task in tasks.md (HTML comment preserves rendering)
-      APPEND annotation to the stuck task line in {FEATURE_DIR}/tasks.md
+    # Annotate task in tasks.md (HTML comment preserves rendering)
+    APPEND annotation to the stuck task line in {FEATURE_DIR}/tasks.md
 
-      # Record in state
-      state.ralph_blocked_tasks += [{
-        phase: stuck_phase,
-        task: stuck_task,
-        stall_count: stall_count,
-        timestamp: NOW_ISO8601()
-      }]
+    # Record in state
+    state.ralph_blocked_tasks += [{
+      phase: stuck_phase,
+      task: stuck_task,
+      stall_count: stall_count,
+      timestamp: NOW_ISO8601()
+    }]
 
-      # Skip to next phase if configured
-      IF config.ralph_loop.plan_mutability.skip_blocked_phases:
+    # Skip to next phase (hardcoded: skip_blocked_phases=true)
+    IF true:
         MOVE stuck_phase from phases_remaining to phases_completed with status "blocked"
         state.current_phase = null
         state.orchestrator.ralph_stall_count = 0  # reset for next phase
@@ -1094,12 +1110,11 @@ FUNCTION APPLY_GRADUATED_STALL_RESPONSE(stall_count):
 ```
 FUNCTION WRITE_STATUS_FILE(state, last_action):
   # Write a monitoring-friendly status file after each stage/phase transition.
-  # Only active in ralph mode when config.ralph_loop.status_file.enabled is true.
+  # Only active in ralph mode. Always enabled (hardcoded: status_file.enabled=true).
+  # Hardcoded filename: ".implementation-ralph-status.local.md"
   IF NOT state.orchestrator.ralph_mode: RETURN
-  IF NOT config.ralph_loop.status_file.enabled: RETURN
 
-  filename = config.ralph_loop.status_file.filename  # default: ".implementation-ralph-status.local.md"
-  status_path = "{FEATURE_DIR}/{filename}"
+  status_path = "{FEATURE_DIR}/.implementation-ralph-status.local.md"
 
   phases_completed_count = LEN(state.phases_completed)
   phases_remaining_count = LEN(state.phases_remaining)
@@ -1138,9 +1153,10 @@ FUNCTION WRITE_STATUS_FILE(state, last_action):
 ```
 FUNCTION APPEND_LEARNING(category, learning):
   # Appends a learning entry to the cross-iteration learnings file.
-  # Only called when config.ralph_loop.learnings.enabled is true.
+  # Always enabled (hardcoded: learnings.enabled=true).
+  # Hardcoded: max_entries=20 (FIFO cap)
   learnings_file = "{FEATURE_DIR}/.implementation-learnings.local.md"
-  max_entries = config.ralph_loop.learnings.max_entries  # default: 20
+  max_entries = 20  # hardcoded
   timestamp = NOW_ISO8601()
 
   IF learnings_file does not exist:

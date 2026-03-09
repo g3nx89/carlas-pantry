@@ -69,7 +69,7 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 6. **State Persistence** — Checkpoint after each stage in `.implementation-state.local.md`.
 7. **User Decisions are Final** — Quality review and documentation decisions are immutable once saved.
 8. **No Spec Changes** — DO NOT create or modify specification files during implementation.
-9. **Lock Protocol** — Acquire lock at start, release at completion. Check for stale locks (>60 min per `config/implementation-config.yaml`).
+9. **Lock Protocol** — Acquire lock at start, release at completion. Check for stale locks (>60 min hardcoded timeout).
 10. **Delegation Protocol** — Delegated stages execute via `Task(subagent_type="general-purpose")` coordinators. Stage 1 is inline. See dispatch table below.
 11. **Summary-Only Context** — Between stages, read ONLY summary files from `{FEATURE_DIR}/.stage-summaries/`. Never read full reference files or raw artifacts in orchestrator context.
 12. **No User Interaction from Coordinators** — Coordinators set `status: needs-user-input` in their summary. The orchestrator mediates ALL user prompts via `SAFE_ASK_USER` (validates non-empty responses, retries on widget failures). In ralph mode, auto-resolve guard intercepts before SAFE_ASK_USER.
@@ -129,7 +129,7 @@ Execute the implementation plan by processing all tasks defined in `tasks.md`, s
 
 ## Latency Trade-off
 
-Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for significant orchestrator context reduction and fault isolation. Stage 1 is inline to avoid overhead for lightweight setup. When `code_simplification.enabled` is `true`, each phase adds an additional code-simplifier dispatch (~5-15s overhead + 30-120s execution). This is the trade-off for cleaner downstream code, reduced review noise in Stage 4, lower token cost for future maintenance, and improved LLM comprehension.
+Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for significant orchestrator context reduction and fault isolation. Stage 1 is inline to avoid overhead for lightweight setup. When `features.code_simplification` is `true` (from profile), each phase adds an additional code-simplifier dispatch (~5-15s overhead + 30-120s execution). This is the trade-off for cleaner downstream code, reduced review noise in Stage 4, lower token cost for future maintenance, and improved LLM comprehension.
 
 ## Stage Dispatch Table
 
@@ -151,7 +151,7 @@ All reference files are in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/`.
 
 Read and follow: `$CLAUDE_PLUGIN_ROOT/skills/implement/references/orchestrator-loop.md`
 
-The loop reads state → dispatches stages (per-phase or linear) → reads summaries → handles user interaction → updates state. It includes crash recovery, summary validation, v1→v2→v3 state migration, and per-phase delivery cycles.
+The loop reads state → dispatches stages (per-phase or linear) → reads summaries → handles user interaction → updates state. It includes crash recovery, summary validation, v1→v2→v3→v4 state migration, and per-phase delivery cycles.
 
 ## Stage 1 (Inline)
 
@@ -170,13 +170,15 @@ Execute Stage 1 inline. Read `$CLAUDE_PLUGIN_ROOT/skills/implement/references/st
 
 ## State Management
 
-State persisted in `{FEATURE_DIR}/.implementation-state.local.md` (version 3):
+State persisted in `{FEATURE_DIR}/.implementation-state.local.md` (version 4):
 - YAML frontmatter tracks stage, phase, decisions, stage_summaries, phase_stages, orchestrator metadata
 - `phase_stages` maps each phase to its per-stage completion status (`s2`, `s3`, `s4`, `s5`)
 - `current_phase` tracks the phase currently being processed (null when between phases)
+- `profile` — active execution profile (`quick`, `standard`, or `thorough`)
+- `autonomy` — active autonomy level (`auto` or `interactive`)
 - Markdown body contains human-readable log
 - Immutable fields: `user_decisions`
-- Migration: v1→v2→v3 chain. See `orchestrator-loop.md` for auto-migration
+- Migration: v1→v2→v3→v4 chain. See `orchestrator-loop.md` for auto-migration
 
 **Template:** `$CLAUDE_PLUGIN_ROOT/templates/implementation-state-template.local.md`
 
@@ -258,7 +260,7 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | Dev-Skills | Vertical agent selection + static skills (baked into agent .md files via progressive disclosure) |
 | Research MCP | Documentation context from Ref/Context7/Tavily, budget-controlled |
 | CLI Dispatch | Multi-model dispatch via Codex/Gemini, opt-in per option |
-| Autonomy Policy | Auto-resolution: full_auto, balanced, critical_only. Selected at Stage 1 |
+| Autonomy Policy | Auto-resolution: auto (fix all), interactive (defer medium). Selected at Stage 1 |
 
 ## Reference Map
 
@@ -279,7 +281,7 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | `references/stage-4-plugin-review.md` | Stage 4 (coordinator reads) | Tier B: Plugin-based review via code-review skill, finding normalization |
 | `references/stage-4-cli-review.md` | Stage 4 (coordinator reads) | Tier C: CLI multi-model review, Phase 1/2 dispatch, pattern search, UX/accessibility review |
 | `references/stage-5-documentation.md` | Stage 5 (coordinator) | Skill resolution for docs, tech-writer dispatch, lock release |
-| `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | 14 prompt templates with Common Variables, section markers, fallback annotations |
+| `references/agent-prompts.md` | Stages 2-6 (coordinator reads) | 16 prompt templates (15 agent + 1 auto-commit) with Common Variables, section markers, fallback annotations |
 | `references/auto-commit-dispatch.md` | Stages 2, 4, 5, 6 (coordinator reads) | Shared auto-commit procedure, exclude patterns, batch strategy |
 | `references/autonomy-policy-procedure.md` | Stages 2-5 (coordinator reads) | Shared autonomy policy check, per-severity iteration, fallback escalation |
 | `references/developer-core-instructions.md` | All developer agents (read at dispatch) | Shared core engineering process, quality standards, verification rules |
@@ -289,6 +291,7 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | `references/summary-schemas.md` | When adding/modifying summary fields | YAML schemas for all 6 stage summaries, producer/consumer mapping, protocol_evidence schema |
 | `references/ralph-loop-integration.md` | When debugging ralph mode | Ralph mode detection, AskUserQuestion guard, stall detection, completion signal |
 | `references/stage-6-retrospective.md` | Stage 6 (coordinator) | KPI Report Card, transcript extraction, retrospective composition |
+| `config/profile-definitions.yaml` | When understanding or modifying execution profiles | Profile definitions for `quick`, `standard`, and `thorough` — maps each profile to its feature flag values |
 | `config/cli_clients/shared/cli-instruction-shared.md` | When modifying CLI behavioral standards | Universal content written into AGENTS.md/GEMINI.md managed sections (output standards, severity classification) |
 | `config/cli_clients/shared/codex-instruction-extra.md` | When modifying Codex CLI instructions | Codex-specific content appended after shared section (parallelism, plan tool suppression) |
 | `config/cli_clients/shared/gemini-instruction-extra.md` | When modifying Gemini CLI instructions | Gemini-specific content appended after shared section (context window usage) |
@@ -310,7 +313,7 @@ When invoked via `/product-implementation:ralph-implement`, the implement skill 
 
 **Behavioral contract in ralph mode:**
 1. **No user interaction** — ALL `AskUserQuestion` calls are auto-resolved via autonomy policy
-2. **Pre-seeded config** — `quality_preset`, `external_models`, `autonomy_policy.default_level` must be non-null
+2. **Pre-seeded config** — `ralph.default_profile` must be set to a valid profile name (`quick`, `standard`, or `thorough`)
 3. **Skip project setup** — Stage 1 Section 1.5b is skipped entirely (requires user selection)
 4. **Graduated stall response** — 4-level progressive response: warn → write blockers → scope reduce (annotate + skip) → halt
 5. **Rate limit exemption** — API throttling/timeouts exempt from stall counting; backoff + retry instead
@@ -322,22 +325,20 @@ When invoked via `/product-implementation:ralph-implement`, the implement skill 
 
 **Detection:** Stage 1 Section 1.0b checks for `.claude/ralph-loop.local.md` in PROJECT_ROOT. If present, sets `ralph_mode: true` in state file and Stage 1 summary.
 
-**Configuration:** `config/implementation-config.yaml` under `ralph_loop` (iteration budget, circuit breaker, pre-seed defaults).
+**Configuration:** `config/implementation-config.yaml` under `ralph` (`default_profile`). Iteration budget and circuit breaker constants hardcoded in `orchestrator-loop.md`.
 
 ## Quick Start
 
 1. Ensure `{FEATURE_DIR}/tasks.md` and `plan.md` exist (run `/product-planning:plan` then `/product-planning:tasks`)
 2. Optional: verify `design.md`, `test-plan.md`, `test-strategy.md`, and `test-cases/` are present for richer agent context
-3. **Top config toggles** (in `config/implementation-config.yaml`):
-   - `quality_preset` — set to `"standard"` / `"comprehensive"` / `"minimal"` to skip the startup question (controls 40+ feature flags)
-   - `external_models` — set to `true` / `false` to skip the external models question
-   - `autonomy_policy.default_level` — set to skip the autonomy question (`full_auto` / `balanced` / `critical_only`)
-   - `project_setup.enabled` — enable project setup analysis and configuration generation (Stage 1)
-   - `code_simplification.enabled` — enable post-phase code simplification
-   - `dev_skills.enabled` — enable domain-specific skill injection
-   - `research_mcp.enabled` — enable MCP-backed documentation context
-4. Run `/product-implementation:implement`
-5. Choose autonomy policy when prompted (skipped if `default_level` is set)
-6. Monitor stage-by-stage progress (interruptions depend on chosen policy)
-7. Review documentation updates generated by tech-writer
-8. Review `retrospective.md` and `.implementation-report-card.local.md` for implementation analysis
+3. **Choose a profile** (in `config/profile-definitions.yaml` or set `profile` at runtime):
+   - `quick` — fast prototyping; minimal gates, no external models, reduced review tiers
+   - `standard` — recommended; balanced quality, core review tiers, autonomy-guided decisions *(default)*
+   - `thorough` — maximum quality; all features enabled, multi-tier review, CoVe, convergence analysis
+4. **Optional overrides** (in `config/implementation-config.yaml`):
+   - `autonomy: auto` — auto-resolve all findings (default for quick profile)
+   - `autonomy: interactive` — defer medium-severity findings for user review (default for standard/thorough)
+5. Run `/product-implementation:implement`
+6. Monitor stage-by-stage progress (interruptions depend on autonomy level from profile)
+8. Review documentation updates generated by tech-writer
+9. Review `retrospective.md` and `.implementation-report-card.local.md` for implementation analysis

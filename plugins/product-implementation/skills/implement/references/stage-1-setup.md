@@ -12,8 +12,7 @@ artifacts_read:
 artifacts_written:
   - "{FEATURE_DIR}/.stage-summaries/stage-1a-partial.md"
 agents: []
-additional_references:
-  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
+additional_references: []
 ---
 
 # Stage 1a: Setup & Context Loading (Inline)
@@ -31,20 +30,14 @@ Check if the session is running inside a ralph loop by looking for the ralph-loo
 ### Procedure
 
 1. Check if `.claude/ralph-loop.local.md` exists in `PROJECT_ROOT`
-2. IF file exists AND `config.ralph_loop.enabled` is `true` (default):
+2. IF file exists:
    - Set `ralph_mode: true` in the implementation state file (under `orchestrator.ralph_mode`)
-   - Read `ralph_loop.pre_seed_defaults` from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-   - For each startup question (`quality_preset`, `external_models`, `autonomy_policy.default_level`):
-     - IF the config value is `null` AND `pre_seed_defaults` has a value → use pre-seed default
-     - ELIF the config value is `null` AND no pre-seed default → HALT: "Ralph mode requires pre-seeded config. Set `{field}` in `implementation-config.yaml` or pass via `--quality`/`--autonomy`/`--external-models`"
+   - Read `ralph.default_profile` from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+   - IF config `profile` is `null` → use `ralph.default_profile` as the active profile
    - Skip Section 1.5b (project setup analysis) entirely — it requires user selection via `AskUserQuestion`
    - Log: `"[{timestamp}] Ralph mode detected — autonomous execution, no user interaction"`
    - Write `ralph_mode: true` to Stage 1 summary YAML frontmatter
-3. ELIF file exists AND `config.ralph_loop.enabled` is `false`:
-   - Log: `"[{timestamp}] Ralph loop file detected but ralph_loop.enabled is false — running in normal mode"`
-   - Set `ralph_mode: false` in state file
-   - Write `ralph_mode: false` to Stage 1 summary YAML frontmatter
-4. ELSE:
+3. ELSE:
    - Set `ralph_mode: false` in state file (default)
    - Write `ralph_mode: false` to Stage 1 summary YAML frontmatter
 
@@ -58,7 +51,7 @@ When `ralph_mode: true`:
 
 ## 1.0c Cross-Iteration Learnings (Ralph Mode)
 
-If `ralph_mode` is `true` AND `config.ralph_loop.learnings.enabled` is `true`:
+If `ralph_mode` is `true`:
 
 1. Check if `{FEATURE_DIR}/.implementation-learnings.local.md` exists
 2. If it exists:
@@ -116,8 +109,6 @@ Read these if they exist. They provide additional implementation context.
 
 These files are not strictly required (implementation can proceed without them), but their absence usually indicates the planning phase was incomplete. **Emit a warning** for each missing expected file so the user is aware.
 
-The expected file list and warning messages are defined in `config/implementation-config.yaml` under `handoff.expected_files`. Current defaults:
-
 | File | Warning If Missing |
 |------|-------------------|
 | `{FEATURE_DIR}/design.md` | "design.md not found — developer agents will rely on plan.md only for architecture context" |
@@ -131,9 +122,9 @@ Scan for pre-generated test specifications from the planning phase:
 
 1. Check if `{FEATURE_DIR}/test-cases/` directory exists
 2. If it exists:
-   - List subdirectories (expected subdirectories and test ID patterns are defined in `config/implementation-config.yaml` under `handoff.test_cases`; defaults: `e2e/`, `integration/`, `unit/`, `uat/`)
+   - List subdirectories (expected: `e2e/`, `integration/`, `unit/`, `uat/`)
    - Count `.md` spec files per level
-   - Extract test IDs from spec files (default patterns: `E2E-*`, `INT-*`, `UT-*`, `UAT-*`)
+   - Extract test IDs from spec files (patterns: `E2E-*`, `INT-*`, `UT-*`, `UAT-*`)
    - Cross-reference test IDs against `test-plan.md` (if available) to verify alignment
    - Store results as `test_cases_available: true` with per-level counts
 3. If it does not exist:
@@ -168,7 +159,7 @@ Extract and store:
 
 **Structural checks** (warn if missing, do not halt):
 - **Overview section**: Verify tasks.md contains a top-level overview or summary section. If missing, warn: "tasks.md has no overview section — phase context may be limited."
-- **Test ID references**: If `test_cases_available` is true, scan task descriptions for test ID patterns (configured in `config/implementation-config.yaml` under `handoff.test_cases.test_id_patterns`; defaults: `E2E-*`, `INT-*`, `UT-*`, `UAT-*`). If no test IDs are found in tasks.md but test-cases/ exists, warn: "tasks.md does not reference test IDs from test-cases/ — traceability may be incomplete."
+- **Test ID references**: If `test_cases_available` is true, scan task descriptions for test ID patterns (`E2E-*`, `INT-*`, `UT-*`, `UAT-*`). If no test IDs are found in tasks.md but test-cases/ exists, warn: "tasks.md does not reference test IDs from test-cases/ — traceability may be incomplete."
 - **Test ID cross-validation**: If both tasks.md test IDs and test-cases/ specs are present, verify that referenced test IDs have corresponding spec files. Log any orphaned references.
 
 > **Sections 1.5b through 1.7b have been moved to `stage-1b-probes.md`** (v3.4.0).
@@ -185,10 +176,8 @@ Before initializing or resuming state, acquire the execution lock:
 2. If state file exists, read `lock` field:
    - If `lock.acquired: false` → acquire lock (set `lock.acquired: true`, `lock.acquired_at: "{ISO_TIMESTAMP}"`, `lock.session_id: "{unique_id}"`)
    - If `lock.acquired: true` → check `lock.acquired_at` against the stale lock timeout¹:
-     - If older than the timeout → treat as stale, override with new lock, log warning: "Overriding stale lock from {timestamp}"
-     - If within the timeout → halt with guidance: "Another implementation session is active (started {timestamp}). Wait for it to complete or manually release the lock in `.implementation-state.local.md`."
-
-> ¹ Stale lock timeout: `config/implementation-config.yaml` → `lock.stale_timeout_minutes` (default: 60)
+     - If older than 60 minutes → treat as stale, override with new lock, log warning: "Overriding stale lock from {timestamp}"
+     - If within 60 minutes → halt with guidance: "Another implementation session is active (started {timestamp}). Wait for it to complete or manually release the lock in `.implementation-state.local.md`."
 
 ## 1.8 State Initialization
 
@@ -213,7 +202,7 @@ mkdir -p {FEATURE_DIR}/.stage-summaries
 If `.implementation-state.local.md` already exists (and lock was acquired in 1.7):
 
 1. Read state file
-2. If `version: 1` → run v1-to-v2 migration (see `orchestrator-loop.md`)
+2. If `version: 1` → run v1-to-v2 migration (see `orchestrator-loop.md`). If version < 4 → run appropriate migration chain (see `orchestrator-loop.md`).
 3. Parse `current_stage`, `phases_completed`, `phases_remaining`, and `user_decisions`
 4. Verify state consistency with tasks.md:
    - Check that tasks marked `[X]` in tasks.md match completed phases

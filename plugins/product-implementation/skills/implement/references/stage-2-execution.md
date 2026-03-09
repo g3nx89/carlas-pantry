@@ -34,7 +34,6 @@ agents:
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/cli-dispatch-procedure.md"
-  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
 ---
 
 # Stage 2: Phase-by-Phase Execution
@@ -46,19 +45,11 @@ additional_references:
 
 ## 2.0 Vertical Agent Selection
 
-Select the appropriate developer agent type based on `detected_domains` from Stage 1 summary. This step runs ONCE per Stage 2 dispatch, not per phase.
+Select the appropriate developer agent type for all phase dispatches. This step runs ONCE per Stage 2 dispatch, not per phase.
 
-### Selection Algorithm
+### Selection
 
-1. Read `detected_domains` from the Stage 1 summary YAML frontmatter
-2. Read `dev_skills` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-3. If `dev_skills.enabled` is `false` or `detected_domains` is empty, set `vertical_agent_type` to `"developer"` (generic fallback) and skip to Section 2.0a
-4. Apply priority-ordered matching using `dev_skills.vertical_agents`:
-   - If ANY of `android`, `compose`, `kotlin`, `kotlin_async`, `gradle` appear in `detected_domains` → `android-developer`
-   - If ANY of `web_frontend` appear in `detected_domains` → `frontend-developer`
-   - If ANY of `api`, `database` appear in `detected_domains` → `backend-developer`
-   - If NONE match → `developer` (generic fallback)
-5. Store selected type as `vertical_agent_type` for use in all phase dispatches
+Read `vertical_agent_type` from the Stage 1 summary. This was already resolved at Stage 1 from `detected_domains` using priority-ordered domain matching. Use this value as-is for all phase dispatches — no config read or re-resolution needed.
 
 ### Task-Level Override: Debugger
 
@@ -66,9 +57,7 @@ Within a phase, if a task's description contains debugging indicators (`fix bug`
 
 ### Multiple Domains
 
-If `detected_domains` spans multiple verticals (e.g., `android` + `api`):
-- Use the domain with MORE tasks in `tasks.md` for the primary vertical agent
-- The selected vertical has on-demand skills for the secondary domain
+Already resolved at Stage 1. The `vertical_agent_type` in the summary reflects the domain with MORE tasks when multiple verticals were detected.
 
 ### Context Budget
 
@@ -81,25 +70,25 @@ Before entering the phase loop, build the `{research_context}` block for develop
 ### Procedure
 
 1. Read `mcp_availability` from the Stage 1 summary YAML frontmatter
-2. Read `research_mcp` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-3. If `research_mcp.enabled` is `false` OR all MCP tools are unavailable → set `research_context` to the fallback text from `research_mcp.graceful_degradation.fallback_text` and skip to Section 2.1
+2. Read `features.research_mcp` from the Stage 1 summary
+3. If `features.research_mcp` is `false` OR all MCP tools are unavailable → set `research_context` to `"No research context available — proceed with codebase knowledge and planning artifacts only."` and skip to Section 2.1
 
 4. **Pre-read extracted URLs** (Ref):
    - Read `extracted_urls` from Stage 1 summary
-   - For each URL (up to `ref.max_reads_per_stage`): call `ref_read_url(url)` and capture a summary (cap each at `ref.token_budgets.per_source` tokens)
+   - For each URL (up to 5): call `ref_read_url(url)` and capture a summary (cap each at 2000 tokens)
    - If Ref is unavailable, omit this step
 
 5. **Quick Context7 lookup**:
    - Read `resolved_libraries` from Stage 1 summary
-   - For each resolved library (up to `context7.max_queries_per_stage`): call `query-docs(library_id, "{relevant_query}")` using the feature's primary use case from plan.md
+   - For each resolved library (up to 3): call `query-docs(library_id, "{relevant_query}")` using the feature's primary use case from plan.md
    - If Context7 is unavailable, omit this step
 
 6. **Pre-read private documentation** (Ref):
    - Read `private_doc_urls` from Stage 1 summary
    - For each URL: call `ref_read_url(url)` and capture key content
-   - Counts against `ref.max_reads_per_stage` (shared budget with step 4)
+   - Counts against the 5-read budget (shared with step 4)
 
-7. **Assemble `{research_context}`**: Combine all gathered content, cap at `ref.token_budgets.research_context_total` tokens. Format as:
+7. **Assemble `{research_context}`**: Combine all gathered content, cap at 4000 tokens total. Format as:
 
 ```markdown
 ### Documentation References
@@ -119,7 +108,7 @@ Before entering the phase loop, build the `{research_context}` block for develop
 
 ### Context Budget
 
-The assembled `{research_context}` block is capped at `research_context_total` (default: 4000) tokens. Same value reused for all phases within this Stage 2 dispatch.
+The assembled `{research_context}` block is capped at 4000 tokens. Same value reused for all phases within this Stage 2 dispatch.
 
 ## 2.1 Phase Loop
 
@@ -139,7 +128,7 @@ Extract from the current phase section in tasks.md:
 ### Step 1.9: Native Test-Writer Agent (Mandatory When Conditions Met)
 
 > **Conditional**: Only runs when ALL of:
->   1. `native_test_writer.enabled` is `true` in config
+>   1. `features.output_verifier` is `true` (from Stage 1 summary)
 >   2. `test_cases_available` is `true` (from Stage 1 summary)
 > If any condition is false, skip to Step 2.
 >
@@ -189,7 +178,7 @@ Before launching the developer agent, generate executable failing tests from tes
 
 #### Fallback
 
-If the test-writer agent fails AND `native_test_writer.fallback_to_developer` is `true` in config, skip to Step 2 — the developer agent falls back to full TDD (writes its own tests).
+If the test-writer agent fails, skip to Step 2 — the developer agent falls back to full TDD (writes its own tests). (Fallback is always enabled; inline default: `fallback_to_developer=true`.)
 
 ### Step 2: Launch Developer Agent
 
@@ -255,7 +244,7 @@ If verification fails:
 
 ### Step 2.5: Output Verification (Mandatory When Enabled)
 
-> **Conditional**: Only runs when `output_verifier.enabled` is `true` in config. If disabled, skip to Step 3.5.
+> **Conditional**: Only runs when `features.output_verifier` is `true` (from Stage 1 summary). If disabled, skip to Step 3.5.
 > Note: The verifier runs regardless of whether the test-writer ran — it also verifies developer-written tests.
 >
 > **MANDATORY**: When `output_verifier.enabled` is `true`, this step MUST be executed for every phase. Skipping this step is a protocol violation that will be detected by the protocol compliance checklist (Section 2.2a) and flagged by VERIFY_STAGE_PROTOCOL in the orchestrator.
@@ -281,9 +270,7 @@ After the developer agent completes and tests pass, dispatch the output-verifier
    - Parse the structured YAML output from the verifier
    - If `verification_result: PASS` → log success, proceed to Step 3.5
    - If `verification_result: FAIL`:
-     - Read `output_verifier.fail_action` from config:
-       - `"fix"` → re-dispatch developer agent with findings to fix (one retry). If still FAIL after retry, log and continue.
-       - `"warn"` → log all findings as warnings, continue to Step 3.5
+     - Apply inline default `fail_action="fix"`: re-dispatch developer agent with findings to fix (one retry). If still FAIL after retry, log and continue.
      - Record findings in phase-level tracking
 
 4. **Track metrics**: Record in phase-level tracking:
@@ -296,19 +283,17 @@ Latency: ~5-15s dispatch overhead + 15-60s verification execution per phase.
 
 ### Step 3.5: Code Simplification (Optional)
 
-> **Conditional**: Only runs when `code_simplification.enabled` is `true` in `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`. If disabled, skip to Step 4.
+> **Conditional**: Only runs when `features.code_simplification` is `true` (from Stage 1 summary). If disabled, skip to Step 4.
 
 After phase completion is verified (all tasks `[X]`, tests passing), optionally simplify modified files for clarity and maintainability. This step runs BEFORE auto-commit, so rollback is a safe `git checkout`.
 
 #### Procedure
 
 1. **Check eligibility**:
-   - Read `code_simplification` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-   - If `enabled` is `false` → skip to Step 4
    - Collect list of source files modified in this phase: prefer `git diff --name-only` against the pre-phase state for accuracy; fall back to extracting file paths from tasks.md `[X]` entries for the current phase if git diff is unavailable
-   - Filter out files matching any pattern in `code_simplification.exclude_patterns` (substring match against file path)
+   - Filter out files matching any of these exclude patterns (substring match against file path): `.test.`, `.spec.`, `__tests__/`, `test/`, `.md`, `.json`, `.yaml`, `.yml`
    - If filtered file count is 0 → skip to Step 4 (nothing to simplify)
-   - If filtered file count > `code_simplification.max_files_per_phase` → skip to Step 4, log: `"Skipping simplification: {N} files exceeds max_files_per_phase ({max})"`
+   - If filtered file count > 15 → skip to Step 4, log: `"Skipping simplification: {N} files exceeds max_files_per_phase (15)"`
 
 2. **Dispatch code-simplifier agent**:
    ```
@@ -321,11 +306,11 @@ After phase completion is verified (all tasks `[X]`, tests passing), optionally 
    - `{phase_name}` — current phase name
 3. **Verify post-simplification**:
    - Extract `test_count_verified`, `test_failures`, `files_simplified`, and `changes_made` from agent output
-   - If `test_failures > 0` AND `code_simplification.rollback_on_test_failure` is `true`:
+   - If `test_failures > 0`:
      - Revert all simplification changes: `git checkout -- {modified_files_list}`
      - Log: `"Simplification reverted: {test_failures} test(s) failed after simplification"`
-     - Proceed to Step 4 with original (unsimplified) code
-   - If `test_failures > 0` AND `rollback_on_test_failure` is `false`:
+     - Proceed to Step 4 with original (unsimplified) code. (Inline default: `rollback_on_test_failure=true`.)
+   - If simplification causes build failure (non-test error):
      - Apply infrastructure failure handling per `autonomy-policy-procedure.md` § Special Case: Infrastructure Failures.
      - All policy levels auto-revert (simplification failure is infrastructure, not severity-based — see procedure). Revert: `git checkout -- {modified_files_list}`, log: `"[AUTO-{policy}] Simplification auto-reverted: {test_failures} test(s) failed"`.
      - If no policy set (edge case): set `status: needs-user-input`, `block_reason: "Tests failed after code simplification. {test_failures} failures."` → return to orchestrator
@@ -344,22 +329,22 @@ Latency: ~5-15s dispatch overhead + 30-120s agent execution per phase.
 ### Step 3.6: UX Test Coverage Review (Optional)
 
 > **Conditional**: Only runs when ALL of:
->   1. `cli_dispatch.stage2.ux_test_reviewer.enabled` is `true`
->   2. `cli_availability.codex` is `true`
->   3. Phase touches UI files (task file paths match any domain in `ux_test_reviewer.phase_relevance.ui_domains`)
+>   1. `cli_features_enabled.ux_test_reviewer` is `true` (from Stage 1 summary)
+>   2. `cli_availability.codex` is `true` (from Stage 1 summary)
+>   3. Phase touches UI files (task file paths match UI domains: `compose`, `android`, `web_frontend`)
 > If any condition is false, omit this step.
 
 After tests are written and passing (Step 3), dispatch Codex to review test coverage for UX scenarios: empty states, loading states, error states, and accessibility assertions.
 
 #### Procedure
 
-1. **Phase relevance check**: Check if ANY task file path in the current phase matches UI domain indicators from `cli_dispatch.stage2.ux_test_reviewer.phase_relevance.ui_domains` (resolved via `dev_skills.domain_mapping` indicators). If no match, skip.
+1. **Phase relevance check**: Check if ANY task file path in the current phase matches UI domain indicators (`compose`, `android`, `web_frontend`). If no match, skip.
 
 2. **Collect test files**: List all test files created or modified in this phase (from Step 3 output).
 
 3. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
    - `cli_name="codex"`, `role="ux_test_reviewer"`
-   - `fallback_behavior` from `cli_dispatch.stage2.ux_test_reviewer.fallback_behavior` (default: `"skip"`)
+   - `fallback_behavior="skip"` (inline default)
    - `expected_fields=["test_files_reviewed", "components_covered", "ux_scenario_gaps", "top_gap"]`
 
 4. **Coordinator-Injected Context** (appended per `cli-dispatch-procedure.md` variable injection convention):
@@ -404,13 +389,11 @@ Latency: ~2-10 minutes per relevant phase (depends on engine — subagent ~2-5 m
 
 ### Step 4.5: Auto-Commit Phase
 
-> **Note**: When `per_phase_review.enabled` is `true` (the default), the auto-commit is owned by the **orchestrator** (after S2→S3→S4→S5 all complete for the phase). In this mode, skip this step — the orchestrator handles the commit at the end of the phase loop iteration. This step only runs when `per_phase_review.enabled` is `false` (linear mode).
+> **Note**: When `features.per_phase_review` is `true` (from Stage 1 summary), the auto-commit is owned by the **orchestrator** (after S2→S3→S4→S5 all complete for the phase). In this mode, skip this step — the orchestrator handles the commit at the end of the phase loop iteration. This step only runs when `features.per_phase_review` is `false` (linear mode).
 
 After updating progress, optionally commit the phase's changes.
 
-If `auto_commit.stage2_strategy` is `batch` in config, skip this step — a single commit runs after all phases complete (Step 5).
-
-Otherwise (`per_phase`, the default), follow the Auto-Commit Dispatch Procedure in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/auto-commit-dispatch.md` with:
+Follow the Auto-Commit Dispatch Procedure in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/auto-commit-dispatch.md` with:
 
 | Parameter | Value |
 |-----------|-------|
@@ -423,12 +406,11 @@ Otherwise (`per_phase`, the default), follow the Auto-Commit Dispatch Procedure 
 
 - If more phases remain → return to Step 1 for next phase
 - If all phases complete:
-  - If `auto_commit.stage2_strategy` is `batch` and `auto_commit.enabled` is `true`: follow the Auto-Commit Dispatch Procedure in `auto-commit-dispatch.md` with `template_key` = `phase_batch`, `substitution_vars` = `{feature_name}` = FEATURE_NAME, `skip_target` = Section 2.3, `summary_field` = `commits_made` (single-element array)
   - Write Stage 2 summary and return to orchestrator
 
 ## 2.1a CLI Test Augmenter (Option I)
 
-> **Conditional**: Only runs when `cli_dispatch.stage2.test_augmenter.enabled` is `true` and all phases have completed successfully. If the condition is false, skip to Section 2.2.
+> **Conditional**: Only runs when `cli_features_enabled.test_augmenter` is `true` (from Stage 1 summary) and all phases have completed successfully. If the condition is false, skip to Section 2.2.
 > The dedicated script (`dispatch-test-augmenter.sh`) handles model selection and availability checks internally — the coordinator does NOT check `cli_availability.*` directly.
 
 After all phases complete but before writing the Stage 2 summary, run an edge case discovery pass using an external model with full visibility into all implemented code and tests.
@@ -505,7 +487,7 @@ When a build or compilation error occurs and MCP tools are available (per `mcp_a
 
 1. **Ref lookup**: Call `ref_search_documentation("{library} {error_terms}")` using the library name and key error terms. If results are found, call `ref_read_url(best_result)` for the fix details.
 2. **Context7 fallback** (after `escalation_after` failed Ref lookups, default 1): Call `query-docs(library_id, "error {error_terms}")` using the pre-resolved library ID from Stage 1 summary.
-3. **Tavily last resort** (after all above fail): Call `tavily_search("{library} {version} {error_message}")` with `search_depth` and `max_results` from config.
+3. **Tavily last resort** (after all above fail): Call `tavily_search("{library} {version} {error_message}")` with `search_depth="basic"` and `max_results=3` (inline defaults).
 
 **Query variation**: On retries, vary search terms — use error message keywords on the first attempt, library + API name on the second. Deduplicate URLs across attempts to avoid reading the same documentation twice.
 
@@ -549,7 +531,7 @@ flags:
   commits_made: ["sha1", "sha2"]  # Array: one SHA per phase (per_phase strategy) or single SHA (batch). Stages 4/5 use scalar commit_sha instead.
   research_urls_discovered: []  # URLs successfully read during research context resolution (Section 2.0a). Consumed by Stages 4/5 for session accumulation.
   augmentation_bugs_found: 0    # Confirmed bug discoveries from CLI test augmenter (Section 2.1a). 0 if skipped or no bugs found.
-  simplification_stats: null     # null if code_simplification.enabled is false.
+  simplification_stats: null     # null if features.code_simplification is false.
     # When enabled, replace null with an object containing these keys:
     # phases_simplified: {N}     — Phases where simplification ran successfully
     # phases_skipped: {N}        — Phases where simplification was skipped (too many files, no eligible files, disabled)
@@ -599,7 +581,7 @@ flags:
 
 ## Stage Log
 
-Use ISO 8601 timestamps with seconds precision per `config/implementation-config.yaml` `timestamps` section (e.g., `2026-02-10T14:30:45Z`). Never round to hours or minutes.
+Use ISO 8601 timestamps with seconds precision (e.g., `2026-02-10T14:30:45Z`). Never round to hours or minutes.
 
 - [{timestamp}] Phase 1: {phase_name} — {task_count} tasks completed — commit: {sha or skipped}
 - [{timestamp}] Phase 2: {phase_name} — {task_count} tasks completed — commit: {sha or skipped}

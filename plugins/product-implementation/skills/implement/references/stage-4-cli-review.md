@@ -2,7 +2,6 @@
 purpose: "Stage 4 Tier C: Multi-model CLI quality review dispatches"
 referenced_by:
   - "stage-4-quality-review.md (Section 4.1, Tier C)"
-config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (cli_dispatch.stage4)"
 dispatch_procedure: "cli-dispatch-procedure.md"
 ---
 
@@ -10,7 +9,7 @@ dispatch_procedure: "cli-dispatch-procedure.md"
 
 > **Extracted from**: `stage-4-quality-review.md` (now Section 4.2b) for modularity.
 > Tier C dispatches external CLI agents (Codex, Gemini) for multi-model code review.
-> Only runs when `cli_dispatch.stage4.multi_model_review.enabled` is `true`.
+> Only runs when `cli_features_enabled` is `true` in Stage 1 summary.
 
 > **ANTI-PATTERN — DO NOT USE `ask` FOR CLI DISPATCH:**
 > All dispatches in this file MUST use `dispatch-cli-agent.sh` via Bash(). NEVER use the
@@ -19,7 +18,7 @@ dispatch_procedure: "cli-dispatch-procedure.md"
 
 ## Prerequisites
 
-- `cli_dispatch.stage4.multi_model_review.enabled` must be `true` in config
+- Read `cli_features_enabled` from Stage 1 summary — Tier C runs only when `true`
 - Read `cli_availability` from Stage 1 summary to check which CLIs are available
 - Read `detected_domains` from Stage 1 summary for conditional reviewers
 
@@ -51,7 +50,7 @@ Launch these reviewers in parallel. All dispatches follow the Shared CLI Dispatc
 
 ### Security Reviewer (Conditional)
 
-> Only triggers when `detected_domains` includes ANY of: `api`, `web_frontend`, `database` (configurable via `cli_dispatch.stage4.multi_model_review.conditional[].domains`).
+> Only triggers when `detected_domains` includes ANY of: `api`, `web_frontend`, `database`.
 
 1. Check `cli_availability.codex` and domain match
 2. If both satisfied: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_security_reviewer.txt`. Inject variables:
@@ -63,7 +62,7 @@ Launch these reviewers in parallel. All dispatches follow the Shared CLI Dispatc
 
 ### Android Domain Reviewer (Conditional)
 
-> Only triggers when `detected_domains` includes ANY of: `android`, `compose`, `kotlin` (configurable via `cli_dispatch.stage4.multi_model_review.conditional[].domains`).
+> Only triggers when `detected_domains` includes ANY of: `android`, `compose`, `kotlin`.
 
 1. Check `cli_availability.gemini` and domain match
 2. If both satisfied: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_android_domain_reviewer.txt`. Inject variables:
@@ -75,7 +74,7 @@ Launch these reviewers in parallel. All dispatches follow the Shared CLI Dispatc
 
 ### UX/Accessibility Reviewer (Conditional)
 
-> Only triggers when `detected_domains` includes ANY of: `compose`, `android`, `web_frontend` (configurable via `cli_dispatch.stage4.multi_model_review.conditional[].domains`).
+> Only triggers when `detected_domains` includes ANY of: `compose`, `android`, `web_frontend`.
 
 1. Check `cli_availability.codex` and domain match
 2. If both satisfied: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_ux_reviewer.txt`. Inject variables:
@@ -97,9 +96,9 @@ After all Phase 1 dispatches complete:
 ## Phase 2: Pattern Search (Sequential, Conditional)
 
 > Only runs when Phase 1 produced at least one Critical or High finding.
-> Gated by `cli_dispatch.stage4.pattern_search.min_severity_trigger` (default: "high").
+> Minimum severity trigger: `high` (i.e., at least one High or Critical finding in Phase 1).
 
-The codebase pattern reviewer uses Gemini's 1M context window to search the entire codebase for the same vulnerability/bug patterns found in Phase 1.
+The codebase pattern reviewer uses Gemini's 1M context window to search the entire codebase for the same vulnerability/bug patterns found in Phase 1. Config: `cli_name="gemini"`, `role="codebase_pattern_reviewer"`, `context_strategy="full_codebase"`, `max_context_tokens=800000`.
 
 ### Procedure
 
@@ -113,10 +112,10 @@ The codebase pattern reviewer uses Gemini's 1M context window to search the enti
    - `{modified_files}` — file list from tasks.md
 4. Dispatch with:
    - `cli_name="gemini"`, `role="codebase_pattern_reviewer"`
-   - `timeout_ms` from config (pattern search may need more time with large codebases)
+   - `timeout_ms=300000` (pattern search may need more time with large codebases)
    - `fallback_behavior="skip"` (Phase 1 findings are sufficient)
    - `expected_fields=["findings", "patterns_found", "files_scanned"]`
-   - Context strategy: `max_context_tokens` from `cli_dispatch.stage4.codebase_pattern_reviewer.max_context_tokens` (default: 800000)
+   - Context strategy: `max_context_tokens=800000`
 
 ### Phase 2 Output
 

@@ -1,5 +1,5 @@
 ---
-version: 3                       # State schema version. v3 adds per-phase stage tracking.
+version: 4                       # State schema version. v4 replaces quality_preset/autonomy_policy/external_models with profile/autonomy.
 feature_name: "{FEATURE_NAME}"   # e.g., "001-user-auth"
 feature_dir: "{FEATURE_DIR}"     # e.g., "specs/001-user-auth"
 current_stage: 1                 # 1=Setup, 2-5=Per-phase loop, 6=Retrospective
@@ -16,7 +16,7 @@ stage_summaries:                 # Paths to coordinator summary files (Stage 1 a
   "1": null                      # .stage-summaries/stage-1-summary.md
   "6": null                      # .stage-summaries/stage-6-summary.md
 user_decisions:                  # Immutable once set. Valid keys:
-  # NOTE: autonomy_policy is stored in the Stage 1 summary YAML, not here.
+  # NOTE: autonomy is stored in the Stage 1 summary YAML, not here.
   # It flows through stage summaries to all downstream coordinators.
   # validation_outcome: "passed" | "fixed" | "proceed_anyway" | "stopped"
   # review_outcome: "fixed" | "deferred" | "accepted"

@@ -6,7 +6,6 @@ referenced_by:
   - "stage-3-validation.md (Options C, D)"
   - "stage-4-cli-review.md (Tier C dispatches)"
   - "stage-5-documentation.md (Option L)"
-config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (cli_dispatch)"
 ---
 
 # Shared CLI Dispatch Procedure
@@ -28,10 +27,10 @@ config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (cli_dispa
 | `prompt` | string | Full prompt with variables injected |
 | `cli_name` | string | CLI identifier (e.g., "codex", "gemini") |
 | `role` | string | Role name (e.g., "spec_validator", "correctness_reviewer") |
-| `model` | string? | Model override for CLI (e.g., "openrouter/x-ai/grok-4-fast"). Resolved from: (1) role-level config, (2) `cli_dispatch.cli_defaults.{cli_name}.model`. Omit when null/empty. |
-| `effort` | string? | Effort level for CLI (e.g., "high", "medium"). Resolved from: (1) role-level config, (2) `cli_dispatch.cli_defaults.{cli_name}.effort`. Omit when null/empty. |
+| `model` | string? | Model override for CLI. Read `codex_model` or `gemini_model` from Stage 1 summary. Omit when null/empty. |
+| `effort` | string? | Effort level for CLI. Read `codex_effort` or `gemini_effort` from Stage 1 summary. Omit when null/empty. |
 | `file_paths` | string[] | Directories/files the CLI agent can access |
-| `timeout_ms` | int | From config `cli_dispatch.timeout_ms` (default: 300000) |
+| `timeout_ms` | int | Default: 300000ms |
 | `fallback_behavior` | string | `"native"` / `"skip"` / `"error"` |
 | `fallback_agent` | string? | Agent subagent_type for native fallback (null if skip) |
 | `fallback_prompt` | string? | Prompt for native fallback agent (null if skip) |
@@ -39,11 +38,9 @@ config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (cli_dispa
 
 ## Procedure
 
-### Pre-Step: Circuit Breaker Gate (Optional)
+### Pre-Step: Circuit Breaker Gate
 
-> Conditional: Only when `cli_dispatch.circuit_breaker.enabled` is `true`.
-
-Before Step 1, check whether the circuit for this CLI is open:
+Before Step 1, check whether the circuit for this CLI is open. Circuit breaker threshold: 3 consecutive failures.
 
 1. Read `cli_circuit_state` from the most recent prior summary that contains it
    (coordinator provides this from its prior_summaries reading)
@@ -75,8 +72,7 @@ Bash("$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
   [--effort {effort}]")
 ```
 
-> **NOTE on `--model` and `--effort`**: Both are optional. Resolve each from: (1) role-level config field, (2) `cli_dispatch.cli_defaults.{cli_name}.model` / `.effort`.
-> Omit the flag entirely when the resolved value is null/empty.
+> **NOTE on `--model` and `--effort`**: Both are optional. Read `codex_model`, `codex_effort`, `gemini_model`, `gemini_effort` from Stage 1 summary. Omit the flag entirely when the resolved value is null/empty.
 
 6. Clean up temp prompt file after dispatch completes.
 
@@ -113,9 +109,7 @@ If `exit_code != 0`:
 1. LOG warning: `"CLI dispatch failed: {cli_name}/{role} -- exit code {exit_code}"`
 2. GOTO **Fallback** (Step 5)
 
-### Post-Step: Circuit Breaker Update (Optional)
-
-> Conditional: Only when `cli_dispatch.circuit_breaker.enabled` is `true`.
+### Post-Step: Circuit Breaker Update
 
 After Step 2 (Error Check), update circuit state:
 
@@ -125,10 +119,9 @@ After Step 2 (Error Check), update circuit state:
    - Ensure: `cli_circuit_state.{cli_name}.status = "closed"`
 3. If NOT `success`:
    - Increment: `cli_circuit_state.{cli_name}.consecutive_failures += 1`
-   - Read threshold from `cli_dispatch.circuit_breaker.consecutive_failure_threshold`
-   - If `consecutive_failures >= threshold`:
+   - If `consecutive_failures >= 3`:
      - Set: `cli_circuit_state.{cli_name}.status = "open"`
-     - LOG: "Circuit OPENED for {cli_name} — {threshold} consecutive failures"
+     - LOG: "Circuit OPENED for {cli_name} — 3 consecutive failures"
 4. Return updated `cli_circuit_state` to coordinator for summary propagation
 
 > **Future enhancement:** The current implementation uses a two-state model (closed/open). A classic circuit breaker includes a third `half_open` state that allows a single probe dispatch after N stages to test recovery. For v1, the two-state model is sufficient — once a circuit opens, it remains open for the rest of the session. If CLI recovery detection becomes valuable, add a `half_open` state with a configurable cooldown period.
@@ -185,12 +178,11 @@ RETURN { success: false, error: true }
 
 ## Retry Logic
 
-If `cli_dispatch.retry.max_attempts > 0` in config:
-1. On transient failure (timeout, exit_code > 1 but not 3), retry up to `max_attempts` times
-2. Wait `backoff_ms` between retries
-3. If all retries fail, proceed to Fallback
+On transient failure (timeout, exit_code > 1 but not 3): retry up to 1 time with 5000ms backoff. If retry fails, proceed to Fallback.
 
 ## Metrics Sidecar
+
+Instrumentation is always enabled (capture_cli_version=true, retention="session").
 
 After each dispatch, the script writes `{output_file}.metrics.json` alongside the content output. The coordinator SHOULD read this sidecar to:
 
@@ -214,24 +206,35 @@ The coordinator constructs the full prompt as:
 {...additional variables per the stage file's variable list}
 
 ## MCP Tool Budget (Advisory)
-{budget from config}
+{budget from MCP Budget Injection section below}
 ```
 
 Each stage file's integration point specifies which variables to inject. The role prompt's `## Output Format` section defines what the agent should produce; the injected context section provides the runtime values.
 
 ## MCP Budget Injection
 
-Before dispatching, coordinators SHOULD inject the MCP tool budget from `cli_dispatch.mcp_tool_budgets` into the prompt as advisory text:
+Before dispatching, coordinators SHOULD inject the MCP tool budget into the prompt as advisory text. Use these inlined budgets:
 
 ```
 ## MCP Tool Budget (Advisory)
-- Ref: max {max_searches} searches, {max_reads} reads
-- Context7: max {max_queries} queries
-- Tavily: max {max_searches} searches
-- Sequential Thinking: max {max_chains} chains
+- Ref: max 3 searches/dispatch, max 2 reads
+- Context7: max 2 queries
+- Tavily: max 2 searches
+- Sequential Thinking: max 1 chain
+- Figma: max 5 calls
+- Mobile MCP: max 10 screenshots, max 50 interactions, max 3 device queries
 ```
 
 These are prompt-level guidance, not programmatic caps. CLI agents are standalone processes — they do NOT inherit Claude Code's MCP server connections. If the CLI has its own MCP support (e.g., Codex reading `.mcp.json`), the budget guides usage. If the CLI lacks MCP (Gemini), agents ignore it gracefully. Coordinators compensate by injecting pre-fetched research context into prompts (Subagent-Delegated Context Injection pattern).
+
+## CLI Instruction File Markers (Inlined)
+
+When Stage 1b manages AGENTS.md and GEMINI.md at PROJECT_ROOT:
+- Codex managed section marker: `<!-- pi-codex-begin -->` / `<!-- pi-codex-end -->`
+- Gemini managed section marker: `<!-- pi-gemini-begin -->` / `<!-- pi-gemini-end -->`
+- Shared content source: `$CLAUDE_PLUGIN_ROOT/config/cli_clients/shared/cli-instruction-shared.md`
+- Codex-specific content: `$CLAUDE_PLUGIN_ROOT/config/cli_clients/shared/codex-instruction-extra.md`
+- Gemini-specific content: `$CLAUDE_PLUGIN_ROOT/config/cli_clients/shared/gemini-instruction-extra.md`
 
 ## Write Boundaries
 

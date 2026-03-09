@@ -177,7 +177,7 @@ Used in Stage 3 after all phases complete.
    - Confirm the implementation follows the technical plan
    - If test-case specs are available, cross-validate test IDs against implemented tests
    - Verify constitution/architecture compliance: if the project has constitution.md or CLAUDE.md at the project root declaring architectural constraints (e.g., layering rules, dependency directions), verify that the implementation adheres to each declared constraint. Flag violations as High severity.
-   - Test coverage delta: count implemented automated tests by level (unit, integration, e2e). If test-plan.md is available, compare against planned targets and report delta as `{implemented}/{planned} {level} ({pct}%)`. Flag thresholds (from config): if unit tests < 80% of plan target, flag High; if any other level < 50% of plan target, flag Medium.
+   - Test coverage delta: count implemented automated tests by level (unit, integration, e2e). If test-plan.md is available, compare against planned targets and report delta as `{implemented}/{planned} {level} ({pct}%)`. Flag thresholds: if unit tests < 80% of plan target, flag High; if any other level < 50% of plan target, flag Medium.
    - Strategy risk cross-reference: if test-strategy.md is available, verify that critical/high risks from the strategy are addressed by implemented tests. Report uncovered risks as Medium severity.
    - Run the full test suite independently and report the verified count as `baseline_test_count: {N}` at the end of your validation report.
    - Report final status with summary of completed work
@@ -232,7 +232,7 @@ Used in Stage 4. Launched 3 times in parallel with different `{focus_area}` valu
 2. Read each modified file and review through your assigned lens
 3. Compare against existing codebase patterns (check CLAUDE.md, constitution.md if present)
 4. The agent uses domain skills baked into its agent .md file via progressive disclosure for domain-specific best practices relevant to its focus area
-5. Scan test files for tautological assertions (see `config/implementation-config.yaml` under `test_coverage.tautological_patterns` for the authoritative pattern list). Flag any test that passes without exercising real code as Medium severity (or High if it covers a critical feature path with no other test).
+5. Scan test files for tautological assertions (patterns: `assertTrue(true)`, `assertEquals(x, x)`, `expect(true).toBe(true)`, empty test bodies, `@Test` with no assertions). Flag any test that passes without exercising real code as Medium severity (or High if it covers a critical feature path with no other test).
 6. **Pattern propagation (R-REV-01)**: After finding any Critical or High severity structural bug (wrong API usage, incorrect state handling, framework anti-pattern), search the ENTIRE codebase for other occurrences of the same pattern before concluding your review. Report all matching locations — a single instance of a bug pattern often indicates systemic misuse.
 7. For each finding, provide structured output as described below
 
@@ -270,7 +270,7 @@ When research context is provided: use it for documentation-backed review — ve
 ```
 
 **Variables:** See Common Variables above, plus:
-- `{focus_area}` — One of (see `config/implementation-config.yaml` for canonical list):
+- `{focus_area}` — One of these three focus areas (3 parallel reviewers):
   - `"simplicity, DRY principles, and code elegance"`
   - `"bugs, functional correctness, and edge case handling"`
   - `"project conventions, abstractions, and pattern adherence"`
@@ -426,9 +426,9 @@ Report exactly these fields at the end of your response:
 ```
 
 **Variables:**
-- `{commit_message}` — Pre-built commit message from `auto_commit.message_templates` in config, with template variables (e.g., `{feature_name}`, `{phase_name}`) already substituted by the coordinator
+- `{commit_message}` — Pre-built commit message from the message templates in `auto-commit-dispatch.md`, with template variables (e.g., `{feature_name}`, `{phase_name}`) already substituted by the coordinator
 - `{FEATURE_DIR}` — Path to feature spec directory (used to scope staged files)
-- `{exclude_patterns_formatted}` — Bullet list of exclude patterns from `auto_commit.exclude_patterns` in config, formatted as: `- .implementation-state.local.md\n- .stage-summaries/`
+- `{exclude_patterns_formatted}` — Bullet list of exclude patterns from `auto-commit-dispatch.md` (all 11 inlined patterns), formatted as: `- .implementation-state.local.md\n- .stage-summaries/`
 
 **Example successful run:**
 
@@ -542,9 +542,9 @@ Write `{FEATURE_DIR}/retrospective.md` with these sections. Skip any section whe
 - `{report_card_data}` — Full content of `.implementation-report-card.local.md` YAML frontmatter (produced in Stage 6 Section 6.2). Contains all Phase 1 KPI values and traffic lights. (required — always produced before this prompt runs)
 - `{transcript_extract}` — Content of `.stage-summaries/transcript-extract.json` (produced in Stage 6 Section 6.3). Contains tool usage, errors, timing, and file access patterns. **Fallback if transcript analysis disabled or unavailable:** `"Transcript analysis not available — session behavior sections will be omitted."`
 - `{stage_summaries_compiled}` — Key excerpts from all 5 stage summaries: the `summary` and `flags` YAML sections from each, plus any `## Context for Next Stage` prose. Compiled by the Stage 6 coordinator (~200 tokens per stage, ~1000 tokens total). (required — always available)
-- `{sections_config}` — The `retrospective.sections` block from `config/implementation-config.yaml`, rendered as YAML. Controls which sections the tech-writer includes. **Fallback if config unavailable:** All sections enabled (default `true`).
+- `{sections_config}` — All sections enabled by default: timeline=true, what_worked=true, what_didnt_work=true, stage_breakdown=true, tool_analysis=true, code_quality_metrics=true, recommendations=true, raw_metrics=true. **Always all sections** (inlined defaults — no config read needed).
 
-**Agent behavior:** The tech-writer agent reads the provided structured data (KPI Report Card, transcript extract, stage summaries), synthesizes findings across all three data sources, and produces a narrative retrospective document. The agent respects section toggles from `{sections_config}` — disabled sections are omitted entirely. When transcript data is unavailable, the agent omits session behavior sections and produces a KPI-and-summary-focused retrospective. The agent uses traffic light indicators, tables, and evidence-based language throughout.
+**Agent behavior:** The tech-writer agent reads the provided structured data (KPI Report Card, transcript extract, stage summaries), synthesizes findings across all three data sources, and produces a narrative retrospective document. All sections are enabled by default (inlined) — all are included unless the coordinator explicitly overrides. When transcript data is unavailable, the agent omits session behavior sections and produces a KPI-and-summary-focused retrospective. The agent uses traffic light indicators, tables, and evidence-based language throughout.
 
 ---
 
@@ -910,8 +910,8 @@ FEATURE_DIR: {FEATURE_DIR}
 - `{PROJECT_ROOT}` — Git repository root path. **Required — always available**
 - `{FEATURE_DIR}` — Path to feature spec directory. **Required — always available**
 - `{PLUGIN_ROOT}` — `$CLAUDE_PLUGIN_ROOT` resolved path. **Required — always available**
-- `{max_files_to_scan}` — From `config/implementation-config.yaml` `project_setup.analysis_budget.max_files_to_scan`. **Default:** `50`
-- `{output_token_budget}` — From `config/implementation-config.yaml` `project_setup.analysis_budget.output_token_budget`. **Default:** `3000`
+- `{max_files_to_scan}` — From Stage 1 summary (default: `50`)
+- `{output_token_budget}` — From Stage 1 summary (default: `3000`)
 - `{plan_tech_stack}` — Tech stack section extracted from plan.md (loaded in Section 1.4). **Fallback:** `"No tech stack information available from plan.md."`
 - `{plan_architecture}` — Architecture section extracted from plan.md. **Fallback:** `"No architecture information available from plan.md."`
 - `{plan_test_strategy}` — Test approach from test-plan.md or plan.md. **Fallback:** `"No test strategy information available."`

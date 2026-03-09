@@ -21,7 +21,7 @@ agents:
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/auto-commit-dispatch.md"
-  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
+  - ".stage-summaries/stage-1-summary.md (for features.stage6_retro, autonomy)"
 ---
 
 # Stage 6: Implementation Retrospective
@@ -42,16 +42,16 @@ Stage 6 produces two artifacts through a three-layer pipeline:
 
 The Data and Behavior layers run first (Sections 6.2-6.3), then feed into the Presentation layer (Section 6.4).
 
-## 6.1 Config & Skip Gate
+## 6.1 Skip Gate
 
-Read `retrospective` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`.
+Read `features.stage6_retro` from Stage 1 summary.
 
-1. If `retrospective.enabled` is `false`:
+1. If `features.stage6_retro` is `false`:
    - Write a minimal Stage 6 summary with `status: "completed"` and `flags.skipped: true`
    - Log: `"Retrospective disabled — skipping Stage 6"`
    - Return immediately (no artifacts produced)
 
-2. If `retrospective.enabled` is `true`: proceed to Section 6.2.
+2. If `features.stage6_retro` is `true` (or absent/null — default to enabled): proceed to Section 6.2.
 
 ## 6.2 KPI Report Card Compilation
 
@@ -64,13 +64,13 @@ Read and collect data from these sources:
 | Source | Fields Extracted |
 |--------|-----------------|
 | `.implementation-state.local.md` | `user_decisions`, `orchestrator.coordinator_failures`, `orchestrator.summaries_reconstructed` |
-| Stage 1 summary | `artifacts_loaded` table, `test_cases_available`, `autonomy_policy`, expected file warnings |
+| Stage 1 summary | `artifacts_loaded` table, `test_cases_available`, `autonomy`, `profile`, expected file warnings |
 | Stage 2 summary | `simplification_stats`, `uat_results`, `augmentation_bugs_found`, `cli_dispatch_metrics` |
 | Stage 3 summary | `validation_outcome`, `baseline_test_count` |
 | Stage 4 summary | `review_outcome`, finding counts by severity |
 | Stage 5 summary | `documentation_outcome` |
 | `tasks.md` | Count of `[X]` vs total tasks |
-| All stage summaries | Count of `[AUTO-{policy}]` log entries (grep Implementation Log sections) |
+| All stage summaries | Count of `[AUTO-{autonomy}]` log entries (grep Implementation Log sections) |
 
 ### 6.2.2 KPI Computation — Phase 1
 
@@ -83,8 +83,8 @@ Compute 10 Phase 1 KPIs from the collected data:
 | 3.1 | Input Completeness Score | Count artifacts with status `"loaded"` / total artifacts in Stage 1 summary table × 100 | Green: >=80%, Yellow: >=60%, Red: <60% |
 | 3.2 | Expected File Gap Rate | Count Stage 1 warnings about expected-but-missing files / total expected files × 100 | Green: 0%, Yellow: <=20%, Red: >20% |
 | 3.3 | Test Case Availability | `test_cases_available` from Stage 1 flags (`true`/`false`) | Green: true, Red: false |
-| 5.1 | Autonomy Policy Level | `autonomy_policy` from Stage 1 summary (literal value) | Info only — no traffic light |
-| 5.2 | Auto-Resolution Count | Total `[AUTO-{policy}]` entries across all stage logs | Info only — contextualizes policy impact |
+| 5.1 | Autonomy Level | `autonomy` from Stage 1 summary (literal value: "auto" or "interactive") | Info only — no traffic light |
+| 5.2 | Auto-Resolution Count | Total `[AUTO-{autonomy}]` entries across all stage logs | Info only — contextualizes autonomy impact |
 | 5.3 | Simplification Stats | `simplification_stats` from Stage 2 summary (phases_simplified, lines_reduced, rollbacks) | Green: 0 rollbacks, Yellow: 1 rollback, Red: 2+ rollbacks |
 | 5.4 | UAT Results | `uat_results` from Stage 2 summary (phases_tested, pass_count, fail_count, visual_mismatches) | Green: all pass, Yellow: visual-only issues, Red: behavioral failures |
 | 5.5 | CLI Augmentation | `augmentation_bugs_found` from Stage 2 summary (count of bugs found by CLI test augmenter) | Green: 0, Yellow: 1-2, Red: 3+ |
@@ -139,9 +139,9 @@ kpis:
     id: "3.3"
     value: {true|false}
     traffic_light: "{green|red}"
-  autonomy_policy_level:
+  autonomy_level:
     id: "5.1"
-    value: "{full_auto|balanced|critical_only|null}"
+    value: "{auto|interactive|null}"
     traffic_light: "info"
   auto_resolution_count:
     id: "5.2"
@@ -212,16 +212,16 @@ phase2:
 
 ### 6.2.4 Reality Check Matrix
 
-After compiling the Report Card, verify that gates which were ENABLED in config actually EXECUTED during the implementation. This catches the "all green but nothing ran" failure mode.
+After compiling the Report Card, verify that gates which were ENABLED actually EXECUTED during the implementation. This catches the "all green but nothing ran" failure mode. All gate signals come from the Stage 1 summary — no config reads needed.
 
-| Check | Config Gate | Evidence Field | Source |
-|-------|-----------|---------------|--------|
-| UAT Execution | `uat_execution.enabled` | Stage 2 summary `uat_results.phases_tested > 0` | Per-phase Stage 2 summaries |
-| Figma Parity | `figma.enabled` AND `per_phase_review.figma_parity_gate` | Stage 4 summary contains `figma_parity_score` | Per-phase Stage 4 summaries |
-| App Launch Gate | `app_launch_gate.enabled` | Launch gate screenshots exist in `.uat-evidence/launch-gate/` | File system |
-| Mobile Probe | `uat_execution.enabled` | Stage 1 `mobile_mcp_available` is NOT null | Stage 1 summary |
-| Figma Probe | `figma.enabled` AND UI domains detected | Stage 1 `figma_available` is NOT null | Stage 1 summary |
-| CLI Dispatch | `external_models: true` | Stage 1 `cli_availability` has at least one key | Stage 1 summary |
+| Check | Summary Gate Signal | Evidence Field | Source |
+|-------|---------------------|---------------|--------|
+| UAT Execution | Stage 1 `features.uat_execution` = true | Stage 2 summary `uat_results.phases_tested > 0` | Per-phase Stage 2 summaries |
+| Figma Parity | Stage 1 `figma_available` = true AND UI domains detected | Stage 4 summary contains `figma_parity_score` | Per-phase Stage 4 summaries |
+| App Launch Gate | Stage 1 `mobile_mcp_available` = true | Launch gate screenshots exist in `.uat-evidence/launch-gate/` | File system |
+| Mobile Probe | Stage 1 `features.uat_execution` = true | Stage 1 `mobile_mcp_available` is NOT null | Stage 1 summary |
+| Figma Probe | Stage 1 `figma_available` is NOT null | Stage 1 `figma_available` is NOT null | Stage 1 summary |
+| CLI Dispatch | Stage 1 `cli_features_enabled` = true | Stage 1 `cli_availability` has at least one key | Stage 1 summary |
 
 **Evaluation per check:**
 - **GREEN**: Gate executed (evidence field present and non-null/non-zero) OR gate disabled in config (intentionally off)
@@ -244,17 +244,17 @@ reality_checks:
 
 ## 6.3 Transcript Extraction (Conditional)
 
-> **Gate**: `retrospective.transcript_analysis.enabled` must be `true`. If `false`, set `transcript_available: false` and skip to Section 6.4.
+> **Gate**: `features.stage6_retro` must be `true` (checked in 6.1). Transcript analysis always runs when Stage 6 is enabled. If no transcript is found, set `transcript_available: false` and skip to Section 6.4.
+
+**Defaults (inlined):** max_errors=20, max_file_paths=50, extract_token_budget=3000.
 
 ### 6.3.1 Identify Transcript File
 
 Claude Code stores session transcripts as JSONL at `~/.claude/projects/{project_hash}/{session_id}.jsonl`.
 
-1. Read `retrospective.transcript_analysis.transcript_dir` from config
-   - If `null` (default): auto-detect by globbing `~/.claude/projects/*/*.jsonl`
-   - If set: use the specified directory
+1. Auto-detect by globbing `~/.claude/projects/*/*.jsonl` (no config override needed)
 2. Identify the correct transcript by matching recency: find the JSONL file whose last-modified timestamp falls within the implementation window (between Stage 1 summary `generated_at` and Stage 5 summary `generated_at`)
-   - **Known limitation**: Timestamp-based matching is a heuristic — if multiple Claude Code sessions overlap the implementation window (e.g., parallel sessions in different terminals), the wrong transcript may be selected. The `transcript_dir` config override can be used to disambiguate manually.
+   - **Known limitation**: Timestamp-based matching is a heuristic — if multiple Claude Code sessions overlap the implementation window (e.g., parallel sessions in different terminals), the wrong transcript may be selected.
 3. If no matching transcript found: set `transcript_available: false`, log warning, skip to Section 6.4
 
 ### 6.3.2 Dispatch Extraction Subagent
@@ -299,7 +299,7 @@ Dispatch a throwaway `Task(subagent_type="general-purpose")` subagent to extract
 > - `context_compressions`: Count of system messages indicating context compression/compaction
 > - `longest_turns_ms`: Top 5 turns by duration (time between user message and assistant response), as `{"turn_index": N, "duration_ms": N}`
 >
-> Config caps: max_errors_extracted = `{max_errors_extracted}`, max_file_paths_extracted = `{max_file_paths_extracted}`, extract_token_budget = `{extract_token_budget}` (approximate target size for the output JSON — keep arrays trimmed to stay within this budget)
+> Config caps (inlined): max_errors_extracted = 20, max_file_paths_extracted = 50, extract_token_budget = 3000 tokens (approximate target size for the output JSON — keep arrays trimmed to stay within this budget)
 
 ### 6.3.3 Parse Extraction Result
 
@@ -322,7 +322,7 @@ Prepare the prompt variables for the tech-writer:
 | `{report_card_data}` | Content of `.implementation-report-card.local.md` YAML frontmatter | (required — always produced in 6.2) |
 | `{transcript_extract}` | Content of `.stage-summaries/transcript-extract.json` | `"Transcript analysis not available — session behavior sections will be omitted."` |
 | `{stage_summaries_compiled}` | Key excerpts from all 5 stage summaries (summary + flags sections, ~200 tokens each) | (required — always available) |
-| `{sections_config}` | `retrospective.sections` from config (which sections to include) | All sections enabled (default) |
+| `{sections_config}` | All sections enabled (inlined default: timeline, what_worked, what_didnt_work, stage_breakdown, tool_analysis, code_quality_metrics, recommendations, raw_metrics — all `true`) | Always all sections |
 
 ### 6.4.2 Dispatch Tech-Writer
 
@@ -358,7 +358,7 @@ After the tech-writer completes, optionally commit the retrospective document. F
 | `skip_target` | Section 6.6 |
 | `summary_field` | `commit_sha` |
 
-**Note:** The auto-commit exclude patterns in config include `.implementation-report-card` and `transcript-extract.json` — these are local analysis artifacts not committed to version control.
+**Note:** The auto-commit exclude patterns (inlined in `auto-commit-dispatch.md`) include `.implementation-report-card` and `transcript-extract.json` — these are local analysis artifacts not committed to version control.
 
 ## 6.6 State Update
 
@@ -369,7 +369,7 @@ After retrospective generation:
    - Update `last_checkpoint`
    - Append to Implementation Log: `"[{ISO_TIMESTAMP}] Stage 6: Retrospective — completed"`
 2. **No lock operations** — lock was already released in Stage 5
-3. **Sidecar cleanup**: If `cli_dispatch.instrumentation.sidecar_retention` is `"session"`, delete all `*.metrics.json` files produced by CLI dispatches during this implementation session. These are intermediate analysis artifacts not needed after retrospective generation.
+3. **Sidecar cleanup**: Delete all `*.metrics.json` files produced by CLI dispatches during this implementation session (retention policy: session). These are intermediate analysis artifacts not needed after retrospective generation.
 
 ## 6.7 Write Stage 6 Summary
 

@@ -1,6 +1,6 @@
 ---
 description: "Start autonomous implementation via Ralph Loop"
-argument-hint: "FEATURE_DIR [--quality minimal|standard|comprehensive] [--autonomy full_auto|balanced|critical_only] [--external-models true|false]"
+argument-hint: "FEATURE_DIR [--profile quick|standard|thorough]"
 allowed-tools:
   - Bash(${CLAUDE_PLUGIN_ROOT}/scripts/setup-ralph-implement.sh:*)
   - Read
@@ -32,7 +32,5 @@ checkpoint-based resume mechanism ensures progress is preserved across loop iter
 
 - The `ralph-loop` plugin must be installed and enabled
 - `tasks.md` and `plan.md` must exist in the feature directory
-- For fully autonomous execution, pre-seed config values or accept defaults:
-  - `quality_preset` (default: "standard")
-  - `autonomy_policy.default_level` (default: "full_auto")
-  - `external_models` (default: false)
+- For fully autonomous execution, set `ralph.default_profile` in config (default: "standard")
+  - Profile controls all feature flags, autonomy is always "auto" in ralph mode

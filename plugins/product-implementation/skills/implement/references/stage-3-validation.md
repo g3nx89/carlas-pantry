@@ -19,7 +19,6 @@ agents:
 additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/agent-prompts.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/cli-dispatch-procedure.md"
-  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
 ---
 
 # Stage 3: Completion Validation
@@ -53,11 +52,11 @@ Task(subagent_type="product-implementation:developer")
 - `{user_input}` — Original user arguments (if any)
 - `{test_cases_dir}` — If Stage 1 summary has `test_cases_available: true`, set to `{FEATURE_DIR}/test-cases/`. Otherwise set to `"Not available"`.
 - `{traceability_file}` — If `analysis/task-test-traceability.md` was loaded per Stage 1 summary, set to `{FEATURE_DIR}/analysis/task-test-traceability.md`. Otherwise set to `"Not available"`.
-- `{research_context}` — If `mcp_availability` from Stage 1 summary shows Context7 available AND `resolved_libraries` is non-empty: call `query-docs` for key libraries with query `"API signatures common pitfalls"` (up to `context7.max_queries_per_stage`). Assemble into `{research_context}`. If MCP is unavailable or disabled, use fallback: `"No research context available — proceed with codebase knowledge and planning artifacts only."`
+- `{research_context}` — If `mcp_availability` from Stage 1 summary shows Context7 available AND `resolved_libraries` is non-empty: call `query-docs` for key libraries with query `"API signatures common pitfalls"` (up to 3 queries — inline default). Assemble into `{research_context}`. If MCP is unavailable or disabled, use fallback: `"No research context available — proceed with codebase knowledge and planning artifacts only."`
 
 ## 3.1a CLI Spec Validator (Option C)
 
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage3.spec_validator.enabled` is `true` and `cli_availability.gemini` is `true` (from Stage 1 summary). If any condition is false, skip to Section 3.2.
+> **Conditional**: Only runs when ALL of: `cli_features_enabled.spec_validator` is `true` (from Stage 1 summary) and `cli_availability.gemini` is `true` (from Stage 1 summary). If any condition is false, skip to Section 3.2.
 
 Launch a cross-model spec validator in **parallel** with the native validation agent (Section 3.1). The CLI validator independently verifies implementation against specifications using a different model, providing a second perspective.
 
@@ -94,7 +93,7 @@ When both validators run, Section 3.2 validation checks operate on the **merged*
 
 ## 3.1b CLI UX Validator (Option D)
 
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage3.ux_validator.enabled` is `true` and `cli_availability.codex` is `true` (from Stage 1 summary). If any condition is false, skip to Section 3.2.
+> **Conditional**: Only runs when ALL of: `cli_features_enabled.ux_validator` is `true` (from Stage 1 summary) and `cli_availability.codex` is `true` (from Stage 1 summary). If any condition is false, skip to Section 3.2.
 
 Launch a UX completeness validator in **parallel** with the native validation agent (Section 3.1) and Gemini spec validator (Section 3.1a if enabled). The Codex validator independently verifies implementation completeness from a UX/accessibility perspective: state coverage, user flows, accessibility attributes, and error recovery paths.
 
@@ -147,13 +146,13 @@ The validation agent verifies:
 5. **Integration integrity**: All components integrate correctly
 6. **Test ID traceability** *(conditional — only if Stage 1 summary has `test_cases_available: true`)*: Verify that test IDs referenced in tasks.md have both (a) corresponding test-case spec files in `test-cases/` and (b) implemented test files in the codebase. Report any test IDs that are specified but not implemented, or implemented but not specified.
 7. **Constitution compliance** *(conditional — only if `constitution.md` or `CLAUDE.md` exists at the project root)*: Verify that the implementation adheres to architectural constraints declared in these files (e.g., layering rules, dependency directions, naming conventions). Flag violations as High severity — constitution documents are project contracts.
-8. **Test coverage delta** *(conditional — only if `test-plan.md` is available)*: Count implemented automated tests by level (unit, integration, e2e). Compare against planned targets from test-plan.md. Report delta as `{implemented}/{planned} {level} ({pct}%)`. Apply thresholds from `config/implementation-config.yaml` under `test_coverage.thresholds`: if unit tests < `unit_minimum_pct` (default 80%), flag High; if any other level < `other_minimum_pct` (default 50%), flag Medium.
+8. **Test coverage delta** *(conditional — only if `test-plan.md` is available)*: Count implemented automated tests by level (unit, integration, e2e). Compare against planned targets from test-plan.md. Report delta as `{implemented}/{planned} {level} ({pct}%)`. Apply inline thresholds: if unit tests < 80%, flag High; if any other level < 50%, flag Medium.
 8b. **Strategy risk alignment** *(conditional — only if `test-strategy.md` is available)*: Cross-reference critical/high risks from test-strategy.md against implemented test coverage. For each risk area, verify at least one test addresses it. Report uncovered risks as Medium severity. If test-plan.md Section 10 (Strategy Traceability) exists, validate that claimed coverage matches actual implementation.
 9. **Independent test count verification**: Run the full test suite independently (do not rely on Stage 2's count) and record the result as `baseline_test_count`. This becomes the reference for Stage 4 post-fix validation.
 10. **Stage 2 cross-validation** *(conditional — only if Stage 2 summary has `test_count_verified` in flags)*: Compare the independently verified `baseline_test_count` against Stage 2's `test_count_verified`. If the values differ, log a warning: "Test count discrepancy: Stage 2 reported {test_count_verified} but independent verification found {baseline_test_count}. Investigate possible agent reporting error." The `baseline_test_count` (independently verified) takes precedence.
-11. **Test quality gate** *(always runs)*: Scan all test files created or modified during implementation for tautological/placeholder assertions. Use patterns from `config/implementation-config.yaml` under `test_coverage.tautological_patterns`. For each test file: if ALL assertions match tautological patterns (no substantive assertions), flag the file. If flagged file count >= `placeholder_file_threshold_high` (default 2), flag as **High** severity: "Placeholder tests detected: {N} test file(s) contain only tautological assertions ({file_list})." If count > 0 but below threshold, flag as Medium.
+11. **Test quality gate** *(always runs)*: Scan all test files created or modified during implementation for tautological/placeholder assertions. Use these inline patterns: `assertTrue\(true`, `assert\(true\)`, `expect\(true\)\.toBe\(true\)`, `expect\(1\)\.toBe\(1\)`, `assertEquals\(true,\s*true\)`. For each test file: if ALL assertions match tautological patterns (no substantive assertions), flag the file. If flagged file count >= 2 (inline default `placeholder_file_threshold=2`), flag as **High** severity: "Placeholder tests detected: {N} test file(s) contain only tautological assertions ({file_list})." If count > 0 but below threshold, flag as Medium.
 12. **API documentation alignment** *(advisory, optional — only if `{research_context}` is provided)*: Cross-check implemented API usage (method signatures, parameter types, return values) against the documentation excerpts in `{research_context}`. Flag discrepancies as **Low** severity (advisory). This check uses Context7 library docs when available. If `{research_context}` is absent, skip this check entirely.
-13. **Empty test body detection** *(always runs)*: Scan all test files for methods with zero `assert*/expect*/verify*/check*/should*` calls. Use patterns from `config/implementation-config.yaml` under `test_coverage.empty_body_patterns`. For each empty test body found, check if a corresponding spec exists in `test-cases/`:
+13. **Empty test body detection** *(always runs)*: Scan all test files for methods with zero `assert*/expect*/verify*/check*/should*` calls. Use these inline patterns to detect empty bodies: Kotlin: `@Test\s+fun\s+\w+\(\)\s*\{\s*\}`, Python: `def test_\w+\(self\):\s*pass`, JS/TS: `(it|test)\(['"].*['"],\s*\(\)\s*=>\s*\{\s*\})`. For each empty test body found, check if a corresponding spec exists in `test-cases/`:
     - Spec exists + empty implementation → **Critical**: "Test {test_id} has spec with verifications but empty body — passes without verifying anything"
     - No spec + empty implementation → **High**: "Empty test body: {method} in {file} — passes without verifying anything"
     This extends check 11 (tautological patterns) to catch the specific failure mode of empty stubs that count as "passing".
@@ -194,7 +193,7 @@ If validation reveals issues:
 
 ### Autonomy Policy Check
 
-Apply the shared autonomy policy procedure from `$CLAUDE_PLUGIN_ROOT/skills/implement/references/autonomy-policy-procedure.md` with:
+Read `autonomy` from the Stage 1 summary. Apply the shared autonomy policy procedure from `$CLAUDE_PLUGIN_ROOT/skills/implement/references/autonomy-policy-procedure.md` with:
 
 | Parameter | Value |
 |-----------|-------|

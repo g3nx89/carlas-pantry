@@ -2,7 +2,6 @@
 purpose: "Stage 4 Tier B: Plugin-based quality review via code-review skill"
 referenced_by:
   - "stage-4-quality-review.md (Section 4.1, Tier B)"
-config_source: "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml (quality_review, cli_dispatch.stage4)"
 ---
 
 # Stage 4 — Tier B: Plugin Review
@@ -34,14 +33,14 @@ After the subagent completes, the coordinator reads the output file (not the sub
 
 ## Finding Normalization
 
-The `code-review` plugin produces findings in its own format (CEK confidence + impact scoring). The coordinator normalizes these to match the Stage 4 severity scale using thresholds from `config/implementation-config.yaml` under `cli_dispatch.stage4.review_plugins.confidence_mapping` (canonical source — see config for current values).
+The `code-review` plugin produces findings in its own format (CEK confidence + impact scoring). The coordinator normalizes these to match the Stage 4 severity scale using the following inline thresholds:
 
-| Plugin Output | Stage 4 Severity | Config Key |
-|---------------|-----------------|------------|
-| confidence >= `critical.min_confidence` AND impact = `critical.impact` | Critical | `confidence_mapping.critical` |
-| confidence >= `high.min_confidence` AND impact = `high.impact` | High | `confidence_mapping.high` |
-| confidence >= `medium.min_confidence` OR impact = "medium" | Medium | `confidence_mapping.medium` |
-| All others | Low | `confidence_mapping.low` |
+| Plugin Output | Stage 4 Severity |
+|---------------|-----------------|
+| confidence >= 0.9 AND impact = "high" or "security" | Critical |
+| confidence >= 0.8 AND impact = "high" | High |
+| confidence >= 0.7 OR impact = "medium" | Medium |
+| All others | Low |
 
 ### Normalization Procedure
 
@@ -56,7 +55,7 @@ The `code-review` plugin produces findings in its own format (CEK confidence + i
 
 ## Max Findings Cap
 
-Cap at 50 findings from Tier B. If the plugin reports more, keep the highest-severity findings and log: "Plugin review capped at 50 findings ({N} total reported)."
+Cap at `max_findings=50` from Tier B. If the plugin reports more, keep the highest-severity findings and log: "Plugin review capped at 50 findings ({N} total reported)."
 
 ## Graceful Degradation
 

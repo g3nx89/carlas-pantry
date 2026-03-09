@@ -1,0 +1,259 @@
+# Profile Definitions (Internal)
+# Not user-edited. Read by Stage 1b to resolve feature flags from profile selection.
+# User-facing config: config/implementation-config.yaml
+
+# --- Profile Definitions ---
+# Each profile bundles feature flags and CLI feature lists.
+# Feature flags are flat booleans written to Stage 1 summary for downstream consumption.
+
+profiles:
+  quick:
+    label: "Quick"
+    description: "Fast prototyping — minimal quality gates, no external models"
+    default_autonomy: "auto"
+    features:
+      per_phase_review: true
+      output_verifier: true
+      code_simplification: false
+      uat_execution: false
+      figma_parity: false
+      research_mcp: true
+      project_setup: false
+      stances: false
+      convergence: false
+      cove: false
+      context_protocol: false
+      circuit_breaker: false
+      external_models: false
+      doc_judge: false
+      stage5_docs: false
+      stage6_retro: false
+      app_launch_gate: true
+    cli_features: []
+
+  standard:
+    label: "Standard (Recommended)"
+    description: "Balanced quality — core review features, select CLI agents if available"
+    default_autonomy: "interactive"
+    features:
+      per_phase_review: true
+      output_verifier: true
+      code_simplification: true
+      uat_execution: true
+      figma_parity: true
+      research_mcp: true
+      project_setup: true
+      stances: true
+      convergence: true
+      cove: true
+      context_protocol: true
+      circuit_breaker: true
+      external_models: true
+      doc_judge: true
+      stage5_docs: true
+      stage6_retro: true
+      app_launch_gate: true
+    cli_features:
+      - "test_augmenter_secondary"
+      - "spec_validator"
+      - "ux_test_reviewer"
+
+  thorough:
+    label: "Thorough"
+    description: "Maximum quality — all review features and CLI agents"
+    default_autonomy: "interactive"
+    features:
+      per_phase_review: true
+      output_verifier: true
+      code_simplification: true
+      uat_execution: true
+      figma_parity: true
+      research_mcp: true
+      project_setup: true
+      stances: true
+      convergence: true
+      cove: true
+      context_protocol: true
+      circuit_breaker: true
+      external_models: true
+      doc_judge: true
+      stage5_docs: true
+      stage6_retro: true
+      app_launch_gate: true
+    cli_features:
+      - "test_augmenter_secondary"
+      - "spec_validator"
+      - "ux_test_reviewer"
+      - "multi_model_review"
+      - "doc_reviewer"
+      - "test_augmenter"
+      - "ux_validator"
+
+# --- Autonomy Definitions ---
+# Two levels replacing the v3 three-level system.
+# Key difference: medium findings (auto=fix, interactive=defer).
+
+autonomy:
+  auto:
+    label: "Auto"
+    description: "Fix everything automatically — minimum interruptions"
+    findings:
+      critical: "fix"
+      high: "fix"
+      medium: "fix"
+      low: "accept"
+    incomplete_tasks: "fix"
+    infrastructure: "retry_then_continue"
+
+  interactive:
+    label: "Interactive"
+    description: "Fix critical/high automatically, defer medium findings"
+    findings:
+      critical: "fix"
+      high: "fix"
+      medium: "defer"
+      low: "accept"
+    incomplete_tasks: "fix"
+    infrastructure: "retry_then_continue"
+
+# --- CLI Feature-to-Stage Mapping ---
+# Maps CLI feature names to their stage, CLI tool, and role.
+
+cli_feature_mapping:
+  test_augmenter_secondary:
+    stage: 2
+    cli_name: "codex"
+    role: "test_augmenter"
+    effort: "high"
+    script: "dispatch-test-augmenter.sh"
+  test_augmenter:
+    stage: 2
+    cli_name: "gemini"
+    role: "test_augmenter"
+  spec_validator:
+    stage: 3
+    cli_name: "gemini"
+    role: "spec_validator"
+  ux_test_reviewer:
+    stage: 2
+    cli_name: "codex"
+    role: "ux_test_reviewer"
+  ux_validator:
+    stage: 3
+    cli_name: "codex"
+    role: "ux_validator"
+  multi_model_review:
+    stage: 4
+    cli_name: "codex"
+    role: "correctness_reviewer"
+    effort: "high"
+  doc_reviewer:
+    stage: 5
+    cli_name: "gemini"
+    role: "doc_reviewer"
+
+# --- Domain Detection Indicators ---
+# Used by Stage 1b Section 1.6 for detected_domains.
+# Moved from dev_skills.domain_mapping in v3 config.
+
+domain_mapping:
+  kotlin:
+    indicators: [".kt", "Kotlin", "KMP", "kotlin"]
+  compose:
+    indicators: ["Composable", "Compose", "@Composable", "Material3", "LazyColumn"]
+  android:
+    indicators: ["AndroidManifest", "Activity", "ViewModel", "Intent", "android"]
+  kotlin_async:
+    indicators: ["callbackFlow", "supervisorScope", "StateFlow", "SharedFlow", "suspend fun"]
+  web_frontend:
+    indicators: [".tsx", ".jsx", ".vue", ".svelte", "React", "Next.js", "CSS", "HTML"]
+  api:
+    indicators: ["endpoint", "route", "controller", "REST", "GraphQL", "handler", "/api/"]
+  database:
+    indicators: ["schema", "migration", "model", "entity", "table", "Prisma", "Drizzle", "SQL"]
+  gradle:
+    indicators: ["build.gradle", "settings.gradle", "version catalog", "Gradle"]
+
+# --- Vertical Agent Selection ---
+# Priority-ordered: first match wins.
+
+vertical_agents:
+  - domains: ["android", "compose", "kotlin", "kotlin_async", "gradle"]
+    agent: "android-developer"
+  - domains: ["web_frontend"]
+    agent: "frontend-developer"
+  - domains: ["api", "database"]
+    agent: "backend-developer"
+  - domains: []
+    agent: "developer"   # fallback
+
+# --- Conditional Quality Reviewers ---
+# Stage 4 launches extra reviewer agents when detected_domains match.
+
+conditional_reviewers:
+  - domains: ["web_frontend", "compose", "android"]
+    focus: "accessibility compliance, WCAG 2.1 AA, keyboard navigation, ARIA attributes, touch targets"
+    skill: "accessibility-auditor"
+  - domains: ["web_frontend"]
+    focus: "responsive design, performance metrics, web interface best practices"
+    skill: "web-design-guidelines"
+max_conditional_reviewers: 2
+
+# --- UAT Engine Strategy Definitions ---
+
+uat_engine_strategies:
+  cli_only:
+    per_phase: "cli"
+    full_sweep: "cli"
+  hybrid:
+    per_phase: "subagent"
+    full_sweep: "cli"
+  subagent_only:
+    per_phase: "subagent"
+    full_sweep: "subagent"
+
+# --- CLI Reviewer Definitions (Stage 4 Tier C) ---
+
+cli_reviewers:
+  base:
+    - focus: "bugs, functional correctness, and edge case handling"
+      cli_name: "codex"
+      role: "correctness_reviewer"
+      effort: "high"
+  conditional:
+    - focus: "security vulnerabilities, OWASP Top 10"
+      cli_name: "codex"
+      role: "security_reviewer"
+      effort: "high"
+      domains: ["api", "web_frontend", "database"]
+    - focus: "Android lifecycle, Compose recomposition, Material 3, coroutine safety"
+      cli_name: "gemini"
+      role: "android_domain_reviewer"
+      domains: ["android", "compose", "kotlin"]
+    - focus: "UX quality, accessibility compliance, user flow completeness"
+      cli_name: "codex"
+      role: "ux_reviewer"
+      domains: ["compose", "android", "web_frontend"]
+  codebase_pattern_reviewer:
+    cli_name: "gemini"
+    role: "codebase_pattern_reviewer"
+    context_strategy: "full_codebase"
+    max_context_tokens: 800000
+
+# --- Plugin Review Confidence Mapping (Stage 4 Tier B) ---
+
+plugin_confidence_mapping:
+  critical:
+    min_confidence: 0.9
+    impact: "high"
+    condition: "Security or data-loss concern"
+  high:
+    min_confidence: 0.8
+    impact: "high"
+    condition: "Likely bug or significant issue"
+  medium:
+    min_confidence: 0.7
+    impact: "any"
+    condition: "Code smell or pattern concern"
+  low:
+    condition: "All others — style or optimization suggestion"

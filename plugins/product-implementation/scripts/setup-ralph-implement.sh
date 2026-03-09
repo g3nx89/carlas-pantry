@@ -29,9 +29,7 @@ yaml_val() {
 # --- Argument Parsing ---
 
 FEATURE_DIR=""
-QUALITY_PRESET=""
-AUTONOMY_POLICY=""
-EXTERNAL_MODELS=""
+PROFILE=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -46,27 +44,17 @@ ARGUMENTS:
   FEATURE_DIR    Path to the feature directory (e.g., specs/001-user-auth)
 
 OPTIONS:
-  --quality <preset>        Quality preset: minimal, standard, comprehensive (default: standard)
-  --autonomy <level>        Autonomy policy: full_auto, balanced, critical_only (default: full_auto)
-  --external-models <bool>  Use external AI models: true, false (default: false)
-  -h, --help                Show this help message
+  --profile <name>    Quality profile: quick, standard, thorough (default: from config ralph.default_profile)
+  -h, --help          Show this help message
 
 EXAMPLES:
   /product-implementation:ralph-implement specs/001-user-auth
-  /product-implementation:ralph-implement specs/001-feature --quality comprehensive --autonomy balanced
+  /product-implementation:ralph-implement specs/001-feature --profile thorough
 HELP_EOF
       exit 0
       ;;
-    --quality)
-      QUALITY_PRESET="$2"
-      shift 2
-      ;;
-    --autonomy)
-      AUTONOMY_POLICY="$2"
-      shift 2
-      ;;
-    --external-models)
-      EXTERNAL_MODELS="$2"
+    --profile)
+      PROFILE="$2"
       shift 2
       ;;
     *)
@@ -80,23 +68,12 @@ done
 
 # --- Input Validation ---
 
-if [[ -n "$QUALITY_PRESET" ]] && [[ ! "$QUALITY_PRESET" =~ ^(minimal|standard|comprehensive)$ ]]; then
-  echo "Error: Invalid --quality value: $QUALITY_PRESET" >&2
-  echo "Valid values: minimal, standard, comprehensive" >&2
+if [[ -n "$PROFILE" ]] && [[ ! "$PROFILE" =~ ^(quick|standard|thorough)$ ]]; then
+  echo "Error: Invalid --profile value: $PROFILE" >&2
+  echo "Valid values: quick, standard, thorough" >&2
   exit 1
 fi
 
-if [[ -n "$AUTONOMY_POLICY" ]] && [[ ! "$AUTONOMY_POLICY" =~ ^(full_auto|balanced|critical_only)$ ]]; then
-  echo "Error: Invalid --autonomy value: $AUTONOMY_POLICY" >&2
-  echo "Valid values: full_auto, balanced, critical_only" >&2
-  exit 1
-fi
-
-if [[ -n "$EXTERNAL_MODELS" ]] && [[ ! "$EXTERNAL_MODELS" =~ ^(true|false)$ ]]; then
-  echo "Error: Invalid --external-models value: $EXTERNAL_MODELS" >&2
-  echo "Valid values: true, false" >&2
-  exit 1
-fi
 
 # --- Precondition Validation ---
 
@@ -168,38 +145,18 @@ COMPLETION_PROMISE="${COMPLETION_PROMISE:-IMPLEMENTATION COMPLETE}"
 RAW_BUDGET=$((PHASE_COUNT * PER_PHASE_MULT + STAGE1_BUDGET + STAGE6_BUDGET))
 MAX_ITERATIONS=$(echo "$RAW_BUDGET $SAFETY_MARGIN" | awk '{printf "%d", $1 * $2 + 0.5}')
 
-# --- Resolve Pre-seed Defaults ---
+# --- Resolve Profile ---
 
-# Use CLI args > config defaults > pre_seed_defaults
-if [[ -z "$QUALITY_PRESET" ]]; then
-  CONFIG_QUALITY=$(yaml_val "quality_preset")
-  if [[ "$CONFIG_QUALITY" == "null" || -z "$CONFIG_QUALITY" ]]; then
-    QUALITY_PRESET=$(yaml_val "ralph_loop.pre_seed_defaults.quality_preset")
+# Use CLI arg > config profile > ralph.default_profile
+if [[ -z "$PROFILE" ]]; then
+  CONFIG_PROFILE=$(yaml_val "profile")
+  if [[ "$CONFIG_PROFILE" == "null" || -z "$CONFIG_PROFILE" ]]; then
+    PROFILE=$(yaml_val "ralph.default_profile")
   else
-    QUALITY_PRESET="$CONFIG_QUALITY"
+    PROFILE="$CONFIG_PROFILE"
   fi
 fi
-QUALITY_PRESET="${QUALITY_PRESET:-standard}"
-
-if [[ -z "$AUTONOMY_POLICY" ]]; then
-  CONFIG_AUTONOMY=$(yaml_val "autonomy_policy.default_level")
-  if [[ "$CONFIG_AUTONOMY" == "null" || -z "$CONFIG_AUTONOMY" ]]; then
-    AUTONOMY_POLICY=$(yaml_val "ralph_loop.pre_seed_defaults.autonomy_policy")
-  else
-    AUTONOMY_POLICY="$CONFIG_AUTONOMY"
-  fi
-fi
-AUTONOMY_POLICY="${AUTONOMY_POLICY:-full_auto}"
-
-if [[ -z "$EXTERNAL_MODELS" ]]; then
-  CONFIG_EXTERNAL=$(yaml_val "external_models")
-  if [[ "$CONFIG_EXTERNAL" == "null" || -z "$CONFIG_EXTERNAL" ]]; then
-    EXTERNAL_MODELS=$(yaml_val "ralph_loop.pre_seed_defaults.external_models")
-  else
-    EXTERNAL_MODELS="$CONFIG_EXTERNAL"
-  fi
-fi
-EXTERNAL_MODELS="${EXTERNAL_MODELS:-false}"
+PROFILE="${PROFILE:-standard}"
 
 # --- Extract Feature Name ---
 
@@ -210,9 +167,7 @@ FEATURE_NAME=$(basename "$FEATURE_DIR")
 
 # Read template and substitute variables
 PROMPT=$(cat "$PROMPT_TEMPLATE")
-PROMPT="${PROMPT//\{quality_preset\}/$QUALITY_PRESET}"
-PROMPT="${PROMPT//\{autonomy_policy\}/$AUTONOMY_POLICY}"
-PROMPT="${PROMPT//\{external_models\}/$EXTERNAL_MODELS}"
+PROMPT="${PROMPT//\{profile\}/$PROFILE}"
 PROMPT="${PROMPT//\{feature_name\}/$FEATURE_NAME}"
 PROMPT="${PROMPT//\{feature_dir\}/$FEATURE_DIR}"
 PROMPT="${PROMPT//\{completion_promise\}/$COMPLETION_PROMISE}"
@@ -226,9 +181,7 @@ Feature: $FEATURE_NAME
 Feature dir: $FEATURE_DIR
 Phases found: $PHASE_COUNT
 Max iterations: $MAX_ITERATIONS (${PHASE_COUNT}p x ${PER_PHASE_MULT} + ${STAGE1_BUDGET} + ${STAGE6_BUDGET}) x ${SAFETY_MARGIN}
-Quality preset: $QUALITY_PRESET
-Autonomy policy: $AUTONOMY_POLICY
-External models: $EXTERNAL_MODELS
+Profile: $PROFILE
 Completion promise: $COMPLETION_PROMISE
 
 --- RALPH ARGS ---

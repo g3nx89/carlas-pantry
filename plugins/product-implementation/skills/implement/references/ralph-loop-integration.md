@@ -13,7 +13,8 @@ and continues from the last checkpoint.
 
 **Entry point:** `/product-implementation:ralph-implement`
 **Detection:** Stage 1 Section 1.0b checks for `.claude/ralph-loop.local.md`
-**Config:** `config/implementation-config.yaml` under `ralph_loop`
+**Config:** `config/implementation-config.yaml` under `ralph`
+**Profile resolution:** `ralph.default_profile` names a profile in `config/profile-definitions.yaml`. Stage 1b resolves the profile to `features.*`, `autonomy`, `uat_strategy`, `codex_model`, `codex_effort` — the same resolution path as interactive mode.
 
 ## Architecture Decision: Outer Loop
 
@@ -32,9 +33,8 @@ When `orchestrator.ralph_mode` is `true` in the state file:
 |----------|-------------|------------|
 | AskUserQuestion | SAFE_ASK_USER (empty response validation + text fallback) | Auto-resolved via autonomy policy (SAFE_ASK_USER bypassed) |
 | Project setup (1.5b) | User selects categories | Skipped entirely |
-| Quality preset (1.9b) | Ask if null | Use pre-seed default |
-| Autonomy policy (1.9a) | Ask if null | Use pre-seed default |
-| External models (1.9b) | Ask if null | Use pre-seed default |
+| Profile (1.9b) | Ask if null | Use pre-seed default (`ralph.default_profile`) |
+| Autonomy (1.9a) | Derived from profile | Auto-resolved from profile definition |
 | Crash recovery | Ask: retry/continue/abort | Retry once, then continue |
 | Stage failure | Policy-dependent (may ask) | Retry once, then continue |
 | Stall detection | N/A | Graduated response: warn → blockers → scope reduce → halt |
@@ -96,7 +96,7 @@ Located in `orchestrator-loop.md` after step 5h (phase loop checkpoint update).
 
 **Rate limit exemption** (T2-8): Before normal error-pattern tracking, check if the error message matches `rate_limit_patterns` or `timeout_patterns`. If so: increment `rate_limit_count` (monitoring only), wait `rate_limit_backoff_seconds`, retry once, and skip stall counting entirely. This prevents API throttling from being misinterpreted as implementation stalls.
 
-**Plan mutability** (T2-4): At graduated Level 3, the orchestrator annotates the stuck task in tasks.md with an HTML comment (`<!-- [BLOCKED: ...] -->`) and optionally skips to the next phase. Blocked tasks are recorded in `state.ralph_blocked_tasks`. Controlled by `ralph_loop.plan_mutability.*` config.
+**Plan mutability** (T2-4): At graduated Level 3, the orchestrator annotates the stuck task in tasks.md with an HTML comment (`<!-- [BLOCKED: ...] -->`) and optionally skips to the next phase. Blocked tasks are recorded in `state.ralph_blocked_tasks`. Constants hardcoded in `orchestrator-loop.md`.
 
 **Iteration status file** (T2-5): After each stage/phase transition, writes `.implementation-ralph-status.local.md` with YAML frontmatter containing current_stage, current_phase, phases progress, stall metrics, test status, and blocked task count. Enables external monitoring. Excluded from auto-commit.
 
@@ -133,42 +133,15 @@ ralph_blocked_tasks: []          # tasks annotated as blocked by graduated stall
 
 ## Configuration
 
+**User-configurable** (in `config/implementation-config.yaml`):
+
 ```yaml
-ralph_loop:
-  enabled: true
-  iteration_budget:
-    per_phase_multiplier: 8     # estimated iterations per phase
-    stage1_budget: 2            # iterations for setup stage
-    stage6_budget: 2            # iterations for retrospective
-    safety_margin: 1.5          # multiplier applied to calculated budget
-  circuit_breaker:
-    no_progress_threshold: 3    # halt after N iterations with no state change
-    same_error_threshold: 5     # halt after N iterations with same error
-    stall_action: "graduated"   # "graduated" | "write_blockers" | "halt"
-    graduated_levels:
-      level_2_offset: 0         # Level 2 at threshold + 0
-      level_3_offset: 2         # Level 3 at threshold + 2
-      level_4_offset: 4         # Level 4 at threshold + 4
-    output_decline_threshold: 0.3
-    rate_limit_backoff_seconds: 60
-    rate_limit_patterns: ["rate_limit", "429", "too many requests", "overloaded", "at capacity", "over capacity"]
-    timeout_patterns: ["timeout", "timed out", "ETIMEDOUT"]
-  plan_mutability:
-    enabled: true
-    annotation_format: "<!-- [BLOCKED: {reason}] -->"
-    skip_blocked_phases: true
-  status_file:
-    enabled: true
-    filename: ".implementation-ralph-status.local.md"
-  completion_promise: "IMPLEMENTATION COMPLETE"
-  learnings:
-    enabled: true
-    max_entries: 20
-  pre_seed_defaults:
-    quality_preset: "standard"
-    autonomy_policy: "full_auto"
-    external_models: false
+ralph:
+  default_profile: "standard"    # Profile to use when user has not selected one.
+                                 # Must match a key in config/profile-definitions.yaml.
 ```
+
+**Hardcoded constants** (in `orchestrator-loop.md`): iteration budget (per_phase_multiplier=8, stage1_budget=2, stage6_budget=2, safety_margin=1.5), circuit breaker (no_progress_threshold=3, same_error_threshold=5, graduated stall levels), plan mutability, status file, completion promise="IMPLEMENTATION COMPLETE", learnings (max_entries=20). These are operational constants tuned empirically and not user-configurable.
 
 ## Cross-Iteration Learning
 
@@ -178,13 +151,11 @@ fail-succeed delta as a learning entry in `{FEATURE_DIR}/.implementation-learnin
 **Mechanism:**
 - `APPEND_LEARNING()` in `orchestrator-loop.md` writes entries on successful retries (both `failed` handler and crash recovery)
 - Stage 1 reads the learnings file (if it exists) and includes the 10 most recent entries as "Operational Learnings" in the summary
-- Entries are FIFO-capped at `ralph_loop.learnings.max_entries` (default: 20)
+- Entries are FIFO-capped at 20 (hardcoded)
 - Categories: `error` (current). Future: `build`, `test`, `config`, `dependency`, `pattern`
 - The learnings file is excluded from auto-commit (`.implementation-learnings` in `auto_commit.exclude_patterns`)
 
-**Config:**
-- `ralph_loop.learnings.enabled` (default: `true`)
-- `ralph_loop.learnings.max_entries` (default: 20)
+**Config:** Cross-iteration learnings are always enabled in ralph mode. Max entries: 20 (hardcoded in orchestrator-loop.md).
 
 ## Files Involved
 
@@ -197,4 +168,5 @@ fail-succeed delta as a learning entry in `{FEATURE_DIR}/.implementation-learnin
 | `templates/ralph-learnings-template.local.md` | Learnings file format reference |
 | `references/stage-1-setup.md` Section 1.0b | Ralph mode detection |
 | `references/orchestrator-loop.md` | AskUserQuestion guard, stall detection |
-| `config/implementation-config.yaml` `ralph_loop` | All configurable values |
+| `config/implementation-config.yaml` `ralph` | `default_profile` (user-configurable) |
+| `config/profile-definitions.yaml` | Profile catalog — read by Stage 1b Section 1.9 to resolve `default_profile` → `features.*`, `autonomy`, `uat_strategy` |

@@ -106,8 +106,8 @@ Severity gating applies per `uat_execution.severity_gating`:
 - **PASS / PASS_WITH_NOTES** with no Critical/High → log success, proceed
 - **Medium/Low only** → log warning, proceed
 - **Critical/High findings** → apply autonomy policy:
-  - `full_auto`/`balanced`: attempt fix + rebuild + re-run (one retry)
-  - `critical_only`: fix only critical
+  - `auto`: attempt fix + rebuild + re-run for all severities (one retry)
+  - `interactive`: fix critical/high, defer medium to user
   - Manual escalation: `status: needs-user-input`
 
 If recommendation is FAIL and severity_gating blocks → Stage 3 validation reports the failure.

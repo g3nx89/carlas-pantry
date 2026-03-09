@@ -18,8 +18,7 @@ additional_references:
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/cli-dispatch-procedure.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-4-plugin-review.md"
   - "$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-4-cli-review.md"
-  - "$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml"
-  - ".stage-summaries/stage-1-summary.md (for detected_domains, cli_availability)"
+  - ".stage-summaries/stage-1-summary.md (for detected_domains, cli_availability, vertical_agent_type, features)"
 ---
 
 # Stage 4: Quality Review
@@ -35,9 +34,9 @@ When the coordinator prompt includes a `## Phase Scope` block, this stage review
 - **Summary path**: write to the path specified in the Phase Scope block (e.g., `phase-{N}-stage-4-summary.md`)
 - **Prior summaries**: read `phase-{N}-stage-2-summary.md` and `phase-{N}-stage-3-summary.md`
 - **Tier A (native reviewers)**: always runs per-phase — code quality review applies to all domains
-- **Figma parity gate**: only for phases with UI tasks AND `figma_available: true` (from Stage 1 summary). When `per_phase_review.figma_parity_gate` is `true`, call `figma_check_design_parity` after reviewing UI components.
-- **Tier B (plugin review)**: per-phase only when `per_phase_review.tier_b_per_phase` is `true`, otherwise save for final pass
-- **Tier C (CLI multi-model)**: per-phase only when `per_phase_review.tier_c_per_phase` is `true`, otherwise save for final pass
+- **Figma parity gate**: only for phases with UI tasks AND `figma_available: true` (from Stage 1 summary). Call `figma_check_design_parity` after reviewing UI components.
+- **Tier B (plugin review)**: final pass only (never per-phase)
+- **Tier C (CLI multi-model)**: final pass only (never per-phase)
 
 When NO Phase Scope is present, this is a **full-project review** (final pass). All tiers run across the entire implementation. Summary path: `final-stage-4-summary.md` or `stage-4-summary.md`.
 
@@ -63,22 +62,22 @@ Before selecting the review strategy, resolve conditional review dimensions base
 ### Procedure
 
 1. Read `detected_domains` from the Stage 1 summary YAML frontmatter
-2. Read `dev_skills` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-3. If `dev_skills.enabled` is `false` or `detected_domains` is empty, set `conditional_reviewers` to empty. Skip to Section 4.1.
+2. If `detected_domains` is empty, set `conditional_reviewers` to empty. Skip to Section 4.1.
 
-4. **Resolve conditional reviewers** from `dev_skills.conditional_review`:
-   - For each entry, check if ANY of its `domains` appear in `detected_domains`
-   - If matched, add its `focus` as an additional review dimension
+3. **Resolve conditional reviewers** using these inline definitions (from `dev_skills.conditional_review`):
+   - `web_frontend` in `detected_domains` → add reviewer: focus `"Accessibility / WCAG 2.1 AA — interactive element roles, keyboard navigation, color contrast, ARIA labels"`
+   - `web_frontend` in `detected_domains` → add reviewer: focus `"Web Best Practices / Performance — bundle size, render blocking, lighthouse score, caching headers"`
+   - `compose` or `android` in `detected_domains` → add reviewer: focus `"Android Accessibility / TalkBack — content descriptions, touch target sizes, semantic roles"`
    - Each conditional reviewer is launched as an additional `developer` agent alongside the base 3
-   - Cap at `dev_skills.max_conditional_reviewers` (default: 2)
+   - Cap at 2 conditional reviewers total
 
 ### Output
 
-- `conditional_reviewers`: list of `{focus}` pairs for additional reviewer dispatches
+- `conditional_reviewers`: list of `{focus}` values for additional reviewer dispatches
 
 ### Impact on Agent Count
 
-Base count: 3 (from `config/implementation-config.yaml` `quality_review.agent_count`)
+Base count: 3 (inline default — `quality_review.agent_count`)
 With conditionals: 3 + len(conditional_reviewers)
 
 Example: For a web frontend project, `detected_domains: ["web_frontend"]` matches two conditional entries → 5 total reviewers (3 base + accessibility + web guidelines).
@@ -90,26 +89,26 @@ Build the `{research_context}` block for reviewer agent prompts using accumulate
 ### Procedure
 
 1. Read `mcp_availability` from the Stage 1 summary
-2. Read `research_mcp` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-3. If `research_mcp.enabled` is `false` OR all MCP tools are unavailable → set `research_context` to the fallback text and skip to Section 4.1
+2. Read `features.research_mcp` from the Stage 1 summary
+3. If `features.research_mcp` is `false` OR all MCP tools are unavailable → set `research_context` to `"No research context available — proceed with codebase knowledge and planning artifacts only."` and skip to Section 4.1
 
 4. **Re-read accumulated URLs** (Ref — session accumulation):
    - Read `research_urls_discovered` from the Stage 2 summary flags
-   - For each URL (up to `ref.max_reads_per_stage`): call `ref_read_url(url)` — Ref cache serves faster on re-reads from the same session
-   - Cap each source at `ref.token_budgets.per_source` tokens
+   - For each URL (up to 5): call `ref_read_url(url)` — Ref cache serves faster on re-reads from the same session
+   - Cap each source at 2000 tokens
 
 5. **Context7 review-specific query**:
    - Read `resolved_libraries` from Stage 1 summary
-   - For each resolved library (up to `context7.max_queries_per_stage`): call `query-docs(library_id, "common pitfalls anti-patterns deprecations")`
+   - For each resolved library (up to 3): call `query-docs(library_id, "common pitfalls anti-patterns deprecations")`
 
-6. **Assemble `{research_context}`**: Combine all gathered content, cap at `ref.token_budgets.research_context_total`. Include documentation-backed review dimensions:
+6. **Assemble `{research_context}`**: Combine all gathered content, cap at 4000 tokens. Include documentation-backed review dimensions:
    - **API correctness**: method signatures, parameter types from official docs
    - **Deprecation awareness**: deprecated APIs flagged in documentation
    - **Pattern compliance**: documented best practices and anti-patterns
 
 ### Context Budget
 
-Same cap as Stage 2: `research_context_total` tokens. Re-reads benefit from Ref cache (Dropout), reducing latency.
+Capped at 4000 tokens. Re-reads benefit from Ref cache (Dropout), reducing latency.
 
 ## 4.1 Three-Tier Review Architecture
 
@@ -119,7 +118,7 @@ Stage 4 uses a layered review approach. All tiers that are available run in para
 |------|--------|-------------|---------|
 | **A: Native** | Claude Code `developer` agents (3+ parallel) | Always | Section 4.2 below |
 | **B: Plugin** | `code-review:review-local-changes` skill | When plugin installed | See `stage-4-plugin-review.md` |
-| **C: CLI** | Codex + Gemini external CLIs | When `cli_dispatch.stage4.multi_model_review.enabled` is `true` | See `stage-4-cli-review.md` |
+| **C: CLI** | Codex + Gemini external CLIs | When `cli_features_enabled.multi_model_review` is `true` (from Stage 1 summary) | See `stage-4-cli-review.md` |
 
 **Dispatch order:** All available tiers launch in parallel. The coordinator dispatches Tier A and Tier C reviewers directly. Tier B is dispatched via a context-isolated subagent (see `stage-4-plugin-review.md`). After all tiers complete, findings merge in Section 4.3 with confidence scoring and deduplication.
 
@@ -155,16 +154,16 @@ All conditional reviewers run in parallel with the base 3.
 
 ### Stance Assignment (Optional)
 
-> Conditional: Only when `quality_review.stances.enabled` is `true` in config.
+> Conditional: Only when `features.stances` is `true` (from Stage 1 summary).
 > If disabled, set `{reviewer_stance}` to `"No specific stance assigned — review objectively using your best judgment."` for all reviewers.
 
-Read `quality_review.stances.assignments` from config. Assign stances to the 3 base reviewers:
+Assign inline stances to the 3 base reviewers:
 
 | Reviewer | Focus | Stance | Prompt Extension |
 |----------|-------|--------|-----------------|
-| 1 | Simplicity/DRY | assignments[0].stance | assignments[0].prompt_extension |
-| 2 | Bugs/Correctness | assignments[1].stance | assignments[1].prompt_extension |
-| 3 | Conventions/Patterns | assignments[2].stance | assignments[2].prompt_extension |
+| 1 | Simplicity/DRY | `advocate` | "You are an advocate — look for strengths, elegant solutions, and what the developer did well. Flag only genuine issues." |
+| 2 | Bugs/Correctness | `challenger` | "You are a challenger — actively probe for weaknesses, edge cases, and failure modes. Assume bugs until proven otherwise." |
+| 3 | Conventions/Patterns | `neutral` | "You are a neutral observer — evaluate objectively against project conventions without bias toward praise or criticism." |
 
 Format `{reviewer_stance}` for each reviewer:
 ```
@@ -192,19 +191,19 @@ When the `code-review` plugin is installed, Tier B runs a context-isolated revie
 
 > See `stage-4-cli-review.md` for the full procedure.
 
-When `cli_dispatch.stage4.multi_model_review.enabled` is `true`, Tier C dispatches external CLI agents for multi-model review. Phase 1 runs parallel reviewers (correctness via Codex, plus conditional security, Android domain, and UX/accessibility reviewers). Phase 2 conditionally runs a codebase-wide pattern search via Gemini when Phase 1 produces Critical/High findings. All CLI dispatches follow `cli-dispatch-procedure.md`.
+When `"multi_model_review"` is in `cli_features_enabled` (from Stage 1 summary), Tier C dispatches external CLI agents for multi-model review. Phase 1 runs parallel reviewers (correctness via Codex, plus conditional security, Android domain, and UX/accessibility reviewers). Phase 2 conditionally runs a codebase-wide pattern search via Gemini when Phase 1 produces Critical/High findings. All CLI dispatches follow `cli-dispatch-procedure.md`.
 
 ### Dev-Skills Conditional Reviewers
 
-Conditional reviewers from `dev_skills.conditional_review` (Section 4.1a) launch alongside all tiers. They are always dispatched as native `developer` agents.
+Conditional reviewers from `config/profile-definitions.yaml` conditional_reviewers (Section 4.1a) launch alongside all tiers. They are always dispatched as native `developer` agents.
 
 ### Native Agent Failure Tracking
 
-Track consecutive `developer` agent failures (crash, timeout, empty output) across all dispatches in this stage. If failures reach `quality_review.native_agent_failure_threshold` (default: 3), surface diagnostic: "Consecutive native agent failures ({N}) — check agent prompt complexity, context size, or model availability." This mirrors the CLI circuit breaker pattern but for native agents.
+Track consecutive `developer` agent failures (crash, timeout, empty output) across all dispatches in this stage. If failures reach 3 (inline default: `native_agent_failure_threshold=3`), surface diagnostic: "Consecutive native agent failures ({N}) — check agent prompt complexity, context size, or model availability." This mirrors the CLI circuit breaker pattern but for native agents.
 
 ## 4.3a Convergence Detection (Optional)
 
-> Conditional: Only when `quality_review.convergence.enabled` is `true` AND >= 2 reviewers completed.
+> Conditional: Only when `features.convergence` is `true` (from Stage 1 summary) AND >= 2 reviewers completed.
 > If disabled or single reviewer, skip to Section 4.3 with default strategy `"standard_merge_deduplicate"`.
 
 After all reviewers complete (Tiers A + optionally B + C), measure inter-reviewer agreement:
@@ -212,16 +211,16 @@ After all reviewers complete (Tiers A + optionally B + C), measure inter-reviewe
 ### Procedure
 
 1. Collect all reviewer outputs as `{reviewer_id, findings_text}` pairs
-2. Extract top N technical keywords from each (N from `convergence.keyword_count`, default 20):
+2. Extract top 20 technical keywords from each (inline default: `keyword_count=20`):
    - Tokenize, filter stop words and generic review terms ("issue", "finding", "code", "file")
    - Keep technical terms (class names, method names, patterns, framework terms)
    - Select top N by frequency
 3. Compute pairwise Jaccard similarity: `|A intersect B| / |A union B|`
 4. Average all pairwise scores
-5. Classify:
-   - `avg >= high_threshold (0.70)`: HIGH — use `strategies.high`
-   - `avg >= medium_threshold (0.40)`: MEDIUM — use `strategies.medium`
-   - `avg < medium_threshold`: LOW — use `strategies.low`
+5. Classify (inline thresholds: `high=0.70`, `medium=0.40`):
+   - `avg >= 0.70`: HIGH — use strategy `standard_merge_deduplicate`
+   - `avg >= 0.40`: MEDIUM — use strategy `weighted_merge_flag_divergence`
+   - `avg < 0.40`: LOW — use strategy `present_all_flag_for_user`
 6. **Semantic cross-check** (corrective — may adjust convergence level): After Jaccard classification, compute file:line overlap — count findings where 2+ reviewers reference the same file and line (within 5-line proximity). Compare:
    - Keyword HIGH but file:line overlap LOW → demote convergence one level (HIGH→MEDIUM). Reviewers share vocabulary but found different issues.
    - Keyword LOW but file:line overlap HIGH → promote convergence one level (LOW→MEDIUM). Reviewers describe the same issues using different terms.
@@ -233,7 +232,7 @@ After all reviewers complete (Tiers A + optionally B + C), measure inter-reviewe
 
 ### Limitations
 
-> **NOTE:** Jaccard similarity measures vocabulary overlap, not semantic agreement. Reviewers sharing domain vocabulary may score HIGH even with different conclusions. Conversely, cross-tier reviewers (Tier A native vs Tier C CLI) may use different vocabulary for the same findings, depressing scores. When `quality_review.stances.enabled` is also `true`, stance-biased reviewers (advocate vs challenger) may naturally diverge in vocabulary framing, which can systematically lower convergence scores. Interpret convergence levels as a heuristic signal, not a definitive measure of agreement.
+> **NOTE:** Jaccard similarity measures vocabulary overlap, not semantic agreement. Reviewers sharing domain vocabulary may score HIGH even with different conclusions. Conversely, cross-tier reviewers (Tier A native vs Tier C CLI) may use different vocabulary for the same findings, depressing scores. When `features.stances` is also `true`, stance-biased reviewers (advocate vs challenger) may naturally diverge in vocabulary framing, which can systematically lower convergence scores. Interpret convergence levels as a heuristic signal, not a definitive measure of agreement.
 
 ### Output
 
@@ -245,11 +244,11 @@ After all reviewers complete, consolidate findings:
 
 ### Severity Classification
 
-Use the canonical severity levels defined in SKILL.md and `config/implementation-config.yaml`: Critical, High, Medium, Low.
+Use the canonical severity levels defined in SKILL.md: Critical, High, Medium, Low.
 
 ### Confidence Scoring
 
-Before deduplication, assign a confidence score to each finding. Read `cli_dispatch.stage4.confidence_scoring` from config:
+Before deduplication, assign a confidence score to each finding using these inline values:
 
 | Factor | Points | Condition |
 |--------|--------|-----------|
@@ -259,7 +258,7 @@ Before deduplication, assign a confidence score to each finding. Read `cli_dispa
 | Code snippet | +10 | Finding includes a code excerpt demonstrating the issue |
 | Known pattern | +10 | Finding matches a known anti-pattern from escalation triggers or skill references |
 
-**Progressive threshold filtering** — after scoring, apply minimum confidence thresholds from `confidence_scoring.thresholds`:
+**Progressive threshold filtering** — after scoring, apply minimum confidence thresholds (inline defaults):
 - Critical findings: retain if score >= 50
 - High findings: retain if score >= 65
 - Medium findings: retain if score >= 75
@@ -275,27 +274,32 @@ Findings below their threshold are demoted one severity level (Medium → Low, L
 
 ### Severity Reclassification Pass
 
-After deduplication, review each Medium-severity finding against the escalation triggers defined in `config/implementation-config.yaml` under `severity.escalation_triggers`. For each Medium finding:
+After deduplication, review each Medium-severity finding against these inline escalation triggers. For each Medium finding:
 
-1. Check if the finding matches ANY escalation trigger (user-visible data corruption, implicit ordering, UI state contradiction, singleton state leak, race condition with user-visible effect)
+1. Check if the finding matches ANY of these triggers:
+   - **User-visible data corruption**: data written to storage/network may be incorrect under specific conditions
+   - **Implicit ordering dependency**: code assumes execution order that is not guaranteed
+   - **UI state contradiction**: two UI components can reach conflicting visible states simultaneously
+   - **Singleton state leak**: shared mutable state can bleed across user sessions or test runs
+   - **Race condition with user-visible effect**: concurrent code paths can produce inconsistent UI or data outcomes
 2. If a match is found, promote the finding from Medium to High
 3. Log each promotion: "Reclassified [M{N}] → [H{N+offset}]: matches escalation trigger '{trigger}'"
 
-This pass runs AFTER deduplication so that consensus-boosted findings are also checked. The escalation triggers are config-driven — update the config file to adjust the criteria, not this prose.
+This pass runs AFTER deduplication so that consensus-boosted findings are also checked.
 
 > **Note:** Findings promoted by escalation triggers intentionally bypass the confidence threshold for their new severity level. A Medium finding at score 75 promoted to High (threshold 65) is retained without re-filtering. This is by design — escalation triggers represent domain knowledge that overrides statistical confidence.
 
 ### Stance Divergence Analysis (Optional)
 
-> Conditional: Only when `quality_review.stances.enabled` is `true` AND all 3 base reviewers completed.
+> Conditional: Only when `features.stances` is `true` (from Stage 1 summary) AND all 3 base reviewers completed.
 
 For each finding assessed by multiple base reviewers (from deduplication), compare severity across stances:
 
 1. Compute `severity_spread = max_ordinal - min_ordinal` (low=0, medium=1, high=2, critical=3)
-2. Classify using `stances.divergence` thresholds:
-   - spread <= `low_threshold` (0): accept majority severity
-   - spread <= `moderate_threshold` (1): accept majority, append note
-   - spread >= `high_threshold` (2): flag "[DIVERGENCE]" with per-stance breakdown, recommend manual review
+2. Classify using inline thresholds (`low_threshold=0`, `moderate_threshold=1`, `high_threshold=2`):
+   - spread <= 0: accept majority severity
+   - spread <= 1: accept majority, append note
+   - spread >= 2: flag "[DIVERGENCE]" with per-stance breakdown, recommend manual review
 
 Track `high_divergence_count` and `stance_adjustments` for summary.
 
@@ -327,9 +331,9 @@ Total findings: {count}
 ## 4.3b CoVe Post-Synthesis (Optional)
 
 > Conditional: Only when ALL of:
->   1. `quality_review.cove.enabled` is `true`
+>   1. `features.cove` is `true` (from Stage 1 summary)
 >   2. Multi-tier review was used (>= 2 of Tiers A, B, C ran)
->   3. Critical + High findings after confidence scoring >= `cove.min_findings_trigger`
+>   3. Critical + High findings after confidence scoring >= 2 (inline default: `min_findings_trigger=2`)
 > If any condition fails, skip to Section 4.4.
 
 Run Chain-of-Verification to validate Critical/High findings against actual code.
@@ -346,7 +350,7 @@ Run Chain-of-Verification to validate Critical/High findings against actual code
 >
 > ## Instructions
 > For EACH finding:
-> 1. Generate {min}-{max} verification questions targeting the claim
+> 1. Generate 3-5 verification questions targeting the claim (inline defaults: `min=3`, `max=5`)
 > 2. Answer each by reading the actual code (use Read/Glob/Grep — do NOT guess)
 > 3. Determine VERIFIED (code has the issue) or REJECTED (false positive)
 > 4. For REJECTED: explain why (e.g., "validated at helper.ts:45 before use")
@@ -357,7 +361,7 @@ Run Chain-of-Verification to validate Critical/High findings against actual code
 
 Variables:
 - `{findings_list}` — Critical+High findings with IDs, descriptions, file:line, severity
-- `{min}` / `{max}` — from `cove.verification_questions.min/max`
+- `{min}` = 3, `{max}` = 5 (inline defaults)
 
 3. Parse output: remove findings where `verified: false`
 4. Log each removal: "CoVe removed [{id}]: {reason}"
@@ -373,16 +377,16 @@ Before writing the summary, apply the auto-decision matrix. The autonomy policy 
 
 ### Auto-Decision Logic (Base Matrix)
 
-Read `severity.auto_decision` from `config/implementation-config.yaml`:
+Inline auto-decision defaults (`auto_accept_low_only=true`, `medium_max_count=3`):
 
 1. **No findings**: Set `status: completed`, `review_outcome: "accepted"` — no user interaction needed
-2. **All findings Low only**: If `auto_accept_low_only` is `true` (default), auto-accept. Set `status: completed`, `review_outcome: "accepted"`, log: "Auto-accepted: {N} Low findings"
-3. **Highest is Medium AND medium count <= `medium_auto_accept_max_count`**: Auto-accept with note. Set `status: completed`, `review_outcome: "accepted"`, log: "Auto-accepted: {N} Medium + {M} Low findings (within threshold)"
-4. **Any Critical or High, OR medium count > threshold**: Check autonomy policy (below)
+2. **All findings Low only**: Auto-accept. Set `status: completed`, `review_outcome: "accepted"`, log: "Auto-accepted: {N} Low findings"
+3. **Highest is Medium AND medium count <= 3**: Auto-accept with note. Set `status: completed`, `review_outcome: "accepted"`, log: "Auto-accepted: {N} Medium + {M} Low findings (within threshold)"
+4. **Any Critical or High, OR medium count > 3**: Check autonomy policy (below)
 
 ### Autonomy Policy Check (extends base matrix)
 
-Read `autonomy_policy` from the Stage 1 summary. Read the policy level definition from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml` under `autonomy_policy.levels.{policy}`.
+Read `autonomy` from the Stage 1 summary. Use the policy level from `autonomy.level` to look up behavior.
 
 For each severity level present in findings (Critical, High, Medium), look up `policy.findings.{severity}`:
 - **`"fix"`**: Add to the auto-fix list
