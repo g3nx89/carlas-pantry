@@ -28,10 +28,11 @@ product-implementation/
 ├── config/
 │   ├── implementation-config.yaml     # Single source of truth for all configurable values
 │   └── cli_clients/                   # CLI agent metadata and role prompts
-│       ├── codex.json, gemini.json, opencode.json
+│       ├── codex.json, gemini.json
 │       └── *.txt                      # Role-specific prompt files
 ├── scripts/
-│   ├── dispatch-cli-agent.sh          # Shared CLI dispatch via process-group
+│   ├── dispatch-cli-agent.sh          # Shared CLI dispatch via process-group (--model/--effort)
+│   ├── dispatch-test-augmenter.sh     # Dual-model test gap analysis (Gemini draft → Codex refine)
 │   └── cleanup-orphans.sh             # Orphan sidecar cleanup
 ├── skills/
 │   └── implement/

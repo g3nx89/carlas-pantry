@@ -121,11 +121,7 @@ flowchart TD
     subgraph PHASE_LOOP["2.1 Phase Loop (for each phase in tasks.md)"]
         direction TB
         PARSE["Step 1: Parse Phase Tasks\nExtract [P] parallel, sequential,\nfile targets, dependencies"]
-        PARSE --> CLI_TEST{CLI test author\nenabled & codex\navailable?}
-        CLI_TEST -- Yes --> TEST_AUTHOR["Step 1.8: CLI Test Author\n(Option H)\nCodex generates TDD tests\nfrom test-case specs"]
-        CLI_TEST -- No --> DEV_AGENT
-        TEST_AUTHOR --> VERIFY_RED["Verify tests FAIL\n(Red phase)"]
-        VERIFY_RED --> DEV_AGENT
+        PARSE --> DEV_AGENT
 
         DEV_AGENT["Step 2: Launch Developer Agent\nTask(developer)\nTDD: test → implement → verify\nper task in phase"]
 

@@ -7,7 +7,7 @@ Review documentation produced by the tech-writer agent. Assess from the user's
 perspective: can a developer onboard to this feature using only this documentation?
 Report verifiable gaps, not stylistic preferences.
 
-## OpenCode-Specific Focus
+## UX Focus Areas
 
 Leverage your UX/Product specialization for:
 - User journey documentation — all user flows described with entry points and outcomes

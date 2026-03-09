@@ -20,7 +20,6 @@ artifacts_read:
 artifacts_written:
   - "tasks.md (updated with [X] marks)"
   - ".implementation-state.local.md (updated phases)"
-  - "test files (conditional — created by CLI test author in Step 1.8 if enabled)"
   - "test files (conditional — created by native test-writer in Step 1.9 if enabled)"
   - "test files (conditional — created by CLI test augmenter in Section 2.1a if enabled)"
   - "source files (conditional — simplified by code-simplifier in Step 3.5 if enabled)"
@@ -43,7 +42,7 @@ additional_references:
 > **COORDINATOR STAGE:** The orchestrator dispatches this stage via `Task()`.
 > Read the Stage 1 summary first to obtain FEATURE_NAME, FEATURE_DIR, TASKS_FILE,
 > and the list of phases to execute.
-> **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL CLI dispatches (test author, test augmenter, code simplifier), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
+> **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL CLI dispatches (test augmenter, code simplifier), use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
 
 ## 2.0 Vertical Agent Selection
 
@@ -137,45 +136,11 @@ Extract from the current phase section in tasks.md:
 - **File targets**: Extract file paths from task descriptions
 - **Dependencies**: Tasks targeting the same file MUST run sequentially regardless of `[P]` marker
 
-### Step 1.8: CLI Test Author (Option H)
-
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage2.test_author.enabled` is `true`, `test_cases_available` is `true`, and `cli_availability.codex` is `true`. If any condition is false, skip to Step 2.
-
-Before launching the developer agent, generate executable tests from test-case specifications using an external coding agent. This creates TDD targets that the developer agent must make pass.
-
-#### Procedure
-
-1. **Identify relevant test-case specs**: Extract test IDs from current phase task descriptions. Map test IDs to spec files in `test-cases/{level}/` (e.g., `UT-001` → `test-cases/unit/UT-001.md`)
-2. **If no relevant specs found** for this phase: skip to Step 2 (developer writes its own tests)
-3. **Build prompt**: Read the role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_test_author.txt`. Inject variables:
-   - `{phase_name}` — current phase name
-   - `{test_case_specs}` — content of relevant test-case spec files
-   - `{plan_content}` — plan.md content
-   - `{contract_content}` — contract.md content (or fallback: `"Not available — infer interfaces from plan.md and task descriptions"`)
-   - `{data_model_content}` — data-model.md content (or fallback: `"Not available — infer data model from plan.md"`)
-   - `{FEATURE_DIR}`, `{PROJECT_ROOT}` — from Stage 1 summary
-4. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
-   - `cli_name="codex"`, `role="test_author"`
-   - `file_paths=[FEATURE_DIR/test-cases/, plan.md, contract.md, data-model.md, PROJECT_ROOT/src/]`
-   - `fallback_behavior="skip"` (developer writes its own tests)
-   - `expected_fields=["test_files_created", "total_assertions", "edge_cases_added", "interface_assumptions", "coverage_vs_plan"]`
-5. **Verify test files**: Confirm the CLI agent created test files on disk
-6. **Run test suite**: All new tests should FAIL (Red phase confirmation)
-   - If any test passes unexpectedly: log warning (may be tautological or testing existing functionality)
-   - If tests don't compile: pass compilation errors as `{test_compilation_notes}` to developer agent in Step 2
-7. **Update Step 2 prompt**: When pre-generated tests exist, modify `{context_summary}` for the developer agent to include:
-   - Pre-generated test file locations
-   - Instruction: "Pre-generated test files exist at: {list}. Make these tests PASS. You may adjust imports/setup but do NOT change assertions or remove tests."
-   - If compilation notes exist: include them as `{test_compilation_notes}`
-
-Write boundaries enforced per `cli-dispatch-procedure.md` — the coordinator verifies post-dispatch that the CLI agent wrote only to test directories and did not create or modify source files.
-
 ### Step 1.9: Native Test-Writer Agent (Mandatory When Conditions Met)
 
 > **Conditional**: Only runs when ALL of:
 >   1. `native_test_writer.enabled` is `true` in config
 >   2. `test_cases_available` is `true` (from Stage 1 summary)
->   3. Step 1.8 (CLI Test Author) did NOT run for this phase (mutually exclusive)
 > If any condition is false, skip to Step 2.
 >
 > **MANDATORY**: When all conditions above are TRUE, this step MUST be executed. Skipping this step is a protocol violation that will be detected by the protocol compliance checklist (Section 2.2a) and flagged by VERIFY_STAGE_PROTOCOL in the orchestrator.
@@ -281,7 +246,7 @@ After agent returns, verify:
 3. Agent reported test results (all passing)
 4. No compilation errors reported in agent output (agent must compile after each file change per Build Verification Rule in Section 2.2)
 5. Extract `test_count_verified` and `test_failures` from the agent's structured output (see `agent-prompts.md` Phase Implementation Prompt, "Final Step" section). If the agent did not report these values, log a warning: "Developer agent did not report verified test count — cross-validation will be limited."
-6. **Test name identity check**: If pre-generated tests exist (from Step 1.8), verify the agent preserved their function names — compare the set of test function names before and after the phase. Log a warning if any pre-generated test function was renamed or removed.
+6. **Test name identity check**: If pre-generated tests exist (from Step 1.9), verify the agent preserved their function names — compare the set of test function names before and after the phase. Log a warning if any pre-generated test function was renamed or removed.
 7. Record the phase-level `test_count_verified` value. The LAST phase's `test_count_verified` becomes the final verified count for all of Stage 2 (since each phase runs the full suite).
 
 If verification fails:
@@ -380,11 +345,11 @@ Latency: ~5-15s dispatch overhead + 30-120s agent execution per phase.
 
 > **Conditional**: Only runs when ALL of:
 >   1. `cli_dispatch.stage2.ux_test_reviewer.enabled` is `true`
->   2. `cli_availability.opencode` is `true`
+>   2. `cli_availability.codex` is `true`
 >   3. Phase touches UI files (task file paths match any domain in `ux_test_reviewer.phase_relevance.ui_domains`)
 > If any condition is false, omit this step.
 
-After tests are written and passing (Step 3), dispatch OpenCode to review test coverage for UX scenarios: empty states, loading states, error states, and accessibility assertions.
+After tests are written and passing (Step 3), dispatch Codex to review test coverage for UX scenarios: empty states, loading states, error states, and accessibility assertions.
 
 #### Procedure
 
@@ -393,7 +358,7 @@ After tests are written and passing (Step 3), dispatch OpenCode to review test c
 2. **Collect test files**: List all test files created or modified in this phase (from Step 3 output).
 
 3. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
-   - `cli_name="opencode"`, `role="ux_test_reviewer"`
+   - `cli_name="codex"`, `role="ux_test_reviewer"`
    - `fallback_behavior` from `cli_dispatch.stage2.ux_test_reviewer.fallback_behavior` (default: `"skip"`)
    - `expected_fields=["test_files_reviewed", "components_covered", "ux_scenario_gaps", "top_gap"]`
 
@@ -463,30 +428,36 @@ Otherwise (`per_phase`, the default), follow the Auto-Commit Dispatch Procedure 
 
 ## 2.1a CLI Test Augmenter (Option I)
 
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage2.test_augmenter.enabled` is `true`, `cli_availability.gemini` is `true`, and all phases have completed successfully. If any condition is false, skip to Section 2.2.
+> **Conditional**: Only runs when `cli_dispatch.stage2.test_augmenter.enabled` is `true` and all phases have completed successfully. If the condition is false, skip to Section 2.2.
+> The dedicated script (`dispatch-test-augmenter.sh`) handles model selection and availability checks internally — the coordinator does NOT check `cli_availability.*` directly.
 
 After all phases complete but before writing the Stage 2 summary, run an edge case discovery pass using an external model with full visibility into all implemented code and tests.
 
 ### Procedure
 
-1. **Collect modified files**: Gather all source files and test files modified or created during Stage 2 (from tasks.md `[X]` entries and any test files written in Step 1.8 or by developer agents)
-2. **Build prompt**: Read the role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_test_augmenter.txt`. Inject variables:
-   - `{modified_source_files}` — list of source files modified during Stage 2
-   - `{modified_test_files}` — list of test files modified during Stage 2
-   - `{max_additional_tests}` — from config `cli_dispatch.stage2.test_augmenter.max_additional_tests` (default: 10)
-   - `{focus_areas}` — from config `cli_dispatch.stage2.test_augmenter.focus` (default: `["boundary", "error", "concurrency", "security"]`)
-   - `{FEATURE_DIR}` — from Stage 1 summary
-3. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
-   - `cli_name="gemini"`, `role="test_augmenter"`
-   - `file_paths=[...modified_source_files, ...modified_test_files]`
-   - `fallback_behavior="skip"`
-   - `expected_fields=["tests_added", "bug_discoveries", "coverage_improvements", "top_risk_area"]`
-4. **Parse bug discoveries**: If the output contains a "Bug Discoveries" section with tests expected to FAIL:
-   - Run those specific tests and confirm actual failures
-   - Record confirmed bug discoveries in `augmentation_bugs_found` for the Stage 2 summary
-   - If all augmented tests PASS: record as coverage improvements (no bugs found)
-5. **Run full test suite**: Update `test_count_verified` with the post-augmentation count
-6. **If CLI fails, CLI unavailable, or times out**: omit — no impact on main workflow
+1. **Collect modified files**: Gather all source files and test files modified or created during Stage 2 (from tasks.md `[X]` entries and any test files written by the test-writer agent or developer agents)
+
+2. **Dispatch via script**: Call the dedicated augmenter script:
+   ```bash
+   bash "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-test-augmenter.sh" \
+     --feature-dir "$FEATURE_DIR" \
+     --plugin-root "$CLAUDE_PLUGIN_ROOT" \
+     --phase "$PHASE_NAME" \
+     --context-file "$CONTEXT_FILE" \
+     --codex-model "${cli_defaults_codex_model}" \
+     --codex-effort "${test_augmenter_secondary_effort}" \
+     --max-gaps 20 \
+     --timeout 300
+   ```
+   The coordinator writes a `$CONTEXT_FILE` containing phase-specific variables (modified source files, test files, acceptance criteria) before invoking. The script handles dual-model dispatch (Gemini draft → Codex refine), fallback, and writes the output to `$FEATURE_DIR/.test-augmentation-${phase_slug}.md`.
+
+3. **Read output**: After the script completes (exit 0), read `$FEATURE_DIR/.test-augmentation-${phase_slug}.md`. Parse the `SUMMARY` block:
+   - If `SUMMARY.actionable_gaps > 0`: dispatch the test-writer agent with the instruction: `"Read Actionable Gaps in $FEATURE_DIR/.test-augmentation-${phase_slug}.md and implement the listed tests."`
+   - If `SUMMARY.escalation_needed: true`: extract bug discoveries and flag them in the phase summary under `augmentation_bugs_found`
+
+4. **Confirm new tests**: After the test-writer adds tests from actionable gaps, run the full test suite. Update `test_count_verified` with the post-augmentation count.
+
+5. **If script exits non-zero or output file is absent**: omit — no impact on main workflow. Log: `"Test augmenter skipped: script failed or no output produced."`
 
 ### Output
 

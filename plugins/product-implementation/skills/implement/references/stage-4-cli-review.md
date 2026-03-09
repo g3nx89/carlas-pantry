@@ -9,7 +9,7 @@ dispatch_procedure: "cli-dispatch-procedure.md"
 # Stage 4 — Tier C: CLI Review
 
 > **Extracted from**: `stage-4-quality-review.md` (now Section 4.2b) for modularity.
-> Tier C dispatches external CLI agents (Codex, Gemini, OpenCode) for multi-model code review.
+> Tier C dispatches external CLI agents (Codex, Gemini) for multi-model code review.
 > Only runs when `cli_dispatch.stage4.multi_model_review.enabled` is `true`.
 
 > **ANTI-PATTERN — DO NOT USE `ask` FOR CLI DISPATCH:**
@@ -34,7 +34,7 @@ Launch these reviewers in parallel. All dispatches follow the Shared CLI Dispatc
 | Correctness | Codex | `correctness_reviewer` | Bugs, edge cases, race conditions, data flow | Native `developer` agent with same focus |
 | Security | Codex | `security_reviewer` | OWASP Top 10, injection, auth bypass, exposed secrets | Skip (conditional — see below) |
 | Android Domain | Gemini | `android_domain_reviewer` | Lifecycle, Compose recomposition, Material 3, coroutines | Skip (conditional — see below) |
-| UX/Accessibility | OpenCode | `ux_reviewer` | WCAG 2.2, keyboard nav, user flows, interaction states | Skip (conditional — see below) |
+| UX/Accessibility | Codex | `ux_reviewer` | WCAG 2.2, keyboard nav, user flows, interaction states | Skip (conditional — see below) |
 
 ### Correctness Reviewer (Always)
 
@@ -77,12 +77,12 @@ Launch these reviewers in parallel. All dispatches follow the Shared CLI Dispatc
 
 > Only triggers when `detected_domains` includes ANY of: `compose`, `android`, `web_frontend` (configurable via `cli_dispatch.stage4.multi_model_review.conditional[].domains`).
 
-1. Check `cli_availability.opencode` and domain match
-2. If both satisfied: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/opencode_ux_reviewer.txt`. Inject variables:
+1. Check `cli_availability.codex` and domain match
+2. If both satisfied: Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_ux_reviewer.txt`. Inject variables:
    - `{FEATURE_DIR}`, `{TASKS_FILE}`, `{modified_files}`, `{detected_domains}`
    - `{detected_domains}` — from Stage 1 summary
 3. Dispatch with:
-   - `cli_name="opencode"`, `role="ux_reviewer"`
+   - `cli_name="codex"`, `role="ux_reviewer"`
    - `fallback_behavior="skip"`
    - `expected_fields=["findings", "top_risk", "accessibility_issues", "ux_gaps"]`
 

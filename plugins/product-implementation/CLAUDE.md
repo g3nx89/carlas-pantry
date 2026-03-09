@@ -43,6 +43,7 @@ When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `
 - **uat-tester** (`agents/uat-tester.md`): model=sonnet — UAT mobile testing via SAV loop, Figma visual parity (Stage 2, Step 3.7)
 - **doc-judge** (`agents/doc-judge.md`): model=sonnet — documentation accuracy verification, LLM-as-a-judge (Stage 5, per-phase mode)
 - **tech-writer** (`agents/tech-writer.md`): model=sonnet — feature documentation with static doc skills (mermaid, c4-architecture), API guides, architecture updates
+- **test_augmenter (secondary)**: dual-model test gap analysis via dedicated script (`scripts/dispatch-test-augmenter.sh`) — Gemini discovers edge-case gaps, Codex verifies them; produces `.test-augmentation-{phase}.md` and `.test-augmentation-{phase}.draft.md` artifacts (Stage 2, optional via config)
 
 ### Key Files
 
@@ -131,6 +132,9 @@ Two throwaway subagents handle the heavy lifting; the orchestrator stays lean:
 - Reviewer stance assignment assigns advocate/challenger/neutral roles to base reviewers for calibrated scoring (Stage 4, Section 4.2). Opt-in via `quality_review.stances.enabled` in config. Stance divergence analysis flags findings where severity spread >= 2 levels across stances.
 - Convergence detection measures inter-reviewer agreement via Jaccard similarity on technical keywords (Stage 4, Section 4.3a). Opt-in via `quality_review.convergence.enabled` in config. Adapts consolidation strategy (standard merge / weighted merge with divergence flags / present all for manual review).
 - CLI circuit breaker tracks consecutive CLI dispatch failures across stages (Section 1.7b init, cli-dispatch-procedure.md gate). Opt-in via `cli_dispatch.circuit_breaker.enabled` in config. When threshold reached, circuit opens and dispatches skip directly to fallback.
+- CLI dispatch script (`scripts/dispatch-cli-agent.sh`) supports `--model` and `--effort` flags for per-role model/effort overrides (e.g., `--model claude-sonnet-4-5 --effort high`). These are passed through from coordinator dispatch calls; defaults live in each `config/cli_clients/*.json` file.
+- Stage 4 fix path uses the detected `vertical_agent_type` (from Stage 2 summary) when launching the native fix agent — ensures the same specialized vertical agent (android-developer, frontend-developer, backend-developer, or developer) applies fixes, not a generic fallback.
+- Test augmenter artifacts (`.test-augmentation-*`) are excluded from auto-commit to keep feature commits clean. Add `.test-augmentation-` to `auto_commit.exclude_patterns` in config.
 - Context pack protocol accumulates key decisions, open issues, and risk signals across stages (orchestrator-loop.md context pack builder). Opt-in via `context_protocol.enabled` in config. Each stage contributes `context_contributions` to its summary; the orchestrator compiles and injects a budget-controlled context pack into coordinator prompts.
 - Per-phase delivery cycles (`per_phase_review.enabled` in config, default `true`) restructure the workflow from linear `S1→S2→S3→S4→S5→S6` to `S1 → FOR_EACH_PHASE[S2→S3→S4→S5→commit] → final passes → S6`. Each phase gets validated, reviewed, and documented before the next begins. Auto-commit moves from Stage 2 coordinator (Step 4.5) to orchestrator phase loop. Set `per_phase_review.enabled: false` to restore linear behavior.
 - Doc-judge (LLM-as-a-judge, `doc_judge.enabled` in config) verifies documentation accuracy against actual code after each per-phase tech-writer dispatch (Stage 5 Section 5.2b). Catches hallucinated APIs, wrong signatures, and invented behaviors. One revision cycle on failure.
@@ -157,34 +161,6 @@ Stage 6 generates a comprehensive implementation retrospective using a three-lay
 - Transcript analysis: `retrospective.transcript_analysis.*` (enabled, transcript_dir, extraction caps)
 - Section toggles: `retrospective.sections.*` (timeline, what_worked, what_didnt_work, etc.)
 - Auto-commit: `auto_commit.message_templates.retrospective` + exclude patterns for report card and transcript extract
-
-## OpenCode CLI Integration
-
-OpenCode provides the UX/Product lens across Stages 2-5, complementing Codex (code correctness) and Gemini (broad/strategic analysis). All 4 roles are disabled by default (opt-in via config).
-
-### Roles
-
-| Role | Stage | Config Key | Focus |
-|------|-------|-----------|-------|
-| `ux_test_reviewer` | 2 (Step 3.6) | `cli_dispatch.stage2.ux_test_reviewer` | Test coverage for UX scenarios (empty/loading/error states, accessibility) |
-| `ux_validator` | 3 (Section 3.1b) | `cli_dispatch.stage3.ux_validator` | Implementation completeness from UX/accessibility perspective |
-| `ux_reviewer` | 4 (Tier C Phase 1) | `cli_dispatch.stage4.multi_model_review.conditional` | WCAG 2.2 compliance, user flows, interaction states |
-| `doc_reviewer` | 5 (Section 5.2a) | `cli_dispatch.stage5.doc_reviewer` | Documentation quality from user perspective |
-
-### Key Constraints
-
-- **Orchestrator-transparent**: Only coordinators and Stage 1 (inline) touch OpenCode; orchestrator never sees it
-- **No auto-approval flag**: OpenCode runs in non-interactive mode and auto-rejects permission requests — inherently safe
-- **Dispatch syntax**: `opencode run --format json -f $PROMPT_FILE '<instruction>'` (configured in `scripts/dispatch-cli-agent.sh`; instruction properly escaped for single quotes)
-- **Conditional domain trigger**: UX roles (ux_test_reviewer, ux_reviewer) only fire for UI domains (compose, android, web_frontend)
-- **Advisory findings**: Stage 2 UX test review gaps are advisory (do not block phase progression)
-- **One revision cycle**: Stage 5 doc review can trigger one tech-writer revision for Critical/High gaps
-
-### Configuration
-
-- CLI metadata: `config/cli_clients/opencode.json`
-- Role prompts: `config/cli_clients/opencode_ux_*.txt` and `opencode_doc_reviewer.txt`
-- All configurable values in `config/implementation-config.yaml` under `cli_dispatch.stage{2,3,4,5}`
 
 ## Dev-Skills Integration
 

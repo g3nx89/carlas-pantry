@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # --- Argument parsing ---
-CLI_NAME="" ROLE="" PROMPT_FILE="" OUTPUT_FILE="" TIMEOUT_SEC=300 EXPECTED_FIELDS=""
+CLI_NAME="" ROLE="" PROMPT_FILE="" OUTPUT_FILE="" TIMEOUT_SEC=300 EXPECTED_FIELDS="" MODEL="" EFFORT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,6 +17,8 @@ while [[ $# -gt 0 ]]; do
     --output-file)  OUTPUT_FILE="$2"; shift 2 ;;
     --timeout)      TIMEOUT_SEC="$2"; shift 2 ;;
     --expected-fields) EXPECTED_FIELDS="$2"; shift 2 ;;
+    --model)        MODEL="$2"; shift 2 ;;
+    --effort)       EFFORT="$2"; shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -25,6 +27,9 @@ if [[ -z "$CLI_NAME" || -z "$ROLE" || -z "$PROMPT_FILE" || -z "$OUTPUT_FILE" ]];
   echo "Usage: dispatch-cli-agent.sh --cli <name> --role <role> --prompt-file <path> --output-file <path> [--timeout <sec>] [--expected-fields <fields>]" >&2
   exit 1
 fi
+
+# --- JSON string escaping helper ---
+json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
 # --- Build CLI command ---
 RAW_OUTPUT="${OUTPUT_FILE}.raw"
@@ -45,21 +50,24 @@ else
   exit 3
 fi
 
-# Build the CLI invocation command
+# Build the CLI invocation command (array-based to prevent word splitting and injection)
+CLI_ARGS=()
+STDIN_REDIRECT=""
 case "$CLI_NAME" in
   codex)
-    CLI_CMD="codex exec --json -C $PROMPT_FILE"
+    CLI_ARGS=(codex exec --json)
+    [[ -n "$MODEL" ]] && CLI_ARGS+=(-m "$MODEL")
+    [[ -n "$EFFORT" ]] && CLI_ARGS+=(-c "model_reasoning_effort=$EFFORT")
+    CLI_ARGS+=(-C "$PROMPT_FILE")
     ;;
   gemini)
-    CLI_CMD="gemini --non-interactive --yolo --output-format json < $PROMPT_FILE"
-    ;;
-  opencode)
-    OPENCODE_INSTRUCTION="${OPENCODE_INSTRUCTION:-Execute the analysis instructions in the attached file. Return your complete findings in the specified output format.}"
-    ESCAPED_INSTRUCTION=$(printf '%s' "$OPENCODE_INSTRUCTION" | sed "s/'/'\\\\''/g")
-    CLI_CMD="opencode run --format json -f $PROMPT_FILE '${ESCAPED_INSTRUCTION}'"
+    CLI_ARGS=(gemini --non-interactive --yolo --output-format json)
+    [[ -n "$MODEL" ]] && CLI_ARGS+=(--model "$MODEL")
+    STDIN_REDIRECT="$PROMPT_FILE"
     ;;
   *)
-    CLI_CMD="$CLI_NAME < $PROMPT_FILE"
+    CLI_ARGS=("$CLI_NAME")
+    STDIN_REDIRECT="$PROMPT_FILE"
     ;;
 esac
 
@@ -71,16 +79,26 @@ if command -v setsid &>/dev/null && command -v timeout &>/dev/null; then
   # Linux path (or macOS with Homebrew coreutils + util-linux)
   DISPATCH_METHOD="setsid_timeout"
   set +e
-  setsid timeout --signal=TERM --kill-after=10 "$TIMEOUT_SEC" \
-    bash -c "$CLI_CMD" > "$RAW_OUTPUT" 2>&1
+  if [[ -n "$STDIN_REDIRECT" ]]; then
+    setsid timeout --signal=TERM --kill-after=10 "$TIMEOUT_SEC" \
+      "${CLI_ARGS[@]}" < "$STDIN_REDIRECT" > "$RAW_OUTPUT" 2>&1
+  else
+    setsid timeout --signal=TERM --kill-after=10 "$TIMEOUT_SEC" \
+      "${CLI_ARGS[@]}" > "$RAW_OUTPUT" 2>&1
+  fi
   EXIT_CODE=$?
   set -e
 elif command -v gsetsid &>/dev/null && command -v gtimeout &>/dev/null; then
   # macOS with Homebrew gnu coreutils (prefixed)
   DISPATCH_METHOD="gsetsid_gtimeout"
   set +e
-  gsetsid gtimeout --signal=TERM --kill-after=10 "$TIMEOUT_SEC" \
-    bash -c "$CLI_CMD" > "$RAW_OUTPUT" 2>&1
+  if [[ -n "$STDIN_REDIRECT" ]]; then
+    gsetsid gtimeout --signal=TERM --kill-after=10 "$TIMEOUT_SEC" \
+      "${CLI_ARGS[@]}" < "$STDIN_REDIRECT" > "$RAW_OUTPUT" 2>&1
+  else
+    gsetsid gtimeout --signal=TERM --kill-after=10 "$TIMEOUT_SEC" \
+      "${CLI_ARGS[@]}" > "$RAW_OUTPUT" 2>&1
+  fi
   EXIT_CODE=$?
   set -e
 else
@@ -88,7 +106,11 @@ else
   DISPATCH_METHOD="set_m_fallback"
   set +e
   set -m
-  bash -c "$CLI_CMD" > "$RAW_OUTPUT" 2>&1 &
+  if [[ -n "$STDIN_REDIRECT" ]]; then
+    "${CLI_ARGS[@]}" < "$STDIN_REDIRECT" > "$RAW_OUTPUT" 2>&1 &
+  else
+    "${CLI_ARGS[@]}" > "$RAW_OUTPUT" 2>&1 &
+  fi
   CLI_PID=$!
   (
     sleep "$TIMEOUT_SEC"
@@ -205,24 +227,26 @@ rm -f "$RAW_OUTPUT"
 # --- Metrics sidecar ---
 cat > "$METRICS_FILE" <<SIDECAR
 {
-  "dispatch_id": "$DISPATCH_ID",
+  "dispatch_id": "$(json_escape "$DISPATCH_ID")",
   "timestamp_start": "$TIMESTAMP_START",
   "timestamp_end": "$TIMESTAMP_END",
   "duration_ms": $DURATION_MS,
-  "cli": "$CLI_NAME",
-  "role": "$ROLE",
+  "cli": "$(json_escape "$CLI_NAME")",
+  "role": "$(json_escape "$ROLE")",
   "exit_code": $EXIT_CODE,
   "timeout_configured_ms": $((TIMEOUT_SEC * 1000)),
   "timed_out": $TIMED_OUT,
   "output_bytes": $OUTPUT_BYTES,
   "parse_tier": $PARSE_TIER,
-  "parse_method": "$PARSE_METHOD",
+  "parse_method": "$(json_escape "$PARSE_METHOD")",
   "summary_block_found": $SUMMARY_FOUND,
-  "platform": "$PLATFORM",
-  "dispatch_method": "$DISPATCH_METHOD",
-  "cli_version": "$CLI_VERSION",
+  "platform": "$(json_escape "$PLATFORM")",
+  "dispatch_method": "$(json_escape "$DISPATCH_METHOD")",
+  "cli_version": "$(json_escape "$CLI_VERSION")",
   "fields_validated": $FIELDS_VALIDATED,
-  "fields_missing": "$FIELDS_MISSING"
+  "fields_missing": "$(json_escape "$FIELDS_MISSING")",
+  "model_override": "$(json_escape "$MODEL")",
+  "effort_override": "$(json_escape "$EFFORT")"
 }
 SIDECAR
 

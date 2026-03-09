@@ -74,7 +74,7 @@ Per-phase summaries include the `phase` field in YAML frontmatter. The schema fo
 | Field | Type | Required | Default | Producer | Consumer |
 |-------|------|----------|---------|----------|----------|
 | `flags.block_reason` | string\|null | Yes | `null` | Stage 2 | Orchestrator |
-| `flags.vertical_agent_type` | string | Yes | `"developer"` | Stage 2 | Stage 6 |
+| `flags.vertical_agent_type` | string | Yes | `"developer"` | Stage 2 | Stages 4, 6 |
 | `flags.test_count_verified` | integer\|null | Yes | `null` | Stage 2 | Stage 3 |
 | `flags.commits_made` | array | Yes | `[]` | Stage 2 | Stage 6 |
 | `flags.research_urls_discovered` | array | Optional | `[]` | Stage 2 | Stages 4, 5 |

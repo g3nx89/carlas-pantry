@@ -145,7 +145,7 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 
 All reference files are in `$CLAUDE_PLUGIN_ROOT/skills/implement/references/`.
 
-> **Note:** "Agents Used" refers to plugin agents defined in `agents/` (developer, code-simplifier, tech-writer). CLI roles (Codex, Gemini, OpenCode) are dispatched by coordinators via `scripts/dispatch-cli-agent.sh` and are not listed here — see `references/integrations-overview.md` for CLI dispatch details.
+> **Note:** "Agents Used" refers to plugin agents defined in `agents/` (developer, code-simplifier, tech-writer). CLI roles (Codex, Gemini) are dispatched by coordinators via `scripts/dispatch-cli-agent.sh` (supports --model/--effort flags) and are not listed here — see `references/integrations-overview.md` for CLI dispatch details.
 
 ## Orchestrator Loop
 
@@ -257,7 +257,7 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 |-------------|---------|
 | Dev-Skills | Vertical agent selection + static skills (baked into agent .md files via progressive disclosure) |
 | Research MCP | Documentation context from Ref/Context7/Tavily, budget-controlled |
-| CLI Dispatch | Multi-model dispatch via Codex/Gemini/OpenCode, opt-in per option |
+| CLI Dispatch | Multi-model dispatch via Codex/Gemini, opt-in per option |
 | Autonomy Policy | Auto-resolution: full_auto, balanced, critical_only. Selected at Stage 1 |
 
 ## Reference Map

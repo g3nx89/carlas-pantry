@@ -390,7 +390,7 @@ For each severity level present in findings (Critical, High, Medium), look up `p
 - **`"accept"`**: Accept silently
 
 Then apply:
-- If auto-fix list is non-empty: Auto-fix — launch fix agent (Option F CLI or native developer) for findings in the fix list. Log: `"[AUTO-{policy}] Auto-fixing {N} findings ({severity_breakdown})"`. After fix, run test count cross-validation (same as manual "Fix now"). Write deferred findings to `review-findings.md`. Set `review_outcome: "fixed"`.
+- If auto-fix list is non-empty: Auto-fix — launch `{vertical_agent_type}` fix agent (read from Stage 2 summary `flags.vertical_agent_type`, defaulting to `developer`) for findings in the fix list. Log: `"[AUTO-{policy}] Auto-fixing {N} findings ({severity_breakdown})"`. After fix, run test count cross-validation (same as manual "Fix now"). Write deferred findings to `review-findings.md`. Set `review_outcome: "fixed"`.
 - If auto-fix list is empty but defer list is non-empty: Write defer list to `review-findings.md`. Log: `"[AUTO-{policy}] Deferred {N} findings"`. Set `review_outcome: "deferred"`.
 - If both lists are empty (all accepted): Set `review_outcome: "accepted"`. Log: `"[AUTO-{policy}] All findings accepted"`.
 - If no policy set (edge case): fall through to manual escalation below.
@@ -414,27 +414,13 @@ If orchestrator provides a user-input file:
 
 ### On "Fix Now"
 
-#### Option F: CLI Fix Engineer
-
-> **Conditional**: When `cli_dispatch.stage4.fix_engineer.enabled` is `true` AND `cli_availability.codex` is `true` (from Stage 1 summary), use the CLI fix engineer instead of the native developer agent. If conditions are not met, use the native path below.
-
-**CLI fix path:**
-1. Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_fix_engineer.txt`. Inject variables:
-   - `{findings_list}` — Critical + High findings from consolidated review
-   - `{baseline_test_count}` — from Stage 3 summary `flags.baseline_test_count`
-   - `{FEATURE_DIR}`, `{TASKS_FILE}` — from Stage 1 summary
-2. Dispatch via Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
-   - `cli_name="codex"`, `role="fix_engineer"`
-   - `file_paths=[...files_with_findings]`
-   - `fallback_behavior="native"`, `fallback_agent="product-implementation:developer"`, `fallback_prompt=` Review Fix Prompt from `agent-prompts.md`
-   - `expected_fields=["findings", "tests", "regression", "patterns_fixed"]`
-3. Parse `test_count_post_fix` from output (regex: `test_count_post_fix:\s*(\d+)`)
-4. **Write boundaries**: The CLI agent may only modify files listed in the findings. Verify no other files were changed.
-5. If CLI fails, regression detected, or parsing fails → fall back to native developer agent (below)
-
-**Native fix path** (default, or fallback from CLI):
-1. Launch a `developer` agent with the fix prompt template from `agent-prompts.md` (Section: Review Fix Prompt)
-2. Agent addresses Critical and High findings
+**Native fix path:**
+1. Read `flags.vertical_agent_type` from the Stage 2 summary (defaulting to `developer` if not present)
+2. Launch a `{vertical_agent_type}` agent with the fix prompt template from `agent-prompts.md` (Section: Review Fix Prompt):
+   ```
+   Task(subagent_type="product-implementation:{vertical_agent_type}")
+   ```
+3. Agent addresses Critical and High findings
 
 **Common steps (both paths):**
 3. After fixes, re-run a quick validation (tests pass, no regressions)

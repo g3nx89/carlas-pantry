@@ -42,7 +42,7 @@ Configuration: `config/implementation-config.yaml` under `research_mcp`.
 
 ## CLI Dispatch
 
-When external CLI agents (Codex, Gemini, OpenCode) are installed, coordinators can delegate specific tasks via Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`) for multi-model code generation, testing, validation, and review. This integration is:
+When external CLI agents (Codex, Gemini) are installed, coordinators can delegate specific tasks via Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`) for multi-model code generation, testing, validation, and review. This integration is:
 
 - **Zero-cost when disabled** — all CLI options default to `enabled: false` in config; when disabled, no CLI dispatch occurs and no CLI availability checks run
 - **Orchestrator-transparent** — the orchestrator never invokes CLI dispatch or reads CLI config; all dispatch happens inside coordinator subagents and Stage 1 (inline)
@@ -54,10 +54,10 @@ When external CLI agents (Codex, Gemini, OpenCode) are installed, coordinators c
 **CLI availability detection** runs in Stage 1 (Section 1.7a): dispatch script smoke tests verify which CLIs are installed, with results stored in `cli_availability` in the Stage 1 summary.
 
 **Injection points:**
-- Stage 2: Test Author (Option H — Codex generates TDD tests from specs), Test Augmenter (Option I — Gemini discovers untested edge cases), UAT Mobile Tester (Option J — Gemini runs per-phase behavioral acceptance testing and Figma visual verification on Genymotion emulator via mobile-mcp), UX Test Reviewer (Option K — OpenCode reviews test coverage for UX scenarios, conditional on UI domains)
-- Stage 3: Spec Validator (Option C — Gemini cross-validates implementation against specs in parallel with native validator), UX Validator (Option D — OpenCode validates implementation completeness from UX/accessibility perspective)
-- Stage 4: Three-tier review (Tier A: native always, Tier B: plugin when installed, Tier C: CLI multi-model). Tier C includes correctness reviewer (Codex), security reviewer (Codex, conditional), android domain reviewer (Gemini, conditional), codebase pattern reviewer (Gemini, Phase 2 sequential), and UX/accessibility reviewer (OpenCode, conditional on UI domains). Fix Engineer (Option F — Codex fixes review findings).
-- Stage 5: Doc Reviewer (Option L — OpenCode reviews documentation quality from user perspective)
+- Stage 2: Test Augmenter Primary (Option H — Codex discovers untested edge cases from specs), Test Augmenter Secondary (Option I — Gemini provides a second pass on untested scenarios), UAT Mobile Tester (Option J — Gemini runs per-phase behavioral acceptance testing and Figma visual verification on Genymotion emulator via mobile-mcp), UX Test Reviewer (Option K — Gemini reviews test coverage for UX scenarios, conditional on UI domains)
+- Stage 3: Spec Validator (Option C — Gemini cross-validates implementation against specs in parallel with native validator)
+- Stage 4: Three-tier review (Tier A: native always, Tier B: plugin when installed, Tier C: CLI multi-model). Tier C includes correctness reviewer (Codex), security reviewer (Codex, conditional), android domain reviewer (Gemini, conditional), codebase pattern reviewer (Gemini, Phase 2 sequential).
+- Stage 5: Doc Reviewer (Option L — Gemini reviews documentation quality for accuracy and completeness)
 
 **Shared procedure:** All CLI dispatches use the parameterized procedure in `references/cli-dispatch-procedure.md` for dispatch, timeout, 4-tier output parsing, metrics sidecar, and fallback handling.
 

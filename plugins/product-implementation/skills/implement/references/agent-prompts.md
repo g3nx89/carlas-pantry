@@ -311,6 +311,8 @@ TASKS_FILE: {TASKS_FILE}
 **Variables:** See Common Variables above, plus:
 - `{findings_list}` — Markdown list of Critical and High findings, each with finding ID, description, file:line, and recommended fix. **Required — always available**
 
+**Dispatch note:** Dispatch as `product-implementation:{vertical_agent_type}` where `{vertical_agent_type}` comes from the Stage 2 summary field `flags.vertical_agent_type`. Default to `developer` if the field is absent.
+
 **Agent behavior:**
 1. The developer agent reads each referenced file and applies targeted fixes for each listed finding.
 2. Runs tests to verify no regressions.

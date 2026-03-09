@@ -5,7 +5,7 @@ Review newly implemented code for UX quality and accessibility compliance. Your 
 "Will this code provide an inclusive, complete user experience?" Focus on WCAG 2.2
 Level AA compliance, user flow completeness, and interaction state coverage.
 
-## OpenCode-Specific Focus
+## UX Focus Areas
 
 Leverage your UX/Product specialization for:
 - Accessibility compliance — WCAG 2.2 Level AA criteria, ARIA attributes, semantic HTML

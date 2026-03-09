@@ -2,11 +2,11 @@
   "schema_version": 1,
   "name": "gemini",
   "command": "gemini",
-  "additional_args": ["--yolo"],
   "roles": {
     "spec_validator":              { "prompt_path": "gemini_spec_validator.txt", "max_output_tokens": 8000 },
     "codebase_pattern_reviewer":   { "prompt_path": "gemini_codebase_pattern_reviewer.txt", "max_output_tokens": 8000 },
     "android_domain_reviewer":     { "prompt_path": "gemini_android_domain_reviewer.txt", "max_output_tokens": 6000 },
-    "test_augmenter":              { "prompt_path": "gemini_test_augmenter.txt", "max_output_tokens": 6000 }
+    "test_augmenter":              { "prompt_path": "gemini_test_augmenter.txt", "max_output_tokens": 6000 },
+    "doc_reviewer":                { "prompt_path": "gemini_doc_reviewer.txt", "max_output_tokens": 6000 }
   }
 }

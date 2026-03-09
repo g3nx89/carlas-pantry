@@ -6,7 +6,7 @@ Read the specification documents, tasks, and implemented code. Report ONLY verif
 UX gaps -- missing states, incomplete flows, and accessibility barriers that are provably
 absent from the implementation. Do NOT suggest style improvements or subjective UX opinions.
 
-## OpenCode-Specific Focus
+## UX Focus Areas
 
 Leverage your UX/Product specialization for:
 - User flow completeness — every flow has loading, error, empty, and success states

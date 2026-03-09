@@ -374,7 +374,6 @@ Store in Stage 1 summary YAML frontmatter:
 cli_availability:
   codex: true
   gemini: false
-  opencode: true
 dispatch_infrastructure:
   script_available: true
   jq_available: true
@@ -396,7 +395,6 @@ Initialize the circuit breaker state for all detected CLIs:
 cli_circuit_state:
   codex: {consecutive_failures: 0, status: "closed"}
   gemini: {consecutive_failures: 0, status: "closed"}
-  opencode: {consecutive_failures: 0, status: "closed"}
 ```
 
 Only include CLIs where `cli_availability.{cli_name}` is `true`. Omit unavailable CLIs.
@@ -459,7 +457,7 @@ Determine the quality tier and external model availability. These two settings c
 3. Read `external_models` from config
 4. If `external_models` is `null` AND selected preset is NOT `minimal`:
    - Ask user via `SAFE_ASK_USER` (see `orchestrator-loop.md`):
-     - **Question:** "Should I use external AI models (Codex, Gemini, OpenCode) for review and testing?"
+     - **Question:** "Should I use external AI models (Codex, Gemini) for review and testing?"
      - **Header:** "Models"
      - **Options:**
        1. **Yes — check availability** — "Probe external CLIs and enable matching features from the preset"
@@ -490,7 +488,7 @@ resolved_quality_config:
   convergence: true
   context_protocol: true
   circuit_breaker: true
-  cli_features_enabled: ["test_author", "spec_validator", "ux_test_reviewer"]
+  cli_features_enabled: ["spec_validator", "ux_test_reviewer", "test_augmenter_secondary"]
 ```
 
 ### Impact
@@ -548,7 +546,6 @@ detected_domains: [{list of matched domain keys, e.g., "kotlin", "api"}]  # from
 cli_availability:              # from Section 1.7a (empty {} if no CLI options enabled)
   codex: {true/false}
   gemini: {true/false}
-  opencode: {true/false}
 mcp_availability:           # from Section 1.6a (all false if research_mcp.enabled is false)
   ref: {true/false}
   context7: {true/false}

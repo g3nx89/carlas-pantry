@@ -456,7 +456,6 @@ FUNCTION DISPATCH_COORDINATOR(stage, phase_scope=null, continuation_mode=false):
     Feature directory: {FEATURE_DIR}
     Tasks file: {TASKS_FILE}
     User input: {user_input_value}
-    OpenCode model: {OPENCODE_MODEL}  # Source: cli_dispatch.cli_defaults.opencode.model from config. Fallback: "not configured"
 
     ## Prior Stage Summaries (read these first)
     {for each summary in prior_summaries: {FEATURE_DIR}/.stage-summaries/{summary}}

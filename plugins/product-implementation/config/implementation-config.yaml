@@ -34,7 +34,7 @@ quality_presets:
       context_protocol: true
       circuit_breaker: true
     cli_features:        # Only activated when external_models: true
-      test_author: true
+      test_augmenter_secondary: true
       spec_validator: true
       ux_test_reviewer: true
   comprehensive:
@@ -47,11 +47,10 @@ quality_presets:
       context_protocol: true
       circuit_breaker: true
     cli_features:        # Only activated when external_models: true
-      test_author: true
+      test_augmenter_secondary: true
       spec_validator: true
       ux_test_reviewer: true
       multi_model_review: true
-      fix_engineer: true
       doc_reviewer: true
       test_augmenter: true
       ux_validator: true
@@ -456,6 +455,7 @@ auto_commit:
     - ".implementation-blockers"
     - ".implementation-learnings"
     - ".implementation-ralph-status"
+    - ".test-augmentation-"
     - ".uat-evidence/launch-gate"
 
 # Code simplification (Stage 2 post-phase)
@@ -567,12 +567,11 @@ cli_dispatch:
   # CLI-specific defaults applied to all dispatches for a given CLI.
   # Integration-level `model` fields override these defaults.
   cli_defaults:
-    opencode:
-      # OpenCode requires explicit model selection via --model flag.
-      # Without it, opencode uses its config default which may not be available.
-      # The -f flag is unreliable (greedy array parsing); dispatch-cli-agent.sh
-      # passes prompt content inline via $(cat) instead.
-      model: "openrouter/x-ai/grok-4-fast"
+    codex:
+      model: "gpt-5.4"
+      effort: "medium"
+    gemini:
+      model: null  # Gemini CLI does not support effort/reasoning-level configuration
 
   timeout_ms: 300000              # 5 minute default; per-option override available
   timeout_action: "fallback"      # "fallback" (use native/skip) | "error" (halt with user prompt)
@@ -633,13 +632,13 @@ cli_dispatch:
       max_tokens: 2000
       trigger_keywords: ["API", "SDK", "migration", "v2", "upgrade", "new version"]
 
-    # Option H: Test-first generation from test-case specs (Tier 1)
-    test_author:
+    # Option H: Secondary test augmentation pass — additional edge-case tests from codex (Tier 1)
+    test_augmenter_secondary:
       enabled: false
       cli_name: "codex"
-      role: "test_author"
-      requires_test_cases: true     # Static prerequisite: only activate if test-cases/ exists
-      allow_developer_adjustments: true  # Developer can fix imports/setup in generated tests
+      role: "test_augmenter"
+      effort: "high"
+      script: "dispatch-test-augmenter.sh"
 
     # Option I: Post-implementation edge case test augmentation (Tier 1)
     test_augmenter:
@@ -653,15 +652,15 @@ cli_dispatch:
     # See uat_execution section for all UAT config (engine strategy, Figma refs, severity gating).
     # UAT dispatch now supports Claude subagent (native), Codex CLI, and Gemini CLI.
 
-    # Option K: Post-phase UX test coverage review via OpenCode (Tier 2)
+    # Option K: Post-phase UX test coverage review via Codex (Tier 2)
     # Reviews test files after each phase for UX scenario coverage gaps:
     # empty states, loading states, error states, accessibility assertions.
     # Only triggers for phases with UI-related file paths.
     ux_test_reviewer:
       enabled: false
-      cli_name: "opencode"
+      cli_name: "codex"
       role: "ux_test_reviewer"
-      fallback_behavior: "skip"          # Skip silently if OpenCode unavailable
+      fallback_behavior: "skip"          # Skip silently if Codex unavailable
       phase_relevance:
         check_ui_file_paths: true        # Check task file paths against UI domain indicators
         ui_domains: ["compose", "android", "web_frontend"]  # Domains from dev_skills.domain_mapping whose indicators suggest UI work
@@ -676,13 +675,13 @@ cli_dispatch:
       role: "spec_validator"
       merge_strategy: "conservative"  # Use lower test count, flag disagreements
 
-    # Option D: UX/Accessibility validation via OpenCode (Tier 2)
+    # Option D: UX/Accessibility validation via Codex (Tier 2)
     # Validates implementation completeness from UX perspective: user flow states,
     # accessibility attributes, error recovery paths. Runs in parallel with native
     # validator and Gemini spec validator.
     ux_validator:
       enabled: false
-      cli_name: "opencode"
+      cli_name: "codex"
       role: "ux_validator"
       merge_strategy: "conservative"  # UX gaps added to merged finding set; disagreements marked "NEEDS MANUAL REVIEW"
 
@@ -696,6 +695,7 @@ cli_dispatch:
         - focus: "bugs, functional correctness, and edge case handling"
           cli_name: "codex"
           role: "correctness_reviewer"
+          effort: "high"
         - focus: "project conventions, abstractions, and pattern adherence"
           cli_name: null              # null = native developer agent
           role: null
@@ -704,13 +704,14 @@ cli_dispatch:
         - focus: "security vulnerabilities, OWASP Top 10"
           cli_name: "codex"
           role: "security_reviewer"
+          effort: "high"
           domains: ["api", "web_frontend", "database"]
         - focus: "Android lifecycle, Compose recomposition, Material 3, coroutine safety"
           cli_name: "gemini"
           role: "android_domain_reviewer"
           domains: ["android", "compose", "kotlin"]
         - focus: "UX quality, accessibility compliance, user flow completeness"
-          cli_name: "opencode"
+          cli_name: "codex"
           role: "ux_reviewer"
           domains: ["compose", "android", "web_frontend"]
       # Codebase pattern reviewer — Phase 2 sequential dispatch (requires Phase 1 Critical/High findings)
@@ -757,13 +758,6 @@ cli_dispatch:
           low:
             condition: "All others — style or optimization suggestion"
 
-    # Option F: Fix review findings with different model (Tier 2)
-    fix_engineer:
-      enabled: false
-      cli_name: "codex"
-      role: "fix_engineer"
-      fallback_to_native: true
-
   # --- STAGE 5 ---
 
   stage5:
@@ -774,15 +768,15 @@ cli_dispatch:
       role: "doc_researcher"
       max_tokens: 1500
 
-    # Option L: Documentation quality review via OpenCode (Tier 2)
+    # Option L: Documentation quality review via Gemini (Tier 2)
     # Reviews documentation produced by tech-writer from user perspective:
     # completeness, accuracy, usability, accessibility documentation.
     # Runs AFTER tech-writer produces docs, findings fed back for optional revision.
     doc_reviewer:
       enabled: false
-      cli_name: "opencode"
+      cli_name: "gemini"
       role: "doc_reviewer"
-      fallback_behavior: "skip"          # Skip silently if OpenCode unavailable
+      fallback_behavior: "skip"          # Skip silently if Gemini unavailable
 
 # Implementation retrospective (Stage 6)
 # Generates a KPI Report Card and narrative retrospective document after all stages complete.
@@ -858,11 +852,9 @@ non_skippable_gates:
 # for consistency since all three are sonnet-model verification/generation agents.
 
 # Native test-writer agent — writes failing tests from test-case specs (Red phase)
-# Mutually exclusive with CLI test_author (Option H): if both enabled, CLI takes priority.
 # Referenced by: stage-2-execution.md Step 1.9
 native_test_writer:
-  enabled: true                   # Active when test_cases_available AND Option H not running
-  mutually_exclusive_with: "test_author"  # Never runs alongside CLI test author
+  enabled: true                   # Active when test_cases_available
   fallback_to_developer: true     # If test-writer fails, developer falls back to full TDD
 
 # Output verification agent — runs after every phase regardless of test-writer

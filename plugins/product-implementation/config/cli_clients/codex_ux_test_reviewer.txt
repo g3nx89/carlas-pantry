@@ -7,7 +7,7 @@ Review test files written for the current phase. Identify gaps in UX scenario
 coverage. Focus on missing test cases, not test quality or style. Your lens:
 "Would a user regression be caught by these tests?"
 
-## OpenCode-Specific Focus
+## UX Focus Areas
 
 Leverage your UX/Product specialization for:
 - Empty state tests — screens/components render correctly with zero data

@@ -192,16 +192,16 @@ After the tech-writer produces per-phase documentation (Section 5.2), dispatch t
 
 ## 5.2a CLI Documentation Review (Optional)
 
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage5.doc_reviewer.enabled` is `true` and `cli_availability.opencode` is `true` (from Stage 1 summary). If any condition is false, skip to Section 5.3.
+> **Conditional**: Only runs when ALL of: `cli_dispatch.stage5.doc_reviewer.enabled` is `true` and `cli_availability.gemini` is `true` (from Stage 1 summary). If any condition is false, skip to Section 5.3.
 
-After the tech-writer produces documentation (Section 5.2), dispatch OpenCode to review the output from the user's perspective: completeness, accuracy, usability, and accessibility documentation.
+After the tech-writer produces documentation (Section 5.2), dispatch Gemini to review the output from the user's perspective: completeness, accuracy, usability, and accessibility documentation.
 
 ### Procedure
 
 1. **Collect documentation files**: List all documentation files created or modified in Section 5.2 (from tech-writer agent output).
 
 2. **Dispatch**: Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
-   - `cli_name="opencode"`, `role="doc_reviewer"`
+   - `cli_name="gemini"`, `role="doc_reviewer"`
    - `fallback_behavior` from `cli_dispatch.stage5.doc_reviewer.fallback_behavior` (default: `"skip"`)
    - `expected_fields=["files_reviewed", "features_documented", "findings", "top_gap", "recommendation"]`
 
@@ -213,7 +213,7 @@ After the tech-writer produces documentation (Section 5.2), dispatch OpenCode to
    - `{spec_content}` — spec.md content (for accuracy cross-reference, or `"Not available"`)
 
 4. **Result processing**: Parse `<SUMMARY>` block. If documentation gaps are found:
-   - `[Critical]`/`[High]` findings (wrong API signatures, missing critical feature docs): feed back to tech-writer for revision — dispatch a second tech-writer run with the findings as additional input. Log: `"OpenCode doc review found {count} critical/high gaps — requesting revision"`
+   - `[Critical]`/`[High]` findings (wrong API signatures, missing critical feature docs): feed back to tech-writer for revision — dispatch a second tech-writer run with the findings as additional input. Log: `"Gemini doc review found {count} critical/high gaps — requesting revision"`
    - `[Medium]`/`[Low]` findings (minor completeness gaps, formatting): log as advisory, include in summary for user awareness
    - **One revision cycle maximum** — if the second tech-writer pass still has Critical/High findings from a re-review, log them and proceed (do not loop)
 
@@ -221,11 +221,11 @@ After the tech-writer produces documentation (Section 5.2), dispatch OpenCode to
 
 ### Latency Impact
 
-Adds ~5-15s dispatch overhead + 30-90s agent execution. Revision cycle (if triggered) adds another tech-writer dispatch. Skipped automatically when disabled or when OpenCode is unavailable.
+Adds ~5-15s dispatch overhead + 30-90s agent execution. Revision cycle (if triggered) adds another tech-writer dispatch. Skipped automatically when disabled or when Gemini is unavailable.
 
 ## 5.3 Documentation Summary
 
-After the tech-writer agent completes (and optional OpenCode doc review in Section 5.2a), capture the summary:
+After the tech-writer agent completes (and optional Gemini doc review in Section 5.2a), capture the summary:
 
 ```text
 ## Documentation Update Summary

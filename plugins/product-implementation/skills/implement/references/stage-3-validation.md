@@ -94,20 +94,20 @@ When both validators run, Section 3.2 validation checks operate on the **merged*
 
 ## 3.1b CLI UX Validator (Option D)
 
-> **Conditional**: Only runs when ALL of: `cli_dispatch.stage3.ux_validator.enabled` is `true` and `cli_availability.opencode` is `true` (from Stage 1 summary). If any condition is false, skip to Section 3.2.
+> **Conditional**: Only runs when ALL of: `cli_dispatch.stage3.ux_validator.enabled` is `true` and `cli_availability.codex` is `true` (from Stage 1 summary). If any condition is false, skip to Section 3.2.
 
-Launch a UX completeness validator in **parallel** with the native validation agent (Section 3.1) and Gemini spec validator (Section 3.1a if enabled). The OpenCode validator independently verifies implementation completeness from a UX/accessibility perspective: state coverage, user flows, accessibility attributes, and error recovery paths.
+Launch a UX completeness validator in **parallel** with the native validation agent (Section 3.1) and Gemini spec validator (Section 3.1a if enabled). The Codex validator independently verifies implementation completeness from a UX/accessibility perspective: state coverage, user flows, accessibility attributes, and error recovery paths.
 
 ### Procedure
 
 1. **Dispatch in parallel** with Sections 3.1 and 3.1a:
-   - Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/opencode_ux_validator.txt`. Inject variables:
+   - Build prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/codex_ux_validator.txt`. Inject variables:
      - `{FEATURE_DIR}`, `{PROJECT_ROOT}` — from Stage 1 summary
      - `{spec_content}` — spec.md content (or tasks.md ACs if spec.md unavailable)
      - `{tasks_content}` — tasks.md content
      - `{detected_domains}` — from Stage 1 summary
    - Follow the Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
-     - `cli_name="opencode"`, `role="ux_validator"`
+     - `cli_name="codex"`, `role="ux_validator"`
      - `file_paths=[FEATURE_DIR, PROJECT_ROOT]`
      - `fallback_behavior="skip"` (native validator is always running)
      - `expected_fields=["user_flows_verified", "state_coverage", "accessibility_checks", "gaps", "recommendation"]`
@@ -115,8 +115,8 @@ Launch a UX completeness validator in **parallel** with the native validation ag
 2. **Wait for all dispatched validators to complete**
 
 3. **Merge results**:
-   - UX gaps from OpenCode are added to the merged finding set
-   - If OpenCode reports missing states (loading, error, empty) that the native validator didn't flag, add them as new findings
+   - UX gaps from Codex are added to the merged finding set
+   - If Codex reports missing states (loading, error, empty) that the native validator didn't flag, add them as new findings
    - Disagreements on completeness: mark as "NEEDS MANUAL REVIEW" for Critical/High items
 
 4. **If CLI fails or CLI unavailable**: native validation result used alone — no UX-specific validation, no degradation
