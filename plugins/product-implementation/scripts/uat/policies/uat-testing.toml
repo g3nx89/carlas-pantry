@@ -1,0 +1,24 @@
+# Policy: Auto-approve mobile-mcp and sequential-thinking tools for UAT testing
+# Loaded via: gemini --policy scripts/policies/uat-testing.toml
+
+[[rule]]
+mcpName = "mobile-mcp"
+toolName = "*"
+decision = "allow"
+priority = 100
+
+[[rule]]
+mcpName = "sequential-thinking"
+toolName = "*"
+decision = "allow"
+priority = 100
+
+[[rule]]
+toolName = "read_file"
+decision = "allow"
+priority = 50
+
+[[rule]]
+toolName = "list_directory"
+decision = "allow"
+priority = 50

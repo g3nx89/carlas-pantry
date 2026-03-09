@@ -56,6 +56,11 @@ Per-phase summaries include the `phase` field in YAML frontmatter. The schema fo
 | `figma_available` | boolean | Yes | `false` | Stage 1 | Stages 2, 4 |
 | `mobile_mcp_available` | boolean | Yes | `false` | Stage 1 | Stage 2 |
 | `mobile_device_name` | string\|null | Yes | `null` | Stage 1 | Stage 2 |
+| `engine_strategy` | string\|null | Optional | `null` | Stage 1 | Stages 2, 3 |
+| `engine_per_phase` | string\|null | Optional | `null` | Stage 1 | Stage 2 |
+| `engine_full_sweep` | string\|null | Optional | `null` | Stage 1 | Stage 3 |
+| `figma_refs_dir` | string\|null | Optional | `null` | Stage 1 | Stages 2, 3 |
+| `emulator_type` | string\|null | Optional | `null` | Stage 1 | Stages 2, 3 |
 | `plugin_availability` | map | Yes | — | Stage 1 | Stage 4 |
 | `autonomy_policy` | string | Yes | — | Stage 1 | All stages |
 | `quality_preset` | string | Yes | — | Stage 1 | All stages |
@@ -98,6 +103,7 @@ Per-phase summaries include the `phase` field in YAML frontmatter. The schema fo
 | `flags.test_coverage_delta` | map\|null | Optional | `null` | Stage 3 | Stage 6 |
 | `flags.cli_circuit_state` | map\|null | Optional | `null` | Stage 3 | Stage 4 |
 | `flags.context_contributions` | map\|null | Optional | `null` | Stage 3 | Orchestrator |
+| `flags.uat_sweep_results` | map\|null | Optional | `null` | Stage 3 | Stage 6 |
 
 ## Stage 4: Quality Review
 

@@ -216,7 +216,7 @@ After compiling the Report Card, verify that gates which were ENABLED in config 
 
 | Check | Config Gate | Evidence Field | Source |
 |-------|-----------|---------------|--------|
-| UAT Execution | `uat_execution.enabled` AND `uat_mobile_tester.enabled` | Stage 2 summary `uat_results.phases_tested > 0` | Per-phase Stage 2 summaries |
+| UAT Execution | `uat_execution.enabled` | Stage 2 summary `uat_results.phases_tested > 0` | Per-phase Stage 2 summaries |
 | Figma Parity | `figma.enabled` AND `per_phase_review.figma_parity_gate` | Stage 4 summary contains `figma_parity_score` | Per-phase Stage 4 summaries |
 | App Launch Gate | `app_launch_gate.enabled` | Launch gate screenshots exist in `.uat-evidence/launch-gate/` | File system |
 | Mobile Probe | `uat_execution.enabled` | Stage 1 `mobile_mcp_available` is NOT null | Stage 1 summary |

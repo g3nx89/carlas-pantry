@@ -414,13 +414,13 @@ Latency: ~5-15s dispatch overhead + 30-90s agent execution per relevant phase.
 
 ### Step 3.7: UAT Mobile Testing (Optional)
 
-> **Conditional**: Only runs when 5 gates pass (see `stage-2-uat-mobile.md` for full gate check).
-> Quick check: `uat_execution.enabled` AND `uat_mobile_tester.enabled` AND `cli_availability.gemini` AND `mobile_mcp_available` AND phase relevance.
+> **Conditional**: Only runs when 3 gates pass (see `stage-2-uat-mobile.md` for full gate check).
+> Quick check: `uat_execution.enabled` AND `mobile_mcp_available` AND phase relevance.
 > If any gate fails, check the Non-Skippable Gate rule in `stage-2-uat-mobile.md` before skipping.
 
-Read and execute the full UAT procedure from `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-2-uat-mobile.md`. The procedure covers phase relevance check, APK build/install, evidence directory, CLI dispatch, result processing (with autonomy policy via `autonomy-policy-procedure.md`), write boundaries, and metrics tracking.
+Read and execute the full UAT procedure from `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-2-uat-mobile.md`. The procedure covers gate check, engine selection (Claude subagent or CLI script), APK build/install, evidence directory, dispatch, result processing (with autonomy policy via `autonomy-policy-procedure.md`), write boundaries, and metrics tracking.
 
-Latency: ~3-10 minutes per relevant phase.
+Latency: ~2-10 minutes per relevant phase (depends on engine — subagent ~2-5 min, CLI ~5-10 min).
 
 ### Step 4: Update Progress
 

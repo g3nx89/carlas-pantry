@@ -193,3 +193,21 @@ templates:
       - "{selected_categories}"
       - "{analysis_results}"
     optional_variables: []
+
+  - template_name: "UAT Mobile Tester Prompt"
+    agent_type: "product-implementation:uat-tester"
+    used_in_stage: ["2", "3"]
+    used_in_step: "Step 3.7 (UAT Mobile Testing), Section 3.2a (Full-Sweep UAT)"
+    required_variables:
+      - "{FEATURE_NAME}"
+      - "{FEATURE_DIR}"
+      - "{phase_name}"
+      - "{platform}"
+      - "{apk_path}"
+      - "{package_name}"
+      - "{device_name}"
+      - "{emulator_type}"
+      - "{evidence_dir}"
+      - "{uat_specs}"
+    optional_variables:
+      - "{figma_refs_section}"

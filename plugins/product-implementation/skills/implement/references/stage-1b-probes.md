@@ -248,8 +248,8 @@ Probe mobile-mcp to determine if a mobile testing emulator is available for UAT 
 
 ### Procedure
 
-1. Read `uat_execution` and `cli_dispatch.stage2.uat_mobile_tester` sections from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
-2. If either `uat_execution.enabled` or `cli_dispatch.stage2.uat_mobile_tester.enabled` is `true`, proceed with probe below. Otherwise, set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.6f.
+1. Read `uat_execution` section from `$CLAUDE_PLUGIN_ROOT/config/implementation-config.yaml`
+2. If `uat_execution.enabled` is `true`, proceed with probe below. Otherwise, set `mobile_mcp_available: false`, `mobile_device_name: null`, skip to Section 1.6ea.
 3. **Probe mobile-mcp**: Call `mobile_list_available_devices`
    - If call succeeds AND returns at least one device: set `mobile_mcp_available: true`, store `mobile_device_name` from the first available emulator device (prefer emulator over physical device for UAT reproducibility)
    - If call fails, times out, or returns empty device list: set `mobile_mcp_available: false`, `mobile_device_name: null`, log warning: `"Mobile MCP not available or no emulator running — UAT mobile testing will be skipped for all phases"`
@@ -261,6 +261,44 @@ Store in Stage 1 summary YAML frontmatter:
 ```yaml
 mobile_mcp_available: true    # or false
 mobile_device_name: "emulator-5554"  # or null
+```
+
+## 1.6ea UAT Engine Strategy & Figma Reference Export [Cost: conditional — 0-30s Figma export]
+
+Determine UAT engine strategy and pre-export Figma reference screenshots.
+
+### Engine Strategy
+
+1. Read `uat_execution.engine_strategy` from config
+2. If `null` AND NOT ralph mode:
+   - Ask user via `status: needs-user-input` with options: `"hybrid (recommended)"`, `"subagent_only"`, `"cli_only"`
+3. If `null` AND ralph mode: auto-resolve to `"subagent_only"`
+4. If explicit value: use as-is
+5. Resolve per_phase/full_sweep engines from `uat_execution.engine_strategies[{strategy}]`
+
+### Figma Reference Export
+
+1. If `uat_execution.figma_references.enabled` is `false` OR `figma_references.file_key` is `null`: skip
+2. If `figma_references.force_refresh` is `false` AND output dir already has PNGs: skip
+3. Run: `Bash("$CLAUDE_PLUGIN_ROOT/scripts/uat/capture-figma-refs.sh {file_key} {output_dir} --page {page_name} --scale {scale}")`
+4. If export fails: log warning, set `figma_refs_available: false` — UAT proceeds without visual parity
+
+### Emulator Type Detection
+
+1. If `mobile_mcp_available` is `true` AND `uat_execution.emulator.type` is `"auto"`:
+   - Check `mobile_device_name` — if contains "genymotion" → `emulator_type: "genymotion"`, else `"avd"`
+2. If explicit value: use as-is
+
+### Output
+
+Store in Stage 1 summary:
+
+```yaml
+engine_strategy: "hybrid"           # resolved strategy name
+engine_per_phase: "subagent"         # resolved per-phase engine
+engine_full_sweep: "cli"             # resolved full-sweep engine
+figma_refs_dir: "figma-references"   # or null if not exported
+emulator_type: "genymotion"          # or "avd"
 ```
 
 ## 1.6f Plugin Availability Check [Cost: zero MCP calls — skill listing check]
@@ -475,7 +513,7 @@ Before writing the Stage 1 summary (Section 1.10), verify that all probe section
 | 1.6b URL Extraction | `extracted_urls` | `research_mcp.url_extraction.enabled: false` OR `ref_available: false` | ☐ |
 | 1.6c Library Pre-Resolution | `resolved_libraries` | `context7.pre_resolve_in_stage1: false` OR `context7_available: false` | ☐ |
 | 1.6d Private Doc Discovery | `private_doc_urls` | `private_docs.enabled: false` OR `ref_available: false` | ☐ |
-| 1.6e Mobile Device Check | `mobile_mcp_available` | `uat_execution.enabled: false` AND `uat_mobile_tester.enabled: false` | ☐ |
+| 1.6e Mobile Device Check | `mobile_mcp_available` | `uat_execution.enabled: false` | ☐ |
 | 1.6f Plugin Availability | `plugin_availability` | *(no valid skip — always execute)* | ☐ |
 | 1.6g Figma Availability | `figma_available` | No UI domains detected OR `figma.enabled: false` | ☐ |
 | 1.7a CLI Availability | `cli_availability` | No enabled CLI options in config | ☐ |

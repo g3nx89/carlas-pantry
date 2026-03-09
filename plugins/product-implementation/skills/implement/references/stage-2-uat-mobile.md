@@ -1,66 +1,94 @@
 # Stage 2 — Step 3.7: UAT Mobile Testing
 
 > Extracted from `stage-2-execution.md` Step 3.7 for readability.
-> Referenced by: `stage-2-execution.md` (conditional dispatch after Step 3.6).
+> Supports 3 engines: Claude subagent, Codex CLI, Gemini CLI.
 
-## Gate Check
+## Gate Check (3 gates — all must pass)
 
-> **Conditional**: Only runs when ALL five gates pass:
->   1. `uat_execution.enabled` is `true` (master switch from config)
->   2. `cli_dispatch.stage2.uat_mobile_tester.enabled` is `true`
->   3. `cli_availability.gemini` is `true` (from Stage 1 summary)
->   4. `mobile_mcp_available` is `true` (from Stage 1 summary)
->   5. Phase has mapped UAT specs OR touches UI files (see relevance check below)
+1. `uat_execution.enabled` is `true` (master switch from config)
+2. `mobile_mcp_available` is `true` (emulator + mobile-mcp running — from Stage 1 summary)
+3. Phase has mapped UAT specs OR touches UI files (relevance check below)
 
-All availability flags come from Stage 1 summary unless noted.
+No engine-specific gates — Claude subagent is always available as fallback.
 
-When any gate fails, log a structured warning identifying the specific gate and fix:
+When any gate fails, log a structured warning identifying the specific gate:
 
 | Gate | Fail Condition | Warning Message |
 |------|---------------|-----------------|
 | 1 | `uat_execution.enabled` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: master switch disabled. Fix: set uat_execution.enabled: true in config.` |
-| 2 | `uat_mobile_tester.enabled` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: CLI dispatch disabled. Fix: set cli_dispatch.stage2.uat_mobile_tester.enabled: true in config.` |
-| 3 | `cli_availability.gemini` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: Gemini CLI not available. Fix: install Gemini CLI and verify with 'gemini --version'.` |
-| 4 | `mobile_mcp_available` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: mobile-mcp not reachable. Fix: start Genymotion emulator and verify mobile-mcp MCP server is running.` |
-| 5 | Phase not relevant | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: no UAT specs or UI files detected. Fix: add UAT-* test IDs to phase tasks or ensure file paths match UI domain indicators.` |
+| 2 | `mobile_mcp_available` is `false` | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: mobile-mcp not reachable. Fix: start emulator and verify mobile-mcp MCP server is running.` |
+| 3 | Phase not relevant | `[WARNING] UAT mobile testing SKIPPED for phase {phase_name}: no UAT specs or UI files detected. Fix: add UAT-* test IDs to phase tasks or ensure file paths match UI domain indicators.` |
 
 ### Non-Skippable Gate Check
 
-Before skipping UAT, check if `"stage2.uat_mobile_tester"` appears in `cli_dispatch.non_skippable_gates` from config. If it does:
+Before skipping UAT, check if `"stage2.uat"` appears in `cli_dispatch.non_skippable_gates` from config. If it does:
 
-- **Gates 1-2 false** (master switches disabled): Skip silently — the user explicitly disabled this dispatch.
-- **Gates 3-4 false** (prerequisites unavailable): Log a structured gate failure: `"[GATE_BLOCKED] Non-skippable gate 'stage2.uat_mobile_tester' cannot execute: {reason}. Prerequisites: gemini={cli_availability.gemini}, mobile_mcp={mobile_mcp_available}."` Record in Stage 2 summary for KPI tracking. Do NOT silently skip.
-- **Gate 5 false** (phase not relevant): Skip silently — irrelevant phases are not a gate failure.
+- **Gate 1 false** (master switch disabled): Skip silently — the user explicitly disabled this dispatch.
+- **Gate 2 false** (emulator/mobile-mcp unavailable): Log a structured gate failure: `"[GATE_BLOCKED] Non-skippable gate 'stage2.uat' cannot execute: {reason}. Prerequisites: mobile_mcp={mobile_mcp_available}."` Record in Stage 2 summary for KPI tracking. Do NOT silently skip.
+- **Gate 3 false** (phase not relevant): Skip silently — irrelevant phases are not a gate failure.
 
-If `"stage2.uat_mobile_tester"` is NOT in `non_skippable_gates`, skip to Step 4 (Update Progress, in `stage-2-execution.md`) with a standard warning log.
-
-After code completion (and optional simplification), run behavioral acceptance testing and Figma visual verification against the running app on a Genymotion emulator. The coordinator handles APK build and install; the CLI agent handles testing.
+If `"stage2.uat"` is NOT in `non_skippable_gates`, skip to Step 4 (Update Progress, in `stage-2-execution.md`) with a standard warning log.
 
 ## Phase Relevance Check
 
 Determine if the current phase warrants UAT testing:
 
-1. **UAT test ID check** (if `uat_mobile_tester.phase_relevance.check_uat_test_ids` is `true`):
+1. **UAT test ID check** (if `uat_execution.phase_relevance.check_uat_test_ids` is `true`):
    - Extract test IDs from current phase task descriptions
    - Filter for `UAT-*` pattern (from `handoff.test_cases.test_id_patterns`)
    - Map each `UAT-{ID}` to `{FEATURE_DIR}/test-cases/uat/UAT-{ID}.md`
    - If at least one UAT spec file exists for this phase → `uat_relevant = true`
 
-2. **UI file path check** (if `uat_mobile_tester.phase_relevance.check_ui_file_paths` is `true`):
+2. **UI file path check** (if `uat_execution.phase_relevance.check_ui_file_paths` is `true`):
    - Collect file paths from current phase task descriptions
-   - Check against domain indicators for domains listed in `uat_mobile_tester.phase_relevance.ui_domains` (resolved via `dev_skills.domain_mapping` in config)
+   - Check against domain indicators for domains listed in `uat_execution.phase_relevance.ui_domains` (resolved via `dev_skills.domain_mapping` in config)
    - If any file path matches a UI domain indicator → `uat_relevant = true`
 
 3. If neither check matches → skip to Step 4, log: `"Phase '{phase_name}' has no UAT specs or UI files — skipping UAT"`
 
+## Engine Selection
+
+Read `engine_strategy` from Stage 1 summary:
+- If per_phase engine is `"subagent"` → dispatch Claude subagent (Path A)
+- If per_phase engine is `"cli"` → dispatch via `run-uat.sh` (Path B)
+- If CLI dispatch fails → fallback to subagent (if `uat_execution.fallback_to_subagent` is `true`)
+
+## Path A: Claude Subagent Dispatch
+
+1. Build prompt from UAT Tester Prompt Template (`agent-prompts.md`)
+2. Prefill variables: `{uat_specs}`, `{apk_path}`, `{evidence_dir}`, `{figma_refs_dir}`, `{package_name}`, `{device_name}`, `{phase_name}`, `{platform}`, `{emulator_type}`
+3. Dispatch: `Task(subagent_type="product-implementation:uat-tester")`
+4. Parse `<SUMMARY>` block from agent output
+5. Process results (severity gating → autonomy policy)
+
+## Path B: CLI Script Dispatch
+
+1. Determine CLI engine from Stage 1 summary (`codex` or `gemini`)
+2. Build CLI command:
+   ```
+   $CLAUDE_PLUGIN_ROOT/scripts/uat/run-uat.sh \
+     --{engine} \
+     --apk {apk_path} \
+     --specs {uat_specs_dir} \
+     --package {package_name} \
+     --report-dir {evidence_dir}/{phase_name} \
+     --figma-refs {figma_refs_dir} \
+     [--model {codex_model}] \
+     [--effort {codex_effort}] \
+     {test_group_ids}
+   ```
+3. Execute via Bash with timeout from `uat_execution.timeout_ms` (default: 600000)
+4. Parse consolidated report for `<SUMMARY>` block
+5. Process results (severity gating → autonomy policy)
+
 ## APK Build
 
-1. Read build config from `cli_dispatch.stage2.uat_mobile_tester.gradle_build`
+1. Read build config from `uat_execution.gradle_build`
 2. Run `Bash("{gradle_build.command}")` with timeout `gradle_build.timeout_ms` (default: 180000 = 3 minutes)
 3. If build fails: log warning `"Gradle build failed — skipping UAT for phase '{phase_name}'"`, skip to Step 4
 4. Locate APK via `Glob("{gradle_build.apk_search_pattern}")`
 5. If no APK found: log warning, skip to Step 4
-6. Store `apk_path` for injection into CLI prompt
+6. Store `apk_path` for injection into dispatch prompt
 
 ## APK Install
 
@@ -78,36 +106,16 @@ Determine if the current phase warrants UAT testing:
 ## Evidence Directory Setup
 
 ```
-mkdir -p {FEATURE_DIR}/{uat_mobile_tester.evidence_dir}/{phase_name_sanitized}/
+mkdir -p {FEATURE_DIR}/{evidence_dir}/{phase_name_sanitized}/
 ```
 
 Where `phase_name_sanitized` converts the phase name to a safe directory name (lowercase, non-alphanumeric replaced with hyphens).
-
-## CLI Dispatch
-
-1. **Collect UAT specs**: Read matched UAT spec files for this phase. If no specific specs matched but phase was relevant via UI file paths, use all available UAT specs from `{FEATURE_DIR}/test-cases/uat/`.
-
-2. **Build prompt**: Read role prompt from `$CLAUDE_PLUGIN_ROOT/config/cli_clients/gemini_uat_mobile_tester.txt`
-
-3. **Dispatch** via Shared CLI Dispatch Procedure (`cli-dispatch-procedure.md`) with:
-   - `cli_name="gemini"`, `role="uat_mobile_tester"`
-   - `file_paths=[FEATURE_DIR/test-cases/uat/, FEATURE_DIR, PROJECT_ROOT]`
-   - `timeout_ms` from `cli_dispatch.stage2.uat_mobile_tester.timeout_ms` (default: 600000)
-   - `fallback_behavior` from config (default: `"skip"`)
-   - `expected_fields=["total_scenarios", "passed", "failed", "blocked", "critical_issues", "visual_mismatches", "recommendation"]`
-
-4. **Coordinator-Injected Context**: `{phase_name}`, `{FEATURE_DIR}`, `{PROJECT_ROOT}`, `{uat_spec_content}`, `{apk_path}`, `{evidence_dir}`, `{mobile_device_name}`, `{figma_default_url}`, `{app_package}`
-
-5. **MCP Tool Budget** (advisory, from `cli_dispatch.mcp_tool_budgets.per_cli_dispatch`):
-   - Mobile MCP: max screenshots, interactions, device queries
-   - Figma: max calls
-   - Sequential Thinking: max chains
 
 ## Result Processing
 
 1. **Parse `<SUMMARY>` block**: Extract scenario counts and recommendation.
 
-2. **Severity gating**:
+2. **Severity gating** (from `uat_execution.severity_gating`):
    - `"PASS"` or `"PASS_WITH_NOTES"` with no Critical/High → log success, proceed to Step 4
    - Medium/Low only → log warning, proceed to Step 4
    - Critical/High findings → apply autonomy policy check via `autonomy-policy-procedure.md`:
@@ -117,15 +125,17 @@ Where `phase_name_sanitized` converts the phase name to a safe directory name (l
      - `defer_artifact_path` = `{FEATURE_DIR}/review-findings.md` under `## UAT Findings — {phase_name}`
      - After processing → proceed to Step 4
 
-3. **CLI failure/timeout**: Follow `fallback_behavior` — default `"skip"`, log warning
+3. **Dispatch failure/timeout**: If CLI fails and `fallback_to_subagent` is `true`, retry with Path A. Otherwise follow `"skip"` behavior, log warning.
 
 4. **Track metrics**: Record in phase-level tracking:
-   - `uat_ran`, `uat_scenarios`, `uat_passed`, `uat_failed`, `uat_blocked`, `uat_visual_mismatches`, `uat_recommendation`
+   - `uat_ran`, `uat_engine`, `uat_scenarios`, `uat_passed`, `uat_failed`, `uat_blocked`, `uat_visual_mismatches`, `uat_recommendation`
 
 ## Write Boundaries
 
-The CLI agent writes ONLY screenshot files to the evidence directory. It MUST NOT write to source, test, or spec directories. The coordinator verifies post-dispatch that no files outside the evidence directory were created or modified.
+The UAT agent writes ONLY screenshot files to the evidence directory. It MUST NOT write to source, test, or spec directories. The coordinator verifies post-dispatch that no files outside the evidence directory were created or modified.
 
 ## Latency Impact
 
-~30-60s Gradle build + ~10-30s APK install + ~120-600s UAT execution per phase. Total: ~3-10 minutes per relevant phase.
+- Claude subagent: ~2-5 min per relevant phase (direct mobile-mcp, no process spawn)
+- CLI (Codex): ~5-8 min per relevant phase (process spawn + model inference)
+- CLI (Gemini): ~6-10 min per relevant phase

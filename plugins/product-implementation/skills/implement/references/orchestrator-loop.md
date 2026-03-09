@@ -765,7 +765,7 @@ FUNCTION VALIDATE_STAGE1_SUMMARY(summary):
       missing_fields += [field]
 
   # Conditional: UAT-related fields
-  IF config.uat_execution.enabled OR config.cli_dispatch.stage2.uat_mobile_tester.enabled:
+  IF config.uat_execution.enabled:
     FOR EACH field IN required.when_uat_enabled:
       IF summary[field] IS NULL OR summary[field] IS UNDEFINED:
         missing_fields += [field]
@@ -853,7 +853,7 @@ FUNCTION VERIFY_NON_SKIPPABLE_GATES(phase, stage2_summary, stage1_summary):
   IF gates IS EMPTY: RETURN
 
   FOR EACH gate IN gates:
-    IF gate == "stage2.uat_mobile_tester":
+    IF gate == "stage2.uat":
       # Three-way diagnosis:
       # 1. Check phase relevance first — if no UI tasks, gate is not applicable
       phase_tasks = EXTRACT_TASK_FILE_PATHS(phase, tasks_file)
@@ -891,7 +891,7 @@ FUNCTION VERIFY_NON_SKIPPABLE_GATES(phase, stage2_summary, stage1_summary):
 
       ELIF mobile_available == false:
         # Mobile not available — expected skip, just log
-        LOG "[{timestamp}] Gate stage2.uat_mobile_tester: skipped for {phase} (mobile_mcp_available=false)"
+        LOG "[{timestamp}] Gate stage2.uat: skipped for {phase} (mobile_mcp_available=false)"
 
       ELIF mobile_available IS NULL:
         # Should have been caught by VALIDATE_STAGE1_SUMMARY (F1)

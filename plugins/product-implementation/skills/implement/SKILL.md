@@ -137,7 +137,7 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for signif
 |-------|-----------|----------------|-------------|-----------------|------------------|------------|
 | 1a | Inline | `stage-1-setup.md` | — | — | Branch fallback (1.1) | SETUP_PARTIAL |
 | 1b | Coordinator | `stage-1b-probes.md` | — | stage-1a partial | Setup question (1.5b), Policy question (1.9a) | SETUP |
-| 2 | Coordinator | `stage-2-execution.md` | `test-writer`, `developer`, `output-verifier`, `code-simplifier`, `uat-tester (CLI/gemini)` | stage-1 (or per-phase chain) | Auto-resolve per policy (build/test) | EXECUTION |
+| 2 | Coordinator | `stage-2-execution.md` | `test-writer`, `developer`, `output-verifier`, `code-simplifier`, `uat-tester` | stage-1 (or per-phase chain) | Auto-resolve per policy (build/test) | EXECUTION |
 | 3 | Coordinator | `stage-3-validation.md` | `developer` | stage-1, stage-2 (or per-phase chain) | Auto-resolve per policy (validation) | VALIDATION |
 | 4 | Coordinator | `stage-4-quality-review.md` | `developer` x3+ (Tier A, with optional stances/convergence/CoVe), plugin (Tier B), CLI (Tier C) | stage-2, stage-3 (or per-phase chain) | Auto-resolve per policy (findings) | QUALITY_REVIEW |
 | 5 | Coordinator | `stage-5-documentation.md` | `developer`, `tech-writer`, `doc-judge` | stage-3, stage-4 (or per-phase chain) | Auto-resolve per policy (tasks, docs) | DOCUMENTATION |
@@ -210,6 +210,7 @@ Stage completion is derived from `stage_summaries` (non-null = completed). The `
 | `product-implementation:output-verifier` | Output quality verification (test bodies, spec alignment, DoD) | sonnet | Stage 2 |
 | `product-implementation:code-simplifier` | Code simplification, clarity, maintainability | sonnet | Stage 2 |
 | `product-implementation:doc-judge` | Documentation accuracy verification (LLM-as-a-judge) | sonnet | Stage 5 |
+| `product-implementation:uat-tester` | UAT mobile testing via SAV loop, Figma visual parity | sonnet | Stage 2 |
 | `product-implementation:tech-writer` | Feature documentation, API guides, architecture updates, retrospective | sonnet | Stages 5, 6 |
 
 ## Severity Levels (Canonical)
@@ -271,7 +272,8 @@ All integrations are orchestrator-transparent. Full details: `references/integra
 | `references/stage-1b-probes.md` | Stage 1b (coordinator) | All probes (MCP, mobile, Figma, CLI), domain detection, project setup, autonomy policy, quality config, pre-summary checklist, full summary |
 | `references/stage-1-project-setup.md` | Stage 1b (conditional) | Project analysis checklist, hook patterns, CLAUDE.md rubric, generator rules |
 | `references/stage-2-execution.md` | Stage 2 (coordinator) | Skill resolution, phase loop, task parsing, error handling |
-| `references/stage-2-uat-mobile.md` | Stage 2 (coordinator, conditional) | UAT mobile testing gate check, APK build/install, CLI dispatch, result processing |
+| `references/stage-2-uat-mobile.md` | Stage 2 (coordinator, conditional) | Multi-engine UAT gate check, engine selection (subagent/CLI), APK build/install, result processing |
+| `references/stage-3-uat-sweep.md` | Stage 3 (coordinator, final pass) | Full-sweep UAT validation across all user stories |
 | `references/stage-3-validation.md` | Stage 3 (coordinator) | Task completeness, spec alignment, test coverage, test quality gate |
 | `references/stage-4-quality-review.md` | Stage 4 (coordinator) | Three-tier review, stances, convergence, confidence scoring, CoVe, auto-decision |
 | `references/stage-4-plugin-review.md` | Stage 4 (coordinator reads) | Tier B: Plugin-based review via code-review skill, finding normalization |

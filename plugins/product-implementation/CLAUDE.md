@@ -40,6 +40,7 @@ When `per_phase_review.enabled` is `false`, the workflow falls back to linear: `
 - **debugger** (`agents/debugger.md`): model=sonnet — systematic bug diagnosis via UNDERSTAND→REPRODUCE→ISOLATE→FIX (Stage 2 task override)
 - **output-verifier** (`agents/output-verifier.md`): model=sonnet — output quality verification: empty test bodies, spec alignment, DoD compliance (Stage 2, Step 2.5)
 - **code-simplifier** (`agents/code-simplifier.md`): model=sonnet — post-phase code simplification for clarity and maintainability (Stage 2, optional via config)
+- **uat-tester** (`agents/uat-tester.md`): model=sonnet — UAT mobile testing via SAV loop, Figma visual parity (Stage 2, Step 3.7)
 - **doc-judge** (`agents/doc-judge.md`): model=sonnet — documentation accuracy verification, LLM-as-a-judge (Stage 5, per-phase mode)
 - **tech-writer** (`agents/tech-writer.md`): model=sonnet — feature documentation with static doc skills (mermaid, c4-architecture), API guides, architecture updates
 
@@ -123,7 +124,7 @@ Two throwaway subagents handle the heavy lifting; the orchestrator stays lean:
 - After inserting a new numbered section in any stage file, grep all reference files for the old section numbers and update — cross-file section references (e.g., "Section 1.7") break silently when sections are renumbered
 - When adding a new reference file: register in `references/README.md` (3 tables: usage, file sizes, cross-references) AND `SKILL.md` Reference Map — this wiring step is the most common omission when sessions exhaust context
 - Code simplification runs after each phase in Stage 2 (Step 3.5) when `code_simplification.enabled` is `true` in config. The simplifier never modifies test files and automatically rolls back if tests fail. Configuration lives in `config/implementation-config.yaml` under `code_simplification`
-- UAT mobile testing runs after each relevant phase in Stage 2 (Step 3.7) when both `uat_execution.enabled` and `cli_dispatch.stage2.uat_mobile_tester.enabled` are `true`. Requires Genymotion emulator running + mobile-mcp MCP server + Gemini CLI. Configuration lives in `config/implementation-config.yaml` under `uat_execution` and `cli_dispatch.stage2.uat_mobile_tester`. Role prompt in `config/cli_clients/gemini_uat_mobile_tester.txt`
+- UAT mobile testing runs after each relevant phase in Stage 2 (Step 3.7) when `uat_execution.enabled` is `true` and `mobile_mcp_available` is `true`. Supports 3 engines: Claude subagent (native), Codex CLI, Gemini CLI — selected via `uat_execution.engine_strategy`. Full-sweep UAT runs in final Stage 3 (Section 3.2a). Configuration lives in `config/implementation-config.yaml` under `uat_execution`. System prompt in `scripts/uat/uat-system-prompt.md`
 - Autonomy policy (`autonomy_policy` in config) controls how findings/failures are auto-resolved. Three levels: `full_auto` (fix everything), `balanced` (fix critical/high, defer medium), `critical_only` (fix only critical). Selected at Stage 1 startup via AskUserQuestion (or skipped if `default_level` is set). Policy flows through Stage 1 summary to all stages. Auto-resolved decisions are logged with `[AUTO-{policy}]` prefix. If auto-resolution fails, the system falls through to standard user escalation.
 - Stage 6 (Retrospective) runs post-lock-release as read-only analysis. It produces two artifacts: `.implementation-report-card.local.md` (machine-readable KPI Report Card) and `retrospective.md` (narrative document). Both are excluded from auto-commit except the retrospective itself. Configuration lives in `config/implementation-config.yaml` under `retrospective`.
 - CoVe (Chain-of-Verification) post-synthesis dispatches a throwaway subagent to verify Critical/High review findings against actual code (Stage 4, Section 4.3b). Opt-in via `quality_review.cove.enabled` in config. Only triggers when multi-tier review produces >= `min_findings_trigger` Critical+High findings.
@@ -270,32 +271,47 @@ Ralph wraps the implement skill invocation (outer loop). The skill's checkpoint-
 
 ## UAT Mobile Testing Integration
 
-When UAT is enabled and a Genymotion emulator is running with mobile-mcp available, Stage 2 runs per-phase behavioral acceptance testing and Figma visual verification against the running app after each relevant phase completes.
+Multi-engine acceptance testing with Figma visual verification. Supports 3 engines: Claude subagent (native), Codex CLI, Gemini CLI. Per-phase testing in Stage 2 (Step 3.7) and full-sweep validation in Stage 3 (Section 3.2a).
 
 ### Architecture (Orchestrator-Transparent)
 
 The orchestrator NEVER touches UAT, mobile-mcp, or Figma. All logic lives in:
 
-1. **Stage 1** (inline) probes `mobile_list_available_devices` to detect emulator availability → writes `mobile_mcp_available` and `mobile_device_name` to summary
-2. **Stage 2** coordinator checks 5 gates (uat_execution enabled + uat_mobile_tester enabled + Gemini CLI available + mobile-mcp available + phase relevance), builds APK via Gradle, installs on emulator via mobile-mcp, dispatches Gemini CLI agent with UAT role prompt
-3. **Stage 2 summary** writes `uat_results` (phases tested, pass/fail counts, visual mismatches, evidence directory) for implementation record
+1. **Stage 1** (inline) probes `mobile_list_available_devices` to detect emulator availability → writes `mobile_mcp_available`, `mobile_device_name`, `engine_strategy` to summary. Pre-exports Figma reference PNGs via REST API (`scripts/uat/capture-figma-refs.sh`) when configured.
+2. **Stage 2** coordinator checks 3 gates (uat_execution enabled + mobile_mcp available + phase relevance), selects engine per strategy, builds APK, installs on emulator, dispatches UAT agent (subagent or CLI script)
+3. **Stage 3** (final pass only) runs full-sweep UAT across ALL user stories to catch cross-phase interaction bugs
+4. Summaries write `uat_results` / `uat_sweep_results` for implementation record
+
+### Engine Strategy
+
+User selects at Stage 1 (or pre-configures in `uat_execution.engine_strategy`):
+
+| Strategy | Per-Phase | Full-Sweep | Use Case |
+|----------|-----------|------------|----------|
+| `cli_only` | CLI | CLI | Consistent tooling, CLI available |
+| `hybrid` | Claude subagent | CLI | **Recommended** — fast per-phase, high-confidence final |
+| `subagent_only` | Claude subagent | Claude subagent | No external CLI, minimal dependency |
+
+All strategies include automatic fallback: if CLI fails, fall back to Claude subagent (when `fallback_to_subagent` is `true`).
 
 ### Key Constraints
 
-- **5 conditional gates**: `uat_execution.enabled` + `uat_mobile_tester.enabled` + `cli_availability.gemini` + `mobile_mcp_available` + phase has UAT specs or UI files — ANY false → silent skip
-- **Fallback is "skip"**: If Gemini unavailable, mobile-mcp unreachable, no emulator, or build fails → UAT silently skipped, native behavior (no UAT) is default
-- **Severity gating (policy-aware)**: UAT findings at critical/high severity are handled per autonomy policy — `full_auto`/`balanced` auto-fix or defer, `critical_only` auto-fixes only critical. When no policy applies, falls back to manual escalation (status: needs-user-input). Medium/low findings are always logged as warnings without blocking.
-- **MEDIUM/LOW warn only**: Logged as warnings but do not block phase progression
+- **3 conditional gates**: `uat_execution.enabled` + `mobile_mcp_available` + phase has UAT specs or UI files — ANY false → skip. Claude subagent is always available, so CLI availability is not a gate.
+- **Figma pre-export**: Reference PNGs exported via Figma REST API in Stage 1b (not runtime figma-console-mcp). Deterministic across phases.
+- **Severity gating (policy-aware)**: Critical/high handled per autonomy policy. Medium/low logged as warnings without blocking.
 - **Evidence stored**: Screenshots saved to `{FEATURE_DIR}/.uat-evidence/{phase_name}/` for traceability
-- **Write boundaries**: CLI agent writes ONLY screenshots to evidence directory; never touches source/test/spec files
+- **Write boundaries**: UAT agent writes ONLY screenshots to evidence directory; never touches source/test/spec files
 - **Phase relevance detection**: UAT runs only for phases with mapped UAT-* test IDs or task file paths matching UI domain indicators (compose, android, web_frontend)
+- **Scripts are standalone**: `scripts/uat/run-uat.sh` and `scripts/uat/capture-figma-refs.sh` can be used independently outside the implement skill
 
 ### Configuration
 
-- Master switches: `uat_execution.enabled` AND `cli_dispatch.stage2.uat_mobile_tester.enabled`
-- Figma visual comparison: `cli_dispatch.stage2.uat_mobile_tester.figma.enabled` + `figma.default_node_url`
-- Severity gating: `cli_dispatch.stage2.uat_mobile_tester.severity_gating` (block_on / warn_on)
-- Gradle build: `cli_dispatch.stage2.uat_mobile_tester.gradle_build` (command, apk_search_pattern, timeout)
+- Master switch: `uat_execution.enabled`
+- Engine strategy: `uat_execution.engine_strategy` (`cli_only` | `hybrid` | `subagent_only` | null=ask)
+- CLI engine: `uat_execution.cli_engine` (`codex` | `gemini`)
+- Figma references: `uat_execution.figma_references.*` (file_key, page_name, scale)
+- Severity gating: `uat_execution.severity_gating` (block_on / warn_on)
+- Gradle build: `uat_execution.gradle_build` (command, apk_search_pattern, timeout)
 - MCP tool budgets: `cli_dispatch.mcp_tool_budgets.per_cli_dispatch.mobile_mcp` and `.figma`
 - Emulator/install: `uat_execution.emulator` and `uat_execution.apk_install`
 

@@ -125,6 +125,17 @@ Launch a UX completeness validator in **parallel** with the native validation ag
 
 When the UX validator runs, its findings (missing states, accessibility gaps) are included in the merged validation result. Section 3.2 validation checks operate on the full merged set.
 
+## 3.2a Full-Sweep UAT Validation (Final Pass Only)
+
+> **Conditional**: Only runs in the FINAL Stage 3 pass (not per-phase passes).
+> Requires: `uat_execution.enabled` AND `mobile_mcp_available` AND at least one phase had UAT-relevant tasks.
+
+Read and execute `$CLAUDE_PLUGIN_ROOT/skills/implement/references/stage-3-uat-sweep.md`. Covers all-phase UAT spec collection, engine selection, fresh APK build, comprehensive dispatch, severity gating.
+
+Results are written to `uat_sweep_results` in Stage 3 summary. If recommendation is FAIL with blocked severities → Stage 3 validation fails.
+
+Latency: ~5-15 minutes (runs once, not per-phase).
+
 ## 3.2 Validation Checks
 
 The validation agent verifies:

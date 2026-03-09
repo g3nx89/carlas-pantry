@@ -144,7 +144,7 @@ stage1_validation:
       - "autonomy_policy"
       - "resolved_quality_config"
       - "plugin_availability"
-    when_uat_enabled:                    # Required when uat_execution.enabled OR uat_mobile_tester.enabled
+    when_uat_enabled:                    # Required when uat_execution.enabled
       - "mobile_mcp_available"
     when_figma_enabled:                  # Required when figma.enabled AND UI domains detected
       - "figma_available"
@@ -479,20 +479,77 @@ code_simplification:
   test_verification: true           # Run full test suite after simplification (always recommended)
   rollback_on_test_failure: true    # Revert all simplification changes if any test fails
 
-# UAT mobile testing (Stage 2 per-phase)
-# When enabled, runs behavioral acceptance scenarios and Figma visual verification
-# against a running app on a Genymotion emulator after each relevant phase.
-# Requires: Genymotion emulator running, mobile-mcp MCP server available, Gemini CLI installed.
-# Referenced by: stage-1b-probes.md Section 1.6e, stage-2-execution.md Step 3.7
+# UAT mobile testing — multi-engine acceptance testing with Figma visual verification
+# Supports 3 engines: Claude subagent (native), Codex CLI, Gemini CLI.
+# Per-phase (Stage 2 Step 3.7) + full-sweep (Stage 3 Section 3.2a).
+# Referenced by: stage-1b-probes.md Section 1.6e/1.6f, stage-2-uat-mobile.md, stage-3-uat-sweep.md
 uat_execution:
-  enabled: true                          # Master switch (also requires cli_dispatch.stage2.uat_mobile_tester.enabled)
+  enabled: true                              # Master switch for all UAT
+
+  # Engine strategy — determines which engine runs per-phase vs full-sweep UAT.
+  # null = ask user at Stage 1; set explicitly to skip the question.
+  # In ralph mode: auto-resolves to "subagent_only" (zero external dependency).
+  engine_strategy: null                      # "cli_only" | "hybrid" | "subagent_only" | null (ask)
+
+  # Engine strategy definitions (referenced by coordinator, not user-facing)
+  engine_strategies:
+    cli_only:
+      per_phase: "cli"
+      full_sweep: "cli"
+    hybrid:
+      per_phase: "subagent"
+      full_sweep: "cli"
+    subagent_only:
+      per_phase: "subagent"
+      full_sweep: "subagent"
+
+  # CLI engine preferences (used when strategy includes "cli")
+  cli_engine: "codex"                        # "codex" | "gemini"
+  codex_model: null                          # e.g., "gpt-5.4", "o3" — null uses codex default
+  codex_effort: "medium"                     # "low" | "medium" | "high"
+  fallback_to_subagent: true                 # If CLI fails, fall back to Claude subagent
+
+  # Figma reference screenshot export (Stage 1b)
+  # Exports all FRAME nodes from a Figma page as PNGs for visual parity testing.
+  # Runs automatically at Stage 1b when enabled and file_key is set.
+  figma_references:
+    enabled: true
+    file_key: null                           # Figma file key (required when enabled) — from URL: figma.com/file/<KEY>/...
+    page_name: null                          # Page to export from (null = all pages)
+    scale: 2                                 # Export scale (1x, 2x, 3x)
+    output_dir: "figma-references"           # Relative to FEATURE_DIR
+    force_refresh: false                     # Re-download even if PNGs exist
+
+  # Emulator configuration
   emulator:
-    platform: "android"                  # "android" | "ios" (future)
-    launch_timeout_ms: 30000             # Wait for device to appear in mobile_list_available_devices
+    platform: "android"                      # "android" | "ios" (future)
+    type: "auto"                             # "genymotion" | "avd" | "auto" (auto-detect)
+    launch_timeout_ms: 30000
+
+  # APK build & install
   apk_install:
-    reinstall: true                      # Uninstall before install to ensure clean state
-    launch_after_install: true           # Launch app after install
-    app_package: null                    # Auto-detected from APK; override if needed
+    reinstall: true                          # Uninstall before install for clean state
+    launch_after_install: true
+    app_package: null                        # Auto-detect from APK; override if needed
+  gradle_build:
+    command: "./gradlew assembleDebug"
+    apk_search_pattern: "**/build/outputs/apk/debug/*.apk"
+    timeout_ms: 180000                       # 3 minutes
+
+  # Phase relevance detection
+  phase_relevance:
+    check_uat_test_ids: true                 # Check task descriptions for UAT-* test IDs
+    check_ui_file_paths: true                # Check task file paths against UI domain indicators
+    ui_domains: ["compose", "android", "web_frontend"]
+
+  # Finding severity gating
+  severity_gating:
+    block_on: ["critical", "high"]
+    warn_on: ["medium", "low"]
+
+  # Evidence storage
+  evidence_dir: ".uat-evidence"              # Relative to FEATURE_DIR
+  timeout_ms: 600000                         # 10 minutes per UAT dispatch
 
 # CLI dispatch configuration (Bash process-group dispatch)
 # All CLI features are opt-in (enabled: false by default).
@@ -553,7 +610,7 @@ cli_dispatch:
         max_chains: 1            # Max sequentialthinking chains per dispatch
       figma:
         max_calls: 5             # UAT mobile tester uses get_design_context + get_screenshot for visual verification
-      mobile_mcp:
+      mobile_mcp:                      # Advisory budgets for CLI dispatches only; Claude subagent has direct MCP access
         max_screenshots: 10      # Max mobile_take_screenshot calls per dispatch
         max_interactions: 50     # Max click/swipe/type calls per dispatch
         max_device_queries: 3    # Max list_devices/list_elements calls per dispatch
@@ -592,38 +649,9 @@ cli_dispatch:
       max_additional_tests: 10
       focus: ["boundary", "error", "concurrency", "security"]
 
-    # Option J: Per-phase UAT mobile testing via Genymotion + Figma visual verification (Tier 1)
-    # Runs behavioral acceptance scenarios and visual fidelity checks against a running app
-    # on a Genymotion emulator after each relevant phase completes in Stage 2.
-    # Requires: uat_execution.enabled, Gemini CLI, mobile-mcp MCP server, running emulator.
-    uat_mobile_tester:
-      enabled: false
-      cli_name: "gemini"
-      role: "uat_mobile_tester"
-      fallback_behavior: "skip"          # skip silently if Gemini unavailable, mobile-mcp unreachable, or no emulator
-      # Phase relevance detection — determines which phases trigger UAT
-      phase_relevance:
-        check_uat_test_ids: true         # Check task descriptions for UAT-* test IDs mapped to test-cases/uat/
-        check_ui_file_paths: true        # Check task file paths against UI domain indicators
-        ui_domains: ["compose", "android", "web_frontend"]  # Domains from dev_skills.domain_mapping whose indicators suggest UI work
-      # Gradle build configuration — builds installable APK before UAT
-      gradle_build:
-        command: "./gradlew assembleDebug"
-        apk_search_pattern: "**/build/outputs/apk/debug/*.apk"
-        timeout_ms: 180000               # 3 minutes for Gradle build
-      # Figma visual verification — compare running app against Figma designs
-      figma:
-        enabled: true                    # Enable Figma design comparison alongside behavioral testing
-        default_node_url: null           # Optional: static default Figma URL; UAT specs can override per-scenario via figma_url: in YAML frontmatter
-        visual_mismatch_threshold: "medium"  # Severity assigned to visual mismatches: "medium" | "high"
-      # Finding severity gating — controls phase progression
-      severity_gating:
-        block_on: ["critical", "high"]   # Halt phase progression for these severities (status: needs-user-input)
-        warn_on: ["medium", "low"]       # Log warning, continue for these
-      # Screenshot evidence storage
-      evidence_dir: ".uat-evidence"      # Relative to FEATURE_DIR; screenshots stored per phase as {evidence_dir}/{phase_name_sanitized}/
-      # Timeout for the CLI dispatch itself (overrides global cli_dispatch.timeout_ms)
-      timeout_ms: 600000                 # 10 minutes — UAT scenarios with mobile-mcp interactions take longer than code review
+    # Option J: Per-phase UAT mobile testing — consolidated under uat_execution (top-level).
+    # See uat_execution section for all UAT config (engine strategy, Figma refs, severity gating).
+    # UAT dispatch now supports Claude subagent (native), Codex CLI, and Gemini CLI.
 
     # Option K: Post-phase UX test coverage review via OpenCode (Tier 2)
     # Reviews test files after each phase for UX scenario coverage gaps:
@@ -823,7 +851,7 @@ per_phase_review:
 # Verified by VERIFY_NON_SKIPPABLE_GATES after each phase's Stage 2.
 # Referenced by: orchestrator-loop.md step 5b2
 non_skippable_gates:
-  - "stage2.uat_mobile_tester"     # UAT mobile testing — if mobile_mcp_available, UAT must run
+  - "stage2.uat"                    # UAT mobile testing — if mobile_mcp_available, UAT must run
 
 # Native verification agents (Stage 2)
 # These are native Claude agents (not CLI-dispatched), grouped here alongside doc_judge

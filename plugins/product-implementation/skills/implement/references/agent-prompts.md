@@ -1,6 +1,6 @@
 # Agent Prompt Templates
 
-All 15 prompts in this file are used by coordinators to launch `developer`, `tech-writer`, `test-writer`, `integration-test-writer`, `output-verifier`, `doc-judge`, and project-setup agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
+All 16 prompts in this file are used by coordinators to launch `developer`, `tech-writer`, `test-writer`, `integration-test-writer`, `output-verifier`, `doc-judge`, `uat-tester`, and project-setup agents. Variables in `{braces}` MUST be prefilled by the coordinator before dispatching.
 
 ## Common Variables
 
@@ -661,6 +661,67 @@ ABSOLUTE CONSTRAINTS:
 3. Writes executable test files that compile but FAIL (Red phase).
 4. MUST NOT write any source files, configuration, or documentation.
 5. Reports structured counts: test_files_created, total_assertions, test_count, test_failures.
+
+---
+
+<!-- SECTION: UAT Mobile Tester Prompt -->
+## UAT Mobile Tester Prompt
+
+Used in Stage 2 Step 3.7 for per-phase UAT mobile testing and Stage 3 Section 3.2a for full-sweep UAT.
+
+```markdown
+**Goal**: Execute UAT scenarios for phase "{phase_name}" against the running app on the emulator, capture evidence, and produce a structured pass/fail report with visual parity assessment.
+
+FEATURE_NAME: {FEATURE_NAME}
+FEATURE_DIR: {FEATURE_DIR}
+Phase: {phase_name}
+Platform: {platform}
+
+## Test Environment
+
+- APK Path: {apk_path}
+- Package: {package_name}
+- Device: {device_name}
+- Emulator Type: {emulator_type}
+- Evidence Directory: {evidence_dir}
+
+## Figma Reference Screenshots
+
+{figma_refs_section}
+
+## UAT Scenarios
+
+{uat_specs}
+
+## Instructions
+
+1. The app is already installed and launched. Verify with mobile_list_elements_on_screen.
+2. Execute each scenario using the SAV loop (State-Action-Verify).
+3. Save screenshots to {evidence_dir} for every assertion point and every FAIL.
+4. After functional tests for each screen, perform a Visual Parity Check against Figma reference PNGs.
+5. Compile the final report with <SUMMARY> block.
+```
+
+**Variables:**
+- `{FEATURE_NAME}` — Feature identifier. **Required — always available**
+- `{FEATURE_DIR}` — Path to feature spec directory. **Required — always available**
+- `{phase_name}` — Name of the current phase (or "full-sweep" for Stage 3). **Required — always available**
+- `{platform}` — Platform identifier (e.g., "android"). **Required — always available**
+- `{apk_path}` — Path to installed APK. **Required — always available**
+- `{package_name}` — App package name. **Required — always available**
+- `{device_name}` — Emulator device name from Stage 1 summary. **Required — always available**
+- `{emulator_type}` — "genymotion" or "avd". **Required — always available**
+- `{evidence_dir}` — Path to evidence directory for this phase. **Required — always available**
+- `{figma_refs_section}` — Figma reference directory info or "No Figma references available." **Fallback:** `"No Figma references available — skip visual parity checks."`
+- `{uat_specs}` — UAT scenario content for this phase. **Required — always available**
+
+**Agent behavior:**
+1. The uat-tester agent verifies the app is running via `mobile_list_elements_on_screen`.
+2. Executes each UAT scenario using the SAV loop with 3-retry exponential backoff.
+3. Saves screenshots to the evidence directory for every assertion point.
+4. Performs visual parity checks against Figma reference PNGs when available.
+5. Compiles report with `<SUMMARY>` block containing counts and recommendation.
+6. MUST NOT write to any directory except the evidence directory.
 
 ---
 
