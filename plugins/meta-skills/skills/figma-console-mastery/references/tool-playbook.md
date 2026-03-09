@@ -23,8 +23,10 @@ Need to understand existing design system?
 └── Full file tree?    → figma_get_file_for_plugin (prefer over figma_get_file_data)
 
 Need to create design elements?
-├── Component in library? → figma_search_components → figma_instantiate_component
-└── Everything else?      → figma_execute (Plugin API) — see recipes-foundation.md
+├── Local component?        → figma_search_components → figma_instantiate_component
+├── Team Library component? → figma_execute: importComponentByKeyAsync(key) — key from REST API
+├── UI Kit component (M3)?  → figma_execute: getMainComponentAsync() → createInstance() — Clone Pattern
+└── Everything else?        → figma_execute (Plugin API) — see recipes-foundation.md
 
 Need to modify existing elements?
 ├── Rename node?                → figma_rename_node (single call)
@@ -59,7 +61,7 @@ Need to validate or debug?
 |------|---------|
 | `figma_get_status` | Verify connection (always first) |
 | `figma_get_design_system_kit` | Full DS extraction in one call (tokens + components + styles) — preferred over separate calls |
-| `figma_search_components` | Find library components before creating |
+| `figma_search_components` | Find LOCAL file components (does NOT search Team Libraries or UI Kits) |
 | `figma_instantiate_component` | Place component with variant properties |
 | `figma_execute` | Run Plugin API code (creation, modification, complex logic) |
 | `figma_capture_screenshot` | Visual validation after Plugin API mutations |

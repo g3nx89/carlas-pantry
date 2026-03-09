@@ -166,6 +166,108 @@ Returns the instance node ID.
 
 **Next**: Add more instances, adjust spacing, or take a screenshot to validate.
 
+### Recipe: Import Components from Team Library
+
+**Goal**: Import a component from a published Team Library by key and create an instance with custom properties.
+
+**Prerequisites**: The library must be (1) published as a Team Library and (2) enabled in the consuming file. UI Kits (M3, iOS, Apple, etc.) do NOT work with this method — use the Clone Pattern below.
+
+**Step 1** — Get component keys via REST API (outside Figma):
+```
+GET /v1/files/:library_file_key/components → returns component keys
+GET /v1/files/:library_file_key/component_sets → returns component set keys
+```
+
+**Step 2** — Import and instantiate via `figma_execute`:
+```javascript
+return await (async () => {
+  const key = "7a4de45c01c364b228cdc968aad10c366f7df561"
+  const comp = await figma.importComponentByKeyAsync(key)
+  const inst = comp.createInstance()
+  inst.x = 100; inst.y = 100
+  return { success: true, name: comp.name, id: inst.id }
+})()
+```
+
+**Step 2b** — Import entire component set (for variant access):
+```javascript
+return await (async () => {
+  const setKey = "2358378794d902c9e717a29d679a8f8074aa3613"
+  const compSet = await figma.importComponentSetByKeyAsync(setKey)
+  const inst = compSet.defaultVariant.createInstance()
+  inst.x = 100; inst.y = 100
+  // Swap variant
+  inst.setProperties({ Size: 'lg', Hierarchy: 'Primary', Destructive: 'True' })
+  return { success: true, name: inst.name, id: inst.id }
+})()
+```
+
+**Step 3** — Import styles from the same library:
+```javascript
+return await (async () => {
+  const styleKey = "4eacac731fe27c6972242894b87b0d67a7911b02"
+  const style = await figma.importStyleByKeyAsync(styleKey)
+  return { name: style.name, type: style.type, id: style.id }
+})()
+```
+
+**Diagnostics**: If `importComponentByKeyAsync` hangs (30s+ timeout), the library is not enabled in the file. If it fails immediately with "Could not find a published component", the key is from a UI Kit (not a Team Library) or the component is not published.
+
+**Post-import operations** (all verified working): `setProperties()` for variant swap, `.characters` for text override (load font first), `.fills` for fill override, `componentProperties` for reading available props.
+
+### Recipe: Clone Components from UI Kit (M3, iOS, etc.)
+
+**Goal**: Programmatically create new instances of UI Kit components (M3 Design Kit, iOS Kit, Apple kits) that are already present in the file.
+
+**Why**: UI Kits use an internal Figma system separate from Team Libraries. Their component keys return 404 from both the REST API (`GET /v1/components/:key`) and the Plugin API (`importComponentByKeyAsync`). The only programmatic path is the Clone Pattern.
+
+**Prerequisite**: At least one instance of the target component must already exist in the file (drag from Assets panel manually if needed). Consider maintaining a "Component Palette" page with one instance of each needed UI Kit component.
+
+**Step 1** — Find and clone from existing instance:
+```javascript
+return await (async () => {
+  // Find an existing M3 Switch instance
+  const instances = figma.currentPage.findAll(n => n.type === 'INSTANCE')
+  for (const inst of instances) {
+    const mc = await inst.getMainComponentAsync()
+    if (mc && mc.remote && mc.parent && mc.parent.name === 'Switch') {
+      const newInst = mc.createInstance()
+      newInst.x = 200; newInst.y = 100
+      // Swap variant properties
+      newInst.setProperties({ Selected: 'False', State: 'Enabled', Icon: 'False' })
+      return { success: true, name: newInst.name, id: newInst.id }
+    }
+  }
+  return { success: false, error: 'No Switch instance found in file' }
+})()
+```
+
+**Step 2** — Build a catalog of all remote components in the file:
+```javascript
+return await (async () => {
+  const catalog = new Map()
+  for (const page of figma.root.children) {
+    const instances = page.findAll(n => n.type === 'INSTANCE')
+    for (const inst of instances) {
+      const mc = await inst.getMainComponentAsync()
+      if (mc && mc.remote && !catalog.has(mc.key)) {
+        catalog.set(mc.key, {
+          key: mc.key,
+          name: mc.name,
+          setName: mc.parent ? mc.parent.name : 'standalone',
+          properties: mc.parent && mc.parent.type === 'COMPONENT_SET'
+            ? Object.keys(mc.parent.componentPropertyDefinitions)
+            : []
+        })
+      }
+    }
+  }
+  return { totalRemoteComponents: catalog.size, components: [...catalog.values()].slice(0, 20) }
+})()
+```
+
+**Component Palette pattern**: Create a dedicated page "UI Kit Palette" with one instance of each UI Kit component needed for the project. This enables the clone pattern for any component without hunting through screens.
+
 ### Recipe: Design System Bootstrap
 
 **Goal**: Set up design tokens, create components that reference those tokens, and document everything.

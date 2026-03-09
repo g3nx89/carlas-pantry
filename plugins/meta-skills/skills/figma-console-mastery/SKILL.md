@@ -1,7 +1,7 @@
 ---
 name: figma-console-mastery
-version: 1.2.0
-description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", or when developing skills/commands that use the figma-console MCP server.
+version: 1.3.0
+description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "import library components", or when developing skills/commands that use the figma-console MCP server.
 ---
 
 # Figma Console Mastery
@@ -39,7 +39,9 @@ description: This skill should be used when the user asks to "create a Figma des
 
 **Design system discovery**: `figma_get_design_system_kit` (preferred — tokens + components + styles in one call) | `figma_get_design_system_summary` (lightweight overview)
 
-**Components**: `figma_search_components(query="Button")` → `figma_instantiate_component(componentKey, { variant, overrides })`
+**Local components**: `figma_search_components(query="Button")` → `figma_instantiate_component(componentKey, { variant, overrides })`
+
+**External library import**: Team Library → `figma_execute` with `importComponentByKeyAsync(key)` / `importComponentSetByKeyAsync(key)` | UI Kit (M3, iOS) → Clone Pattern via `getMainComponentAsync()` → `createInstance()` (see `recipes-advanced.md` § External Library Import)
 
 **Create elements**: `figma_execute` with async IIFE + outer `return` (see `recipes-foundation.md`)
 
@@ -98,14 +100,16 @@ Quality assurance for code handoff readiness. Does NOT generate manifest. **Full
 | Gate | Question | Path | Primary Tool |
 |------|----------|------|-------------|
 | **G0: DS Kit?** | Need full design system context (tokens + components + styles)? | DS-KIT | `figma_get_design_system_kit` (preferred) |
-| **G0b: Exists?** | Standard component in Team Library? | INSTANTIATE | `figma_search_components` → `figma_instantiate_component` |
+| **G0b: Local?** | Component defined in current file? | INSTANTIATE | `figma_search_components` → `figma_instantiate_component` |
+| **G0c: Team Lib?** | Component from published Team Library? | IMPORT-KEY | `figma_execute` → `importComponentByKeyAsync(key)` |
+| **G0d: UI Kit?** | Component from UI Kit (M3, iOS, etc.)? | CLONE | `figma_execute` → `getMainComponentAsync()` → `createInstance()` |
 | **G1a: Native batch?** | Dedicated batch/read/audit tool? | NATIVE-BATCH | `figma_batch_create_variables`, `figma_capture_screenshot` |
 | **G1b: Native modify?** | Single-property modification? | NATIVE-MODIFY | `figma_set_fills`, `figma_rename_node`, `figma_set_text` |
 | **G2: Simple?** | 1-2 operations, no cross-node dependencies? | EXECUTE-SIMPLE | `figma_execute` with idempotency |
 | **G3: Complex?** | 3+ same-type operations OR multi-step with cross-node dependencies (e.g., parent layout affects child constraints)? | EXECUTE-BATCH | `figma_execute` batch script |
 | **G4: Not covered?** | None of the above? | ESCALATE | Ask user for clarification |
 
-Evaluate G0→G0b→G1a→G1b→G2→G3→G4 in order. **Full decision tree**: `references/tool-playbook.md`
+Evaluate G0→G0b→G0c→G0d→G1a→G1b→G2→G3→G4 in order. **Full decision tree**: `references/tool-playbook.md`
 
 ## Essential Rules (Top 8)
 
@@ -238,6 +242,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/field-learning
 - **Remote SSE mode creation** — most creation tools require Local mode
 - **Full Draft-to-Handoff orchestration** — use `design-handoff` skill (product-definition plugin), which delegates Figma operations back to this skill's references
 - **Cross-file operations** — figma-console operates on the active file only; multi-file workflows require manual file switching via `figma_navigate`
+- **UI Kit component import by key** — `importComponentByKeyAsync` does NOT work with Figma-curated UI Kits (M3, iOS, Apple, etc.); use Clone Pattern instead (see `recipes-advanced.md` § External Library Import)
 - **IMAGE fill from external URL** — `figma_execute` cannot fetch external images; use `figma_get_component_image` for existing components or ask user to import images manually (see `anti-patterns.md` § Hard Constraints)
 
 ### Scope Boundary: figma-console-mastery vs design-handoff

@@ -246,6 +246,35 @@ const defs = node.parent?.type === 'COMPONENT_SET'
 
 Check: `const mc = await inst.getMainComponentAsync(); if (mc.remote) { /* use createInstance, never appendChild */ }`.
 
+### UI Kit vs Team Library — Plugin API Access
+
+Figma maintains two separate library systems with different API accessibility:
+
+| | Team Library | UI Kit (M3, iOS, Apple, etc.) |
+|---|---|---|
+| `importComponentByKeyAsync` | **Works** (library must be enabled in file) | **Fails** (404 / "not found") |
+| `importComponentSetByKeyAsync` | **Works** | **Fails** |
+| `importStyleByKeyAsync` | **Works** | Not tested (no separate styles) |
+| REST API `GET /v1/components/:key` | **200 OK** | **404 Not Found** |
+| `getPublishStatusAsync()` on remote | Returns `"CURRENT"` | Returns `"UNPUBLISHED"` |
+| `getMainComponentAsync()` → `createInstance()` | **Works** | **Works** (Clone Pattern) |
+| `figma_search_components` | **Not found** (local only) | **Not found** (local only) |
+
+**Root cause**: UI Kits operate on an internal Figma registry invisible to both Plugin API and REST API. The keys extracted via `mc.key` from UI Kit instances point to this internal registry, not the team library resolution system.
+
+**Diagnostic**: `importComponentByKeyAsync` failing immediately → UI Kit or unpublished component. Hanging (30s+ timeout) → Team Library exists but is not enabled in the file. Succeeding → Team Library is published AND enabled.
+
+### Proxy Library Pattern for UI Kits
+
+To make UI Kit components importable via `importComponentByKeyAsync`:
+
+1. `detachInstance()` on a UI Kit instance → becomes a regular FRAME
+2. `figma.createComponent()` → wrap detached content as a local COMPONENT
+3. Move the file to a Team Project and publish as Team Library
+4. The proxy component gets a NEW key, importable in other files
+
+**Trade-off**: Loses live link to UI Kit updates. No automatic variant propagation. Suitable only when programmatic import across files is a hard requirement and the Clone Pattern is insufficient.
+
 ---
 
 ## Coordinate Systems
@@ -318,6 +347,23 @@ const existingInst = page.findOne(n => n.type === 'INSTANCE' && n.name.includes(
 const comp = await existingInst.getMainComponentAsync();
 const newInst = comp.createInstance();
 ```
+
+### figma_search_components Scope Limitation
+
+`figma_search_components` searches ONLY local COMPONENT and COMPONENT_SET nodes defined in the current file. It does NOT search:
+- Team Library components (even if enabled in the file)
+- UI Kit components (M3, iOS, Apple, etc.)
+- Components from other connected files
+
+To discover Team Library components programmatically, use the REST API: `GET /v1/files/:library_file_key/components`. The `team_id` for `GET /v1/teams/:team_id/components` must be obtained from the Figma browser URL (`figma.com/files/team/<team_id>/...`) — no API endpoint exposes it.
+
+### teamLibrary API Scope in Desktop Bridge
+
+`figma.teamLibrary` in the Desktop Bridge context exposes only 2 methods:
+- `getAvailableLibraryVariableCollectionsAsync()` — returns variable collections from enabled libraries
+- `getVariablesInLibraryCollectionAsync()` — returns variables within a collection
+
+There is NO method for discovering components from enabled libraries via the Plugin API. Component discovery requires the REST API.
 
 ### Nested Instance Property Access
 
