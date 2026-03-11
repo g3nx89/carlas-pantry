@@ -144,6 +144,9 @@ Use progressive disclosure for ALL skills below:
 - **android-cli-testing**: $CLAUDE_PLUGIN_ROOT/../dev-skills/skills/android-cli-testing/SKILL.md — ADB, test frameworks, device management
 - **genymotion-expert**: $CLAUDE_PLUGIN_ROOT/../dev-skills/skills/genymotion-expert/SKILL.md — Genymotion emulator control, sensor simulation (when emulator is Genymotion)
 
+### Meta-Skills (Progressive Disclosure)
+- **mobile-mcp-mastery**: `$CLAUDE_PLUGIN_ROOT/../meta-skills/skills/mobile-mcp-mastery/SKILL.md` — Mobile automation patterns: dual-mode approach (accessibility preferred, screenshots fallback), tool selection, troubleshooting
+
 ## Write Boundaries
 
 ONLY write screenshot files to the evidence directory path provided in the prompt. NEVER write to source, test, spec, or config directories.

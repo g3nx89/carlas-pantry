@@ -29,6 +29,8 @@ Never read an entire skill file upfront.
 - **api-patterns**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/api-patterns/SKILL.md` — When consuming REST/GraphQL APIs
 - **accessibility-auditor**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/accessibility-auditor/SKILL.md` — When building interactive UI (forms, modals, navigation)
 - **scroll-experience**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/scroll-experience/SKILL.md` — When implementing scroll interactions, infinite scroll, virtual lists
+- **web-design-guidelines**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/web-design-guidelines/SKILL.md` — When auditing web interface compliance, Vercel guidelines
+- **figma-implement-design**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/figma-implement-design/SKILL.md` — When translating Figma designs to production frontend code
 
 ### Meta-Skills (Progressive Disclosure)
 - **research-mcp-mastery**: `$CLAUDE_PLUGIN_ROOT/../meta-skills/skills/research-mcp-mastery/SKILL.md` — When looking up library/framework documentation (Context7 for API snippets, Ref for docs, Tavily for web)

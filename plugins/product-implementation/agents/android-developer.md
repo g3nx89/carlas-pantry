@@ -31,6 +31,8 @@ Never read an entire skill file upfront.
 - **kotlin-coroutines**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/kotlin-coroutines/SKILL.md` — When task involves async/Flow/coroutines
 - **gradle-expert**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/gradle-expert/SKILL.md` — When task involves build config, dependencies, version catalogs
 - **android-cli-testing**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/android-cli-testing/SKILL.md` — When running tests via CLI/ADB
+- **figma-implement-design**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/figma-implement-design/SKILL.md` — When translating Figma designs to production Compose code
+- **mobile-design**: `$CLAUDE_PLUGIN_ROOT/../dev-skills/skills/mobile-design/SKILL.md` — When designing mobile-first UI: touch targets, platform conventions, responsive patterns
 
 ### Meta-Skills (Progressive Disclosure)
 - **research-mcp-mastery**: `$CLAUDE_PLUGIN_ROOT/../meta-skills/skills/research-mcp-mastery/SKILL.md` — When looking up library/framework documentation (Context7 for API snippets, Ref for docs, Tavily for web)
