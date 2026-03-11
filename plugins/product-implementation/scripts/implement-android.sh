@@ -128,6 +128,7 @@ DO_REVIEW=true
 DO_AUGMENT=true
 DO_UAT=true
 DO_SIMPLIFY=true
+DO_SETUP=true              # project setup (hooks, CLAUDE.md, CLI instruction files)
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
@@ -157,6 +158,7 @@ Options:
   --no-review             Disable multi-model review (native + Codex/Gemini)
   --no-augment            Disable test augmentation + gap implementation
   --no-simplify           Disable code simplification after implementation
+  --no-setup              Skip project setup (hooks, CLAUDE.md, CLI instruction files)
   --minimal               Disable all optional steps (only implement + build + commit)
   --dry-run               Show plan without executing
   -h, --help              Show this help
@@ -209,6 +211,7 @@ while [[ $# -gt 0 ]]; do
     --no-review)     DO_REVIEW=false; shift ;;
     --no-augment)    DO_AUGMENT=false; shift ;;
     --no-simplify)   DO_SIMPLIFY=false; shift ;;
+    --no-setup)      DO_SETUP=false; shift ;;
     --minimal)       DO_UAT=false; DO_REVIEW=false; DO_AUGMENT=false; DO_SIMPLIFY=false; shift ;;
     --dry-run)       DRY_RUN=true; shift ;;
     -h|--help)       usage ;;
@@ -287,6 +290,173 @@ for name in s.get('mcpServers', {}):
   fi
   $found || echo "  MCP: no settings found"
   if [[ -n "$MCP_CONFIG" ]]; then echo "  MCP extra: $MCP_CONFIG"; fi
+}
+
+# ── CLI instruction file management ────────────────────────────────────────
+# Manages AGENTS.md (Codex) and GEMINI.md (Gemini) at PROJECT_ROOT with
+# marker-based idempotent lifecycle. Content from config/cli_clients/shared/.
+SHARED_CLI_SOURCE="$PLUGIN_ROOT/config/cli_clients/shared"
+
+# Idempotent create/append/update of a managed section in a target file.
+# Content outside markers is always preserved.
+manage_cli_file() {
+  local target="$1" marker_prefix="$2" shared_file="$3" extra_file="$4"
+  local begin="<!-- ${marker_prefix}-begin -->"
+  local end="<!-- ${marker_prefix}-end -->"
+
+  # Build managed content
+  local managed
+  managed=$(printf '%s\n## CLI Agent Standards (managed by product-implementation)\n\n%s\n\n%s\n%s' \
+    "$begin" \
+    "$(cat "$shared_file" 2>/dev/null)" \
+    "$(cat "$extra_file" 2>/dev/null)" \
+    "$end")
+
+  if [[ ! -f "$target" ]]; then
+    echo "$managed" > "$target"
+    echo "created"
+  elif ! grep -q "$begin" "$target"; then
+    printf '\n%s\n' "$managed" >> "$target"
+    echo "appended"
+  else
+    # Compare existing managed section
+    local existing
+    existing=$(sed -n "/^${begin}$/,/^${end}$/p" "$target")
+    if [[ "$existing" == "$managed" ]]; then
+      echo "unchanged"
+    else
+      # Replace managed section in-place, preserve everything else
+      local tmp
+      tmp=$(mktemp)
+      awk -v b="$begin" -v e="$end" -v new="$managed" '
+        $0 == b { print new; skip=1; next }
+        $0 == e && skip { skip=0; next }
+        !skip { print }
+      ' "$target" > "$tmp"
+      mv "$tmp" "$target"
+      echo "updated"
+    fi
+  fi
+}
+
+setup_cli_instructions() {
+  if $CODEX_AVAILABLE; then
+    local status
+    status=$(manage_cli_file \
+      "$PROJECT_ROOT/AGENTS.md" "pi-codex" \
+      "$SHARED_CLI_SOURCE/cli-instruction-shared.md" \
+      "$SHARED_CLI_SOURCE/codex-instruction-extra.md")
+    echo "  AGENTS.md: $status"
+  fi
+  if $GEMINI_AVAILABLE; then
+    local status
+    status=$(manage_cli_file \
+      "$PROJECT_ROOT/GEMINI.md" "pi-gemini" \
+      "$SHARED_CLI_SOURCE/cli-instruction-shared.md" \
+      "$SHARED_CLI_SOURCE/gemini-instruction-extra.md")
+    echo "  GEMINI.md: $status"
+  fi
+}
+
+# ── Project setup (hooks, CLAUDE.md) ───────────────────────────────────────
+# One-time project analysis + Claude Code configuration. Skipped on re-runs.
+SETUP_MARKER="$LOG_DIR/.project-setup-done"
+
+run_project_setup() {
+  # Skip if already done
+  if [[ -f "$SETUP_MARKER" ]]; then
+    echo "  ○ Project setup: already done"
+    return 0
+  fi
+
+  echo "  ▶ Project setup: analyzing project and configuring Claude Code..."
+
+  # Extract tech context from plan.md if available
+  local tech_context="(no plan.md found)"
+  if [[ -f "$FEATURE_DIR/plan.md" ]]; then
+    tech_context=$(head -100 "$FEATURE_DIR/plan.md" | grep -iE 'tech|stack|architecture|framework|language|kotlin|compose|react|database' | head -10)
+    tech_context="${tech_context:-(no tech context found in plan.md)}"
+  fi
+
+  local setup_prompt
+  setup_prompt="You are configuring a project for optimal Claude Code usage before implementation begins.
+
+PROJECT: ${PROJECT_ROOT}
+
+## Tech Context (from plan.md)
+${tech_context}
+
+## Step 1: Analyze
+Scan the project to understand:
+- Build system (look for gradlew, package.json, Cargo.toml, etc.)
+- Languages and frameworks (scan src/ directories)
+- Existing test infrastructure (JUnit, Jest, Pytest, etc.)
+- Existing Claude config: CLAUDE.md, .claude/settings.json, .claude/hooks/
+
+## Step 2: Generate hooks
+Create the following hooks in \`${PROJECT_ROOT}/.claude/hooks/\` ONLY if they don't already exist.
+Each hook must use \`#!/usr/bin/env bash\`, \`set -euo pipefail\`, and include a jq availability check.
+
+### protect-specs.sh (PreToolUse — Edit, Write)
+Block edits to planning artifacts: spec.md, design.md, plan.md, test-plan.md, tasks.md, test-cases/.
+Read tool input from stdin as JSON, extract file_path with jq, check against protected list. Exit 2 to block.
+
+### tdd-reminder.sh (PreToolUse — Edit, Write)
+When editing a source file (not test), check if a corresponding test file exists. If not, print a reminder
+to write tests first. Do NOT block (exit 0), just warn.
+
+### safe-bash.sh (PreToolUse — Bash)
+Block dangerous commands: rm -rf /, git push --force, DROP TABLE, git reset --hard.
+Read command from stdin JSON, check against blocklist patterns. Exit 2 to block.
+
+## Step 3: Register hooks
+Read \`${PROJECT_ROOT}/.claude/settings.json\` (create if missing).
+For each new hook script, add an entry to the appropriate event array (PreToolUse, PostToolUse).
+Preserve ALL existing entries. Create a backup at \`${PROJECT_ROOT}/.claude/settings.json.bak\` first.
+
+Hook registration format:
+\`\`\`json
+{
+  \"hooks\": {
+    \"PreToolUse\": [
+      {
+        \"matcher\": \"Edit|Write\",
+        \"command\": \".claude/hooks/protect-specs.sh\"
+      }
+    ]
+  }
+}
+\`\`\`
+
+## Step 4: Augment CLAUDE.md
+If \`${PROJECT_ROOT}/CLAUDE.md\` exists, append missing sections wrapped in markers:
+\`\`\`
+<!-- BEGIN: implement-setup -->
+## Build & Test Commands
+[detected build/test commands]
+
+## Architecture
+[from plan.md]
+
+## Conventions
+[detected from existing code patterns]
+<!-- END: implement-setup -->
+\`\`\`
+Skip sections that already exist. If CLAUDE.md doesn't exist, create it with these sections.
+
+## Rules
+- APPEND-ONLY: never overwrite existing content (hooks, CLAUDE.md, settings.json)
+- Skip hooks that already exist in .claude/hooks/
+- Backup settings.json before modifying
+- Validate settings.json parses as JSON after writing (restore backup if invalid)
+- All hooks must be executable (chmod +x)"
+
+  if invoke_claude "$setup_prompt" "$LOG_DIR/project-setup.log" 600; then
+    touch "$SETUP_MARKER"
+    echo "  ✓ Project setup complete"
+  else
+    echo "  ⚠ Project setup failed (continuing without)"
+  fi
 }
 
 # ── Figma key resolution ────────────────────────────────────────────────────
@@ -1183,9 +1353,25 @@ echo "  Simplify:     $DO_SIMPLIFY"
 echo "  UAT:          $DO_UAT"
 echo "  Augment:      $DO_AUGMENT"
 echo "  Review:       $DO_REVIEW"
+echo "  Setup:        $DO_SETUP"
 echo "  Figma:        ${FIGMA_FILE_KEY:-(none)}"
 probe_mcp
 echo ""
+
+# ── CLI instruction files (AGENTS.md / GEMINI.md) ────────────────────────────
+if $DO_SETUP && ! $DRY_RUN; then
+  if $CODEX_AVAILABLE || $GEMINI_AVAILABLE; then
+    echo "Setting up CLI instruction files..."
+    setup_cli_instructions
+    echo ""
+  fi
+fi
+
+# ── Project setup (hooks, CLAUDE.md, settings.json) ──────────────────────────
+if $DO_SETUP && ! $DRY_RUN; then
+  run_project_setup
+  echo ""
+fi
 
 # ── Figma reference screenshots (one-time export) ────────────────────────────
 if $FIGMA_HANDOFF_AVAILABLE && ! $DRY_RUN; then
