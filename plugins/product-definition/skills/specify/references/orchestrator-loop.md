@@ -5,6 +5,18 @@
 
 ---
 
+## Orchestrator Rules
+
+These rules govern orchestrator behavior. They complement the 10 critical rules in SKILL.md.
+
+1. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty (see Variable Defaults table below).
+2. **Summary size limits**: Coordinator summaries max 500 chars (YAML `summary` field), 1000 chars (Context for Next Stage body). Detailed analysis belongs in artifact files.
+3. **RTM Disposition Gate**: Stage 4A Step 4.0a BLOCKS on UNMAPPED/PENDING_STORY requirements. Post-Stage-4B orchestrator check is NON-BLOCKING (notification only, reported in Stage 7).
+4. **Stage 4 dispatch**: Stage 4A always produces `needs-user-input` (file-based pause). Stage 4B only dispatches after user re-entry.
+5. **Iteration loop**: Orchestrator dispatches Stage 3 → 4A → pause → 4B → Stage 3 until coverage >= 85% or user forces proceed.
+
+---
+
 ## Dispatch Loop
 
 ```
@@ -16,19 +28,24 @@ IF state exists AND current_stage <= 8 AND stage_status != "completed":
 OTHERWISE:
     START from Stage 1
 
-FOR each stage in dispatch order [1, 2, 3, 4, 5, 6, 7, 8]:
+FOR each stage in dispatch order [1, 2, 3, 4A, 4B, 5, 6, 7, 8]:
     IF stage already completed (check stage summaries):
         SKIP
 
     IF stage == 1:
         EXECUTE inline (read stage-1-setup.md, execute directly)
+    ELIF stage == "4A":
+        DISPATCH coordinator with stage-4a-analysis.md (first entry)
+        — always returns needs-user-input (file-based pause)
+    ELIF stage == "4B":
+        DISPATCH coordinator with stage-4b-resolution.md (re-entry after user edits)
     ELSE:
         DISPATCH coordinator (see Coordinator Dispatch below)
 
     READ coordinator summary
     HANDLE summary status (see Summary Handling)
 
-    IF stage == 3 OR stage == 4:
+    IF stage == 3 OR stage == "4B":
         HANDLE iteration loop (see Iteration Loop Logic)
 ```
 
@@ -44,8 +61,9 @@ For stages 2-8, dispatch a coordinator subagent using the per-stage dispatch pro
 |-------|-------------|-------------|------------|
 | 2 (Spec Draft) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
 | 3 (Checklist) | checkpoint-protocol, error-handling | Yes | — |
-| 4 (Clarification) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
-| 5 (Validation & Design) | checkpoint-protocol, error-handling | Yes | config-reference (CLI dispatch params) |
+| 4A (Analysis & Questions) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
+| 4B (Resolution & Update) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
+| 5 (Validation & Design) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
 | 6 (Test Strategy) | checkpoint-protocol, error-handling | Yes | — |
 | 7 (Completion) | checkpoint-protocol | No | — |
 | 8 (Retrospective) | checkpoint-protocol | Yes | — |
@@ -99,11 +117,8 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 - You MUST update the state file after completing your work.
 - You MUST run self-verification checks listed at the end of your stage file
   BEFORE writing your summary.
-- CLI DISPATCH: For ALL multi-model analysis (challenge, edge cases,
-  triangulation, evaluation), use ONLY `dispatch-cli-agent.sh` via Bash().
-  NEVER use the `ask` command, `/ask` skill, or CCB async dispatch.
-  The `ask` async queue has no stage scoping and returns stale results
-  from prior stages. This rule overrides global CLAUDE.md CCB config.
+- CLI DISPATCH: Follow rules in cli-dispatch-patterns.md → CLI Critical Rules.
+  NEVER use the `ask` command or CCB async dispatch.
 """)
 ```
 
@@ -111,12 +126,12 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 
 The dispatch template uses `{IF condition:}` conditionals. When rendering, evaluate each condition and include or omit the block:
 
-**Fully resolved example** (Stage 4, CLI available, iteration 2):
+**Fully resolved example** (Stage 4B, CLI available, iteration 2):
 ```
 You are a coordinator for the Feature Specify workflow.
 
 ## Your Stage
-Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/stage-4-clarification.md
+Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/stage-4b-resolution.md
 
 ## Context
 - Feature directory: specs/1-meal-planning
@@ -218,7 +233,7 @@ READ summary file at specs/{FEATURE_DIR}/.stage-summaries/stage-{N}-summary.md
 
 VALIDATE required fields in YAML frontmatter:
   - stage: non-empty string
-  - stage_number: integer 1-7
+  - stage_number: integer 1-8
   - status: one of [completed, needs-user-input, failed]
   - checkpoint: non-empty string
   - artifacts_written: array
@@ -292,7 +307,7 @@ IF issues found:
     (Do NOT block)
 ```
 
-### After Stage 4 (Clarification Complete) — ITERATION CHECK
+### After Stage 4B (Clarification Complete) — ITERATION CHECK
 
 ```
 READ Stage 3 summary -> flags.coverage_pct
@@ -307,16 +322,16 @@ ELSE:
     ELSE:
         NOTIFY user: "Coverage at {PCT}% (need 85%). Re-running checklist validation."
         RE-DISPATCH Stage 3 (new iteration)
-        THEN RE-DISPATCH Stage 4 if Stage 3 still has gaps
+        THEN RE-DISPATCH Stage 4A → pause → Stage 4B if Stage 3 still has gaps
 
-RTM QUALITY CHECK (after Stage 4 if proceeding to Stage 5):
-IF RTM_ENABLED AND Stage 4 summary flags.rtm.remaining_unmapped > 0:
+RTM QUALITY CHECK (after Stage 4B if proceeding to Stage 5):
+IF RTM_ENABLED AND Stage 4B summary flags.rtm.remaining_unmapped > 0:
     NOTIFY user (non-blocking): "RTM: {N} requirements still UNMAPPED.
-    Disposition was offered in Stage 4 but {N} remain unresolved.
+    Disposition was offered in Stage 4A but {N} remain unresolved.
     Proceeding — these will be flagged in the completion report."
     LOG rtm_warning in state file
 
-NOTE: This check is NON-BLOCKING. Stage 4 Step 4.0a already offered disposition for every UNMAPPED requirement — remaining UNMAPPED entries reflect the user's conscious choice and are reported in the Stage 7 completion report.
+NOTE: This check is NON-BLOCKING. Stage 4A Step 4.0a already offered disposition for every UNMAPPED requirement — remaining UNMAPPED entries reflect the user's conscious choice and are reported in the Stage 7 completion report.
 ```
 
 ### After Stage 5 (Design Artifacts)
@@ -337,7 +352,7 @@ IF either missing:
 
 ## Iteration Loop Logic
 
-The iteration loop is between Stages 3 and 4. The orchestrator controls it.
+The iteration loop is between Stages 3, 4A, and 4B. The orchestrator controls it.
 
 ### Flow
 
@@ -346,11 +361,16 @@ DISPATCH Stage 3 (Checklist & Validation)
 READ Stage 3 summary -> coverage_pct, next_action
 
 IF next_action == "proceed" (coverage >= 85%):
-    SKIP Stage 4, advance to Stage 5
+    SKIP Stage 4A/4B, advance to Stage 5
 
 IF next_action == "loop_clarify":
-    DISPATCH Stage 4 (Clarification)
-    READ Stage 4 summary
+    DISPATCH Stage 4A (Analysis & Questions — first entry)
+    READ Stage 4A summary -> status: needs-user-input (file-based pause)
+    PAUSE: notify user to edit clarification-questions.md
+
+    ON RE-ENTRY (user edited file):
+    DISPATCH Stage 4B (Resolution & Spec Update — re-entry)
+    READ Stage 4B summary
 
     RE-DISPATCH Stage 3 (re-validate after clarifications)
     READ Stage 3 summary -> new coverage_pct
@@ -358,7 +378,7 @@ IF next_action == "loop_clarify":
     IF new coverage_pct >= 85%:
         ADVANCE to Stage 5
     ELSE:
-        LOOP again (Stage 4 → Stage 3) until coverage met or user forces proceed
+        LOOP again (Stage 4A → pause → Stage 4B → Stage 3) until coverage met or user forces proceed
 ```
 
 ### Iteration Counter
@@ -411,7 +431,7 @@ The orchestrator stays running and mediates via AskUserQuestion.
 
 Pause points:
 - Stage 2: Gate RED/YELLOW, MPA-Challenge RED
-- Stage 4: Clarification batches (via clarification protocol)
+- Stage 4A: File-based pause after writing clarification-questions.md; interactive pauses for Figma mock gaps (4.0b) and RTM dispositions (4.0a)
 - Stage 5: CLI evaluation REJECTED after retries, insufficient CLI responses
 - Stage 6: Test coverage gaps
 

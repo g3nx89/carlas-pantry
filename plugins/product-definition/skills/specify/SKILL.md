@@ -1,7 +1,7 @@
 ---
 name: feature-specify
-description: This skill should be used when the user asks to "create a feature spec", "specify a feature", "write a specification", or "define feature requirements". Creates or updates feature specifications through guided analysis with Figma integration, CLI multi-stance validation, and V-Model test strategy.
-version: 1.3.0
+description: Creates or updates detailed feature specifications through guided multi-stage analysis. Use whenever the user wants to specify a feature, create a spec, write requirements, document a feature, define acceptance criteria, spec out an idea, or turn a rough description into a structured specification — even if they don't use the word "spec". Also trigger when the user says "write spec for", "feature requirements for", "create specification", "define feature", "spec my idea", or describes a feature and asks to formalize it. Includes Figma design integration, multi-model quality validation, iterative file-based Q&A for completeness, and optional test strategy generation.
+version: 1.4.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Bash(command:*)", "Bash(wait:*)", "Task", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
 ---
 
@@ -24,44 +24,16 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 
 ## CRITICAL RULES (High Attention Zone — Start)
 
-### Core Workflow Rules
-1. **State Preservation**: ALWAYS checkpoint after user decisions via state file update
-2. **Resume Compliance**: NEVER re-ask questions from `user_decisions` — they are IMMUTABLE
-3. **Delegation Pattern**: Complex analysis → specialized agents (BA = Business Analyst: `business-analyst`, `design-brief-generator`, `gap-analyzer`, `qa-strategist`)
-4. **Progressive Disclosure**: Load templates ONLY when stage reached (reference via `@$CLAUDE_PLUGIN_ROOT/templates/prompts/`)
-5. **File-Based Clarification**: All clarification questions written to `clarification-questions.md` for offline editing — NO AskUserQuestion for clarification batches
-6. **BA Recommendation**: First option MUST be "(Recommended)" with rationale
-7. **Lock Protocol**: Always acquire lock at start, release at completion
-8. **Config Reference**: All limits and thresholds from `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
-9. **Structured Responses**: Agents return responses per `@$CLAUDE_PLUGIN_ROOT/templates/agent-response-schema.md`
-10. **Unified Checkpoints**: State file ONLY — no HTML comment checkpoints
-
-### Mandatory Requirements
-11. **Design Brief MANDATORY**: `design-brief.md` MUST be generated for EVERY specification. NEVER skip.
-12. **Design Supplement MANDATORY**: `design-supplement.md` MUST be generated for EVERY specification. NEVER skip.
-13. **No Question Limits**: There is NO maximum on clarification questions — ask EVERYTHING needed for complete spec.
-14. **No Story Limits**: There is NO maximum on user stories, acceptance criteria, or NFRs (Non-Functional Requirements) — capture ALL requirements.
-15. **No Iteration Limits**: Continue clarification loops until COMPLETE, not until a counter reaches max.
-
-### CLI Dispatch Rules
-16. **CLI Evaluation Minimum**: Evaluation requires **minimum 2 substantive responses**. If < 2 → signal `needs-user-input` (NEVER self-assess).
-17. **No CLI Substitution**: If a CLI dispatch fails, **DO NOT** substitute with another CLI. Tri-CLI dispatch is for variety — substituting defeats the purpose.
-18. **Spec Content Inline**: NEVER pass local file paths to CLI dispatch prompt files. Embed spec content inline. External CLIs cannot read local files.
-19. **User Notification MANDATORY**: When ANY CLI fails or is unavailable, **ALWAYS** notify user.
-
-### Graceful Degradation
-20. **CLI Availability Check**: Before dispatching CLI, check if `scripts/dispatch-cli-agent.sh` is executable and at least one CLI binary is in PATH
-21. **Fallback Behavior**: If CLI unavailable, skip Challenge, EdgeCases, Triangulation, and Evaluation steps — proceed with internal reasoning
-22. **OpenCode for Variety**: CLI dispatch includes OpenCode (Grok) for contrarian perspective. Continue gracefully if unavailable.
-
-### Orchestrator Delegation Rules
-23. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion
-24. **Stage 1 runs inline** — all other stages are coordinator-delegated
-25. **Iteration loop owned by orchestrator** — Stage 3 <-> Stage 4 until coverage >= 85% or user forces proceed
-26. **Variable defaults**: Every coordinator dispatch variable has a defined fallback — never pass null or empty (see `orchestrator-loop.md` → Variable Defaults)
-27. **Quality gates**: Orchestrator performs lightweight quality checks after Stages 2, 4, and 5 — non-blocking, notify user of issues
-28. **Summary size limits**: Coordinator summaries max 500 chars (YAML `summary` field), 1000 chars (Context for Next Stage body). Detailed analysis in artifact files, not summaries.
-29. **RTM (Requirements Traceability Matrix) Disposition Gate**: Stage 4 Step 4.0a BLOCKS on UNMAPPED/PENDING_STORY requirements. Post-Stage-4 orchestrator check is NON-BLOCKING (notification only, reported in Stage 7).
+1. **State Preservation**: ALWAYS checkpoint after user decisions via state file update. User decisions under `user_decisions` are IMMUTABLE — NEVER re-ask.
+2. **Delegation Pattern**: Complex analysis → specialized agents (BA: `business-analyst`, design: `design-brief-generator` + `gap-analyzer`, QA: `qa-strategist`). Load templates ONLY when stage reached.
+3. **File-Based Clarification**: All clarification questions written to `clarification-questions.md` for offline editing — NO AskUserQuestion for clarification batches. First option MUST be "(Recommended)" with rationale.
+4. **Lock Protocol**: Acquire lock at start, release at completion. Config: `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`.
+5. **Design Artifacts MANDATORY**: `design-brief.md` AND `design-supplement.md` MUST be generated for EVERY specification. NEVER skip either.
+6. **No Artificial Limits**: There is NO maximum on clarification questions, user stories, acceptance criteria, NFRs, or iteration loops — capture ALL requirements, continue until COMPLETE.
+7. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion.
+8. **Stage 1 runs inline** — all other stages are coordinator-delegated. Iteration loop (Stage 3 <-> Stage 4A/4B) is owned by orchestrator until coverage >= 85% or user forces proceed.
+9. **Quality gates**: Orchestrator checks after Stages 2, 4, and 5 — non-blocking, notify user of issues. Summary max 500 chars YAML, 1000 chars Context body.
+10. **CLI dispatch rules**: See `cli-dispatch-patterns.md` → CLI Critical Rules for dispatch-specific rules (minimum responses, no substitution, inline content, graceful degradation).
 
 ---
 
@@ -92,25 +64,29 @@ Consider user input before proceeding (if non-empty).
                                 |
 +-------------------------------v-----------------------------------+
 |  Stage 2 (Coordinator): SPEC DRAFT & GATES + INITIAL RTM          |
-|  BA agent, MPA (Multi-Perspective Analysis) Challenge CLI dispatch,|
+|  BA agent, MPA Challenge CLI dispatch,                             |
 |  initial rtm.md generation (if RTM enabled)                        |
 +-------------------------------+-----------------------------------+
                                 |
 +-------------------------------v-----------------------------------+
-|  Stage 3 (Coordinator): CHECKLIST & VALIDATION   <──+             |
-|  Platform detect, checklist copy, BA validate,       |             |
-|  RTM coverage re-evaluation (if RTM enabled)         |             |
-+-------------------------------+----------------------+             |
-                                |                      |             |
-+-------------------------------v-----------------------------------+
-|  Stage 4 (Coordinator): EDGE CASES & CLARIFICATION  |             |
-|  RTM disposition gate (zero UNMAPPED), MPA-EdgeCases |             |
-|  CLI dispatch, clarification protocol,               |             |
-|  MPA-Triangulation CLI dispatch, spec update         |             |
-+-------------------------------+----------------------+             |
-                                |              (loop if coverage     |
-                          proceed               < 85%)               |
-+-------------------------------v-----------------------------------+
+|  Stage 3 (Coordinator): CHECKLIST & VALIDATION   <────────+       |
+|  Platform detect, checklist copy, BA validate,              |       |
+|  RTM coverage re-evaluation (if RTM enabled)                |       |
++-------------------------------+─────────────────────+       |       |
+                                |                     |       |       |
++-------------------------------v-----------+  +------v-------+-------+
+|  Stage 4A (Coordinator): ANALYSIS &       |  |  Stage 4B (Coord):   |
+|  QUESTION GENERATION (first entry)        |  |  RESOLUTION &        |
+|  RTM disposition gate, Figma mock gaps,   |  |  SPEC UPDATE         |
+|  MPA-EdgeCases CLI, auto-resolve,         |  |  (re-entry)          |
+|  write clarification-questions.md         |  |  Parse answers,      |
+|  → PAUSE: user edits file offline         |  |  MPA-Triangulation,  |
++-------------------------------------------+  |  update spec.md      |
+                                               +-------+--------------+
+                                                       |
+                               (loop if coverage < 85% via Stage 3)
+                                                       |
++------------------------------------------------------v-----------+
 |  Stage 5 (Coordinator): CLI VALIDATION & DESIGN                   |
 |  CLI multi-stance eval, design-brief, design-supplement (MANDATORY)|
 +-------------------------------+-----------------------------------+
@@ -140,7 +116,8 @@ Consider user input before proceeding (if non-empty).
 | 1 | Setup & Figma | **Inline** | `references/stage-1-setup.md` | INIT | No (interactive) | No (Figma optional within) |
 | 2 | Spec Draft & Gates | Coordinator | `references/stage-2-spec-draft.md` | SPEC_DRAFT | Yes (if gate RED/YELLOW) | No |
 | 3 | Checklist & Validation | Coordinator | `references/stage-3-checklist.md` | CHECKLIST_VALIDATION | No | No |
-| 4 | Edge Cases & Clarification | Coordinator | `references/stage-4-clarification.md` | CLARIFICATION | Yes (clarification Q&A) | Edge cases optional |
+| 4A | Analysis & Questions | Coordinator | `references/stage-4a-analysis.md` | CLARIFICATION_WRITE | Yes (file-based pause) | Edge cases optional |
+| 4B | Resolution & Spec Update | Coordinator | `references/stage-4b-resolution.md` | CLARIFICATION | No | No |
 | 5 | CLI Validation & Design | Coordinator | `references/stage-5-validation-design.md` | CLI_GATE | Yes (if eval REJECTED) | CLI optional; design MANDATORY |
 | 6 | Testability & Risk Assessment | Coordinator | `references/stage-6-test-strategy.md` | TEST_STRATEGY | Yes (if testability gaps) | Yes (feature flag) |
 | 7 | Completion | Coordinator | `references/stage-7-completion.md` | COMPLETE | No | No |
@@ -152,7 +129,7 @@ Consider user input before proceeding (if non-empty).
 
 **Read and follow:** `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/orchestrator-loop.md`
 
-The orchestrator manages dispatch, iteration (Stage 3 <-> Stage 4), user pauses, crash recovery, and state migration.
+The orchestrator manages dispatch, iteration (Stage 3 <-> Stage 4A/4B), user pauses, crash recovery, and state migration.
 
 ---
 
@@ -240,7 +217,8 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `references/stage-1-setup.md` | Inline setup: init, MCP check, workspace, Figma | Stage 1 execution |
 | `references/stage-2-spec-draft.md` | Spec draft, MPA-Challenge, incremental gates | Dispatching Stage 2 |
 | `references/stage-3-checklist.md` | Platform detect, checklist, BA validation | Dispatching Stage 3 |
-| `references/stage-4-clarification.md` | Edge cases, clarification, triangulation | Dispatching Stage 4 |
+| `references/stage-4a-analysis.md` | RTM disposition, Figma gaps, edge cases, auto-resolve, write questions | Dispatching Stage 4A (first entry) |
+| `references/stage-4b-resolution.md` | Parse answers, triangulation, spec update | Dispatching Stage 4B (re-entry after user edits) |
 | `references/stage-5-validation-design.md` | CLI multi-stance eval, design-brief, design-supplement | Dispatching Stage 5 |
 | `references/stage-6-test-strategy.md` | Risk analysis, testability verification, test level guidance | Dispatching Stage 6 |
 | `references/stage-7-completion.md` | Lock release, completion report | Dispatching Stage 7 |
@@ -257,12 +235,11 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 
 ## CRITICAL RULES (High Attention Zone — End)
 
-Rules 1-29 above MUST be followed. Key reminders:
-- Coordinators NEVER talk to users directly
-- Orchestrator owns the iteration loop (Stage 3 <-> Stage 4)
-- Stage 1 is inline, all others (2-8) are coordinator-delegated
-- State file user_decisions are IMMUTABLE
-- No artificial question/story/iteration limits
-- design-brief.md and design-supplement.md are MANDATORY — NEVER skip
-- Quality gates after Stages 2, 4, and 5 — non-blocking but user-notified
-- `CLI_AVAILABLE` gates all multi-model analysis steps
+Rules 1-10 above MUST be followed. Key reminders:
+- Coordinators NEVER talk to users directly (rule 7)
+- Orchestrator owns the iteration loop: Stage 3 → Stage 4A → pause → Stage 4B → Stage 3 (rule 8)
+- Stage 1 is inline, all others coordinator-delegated (rule 8)
+- State file user_decisions are IMMUTABLE (rule 1)
+- No artificial limits on questions/stories/iterations (rule 6)
+- design-brief.md and design-supplement.md are MANDATORY (rule 5)
+- CLI dispatch rules in `cli-dispatch-patterns.md` (rule 10)

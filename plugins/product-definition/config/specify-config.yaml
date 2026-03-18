@@ -12,8 +12,8 @@
 ---
 
 # Version tracking
-version: "2.4.0"
-last_updated: "2026-01-26"
+version: "2.5.0"
+last_updated: "2026-03-18"
 
 # =============================================================================
 # WORKFLOW LIMITS
@@ -35,10 +35,6 @@ limits:
   # Prevents runaway Stage 3↔4 loops
   max_iterations_before_checkpoint: 5
 
-  # DEPRECATED: questions_per_batch — replaced by file-based clarification (v2.2.1)
-  # Kept for backward compatibility; not used in file-based mode
-  questions_per_batch: 4  # deprecated
-
   # Lock stale timeout in minutes — locks older than this are auto-removed
   # Used by Stage 1 pre-flight and checkpoint-protocol.md for lock management
   lock_stale_timeout_minutes: 60
@@ -57,7 +53,7 @@ limits:
 # Thresholds for quality gates. Values are percentages or points.
 
 thresholds:
-  # Checklist validation (Phase 4) - percentage coverage
+  # Checklist validation (Stage 3) - percentage coverage
   checklist:
     green: 85    # >= this: HIGH coverage, proceed to CLI evaluation
     yellow: 60   # >= this: MEDIUM coverage, proceed to clarifications
@@ -89,12 +85,6 @@ feature_flags:
   # P2: Enable incremental validation gates after Problem Framing and True Need Discovery
   enable_incremental_gates: true
 
-  # P3: Enable complexity-based workflow triage (SIMPLE/MEDIUM/COMPLEX)
-  enable_complexity_triage: false  # Planned for future release
-
-  # P5: Enable parallel execution of Phase 5 and Phase 5.5
-  enable_parallel_phase_5: false  # Requires orchestrator changes
-
   # Enable CLI multi-stance validation in Stage 5
   enable_cli_validation: true
 
@@ -104,152 +94,11 @@ feature_flags:
   # Enable Figma integration prompts (--figma / --no-figma override)
   enable_figma_integration: true
 
-  # Enable Research Discovery Phase (Phase 1.7 and 1.8)
-  enable_research_discovery: true
-
   # Enable Test Strategy Generation Phase (Phase 5.7)
   enable_test_strategy: true
 
   # Enable Requirements Traceability Matrix (RTM) tracking
   enable_rtm_tracking: true
-
-# =============================================================================
-# RESEARCH DISCOVERY CONFIGURATION
-# =============================================================================
-# Configuration for the Research Discovery Phase (1.7 and 1.8).
-# Generates deep research questions for user investigation before spec drafting.
-
-research_discovery:
-  # Master switch
-  enabled: true
-  version: "1.0.0"
-
-  # ─────────────────────────────────────────────────────────────
-  # MODE SELECTION
-  # ─────────────────────────────────────────────────────────────
-  # Simple mode: Single BA agent generates questions (faster, cheaper)
-  # MPA mode: 3 specialized agents (Business, Technical, UX) with synthesis
-
-  default_mode: "simple"  # simple | mpa
-
-  modes:
-    simple:
-      agent: "$CLAUDE_PLUGIN_ROOT/agents/business-analyst.md"
-      model: "sonnet"
-      sequential_thinking: true
-      min_questions: 4
-      max_questions: 8
-
-    mpa:
-      parallel: true
-      agents:
-        - name: "strategic"
-          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-business.md"
-          model: "sonnet"
-          output: "questions-strategic.md"
-        - name: "technical"
-          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-technical.md"
-          model: "sonnet"
-          output: "questions-technical.md"
-        - name: "ux"
-          agent: "$CLAUDE_PLUGIN_ROOT/agents/research-discovery-ux.md"
-          model: "sonnet"
-          output: "questions-ux.md"
-      synthesis:
-        agent: "$CLAUDE_PLUGIN_ROOT/agents/research-question-synthesis.md"
-        model: "sonnet"
-        output: "research-questions.md"
-
-  # ─────────────────────────────────────────────────────────────
-  # QUESTION GENERATION
-  # ─────────────────────────────────────────────────────────────
-
-  question_generation:
-    # Minimum depth score (1-5) for inclusion
-    min_depth_score: 3.0
-
-    # Priority levels
-    priorities:
-      - name: "CRITICAL"
-        description: "Could invalidate entire approach"
-        research_time: "2-4 hours"
-      - name: "HIGH"
-        description: "Significantly shapes requirements"
-        research_time: "1-2 hours"
-      - name: "MEDIUM"
-        description: "Refines understanding"
-        research_time: "30-60 min"
-
-    # Question categories
-    categories:
-      - "Strategic"      # Market, competitive, business model
-      - "Technical"      # Architecture, scalability, compliance
-      - "UX"             # User behavior, community, adoption
-      - "Competitive"    # Competitor analysis, gap analysis
-
-  # ─────────────────────────────────────────────────────────────
-  # USER DECISION POINT
-  # ─────────────────────────────────────────────────────────────
-
-  user_decision:
-    prompt:
-      question: "Research questions have been generated. How would you like to proceed?"
-      header: "Research"
-      options:
-        - label: "Conduct research (Recommended)"
-          description: "I'll research these questions and provide reports"
-          action: "conduct_research"
-        - label: "Skip with context"
-          description: "I have domain knowledge to share instead"
-          action: "skip_with_context"
-        - label: "Skip entirely"
-          description: "Proceed without external research"
-          action: "skip_entirely"
-
-  # ─────────────────────────────────────────────────────────────
-  # RESEARCH REPORT ANALYSIS (Phase 1.8)
-  # ─────────────────────────────────────────────────────────────
-
-  report_analysis:
-    # Directory where user saves research reports
-    reports_directory: "research/"
-
-    # Expected report patterns
-    report_patterns:
-      - "research-*.md"
-      - "*.research.md"
-
-    # Synthesis agent
-    synthesis:
-      agent: "$CLAUDE_PLUGIN_ROOT/agents/research-question-synthesis.md"
-      model: "sonnet"
-      output: "research-synthesis.md"
-
-    # Detection behavior
-    detection:
-      min_reports: 1  # Minimum reports to proceed with analysis
-      warn_if_missing_categories: true  # Warn if major categories have no research
-
-    # Annotation format for spec
-    annotation_format: "@ResearchRef(finding=\"{finding_id}\", source=\"{source_file}\")"
-
-  # ─────────────────────────────────────────────────────────────
-  # OUTPUT CONFIGURATION
-  # ─────────────────────────────────────────────────────────────
-
-  output:
-    questions_file: "research-questions.md"
-    synthesis_file: "research-synthesis.md"
-    reports_directory: "research/"
-
-  # ─────────────────────────────────────────────────────────────
-  # TEMPLATES
-  # ─────────────────────────────────────────────────────────────
-
-  templates:
-    questions: "specs/templates/research-questions-template.md"
-    synthesis: "specs/templates/research-synthesis-template.md"
-    report: "specs/templates/research-report-template.md"
 
 # =============================================================================
 # CLARIFICATION CONFIGURATION (v2.0)
@@ -280,104 +129,6 @@ clarification:
       - "spec_content"      # Already-drafted spec sections
     registry_file: "clarification-report.md"
     notify_user: true  # Always inform user of auto-resolutions
-
-# =============================================================================
-# COMPLEXITY TRIAGE (P3 - Future)
-# =============================================================================
-# Criteria for automatic workflow complexity selection.
-# Currently inactive (enable_complexity_triage: false)
-
-complexity_triage:
-  criteria:
-    user_stories:
-      simple: [1, 3]      # 1-3 stories
-      medium: [4, 8]      # 4-8 stories
-      complex: [9, null]  # 9+ stories (null = no upper limit)
-    stakeholders:
-      simple: [1, 1]
-      medium: [2, 3]
-      complex: [4, null]
-    integrations:
-      simple: [0, 0]
-      medium: [1, 2]
-      complex: [3, null]
-
-  workflow_phases:
-    simple:
-      skip: ["jtbd", "competitive", "stakeholder_detailed"]
-      templates_count: 6
-    medium:
-      skip: ["competitive"]
-      templates_count: 12
-    complex:
-      skip: []
-      templates_count: 15  # After P1 consolidation (was 25)
-
-# =============================================================================
-# AGENT RESPONSE SCHEMA (P6)
-# =============================================================================
-# Standard response format for all agents in the workflow.
-# Agents MUST return responses matching this schema.
-
-agent_response_schema:
-  version: "1.0"
-  required_fields:
-    - status        # success | partial | error
-    - outputs       # List of files created/modified
-    - next_step     # Description of recommended next action
-
-  optional_fields:
-    - metrics       # Numeric metrics (scores, counts)
-    - warnings      # List of warning messages
-    - errors        # List of error messages (if status != success)
-    - user_decisions_needed  # Questions requiring user input
-
-  status_values:
-    success: "All tasks completed successfully"
-    partial: "Some tasks completed, others need attention"
-    error: "Critical failure, cannot proceed"
-
-  output_actions:
-    created: "New file created"
-    updated: "Existing file modified"
-    deleted: "File removed"
-
-# =============================================================================
-# CHECKPOINT PROTOCOL (P4)
-# =============================================================================
-# Unified checkpoint mechanism using YAML state file only.
-# HTML comment checkpoints in agent output are DEPRECATED.
-
-checkpoint_protocol:
-  # Single source of truth for workflow state
-  state_file_pattern: ".specify-state.local.md"
-
-  # Deprecated mechanisms (for migration reference)
-  deprecated:
-    - html_comments: "<!-- CHECKPOINT: ... -->"
-    - lock_file_phase: "phase: X in lock file"
-
-  # Required fields in state file phases section
-  phase_state_fields:
-    - status        # pending | in_progress | completed | error
-    - timestamp     # ISO 8601 format
-    - outputs       # List of generated files
-    - metrics       # Phase-specific metrics
-
-  # Example phase state entry
-  example: |
-    phases:
-      spec_draft:
-        status: completed
-        timestamp: "2025-01-21T10:30:00Z"
-        outputs:
-          - file: spec.md
-            action: created
-            lines: 245
-        metrics:
-          self_critique_score: 17
-          user_stories_count: 8
-          requirements_count: 15
 
 # =============================================================================
 # INCREMENTAL GATES CONFIGURATION (P2)
@@ -438,27 +189,6 @@ incremental_gates:
           description: "Some aspects are right, but missing elements"
         - label: "No, needs rework"
           description: "The analysis missed the core need"
-
-# =============================================================================
-# DEPRECATION NOTICES
-# =============================================================================
-# Features or patterns that are deprecated and will be removed.
-
-deprecations:
-  - feature: "HTML checkpoint comments in agent output"
-    deprecated_in: "2.0.0"
-    removed_in: "3.0.0"
-    migration: "Use YAML state file only (checkpoint_protocol section)"
-
-  - feature: "Hardcoded limits in agent files"
-    deprecated_in: "2.0.0"
-    removed_in: "3.0.0"
-    migration: "Reference specs/config/specify-config.yaml"
-
-  - feature: "Unstructured agent markdown responses"
-    deprecated_in: "2.0.0"
-    removed_in: "3.0.0"
-    migration: "Use agent_response_schema format"
 
 # =============================================================================
 # SADD PATTERN CONFIGURATION (v1.1)
@@ -949,7 +679,15 @@ skill_orchestrator:
         - "error-handling"
       config_yaml: true
       extra_refs: []
-    stage_4_clarification:
+    stage_4a_analysis:
+      shared_refs:
+        - "checkpoint-protocol"
+        - "error-handling"
+      config_yaml: true
+      extra_refs:
+        - name: "cli-dispatch-patterns"
+          condition: "CLI_AVAILABLE"
+    stage_4b_resolution:
       shared_refs:
         - "checkpoint-protocol"
         - "error-handling"
@@ -963,8 +701,8 @@ skill_orchestrator:
         - "error-handling"
       config_yaml: true
       extra_refs:
-        - name: "config-reference"
-          condition: "always"
+        - name: "cli-dispatch-patterns"
+          condition: "CLI_AVAILABLE"
     stage_6_test_strategy:
       shared_refs:
         - "checkpoint-protocol"

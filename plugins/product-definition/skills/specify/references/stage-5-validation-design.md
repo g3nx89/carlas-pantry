@@ -14,15 +14,12 @@ artifacts_written:
 
 ## CRITICAL RULES (must follow — failure-prevention)
 
-1. **CLI Evaluation minimum 2 responses**: If < 2 substantive CLI responses, signal `needs-user-input` (NEVER self-assess)
-2. **No model substitution**: If a CLI fails, continue with remaining, do NOT swap
-3. **design-brief.md is MANDATORY**: NEVER skip — even if CLI evaluation fails
-4. **design-supplement.md is MANDATORY**: NEVER skip — even if CLI evaluation fails
-5. **Verify BOTH files exist** before writing summary
-6. **Retry max 2**: If REJECTED after 2 retries, signal `needs-user-input`
-7. **NEVER interact with users directly**: signal `needs-user-input` in summary
-8. **Spec content inline**: NEVER pass local file paths to CLIs — embed spec content in prompt files
-9. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For multi-stance evaluation, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
+1. **design-brief.md is MANDATORY**: NEVER skip — even if CLI evaluation fails
+2. **design-supplement.md is MANDATORY**: NEVER skip — even if CLI evaluation fails
+3. **Verify BOTH files exist** before writing summary
+4. **Retry max 2**: If REJECTED after 2 retries, signal `needs-user-input`
+5. **NEVER interact with users directly**: signal `needs-user-input` in summary
+6. **CLI dispatch**: Follow rules in `cli-dispatch-patterns.md` → CLI Critical Rules (minimum 2 responses, no substitution, inline content)
 
 ## Step 5.0a: Validate Pre-Conditions
 
@@ -61,25 +58,16 @@ ELSE:
 
 **If enabled:**
 
-Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli-dispatch-patterns.md` → Integration 4: Evaluation
+Execute **Integration 4: Evaluation** per `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli-dispatch-patterns.md`.
 
-Write prompt files for each CLI at `specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-{cli}.md`.
-Embed `eval_content` inline — do NOT reference file paths.
+**Variables for dispatch:**
+- `FEATURE_DIR`: specs/{FEATURE_DIR}
+- `SPEC_CONTENT`: `eval_content` from Step 5.0b (embed inline — see CLI Critical Rules)
+- `OPENCODE_MODEL`: {OPENCODE_MODEL}
+- `TIMEOUT`: 120 seconds
+- `EXPECTED_FIELDS`: "score,dimension,decision"
 
-**Dispatch order (fully parallel):**
 All 3 CLI evaluations run in parallel. The Least-to-Most synthesis protocol (reading shortest output first) prevents anchoring bias during synthesis.
-
-**Dispatch each CLI via Bash:**
-```bash
-$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli {cli} \
-  --role {role} \
-  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-{cli}.md \
-  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/evaluation-{cli}.md \
-  --timeout 120 \
-  --expected-fields "score,dimension,decision" \
-  [--model {model_from_cli_defaults}]  # Required for opencode; omit for codex/gemini
-```
 
 **If disabled OR CLI_AVAILABLE = false:** Skip to Step 5.5 (design artifacts).
 

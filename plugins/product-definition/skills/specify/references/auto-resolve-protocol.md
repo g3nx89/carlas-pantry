@@ -1,5 +1,5 @@
 ---
-stage: stage-4-clarification
+stage: stage-4a-analysis
 artifacts_written:
   - specs/{FEATURE_DIR}/clarification-report.md (created or updated)
 ---

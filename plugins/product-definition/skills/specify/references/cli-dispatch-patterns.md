@@ -1,7 +1,7 @@
 # CLI Dispatch Patterns
 
 > Parameterized execution patterns for tri-CLI dispatch integration points in the Feature Specify workflow.
-> Referenced by Stage 2 (Challenge), Stage 4 (EdgeCases, Triangulation), Stage 5 (Evaluation).
+> Referenced by Stage 2 (Challenge), Stage 4A (EdgeCases), Stage 4B (Triangulation), Stage 5 (Evaluation).
 >
 > Replaces: `thinkdeep-patterns.md` (PAL MCP ThinkDeep).
 > Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh`
@@ -12,6 +12,20 @@
 > analysis in the specify workflow. The async queue has no stage/integration scoping — calling
 > `ask codex` in Stage 4 may return stale results from a Stage 2 dispatch. ALWAYS use
 > `dispatch-cli-agent.sh` which is synchronous and writes results to dedicated output files.
+
+---
+
+## CLI Critical Rules
+
+These rules apply to ALL CLI dispatch points in the workflow (Stages 2, 4A, 4B, 5). They are the authoritative source — stage files reference this section rather than duplicating.
+
+1. **Evaluation Minimum**: Evaluation (Integration 4, Stage 5) requires **minimum 2 substantive responses**. If < 2 → signal `needs-user-input` (NEVER self-assess).
+2. **No CLI Substitution**: If a CLI dispatch fails, **DO NOT** substitute with another CLI. Tri-CLI dispatch is for variety — substituting defeats the purpose.
+3. **Spec Content Inline**: NEVER pass local file paths to CLI dispatch prompt files. Embed spec content inline. External CLIs cannot read local files.
+4. **User Notification MANDATORY**: When ANY CLI fails or is unavailable, **ALWAYS** notify user via summary context.
+5. **CLI Availability Check**: Before dispatching CLI, check if `scripts/dispatch-cli-agent.sh` is executable and at least one CLI binary is in PATH.
+6. **Fallback Behavior**: If CLI unavailable, skip Challenge, EdgeCases, Triangulation, and Evaluation steps — proceed with internal reasoning (see `error-handling.md` → Graceful Degradation).
+7. **OpenCode Requires --model**: OpenCode uses OpenRouter provider routing. Always pass `--model {OPENCODE_MODEL}` from config `cli_dispatch.cli_defaults.opencode.model`.
 
 ---
 

@@ -7,7 +7,7 @@ artifacts_written:
 # Stage 3: Checklist & Validation (Coordinator)
 
 > This stage creates a platform-appropriate checklist and validates the spec against it.
-> Produces a coverage score that drives the iteration loop (Stage 3 <-> Stage 4).
+> Produces a coverage score that drives the iteration loop (Stage 3 <-> Stage 4A/4B).
 
 ## CRITICAL RULES (must follow — failure-prevention)
 
@@ -123,7 +123,7 @@ figma_mock_gaps:
 **If count == 0:** Set `flags.figma_mock_gaps_count: 0` — no action needed.
 
 This check is independent of the checklist coverage score. Figma mock gaps do NOT reduce coverage_pct —
-they are surfaced separately in Stage 4 (see stage-4-clarification.md Step 4.0b).
+they are surfaced separately in Stage 4A (see stage-4a-analysis.md Step 4.0b).
 
 ## Step 3.3c: RTM Coverage Re-Evaluation (Conditional)
 
@@ -213,7 +213,7 @@ Markers in spec: {MARKERS_COUNT} [NEEDS CLARIFICATION] markers.
 
 **next_action logic:**
 - If coverage_pct >= 85% AND gaps_count == 0: `"proceed"` (skip Stage 4 clarification loop)
-- Otherwise: `"loop_clarify"` (dispatch Stage 4)
+- Otherwise: `"loop_clarify"` (dispatch Stage 4A)
 
 ## Self-Verification (MANDATORY before writing summary)
 

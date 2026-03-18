@@ -19,7 +19,7 @@ artifacts_written:
 4. **Gate evaluation**: GREEN = proceed silently, YELLOW/RED = signal `needs-user-input`
 5. **If gates require BA revision**: re-invoke BA then re-run gates (coordinator-internal loop)
 6. **NEVER interact with users directly**: signal `needs-user-input` in summary for orchestrator
-7. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For MPA-Challenge dispatch, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-stage results.
+7. **CLI dispatch**: Follow rules in `cli-dispatch-patterns.md` → CLI Critical Rules
 
 ## Step 2.0: Validate Pre-Conditions
 
@@ -119,41 +119,15 @@ Extract from agent output:
 
 **If enabled AND CLI_AVAILABLE:**
 
-Load execution pattern from: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli-dispatch-patterns.md` → Integration 1: Challenge
+Execute **Integration 1: Challenge** per `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli-dispatch-patterns.md`.
 
-Write prompt files for each CLI at `specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-{cli}.md`.
-Embed spec content inline — do NOT reference file paths.
+**Variables for dispatch:**
+- `FEATURE_DIR`: specs/{FEATURE_DIR}
+- `SPEC_CONTENT`: full spec content (embed inline — see CLI Critical Rules)
+- `OPENCODE_MODEL`: {OPENCODE_MODEL}
+- `TIMEOUT`: 120 seconds
 
-Dispatch 3 CLIs in parallel via Bash:
-- codex (`spec_root_cause`): root cause vs symptoms, logical flaws
-- gemini (`spec_alt_framing`): alternative interpretations, adjacent problems
-- opencode (`spec_assumption_probe`): assumption probing, devil's advocate
-
-```bash
-# Run all 3 in parallel (background processes)
-$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli codex --role spec_root_cause \
-  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-codex.md \
-  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/challenge-codex.md \
-  --timeout 120 &
-
-$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli gemini --role spec_alt_framing \
-  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-gemini.md \
-  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/challenge-gemini.md \
-  --timeout 120 &
-
-$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli opencode --role spec_assumption_probe \
-  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/challenge-opencode.md \
-  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/challenge-opencode.md \
-  --timeout 120 \
-  --model {OPENCODE_MODEL} &
-
-wait  # collect all results
-```
-
-**Synthesize** findings using haiku agent (union_with_dedup strategy).
+**Synthesize** findings using sonnet agent (union_with_dedup strategy).
 
 **Determine risk level:**
 - GREEN: No critical findings, assumptions hold
