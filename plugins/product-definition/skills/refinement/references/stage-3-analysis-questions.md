@@ -132,10 +132,12 @@ Contains: PROBLEM_CONTEXT_TEMPLATE (mandatory for all calls), step content templ
 
 #### Mode Variations
 
-| Mode | Perspectives | Models | Steps/Call | Total Calls |
-|------|-------------|--------|------------|-------------|
-| complete | All 3 | 3 | 3 | 27 (3×3×3) |
-| advanced | COMPETITIVE + RISK | 3 | 3 | 18 (2×3×3) |
+Total calls = P (perspectives) × M (models) × S (steps per call), from `config/requirements-config.yaml` -> `analysis_modes.{mode}`:
+
+| Mode | Perspectives (P) | Models (M) | Steps/Call (S) | Total (P×M×S) |
+|------|-------------------|------------|----------------|---------------|
+| complete | `pal_thinkdeep_perspectives` | `pal_thinkdeep_models` | `pal_thinkdeep_steps_per_call` | P×M×S |
+| advanced | `pal_thinkdeep_perspectives` | `pal_thinkdeep_models` | `pal_thinkdeep_steps_per_call` | P×M×S |
 | standard/rapid | Skip Part A | - | - | 0 |
 
 > **Cost note:** Each perspective×model now uses 3 multi-step calls instead of 1. This improves analysis depth significantly but increases PAL usage. The `thinking_mode: "high"` setting already dominates cost -- the additional steps add context chaining overhead but not additional thinking tokens per step.

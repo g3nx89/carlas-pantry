@@ -15,7 +15,7 @@ artifacts_written:
 ## Critical Rules
 
 1. **Config gate**: Check `retrospective.enabled` in config. If `false`, write minimal summary with `flags.skipped: true` and return immediately.
-2. **Read-only**: This stage MUST NOT modify any artifact written by Stages 1-6. It only reads state, summaries, and config.
+2. **Read-only**: Do not modify any artifact written by Stages 1-6. This stage only reads state, summaries, and config.
 3. **Failure is non-blocking**: If any step fails (transcript extraction, writer dispatch), log the error in the summary and continue. A failed retrospective never blocks workflow completion.
 4. **No user interaction**: This stage never sets `status: needs-user-input`. It completes autonomously.
 

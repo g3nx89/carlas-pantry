@@ -121,7 +121,7 @@ Reference: `config/requirements-config.yaml` -> `research_mcp.tavily`
 
 ## Output Condensation
 
-Auto-research results MUST be condensed into `requirements/research/research-synthesis.md` following the existing template. The output file MUST NOT exceed `config.research_mcp.token_budgets.auto_research_output` tokens (default: 3,000).
+Condense auto-research results into `requirements/research/research-synthesis.md` following the existing template. Keep output under `config.research_mcp.token_budgets.auto_research_output` tokens (default: 3,000).
 
 ### Condensation Structure
 

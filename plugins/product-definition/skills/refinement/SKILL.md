@@ -1,7 +1,7 @@
 ---
 name: feature-refinement
-description: "Transform rough product drafts into finalized PRDs through iterative Q&A. Use when user asks to 'refine requirements', 'generate a PRD', 'create product requirements', 'iterate on PRD', or 'requirements Q&A'."
-version: 3.2.0
+description: "This skill should be used when the user asks to 'refine requirements', 'generate a PRD', 'create product requirements', 'iterate on PRD', 'requirements Q&A', or wants to transform a rough product draft into a finalized PRD through iterative file-based Q&A. Also use when the user has a draft document and needs structured question generation, multi-perspective analysis, or PRD completeness validation."
+version: 3.3.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Task", "mcp__pal__consensus", "mcp__pal__thinkdeep", "mcp__sequential-thinking__sequentialthinking", "mcp__tavily__tavily_search", "mcp__Ref__ref_search_documentation", "mcp__Ref__ref_read_url"]
 ---
 
@@ -81,12 +81,14 @@ Consider user input before proceeding. Mandatory when non-empty.
 
 ## Analysis Modes
 
-| Mode | Panel | ThinkDeep (P x M x S calls) | ST | Consensus | MCP Required |
-|------|-------|------------------------------|-----|-----------|--------------|
-| Complete | Configured (2-5 members) | 3 x 3 x 3 = 27 | Yes | Yes | Yes |
-| Advanced | Configured (2-5 members) | 2 x 3 x 3 = 18 | No | No | Yes |
+| Mode | Panel | ThinkDeep (P×M×S) | ST | Consensus | MCP Required |
+|------|-------|-------------------|-----|-----------|--------------|
+| Complete | Configured (2-5 members) | P×M×S from config | Yes | Yes | Yes |
+| Advanced | Configured (2-5 members) | P×M×S from config | No | No | Yes |
 | Standard | Configured (2-5 members) | 0 | No | No | No |
 | Rapid | Single agent (product-strategist) | 0 | No | No | No |
+
+> **ThinkDeep call formula:** P (perspectives) × M (models) × S (steps per call). Values from `config/requirements-config.yaml` -> `analysis_modes.{mode}`. Default: Complete = 3×3×3 = 27, Advanced = 2×3×3 = 18.
 
 Panel composition is set in Stage 1 via the Panel Builder and persisted in `requirements/.panel-config.local.md`.
 
@@ -142,7 +144,7 @@ Panel composition is set in Stage 1 via the Panel Builder and persisted in `requ
 
 | Stage | Name | Delegation | Reference File | Checkpoint | User Pause? |
 |-------|------|------------|---------------|------------|-------------|
-| 1 | Setup | **Inline** | `references/stage-1-setup.md` | SETUP | No |
+| 1 | Setup | **Inline** | `references/stage-1-routing.md` + `stage-1-init.md` | SETUP | No |
 | 2 | Research | Coordinator | `references/stage-2-research.md` | RESEARCH | Yes (exit_cli) |
 | 3 | Analysis & Questions | Coordinator | `references/stage-3-analysis-questions.md` | ANALYSIS_QUESTIONS | No |
 | 4 | Response & Gaps | Coordinator | `references/stage-4-response-analysis.md` | RESPONSE_ANALYSIS | Yes (exit_cli) |
@@ -160,10 +162,14 @@ The orchestrator manages dispatch, iteration, user pauses, crash recovery, and s
 
 ---
 
-## Stage 1 -- Inline Execution
+## Stage 1 -- Inline Execution (Two-Part)
 
-Execute Stage 1 directly (no coordinator dispatch). Read and follow:
-`@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/stage-1-setup.md`
+Execute Stage 1 directly (no coordinator dispatch):
+
+1. **Routing** (always loaded): `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/stage-1-routing.md`
+   - MCP check, pre-flight, lock, state detection → determines WORKFLOW_MODE
+2. **Initialization** (loaded for NEW/EXTEND only): `@$CLAUDE_PLUGIN_ROOT/skills/refinement/references/stage-1-init.md`
+   - Workspace, mode selection, panel composition, state creation
 
 Write summary to: `requirements/.stage-summaries/stage-1-summary.md`
 
@@ -231,7 +237,8 @@ Key fields: `current_stage` (1-7), `current_round`, `analysis_mode`, `prd_mode`,
 |-----------|---------|-----------|
 | `references/orchestrator-loop.md` | Dispatch loop, variable defaults, quality gates, reflexion, iteration | Start of orchestration |
 | `references/recovery-migration.md` | Crash recovery procedures, v1→v2 state migration | On crash or v1 state detected |
-| `references/stage-1-setup.md` | Inline setup instructions | Stage 1 execution |
+| `references/stage-1-routing.md` | Routing: MCP check, pre-flight, lock, state detection | Stage 1 (always) |
+| `references/stage-1-init.md` | Initialization: workspace, mode, panel, state | Stage 1 (NEW/EXTEND only) |
 | `references/stage-2-research.md` | Research coordinator instructions | Dispatching Stage 2 |
 | `references/stage-3-analysis-questions.md` | Analysis + question generation | Dispatching Stage 3 |
 | `references/stage-4-response-analysis.md` | Response parsing + gaps | Dispatching Stage 4 |

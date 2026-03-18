@@ -25,7 +25,10 @@ FOR each stage in dispatch order [1, 2, 3, 4, 5, 6, 7]:
         SKIP
 
     IF stage == 1:
-        EXECUTE inline (read stage-1-setup.md, execute directly)
+        EXECUTE inline:
+          1. Read and execute stage-1-routing.md (always -- MCP check, pre-flight, lock, state detection)
+          2. IF WORKFLOW_MODE in {NEW, EXTEND}: Read and execute stage-1-init.md (workspace, mode, panel, state)
+          3. IF WORKFLOW_MODE = RESUME: Skip init, hand back to orchestrator dispatch loop
     ELSE IF stage == 3 AND ANALYSIS_MODE in {complete, advanced}:
         ## Stage 3 Sub-Coordinator Split (F-016)
         DISPATCH 3A coordinator (ThinkDeep only -- reads stage-3-analysis-questions.md Part A)

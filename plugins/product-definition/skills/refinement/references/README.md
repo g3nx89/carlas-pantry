@@ -6,7 +6,8 @@
 |------|--------------|
 | `orchestrator-loop.md` | Start of orchestration -- dispatch loop, variable defaults, quality gates, reflexion, iteration logic |
 | `recovery-migration.md` | On crash or v1 state detected -- crash recovery procedures, v1→v2 state migration |
-| `stage-1-setup.md` | Stage 1 inline execution -- init, MCP check, workspace, mode selection |
+| `stage-1-routing.md` | Stage 1 routing (always loaded) -- MCP check, pre-flight, lock, state detection |
+| `stage-1-init.md` | Stage 1 initialization (NEW/EXTEND only) -- workspace, mode selection, panel, state |
 | `stage-2-research.md` | Dispatching Stage 2 -- research agenda generation and synthesis |
 | `stage-3-analysis-questions.md` | Dispatching Stage 3 -- ThinkDeep, section decomposition, MPA agents, question generation |
 | `stage-4-response-analysis.md` | Dispatching Stage 4 -- response parsing, gap analysis, iteration decision |
@@ -31,7 +32,8 @@
 |------|-------|---------|
 | `orchestrator-loop.md` | ~460 | Dispatch loop, variable defaults with precedence, quality gates, reflexion with persistence, compaction + digest template |
 | `recovery-migration.md` | ~65 | Crash recovery procedures, v1→v2 state migration (loaded on-demand) |
-| `stage-1-setup.md` | ~300 | Inline setup: init, workspace, mode selection |
+| `stage-1-routing.md` | ~130 | Routing: MCP check, pre-flight, lock, state detection (always loaded) |
+| `stage-1-init.md` | ~250 | Initialization: workspace, mode, panel, state (NEW/EXTEND only) |
 | `stage-2-research.md` | ~335 | Research coordinator: agenda + auto-research + synthesis |
 | `stage-3-analysis-questions.md` | ~470 | Analysis + decomposition (8 sections) + question generation (largest) |
 | `stage-4-response-analysis.md` | ~243 | Response parsing + gap analysis (consensus via shared pattern) |
@@ -56,7 +58,7 @@
 
 - All stage files reference `checkpoint-protocol.md` for state updates
 - All stage files reference `error-handling.md` for failure recovery
-- `stage-1-setup.md` references `panel-builder-protocol.md` for panel composition (Step 1.8)
+- `stage-1-init.md` references `panel-builder-protocol.md` for panel composition (Step 1.8)
 - `stage-3-analysis-questions.md` references `option-generation-reference.md` for scoring algorithms
 - `stage-3-analysis-questions.md` references `config-reference.md` for ThinkDeep PAL patterns
 - `stage-4-response-analysis.md` references `config-reference.md` for Consensus PAL patterns
@@ -95,7 +97,7 @@
 ### External References
 
 - All files reference `$CLAUDE_PLUGIN_ROOT/config/requirements-config.yaml` for configuration
-- `stage-1-setup.md` references `$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-builder.md` for panel composition
+- `stage-1-init.md` references `$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-builder.md` for panel composition
 - `stage-3-analysis-questions.md` references `$CLAUDE_PLUGIN_ROOT/agents/requirements-panel-member.md` (parametric template dispatched per member)
 - Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/requirements-question-synthesis.md`, `requirements-prd-generator.md`
 - Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/research-discovery-*.md`
@@ -104,7 +106,8 @@
 
 ## Step Numbering Convention
 
-- **Stages 1, 2, 4, 5, 6**: Use flat numbering `Step N.M` (e.g., `Step 4.1`, `Step 4.2`)
+- **Stage 1**: Split into `stage-1-routing.md` (Steps 1.1-1.4, always) and `stage-1-init.md` (Steps 1.5-1.9, NEW/EXTEND only). Flat numbering `Step 1.M`
+- **Stages 2, 4, 5, 6**: Use flat numbering `Step N.M` (e.g., `Step 4.1`, `Step 4.2`)
 - **Stage 3**: Uses sub-part numbering `Step 3A.M` / `Step 3B.M` because the stage has two distinct phases:
   - Part A: ThinkDeep analysis (steps `3A.1`, `3A.2`, `3A.3`)
   - Part B: MPA question generation (steps `3B.1` through `3B.6`)

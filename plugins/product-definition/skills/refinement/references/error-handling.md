@@ -168,14 +168,14 @@ Research MCP failures are **non-blocking** -- research is optional, and auto-res
 
 If the Panel Builder subagent fails (crash, timeout, no output):
 
-1. Notify user: "Panel Builder failed. Falling back to default preset."
-2. Read default preset from `config/requirements-config.yaml` -> `panel.default_preset` (default: `product-focused`)
-3. Build panel config from preset members + `panel.available_perspectives` registry
+1. Notify user: "Panel Builder failed."
+2. Present preset selection via AskUserQuestion (options: Product-focused, Consumer, Marketplace, Enterprise)
+3. Build panel config from user's selected preset + `panel.available_perspectives` registry
 4. Write directly to `requirements/.panel-config.local.md`
-5. Log: `model_failures.append({tool: "panel-builder", stage: 1, error: "...", action_taken: "fallback_to_default_preset"})`
+5. Log: `model_failures.append({tool: "panel-builder", stage: 1, error: "...", action_taken: "fallback_user_selected_preset"})`
 6. Continue to Step 1.9 (State Initialization)
 
-**Key:** Panel Builder failure is **non-blocking** -- the default preset always produces a valid panel.
+**Key:** Panel Builder failure is **non-blocking** -- user selects a preset, which always produces a valid panel. See `stage-1-init.md` Step 1.8 Section 3.1 for the full AskUserQuestion format.
 
 ---
 

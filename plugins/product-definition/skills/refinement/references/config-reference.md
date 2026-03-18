@@ -80,8 +80,8 @@
 | `step_number` | integer | Yes | Current step in multi-step chain |
 | `total_steps` | integer | Yes | ThinkDeep: 3 per chain. Consensus: number of models + 1 (synthesis) |
 | `next_step_required` | boolean | Yes | True until final step |
-| `findings` | string | Yes | Summary of discoveries -- MUST NOT be empty |
-| `relevant_files` | array | No | Context files -- MUST use ABSOLUTE paths |
+| `findings` | string | Yes | Summary of discoveries -- cannot be empty |
+| `relevant_files` | array | No | Context files -- use absolute paths only |
 | `continuation_id` | string | No | Thread ID from previous step -- required on steps 2+ |
 
 ### ThinkDeep-Only Parameters
