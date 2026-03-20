@@ -5,19 +5,19 @@
 | File | Read When... |
 |------|--------------|
 | `orchestrator-loop.md` | Start of orchestration — dispatch loop, variable defaults, iteration logic, quality gates |
-| `recovery-migration.md` | On crash or v2/v3/v4 state detected — crash recovery procedures, v2→v3→v4→v5 state migration |
+| `recovery-migration.md` | On crash or v2/v3/v4/v5 state detected — crash recovery procedures, v2→v3→v4→v5→v6 state migration |
 | `stage-1-setup.md` | Stage 1 inline execution — init, MCP check, workspace, Figma capture |
 | `stage-2-spec-draft.md` | Dispatching Stage 2 — BA spec draft, MPA-Challenge CLI dispatch, incremental gates |
 | `stage-3-checklist.md` | Dispatching Stage 3 — platform detect, checklist creation, BA validation |
 | `stage-4a-analysis.md` | Dispatching Stage 4A (first entry) — RTM disposition, Figma mock gaps, MPA-EdgeCases, auto-resolve, write clarification-questions.md |
 | `stage-4b-resolution.md` | Dispatching Stage 4B (re-entry) — parse answers, MPA-Triangulation, spec update |
 | `stage-5-validation-design.md` | Dispatching Stage 5 — CLI multi-stance evaluation, design-brief, design-supplement (MANDATORY) |
-| `stage-6-test-strategy.md` | Dispatching Stage 6 — V-Model test strategy, AC traceability (optional, feature flag) |
+| `stage-6-test-strategy.md` | Dispatching Stage 6 — V-Model test strategy, AC traceability (optional, profile-controlled) |
 | `stage-7-completion.md` | Dispatching Stage 7 — lock release, completion report, next steps |
 | `checkpoint-protocol.md` | Any checkpoint — state update patterns and immutable decision rules |
 | `error-handling.md` | Any error condition — CLI failures, Figma failures, graceful degradation, recovery |
 | `config-reference.md` | Quick reference — template variables, CLI model mapping, degradation matrix |
-| `cli-dispatch-patterns.md` | Stages 2, 4A, 4B, 5 (CLI dispatch calls) — CLI Critical Rules, parameterized tri-CLI execution, semantic dedup |
+| `cli-dispatch-patterns.md` | Stages 2, 4A, 4B, 5 (CLI dispatch calls) — CLI Critical Rules, parameterized dual-CLI execution via ntm, semantic dedup |
 | `figma-capture-protocol.md` | Stage 1 (Figma enabled) — connection selection, capture process, screenshot naming, error recovery |
 | `clarification-protocol.md` | Stages 4A/4B (clarification dispatch) — file-based Q&A, BA recommendations, answer parsing |
 | `auto-resolve-protocol.md` | Stage 4A (pre-question generation) — auto-resolve gate, classification, citation rules, exclusion rules |
@@ -27,9 +27,9 @@
 
 | File | Lines (approx) | Purpose |
 |------|----------------|---------|
-| `orchestrator-loop.md` | ~490 | Dispatch loop, variable defaults, template rendering, iteration logic (Stage 3↔4A↔4B), quality gates, summary contract schema |
-| `recovery-migration.md` | ~185 | Crash recovery procedures, v2→v3→v4→v5 state migration (loaded on-demand) |
-| `stage-1-setup.md` | ~400 | Inline setup: MCP check, pre-flight, lock, workspace, Figma capture, RTM inventory, state init |
+| `orchestrator-loop.md` | ~540 | Dispatch loop, variable defaults, template rendering, iteration logic (Stage 3↔4A↔4B), quality gates, summary contract schema |
+| `recovery-migration.md` | ~215 | Crash recovery procedures, v2→v3→v4→v5→v6 state migration (loaded on-demand) |
+| `stage-1-setup.md` | ~450 | Inline setup: MCP check, pre-flight, profile selection, lock, workspace, Figma capture, RTM inventory, state init |
 | `stage-2-spec-draft.md` | ~280 | Pre-conditions, BA spec draft, RTM generation, MPA-Challenge (via cli-dispatch-patterns), gate-judge dispatch |
 | `stage-3-checklist.md` | ~228 | Pre-conditions, platform detect, checklist copy, BA validation, coverage scoring, RTM re-evaluation |
 | `stage-4a-analysis.md` | ~260 | Pre-conditions, RTM disposition gate, Figma mock gaps, MPA-EdgeCases (via cli-dispatch-patterns), auto-resolve, write questions |
@@ -39,7 +39,7 @@
 | `stage-7-completion.md` | ~152 | Pre-conditions, lock release, completion report, next steps |
 | `checkpoint-protocol.md` | ~69 | State update patterns, lock stale timeout, RTM disposition examples |
 | `error-handling.md` | ~158 | CLI/Figma/gate/design/QA failures, internal reasoning fallback, graceful degradation |
-| `config-reference.md` | ~50 | Quick reference: template variables, CLI model mapping, degradation matrix |
+| `config-reference.md` | ~55 | Quick reference: template variables, profile summary, CLI model mapping, degradation matrix |
 | `cli-dispatch-patterns.md` | ~430 | CLI Critical Rules, parameterized execution for 4 CLI dispatch points, semantic dedup, least-to-most synthesis |
 | `figma-capture-protocol.md` | ~249 | Figma connection selection, capture process (ReAct), screenshot naming, error handling |
 | `clarification-protocol.md` | ~248 | File-based Q&A format, BA recommendations, answer parsing rules, state tracking |
@@ -56,7 +56,7 @@
 - `stage-4a-analysis.md` references `cli-dispatch-patterns.md` (Integration 2: Edge Cases)
 - `stage-4b-resolution.md` references `cli-dispatch-patterns.md` (Integration 3: Triangulation)
 - `stage-5-validation-design.md` references `cli-dispatch-patterns.md` (Integration 4: Evaluation)
-- Gate thresholds (Stages 2, 3) and test thresholds (Stage 6) are loaded via config YAML in the dispatch template
+- Feature flags, thresholds, and gate settings are resolved from the selected profile in Stage 1 and passed via dispatch context variables
 
 ### Orchestrator → Stage Files
 
@@ -78,13 +78,14 @@
 - `stage-4a-analysis.md` Step 4.0a writes RTM disposition questions to `clarification-questions.md`
 - `stage-4b-resolution.md` Step 4.3 parses RTM disposition answers; Step 4.5 creates new US for PENDING_STORY dispositions
 - `stage-7-completion.md` includes RTM metrics in completion report
-- `recovery-migration.md` defines v4→v5 state migration adding RTM fields
+- `recovery-migration.md` defines v4→v5 state migration adding RTM fields, v5→v6 adding profile
 - `checkpoint-protocol.md` Section 5 includes `rtm_dispositions` example
 - `orchestrator-loop.md` adds `RTM_ENABLED` to variable defaults and RTM quality check after Stage 4B
 
 ### External References
 
-- All files reference `$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml` for configuration
+- Stages 4A/4B reference `$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml` for clarification config
+- Stage 1 references `$CLAUDE_PLUGIN_ROOT/config/specify-profile-definitions.yaml` for profile resolution
 - Stage files reference agents at `$CLAUDE_PLUGIN_ROOT/agents/{agent-name}.md`
 - Stage files reference templates at `$CLAUDE_PLUGIN_ROOT/templates/prompts/`
 - Stage files reference analysis templates at `$CLAUDE_PLUGIN_ROOT/templates/analysis/`

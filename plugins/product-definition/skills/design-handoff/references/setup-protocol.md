@@ -3,7 +3,7 @@ stage: "1"
 description: "Discovery & Inventory — Figma MCP check, page scan, readiness audit, TIER decision"
 agents_dispatched: ["handoff-screen-scanner"]
 artifacts_written: ["design-handoff/.handoff-state.local.md", "design-handoff/.screen-inventory.md", "design-handoff/.handoff-lock"]
-config_keys_used: ["figma.connection", "state.*", "tier.*", "readiness.*", "directories.*", "figma_preparation.scenario_detection.*"]
+config_keys_used: ["figma.connection", "figma.query_depth", "state.*", "tier.*", "readiness.*", "directories.*", "figma_preparation.scenario_detection.*"]
 ---
 
 # Stage 1 — Discovery & Inventory (Inline)
@@ -109,7 +109,8 @@ IF WORKFLOW_MODE = NEW OR no state file:
         - "Batch — file-based Q&A for offline answers"
     MAP selection → mode ID: "guided" | "quick" | "batch"
     INITIALIZE state per state-schema.md Initialization Template (schema_version from config,
-        workflow_mode, current_stage: "1", started_at/last_updated: ISO_NOW)
+        workflow_mode, current_stage: "1", started_at/last_updated: ISO_NOW,
+        artifacts.working_dir: resolved absolute path to {ROOT})
     CHECKPOINT state
 ```
 
@@ -172,6 +173,54 @@ CHECKPOINT state
 
 ---
 
+## Step 1.7b: Query Depth Adequacy Check
+
+`figma.query_depth` controls how many nesting levels the scanner and all downstream agents can see.
+The scanner itself uses `query_depth` when calling `figma_get_file_for_plugin`, so `max_nesting_depth`
+is bounded by the scan depth. When the deepest observed node is AT the scan limit (ceiling hit),
+it is likely that deeper nodes exist but were truncated — elements beyond that depth are invisible
+to gap analysis, naming audit, and token binding, producing silently incomplete results.
+
+```
+READ QUERY_DEPTH from config: figma.query_depth
+
+SET deepest_screen = screen with MAX(max_nesting_depth) across all screens
+SET deepest_value = deepest_screen.max_nesting_depth
+
+IF deepest_value >= QUERY_DEPTH:
+    # Ceiling hit: the scanner reached its depth limit on at least one screen.
+    # This means deeper nodes likely exist but were not returned by the API.
+    SET recommended_depth = QUERY_DEPTH + 2  # +2 provides margin beyond current ceiling
+
+    AskUserQuestion:
+    "⚠ Query depth ceiling hit.
+
+    Current figma.query_depth: {QUERY_DEPTH}
+    Deepest nesting observed: {deepest_value} (screen: '{deepest_screen.name}')
+
+    The scanner reached its depth limit, which means deeper layers may exist
+    but were not scanned. All downstream stages (naming audit, token binding,
+    gap analysis) use the same depth and would also miss these layers. This can cause:
+    - Missing gaps in the supplement
+    - Incomplete naming fixes
+    - Unbound tokens in deep layers
+
+    Recommended: increase figma.query_depth to {recommended_depth} in handoff-config.yaml.
+
+    Options:
+    (A) Continue with current depth ({QUERY_DEPTH}) — accept potentially incomplete deep-layer analysis
+    (B) Pause — I will update the config and re-run"
+
+    IF (A): LOG to Progress Log: "Query depth ceiling hit acknowledged: depth={QUERY_DEPTH}, max_nesting={deepest_value}. User accepted potentially incomplete deep-layer analysis."
+    IF (B): NOTIFY: "Update figma.query_depth to {recommended_depth} in config/handoff-config.yaml, then re-run."
+            DELETE lock. STOP.
+
+ELSE:
+    LOG to Progress Log: "Query depth check: OK (depth={QUERY_DEPTH}, max_nesting={deepest_value})"
+```
+
+---
+
 ## Step 1.8: TIER Decision
 
 Apply the 3-gate Smart Componentization test to scanner's `component_candidates`.
@@ -195,6 +244,7 @@ TIER decision:
 
 UPDATE state: tier_decision = { tier, rationale: "{passing}/{total} passed 3-gate test",
     passing_candidates, total_candidates }
+UPDATE state: effective_tier = tier  # Initialize to match tier_decision.tier; downstream stages read effective_tier
 CHECKPOINT state
 ```
 
@@ -249,6 +299,7 @@ AskUserQuestion: "{table}\n\n{summary}\n\nConfirm to proceed with Stage 2, or ad
 
 IF "Cancel": DELETE lock, STOP.
 IF TIER override: UPDATE tier_decision.tier, rationale = "Designer override"
+                  UPDATE effective_tier = overridden tier value
 
 UPDATE state: current_stage = "2", last_updated = {ISO_NOW}
 APPEND Progress Log: "## Stage 1 Complete\n- {count} screens\n- Scenario: {SCENARIO}\n- TIER: {TIER}\n- Approved: {ISO_NOW}"

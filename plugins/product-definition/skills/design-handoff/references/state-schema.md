@@ -96,33 +96,64 @@ judge_verdicts:
     fix_type: "re_prepare" | null
     cycle: integer
     prior_findings_count: integer | null  # For convergence check
-    findings: [string]
+    findings:                             # Structured findings — orchestrator reads dimension + priority for convergence
+      - dimension: string                 # Rubric dimension name (e.g., "visual_fidelity", "naming_compliance")
+        priority: "P0" | "P1" | "P2"     # P0 = block-eligible, P1 = important, P2 = cleanup
+        severity: "blocking" | "warning"
+        screen: string                    # Screen name, or "cross-screen" for global issues
+        detail: string                    # Specific issue description
+        remediation: string               # What the stage coordinator should do to fix this
+    summary: string | null
   stage_3j:
     verdict: "pass" | "needs_fix" | null
     fix_type: "re_examine" | null
     cycle: integer
     prior_findings_count: integer | null
-    findings: [string]
+    findings:
+      - dimension: string
+        priority: "P0" | "P1" | "P2"
+        severity: "blocking" | "warning"
+        screen: string
+        detail: string
+        remediation: string
+    summary: string | null
   stage_3_5j:
     verdict: "pass" | "needs_fix" | null
     fix_type: "re_prepare" | null
     cycle: integer
     prior_findings_count: integer | null
-    findings: [string]
+    findings:
+      - dimension: string
+        priority: "P0" | "P1" | "P2"
+        severity: "blocking" | "warning"
+        screen: string
+        detail: string
+        remediation: string
+    summary: string | null
   stage_5j:
     verdict: "pass" | "needs_fix" | null
     fix_type: "re_assemble" | null
     cycle: integer
     prior_findings_count: integer | null
-    findings: [string]
+    findings:
+      - dimension: string
+        priority: "P0" | "P1" | "P2"
+        severity: "blocking" | "warning"
+        screen: string
+        detail: string
+        remediation: string
+    summary: string | null
 
 # ─── Artifacts Written ─────────────────────────────────────────
 
 artifacts:
-  handoff_manifest: string | null      # Path when written
+  working_dir: string | null             # Resolved absolute path to design-handoff/ directory
+  handoff_manifest: string | null        # Path when written
   gap_report: string | null
   handoff_supplement: string | null
   operation_journal: string | null
+  figma_screen_briefs_dir: string | null # Path to figma-screen-briefs/ directory (from config directories.figma_screen_briefs)
+  figma_screen_briefs_count: integer     # Number of FSB files generated
 
 ---
 ```
@@ -184,11 +215,11 @@ component_library: { status: "pending", components: [] }
 missing_screens: []
 patterns: { shared_behaviors: [], common_transitions: [], global_edge_cases: [] }
 judge_verdicts:
-  stage_2j: { verdict: null, fix_type: null, cycle: 0, prior_findings_count: null, findings: [] }
-  stage_3j: { verdict: null, fix_type: null, cycle: 0, prior_findings_count: null, findings: [] }
-  stage_3_5j: { verdict: null, fix_type: null, cycle: 0, prior_findings_count: null, findings: [] }
-  stage_5j: { verdict: null, fix_type: null, cycle: 0, prior_findings_count: null, findings: [] }
-artifacts: { handoff_manifest: null, gap_report: null, handoff_supplement: null }
+  stage_2j: { verdict: null, fix_type: null, cycle: 0, prior_findings_count: null, findings: [], summary: null }
+  stage_3j: { verdict: null, fix_type: null, cycle: 0, prior_findings_count: null, findings: [], summary: null }
+  stage_3_5j: { verdict: null, fix_type: null, cycle: 0, prior_findings_count: null, findings: [], summary: null }
+  stage_5j: { verdict: null, fix_type: null, cycle: 0, prior_findings_count: null, findings: [], summary: null }
+artifacts: { working_dir: null, handoff_manifest: null, gap_report: null, handoff_supplement: null, operation_journal: null, figma_screen_briefs_dir: null, figma_screen_briefs_count: 0 }
 ---
 
 ## Progress Log

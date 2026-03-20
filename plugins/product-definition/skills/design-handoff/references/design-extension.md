@@ -110,7 +110,7 @@ For each item with `designer_decision = "create_in_figma"`, dispatch `handoff-fi
 | `{REFERENCE_SCREEN_NODE_ID}` | From FSB file `Context.Reference_screen` field (extract nodeId in parentheses). **Fallback when FSB absent**: use reference screen selection logic at bottom of this step. | `"42:1337"` |
 | `{REQUIRED_ELEMENTS}` | Derived from FSB file `Content` table (Element column) + `Behaviors` table (Interaction column). **Fallback when FSB absent**: derive from `missing_screens[i].reason` + screen type classification. | `["header", "emailInput", "submitButton", "backLink"]` |
 | `{SCENARIO}` | Literal — extend mode does not use preparation scenarios | `"extend"` |
-| `{TIER}` | From state file `tier_decision.tier` | `2` |
+| `{TIER}` | From state file `effective_tier` (reflects runtime downgrades; always use this, not `tier_decision.tier`) | `2` |
 | `{STATE_FILE_PATH}` | From state file path | `"design-handoff/.handoff-state.local.md"` |
 | `{WORKING_DIR}` | From working directory | `"design-handoff/"` |
 | `{COMPONENT_LIBRARY_NODE_ID}` | From state file `component_library` (TIER 2/3 only) | `"0:42"` |

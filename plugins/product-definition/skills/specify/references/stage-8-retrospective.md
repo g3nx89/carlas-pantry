@@ -14,7 +14,7 @@ artifacts_written:
 
 ## Critical Rules
 
-1. **Config gate**: Check `retrospective.enabled` in config. If `false`, write minimal summary with `flags.skipped: true` and return immediately.
+1. **Config gate**: Check `RETROSPECTIVE_ENABLED` (from dispatch context, resolved in Stage 1 from profile). If `false`, write minimal summary with `flags.skipped: true` and return immediately.
 2. **Read-only**: This stage MUST NOT modify any artifact written by Stages 1-7. It only reads state, summaries, and config.
 3. **Failure is non-blocking**: If any step fails (transcript extraction, writer dispatch), log the error in the summary and continue. A failed retrospective never blocks workflow completion.
 4. **No user interaction**: This stage never sets `status: needs-user-input`. It completes autonomously.
@@ -24,13 +24,13 @@ artifacts_written:
 ## Step 8.1: Config Gate
 
 ```
-READ config -> retrospective.enabled
+CHECK RETROSPECTIVE_ENABLED (from dispatch context)
 IF NOT enabled:
     WRITE summary with:
         status: completed
         flags:
           skipped: true
-          skip_reason: "retrospective.enabled = false"
+          skip_reason: "RETROSPECTIVE_ENABLED = false (profile setting)"
     RETURN
 ```
 
@@ -45,7 +45,7 @@ Compute 10 specify-specific KPIs from state file and stage summaries. Write to `
 | ID | KPI | Source | Green | Yellow | Red |
 |----|-----|--------|-------|--------|-----|
 | S1 | Clarification Loops | Stage 4 iteration count from state | 0-1 | 2 | 3+ |
-| S2 | Checklist Coverage | Stage 3 summary `flags.coverage_pct` | >= 85% | >= 60% | < 60% |
+| S2 | Checklist Coverage | Stage 3 summary `flags.coverage_pct` | >= COVERAGE_TARGET | >= 60% | < 60% |
 | S3 | CLI Validation Score | Stage 5 summary `flags.cli_score` | >= 16 | >= 12 | < 12 |
 | S4 | RTM Coverage | `state.rtm_enabled` + Stage 3 disposition % | 100% mapped | >= 80% | < 80% |
 | S5 | Figma Integration | `state.mcp_availability.figma_mcp_available` + screenshot count | > 0 captured | Info | Info |
@@ -107,12 +107,10 @@ Write the report card to: `specs/{FEATURE_DIR}/.specify-report-card.local.md`
 ## Step 8.3: Transcript Extraction (Conditional)
 
 ```
-READ config -> retrospective.transcript_analysis.enabled
-IF NOT enabled:
-    SET transcript_data = null
-    SKIP to Step 8.4
+## Transcript analysis is always enabled when retrospective runs.
+## transcript_dir auto-detects from ~/.claude/projects/.
 
-READ config -> retrospective.transcript_analysis.transcript_dir
+SET transcript_dir = null  # auto-detect
 IF transcript_dir is null:
     AUTO-DETECT: search ~/.claude/projects/ for the JSONL matching this session
     IF not found: SET transcript_data = null, SKIP to Step 8.4
@@ -122,12 +120,12 @@ DISPATCH throwaway subagent:
     Extract session behavior data from the transcript JSONL.
 
     Transcript path: {TRANSCRIPT_PATH}
-    Token budget: {config.retrospective.transcript_analysis.extract_token_budget}
+    Token budget: 3000
 
     Extract:
     1. Tool usage counts (tool name → call count)
-    2. Errors (up to {max_errors_extracted}): timestamp, tool, error message, resolution
-    3. File heatmap (up to {max_file_paths_extracted}): file path → read count, write count
+    2. Errors (up to 20): timestamp, tool, error message, resolution
+    3. File heatmap (up to 50): file path → read count, write count
 
     Filter to only entries between workflow start ({state.started_at}) and completion ({stage_7_summary.timestamp}).
 
@@ -162,8 +160,8 @@ COLLECT stage summaries:
 READ report card: specs/{FEATURE_DIR}/.specify-report-card.local.md
 SET REPORT_CARD_DATA = file contents
 
-READ config -> retrospective.sections
-SET SECTIONS_CONFIG = sections block as YAML
+## All sections are always enabled (invariant — never individually toggled).
+SET SECTIONS_CONFIG = "timeline: true\nwhat_worked: true\nwhat_didnt_work: true\nstage_breakdown: true\ntool_analysis: true\nrecommendations: true\nraw_metrics: true"
 
 DISPATCH definition-retrospective-writer:
     Task(subagent_type="general-purpose", prompt="""

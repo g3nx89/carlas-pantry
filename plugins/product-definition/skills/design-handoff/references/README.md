@@ -9,19 +9,19 @@
 
 | File | Stage | Lines | Purpose | Load When |
 |------|-------|-------|---------|-----------|
-| `setup-protocol.md` | 1 | 271 | Discovery, inventory, readiness audit, TIER decision | Stage 1 execution (inline) |
+| `setup-protocol.md` | 1 | 322 | Discovery, inventory, readiness audit, query depth check, TIER decision | Stage 1 execution (inline) |
 | `figma-preparation.md` | 2 | 556 | Per-screen Figma prep dispatch, visual diff, circuit breaker | Stage 2 orchestrator loop |
 | `gap-analysis.md` | 3 | 454 | Gap detection + missing screen detection, figma-console | Stage 3 dispatch |
 | `design-extension.md` | 3.5 | 314 | Missing screen creation, designer decision flow | Stage 3.5 (conditional) |
 | `designer-dialog.md` | 4 | 295 | Focused Q&A about gaps, cross-screen confirmation | Stage 4 orchestrator loop |
-| `output-assembly.md` | 5 | 238 | Supplement + manifest generation from templates | Stage 5 execution (inline) |
+| `output-assembly.md` | 5 | 228 | Supplement + manifest generation from templates | Stage 5 execution (inline) |
 | `judge-protocol.md` | 2J,3J,3.5J,5J | 251 | Shared judge dispatch, 4 checkpoint rubrics, model selection | Every judge checkpoint |
-| `state-schema.md` | All | 271 | YAML state schema, init template, resume protocol | State creation, crash recovery |
+| `state-schema.md` | All | 314 | YAML state schema, init template, resume protocol | State creation, crash recovery |
 | `gap-category-examples.md` | 3 (agent) | 85 | Gap category calibration examples (6 tables) | Agent dispatch only (never coordinator) |
 | `retrospective-protocol.md` | RETRO | 243 | KPI report card, transcript extraction, retrospective narrative | RETRO stage dispatch |
-| `README.md` | — | 66 | This file — reference index | Orientation |
+| `README.md` | — | 70 | This file — reference index | Orientation |
 
-**Total:** ~3045 lines across 11 reference files
+**Total:** ~3132 lines across 11 reference files
 
 ---
 

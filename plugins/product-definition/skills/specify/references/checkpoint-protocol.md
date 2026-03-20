@@ -24,7 +24,7 @@ stages:
 last_activity: "{ISO_TIMESTAMP}"
 ```
 
-**Lock Stale Timeout:** Locks older than `limits.lock_stale_timeout_minutes` (default: 60 minutes) in config are considered stale and auto-removed during Stage 1 pre-flight. This prevents abandoned sessions from blocking future invocations.
+**Lock Stale Timeout:** Locks older than 60 minutes are considered stale and auto-removed during Stage 1 pre-flight. This prevents abandoned sessions from blocking future invocations.
 
 ## 3. Append to Workflow Log
 

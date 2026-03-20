@@ -8,11 +8,11 @@ artifacts_written:
 
 > This stage generates a test strategy focused on risk assessment, testability verification,
 > and test level guidance. Individual test definitions are deferred to the planning phase.
-> Entirely optional — controlled by `feature_flags.enable_test_strategy`.
+> Entirely optional — controlled by `TEST_STRATEGY_ENABLED` (from profile, resolved in Stage 1).
 
 ## CRITICAL RULES (must follow — failure-prevention)
 
-1. **Feature flag check**: Skip entirely if `enable_test_strategy == false`
+1. **Feature flag check**: Skip entirely if `TEST_STRATEGY_ENABLED == false`
 2. **Required inputs**: `spec.md` AND `design-brief.md` MUST exist
 3. **Testability verification**: Every AC must be checked — flag non-testable ACs
 4. **No individual test IDs**: Define test categories and levels, not individual tests
@@ -21,7 +21,7 @@ artifacts_written:
 
 ## Step 6.1: Check Feature Flag
 
-Read `feature_flags.enable_test_strategy` from config.
+Check `TEST_STRATEGY_ENABLED` (from dispatch context, resolved in Stage 1 from profile).
 
 **If disabled:**
 Write skip summary and return:

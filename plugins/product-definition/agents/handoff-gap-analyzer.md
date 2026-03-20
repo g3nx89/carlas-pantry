@@ -247,6 +247,7 @@ status: completed | error
 total_screens_analyzed: {N}
 screens_with_gaps: {N}
 screens_no_supplement_needed: {N}
+screens_skipped: {N}                  # Screens with status "blocked" — excluded from analysis
 total_gaps: {N}
 gap_breakdown:
   critical: {N}
@@ -256,6 +257,7 @@ missing_items:
   must_create: {N}
   should_create: {N}
   optional: {N}
+cross_screen_patterns: {N}
 error_reason: null
 ---
 ## Section 1: Per-Screen Gaps

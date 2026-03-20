@@ -19,7 +19,7 @@
 
 ## Configuration Reference
 
-**Load from:** `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
+**Load from:** `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml` (clarification section)
 
 | Setting | Config Path | Default |
 |---------|-------------|---------|

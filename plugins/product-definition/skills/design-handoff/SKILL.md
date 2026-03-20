@@ -50,7 +50,7 @@ Prepare Figma designs for coding agent consumption via two tracks:
 $ARGUMENTS
 ```
 
-**Supported flags:**
+**Supported flags (mutually exclusive — if both `--quick` and `--batch` are passed, use `--quick` and ignore `--batch`):**
 - `--quick` — Quick mode: single screen, no Figma preparation, gap analysis + dialog only
 - `--batch` — Batch mode: file-based Q&A, no interactive dialog
 - No flag — Guided mode (default): full preparation + interactive per-screen dialog

@@ -183,3 +183,35 @@ IF state.schema_version == 4:
 - Migration is triggered automatically when orchestrator detects `schema_version: 4`
 - `user_decisions.rtm_dispositions` follows the same immutable pattern as `user_decisions.clarifications`
 - The `rtm_enabled: null` state means "not yet decided" — user is prompted during Stage 1
+
+---
+
+## State Migration (v5 to v6)
+
+v6 adds profile-based configuration. This is an **additive migration** —
+the `profile` field defaults to `"standard"` which preserves v5 all-features-on behavior.
+
+### New Fields
+
+```
+profile: "standard"                      # NEW — rapid | standard | thorough
+user_decisions.profile: "standard"       # NEW — immutable profile decision
+```
+
+### Migration Procedure
+
+```
+IF state.schema_version == 5:
+    SET schema_version: 6
+    ADD profile: "standard"
+    ADD user_decisions.profile: "standard"
+    PRESERVE all existing fields unchanged
+    WRITE updated state file
+```
+
+### Compatibility Notes
+
+- v5 state files work without migration — missing `profile` field defaults to "standard"
+- Migration is triggered automatically when orchestrator detects `schema_version: 5`
+- The "standard" default preserves existing all-features-on behavior
+- `user_decisions.profile` is immutable once set — profile cannot be changed mid-workflow

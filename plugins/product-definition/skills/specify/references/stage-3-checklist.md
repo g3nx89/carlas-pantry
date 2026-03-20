@@ -12,7 +12,7 @@ artifacts_written:
 ## CRITICAL RULES (must follow — failure-prevention)
 
 1. **Platform detection**: Auto-detect from Figma context or prior specs; ask user only if ambiguous
-2. **Coverage thresholds**: GREEN >= 85%, YELLOW 60-84%, RED < 60%
+2. **Coverage thresholds**: GREEN >= COVERAGE_TARGET (from Stage 1 summary), RED < 60%
 3. **BA marks gaps**: Add `[NEEDS CLARIFICATION]` markers in spec for unresolved items
 4. **NEVER interact with users directly**: signal `needs-user-input` for platform choice if ambiguous
 5. **Checklist template source**: Use `$CLAUDE_PLUGIN_ROOT/templates/spec-checklist-mobile.md` for mobile, `$CLAUDE_PLUGIN_ROOT/templates/spec-checklist.md` for generic
@@ -159,7 +159,7 @@ Parse BA validation output:
 - `markers_added`: count of `[NEEDS CLARIFICATION]` markers
 
 **Apply thresholds:**
-- coverage_pct >= 85%: GREEN — coverage is high
+- coverage_pct >= COVERAGE_TARGET (from dispatch context): GREEN — coverage is high
 - coverage_pct >= 60%: YELLOW — moderate coverage, needs clarification
 - coverage_pct < 60%: RED — low coverage, significant gaps
 
@@ -212,7 +212,7 @@ Markers in spec: {MARKERS_COUNT} [NEEDS CLARIFICATION] markers.
 ```
 
 **next_action logic:**
-- If coverage_pct >= 85% AND gaps_count == 0: `"proceed"` (skip Stage 4 clarification loop)
+- If coverage_pct >= COVERAGE_TARGET AND gaps_count == 0: `"proceed"` (skip Stage 4 clarification loop)
 - Otherwise: `"loop_clarify"` (dispatch Stage 4A)
 
 ## Self-Verification (MANDATORY before writing summary)

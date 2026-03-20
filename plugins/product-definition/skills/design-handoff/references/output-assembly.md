@@ -200,7 +200,7 @@ Present to designer (direct output, not AskUserQuestion):
 4. Figma file remains the visual source of truth
 ```
 
-Update `STATE.current_stage: "5"`. Append to Progress Log. Checkpoint.
+Append to Progress Log. Checkpoint. Do NOT regress `current_stage` — it remains `"5:supplement_written"` from Step 5.5 until Stage 5J dispatch sets it to `"5J"`.
 
 ---
 
@@ -219,26 +219,7 @@ On `needs_fix` (fix_type: `re_assemble`): re-run only affected Step 5.x, re-judg
 
 ## Completion Protocol
 
-After Stage 5J passes, finalize the workflow:
-
-```
-1. DELETE lock file: design-handoff/.handoff-lock
-2. SET STATE.last_updated = NOW()
-3. APPEND to Progress Log: "## Lock Released\n- Released: {ISO_NOW}\n- Artifacts: HANDOFF-SUPPLEMENT.md, handoff-manifest.md"
-4. Recompute checksum and WRITE state file (atomic: write .tmp then rename)
-
-5. READ config -> retrospective.enabled
-   IF retrospective.enabled:
-       SET STATE.current_stage = "retrospective"
-       WRITE state file (atomic)
-       DISPATCH coordinator with references/retrospective-protocol.md
-       (Coordinator sets current_stage = "complete" upon completion)
-   ELSE:
-       SET STATE.current_stage = "complete"
-       WRITE state file (atomic)
-```
-
-On re-invocation with `current_stage == "complete"`: notify designer "Handoff already complete" and STOP. No stages dispatch.
+After Stage 5J passes, execute the **Completion Protocol** defined in `references/state-schema.md` (canonical source). That protocol handles lock release, retrospective dispatch (if enabled), and terminal `"complete"` state transition.
 
 ---
 
