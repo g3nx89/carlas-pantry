@@ -10,7 +10,7 @@ artifacts_written:
 
 # Stage 4A: Analysis & Question Generation (Coordinator — First Entry)
 
-> This stage discovers edge cases via tri-CLI dispatch, resolves RTM dispositions,
+> This stage discovers edge cases via dual-CLI dispatch (ntm), resolves RTM dispositions,
 > generates all clarification questions (with auto-resolve filtering), and writes them
 > to a file for offline user editing. Ends with a file-based pause.
 >
@@ -21,7 +21,7 @@ artifacts_written:
 1. **No question limits**: Generate ALL questions needed — no artificial caps
 2. **Never re-ask**: Questions from `user_decisions.clarifications` are IMMUTABLE — check before generating
 3. **File-based clarification**: Write ALL questions to `clarification-questions.md` — NO AskUserQuestion calls for clarification
-4. **Edge case severity boost**: 2+ models agree = MEDIUM->HIGH, 3/3 = HIGH->CRITICAL
+4. **Edge case severity boost**: Both models agree = MEDIUM->HIGH
 5. **CRITICAL/HIGH edge cases**: Auto-inject as clarification questions
 6. **NEVER interact with users directly**: Return `status: needs-user-input, pause_type: file_based` after writing question file. **Exception:** Step 4.0b (Figma mock gaps) and Step 4.0a (RTM dispositions) use `pause_type: interactive` since they are decision gates, not clarification batches.
 7. **CLI dispatch**: Follow rules in `cli-dispatch-patterns.md` → CLI Critical Rules
@@ -157,7 +157,7 @@ Q&A pattern. They are processed during the normal answer parsing flow (Stage 4B 
 
 ## Step 4.1: MPA-EdgeCases CLI Dispatch (Optional)
 
-**Check:** `cli_dispatch.integrations.edge_cases.enabled` in config AND CLI_AVAILABLE
+**Check:** `CLI_EDGE_CASES_ENABLED` (from Stage 1 summary, profile-resolved)
 
 **If enabled:**
 
@@ -167,7 +167,6 @@ Execute **Integration 2: Edge Cases** per `@$CLAUDE_PLUGIN_ROOT/skills/specify/r
 - `FEATURE_DIR`: specs/{FEATURE_DIR}
 - `SPEC_CONTENT`: spec.md content (or structured summary if > 4000 words)
 - `GAPS_FROM_STAGE_3`: checklist gap list from Stage 3 summary
-- `OPENCODE_MODEL`: {OPENCODE_MODEL}
 - `TIMEOUT`: 150 seconds
 
 **Synthesize** with severity boost per the decision table in `cli-dispatch-patterns.md`.

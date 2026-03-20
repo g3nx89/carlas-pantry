@@ -37,7 +37,7 @@ test -f "specs/{FEATURE_DIR}/spec.md" || echo "BLOCKER: spec.md missing"
 READ specs/{FEATURE_DIR}/spec.md
 COUNT words in spec content
 
-IF word_count <= 4000 (from cli_dispatch.integrations.evaluation inline_word_limit):
+IF word_count <= 4000 (hardcoded inline word limit):
     SET eval_content = full spec content
 ELSE:
     GENERATE structured summary:
@@ -54,7 +54,7 @@ ELSE:
 
 ## Step 5.1: CLI Evaluation (Optional)
 
-**Check:** `feature_flags.enable_cli_validation` in config AND CLI_AVAILABLE
+**Check:** `CLI_EVALUATION_ENABLED` (from Stage 1 summary, profile-resolved)
 
 **If enabled:**
 
@@ -63,13 +63,12 @@ Execute **Integration 4: Evaluation** per `@$CLAUDE_PLUGIN_ROOT/skills/specify/r
 **Variables for dispatch:**
 - `FEATURE_DIR`: specs/{FEATURE_DIR}
 - `SPEC_CONTENT`: `eval_content` from Step 5.0b (embed inline — see CLI Critical Rules)
-- `OPENCODE_MODEL`: {OPENCODE_MODEL}
 - `TIMEOUT`: 120 seconds
 - `EXPECTED_FIELDS`: "score,dimension,decision"
 
-All 3 CLI evaluations run in parallel. The Least-to-Most synthesis protocol (reading shortest output first) prevents anchoring bias during synthesis.
+Both CLI evaluations run in parallel via ntm. The Least-to-Most synthesis protocol (reading shortest output first) prevents anchoring bias during synthesis.
 
-**If disabled OR CLI_AVAILABLE = false:** Skip to Step 5.5 (design artifacts).
+**If disabled:** Skip to Step 5.5 (design artifacts).
 
 ## Step 5.1b: Validate CLI Responses
 
@@ -118,7 +117,7 @@ Aggregate score = average across substantive responses per dimension.
 
 ## Step 5.3: Handle REJECTED (Coordinator-Internal Loop)
 
-**Max 2 retries** (from `limits.cli_rejection_retries_max`):
+**Max 2 retries** (hardcoded):
 
 ```
 FOR retry IN 1..2:

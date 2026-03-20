@@ -115,16 +115,15 @@ Extract from agent output:
 
 ## Step 2.4: MPA-Challenge CLI Dispatch
 
-**Check:** `cli_dispatch.integrations.challenge.enabled` in config
+**Check:** `CLI_CHALLENGE_ENABLED` (from Stage 1 summary, profile-resolved)
 
-**If enabled AND CLI_AVAILABLE:**
+**If enabled:**
 
 Execute **Integration 1: Challenge** per `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli-dispatch-patterns.md`.
 
 **Variables for dispatch:**
 - `FEATURE_DIR`: specs/{FEATURE_DIR}
 - `SPEC_CONTENT`: full spec content (embed inline — see CLI Critical Rules)
-- `OPENCODE_MODEL`: {OPENCODE_MODEL}
 - `TIMEOUT`: 120 seconds
 
 **Synthesize** findings using sonnet agent (union_with_dedup strategy).
@@ -160,11 +159,11 @@ flags:
 
 Write report: `specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md`
 
-**If disabled OR CLI_AVAILABLE = false:** Skip, proceed to Step 2.5.
+**If disabled:** Skip, proceed to Step 2.5.
 
 ## Step 2.5: Gate 1 — Problem Quality
 
-**Check:** `feature_flags.enable_incremental_gates` in config
+**Check:** `INCREMENTAL_GATES_ENABLED` (from Stage 1 summary, profile-resolved)
 
 **If enabled:**
 

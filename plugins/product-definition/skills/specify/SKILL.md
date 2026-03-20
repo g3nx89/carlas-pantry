@@ -1,13 +1,13 @@
 ---
 name: feature-specify
 description: Creates or updates detailed feature specifications through guided multi-stage analysis. Use whenever the user wants to specify a feature, create a spec, write requirements, document a feature, define acceptance criteria, spec out an idea, or turn a rough description into a structured specification — even if they don't use the word "spec". Also trigger when the user says "write spec for", "feature requirements for", "create specification", "define feature", "spec my idea", or describes a feature and asks to formalize it. Includes Figma design integration, multi-model quality validation, iterative file-based Q&A for completeness, and optional test strategy generation.
-version: 1.4.0
+version: 1.5.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Bash(command:*)", "Bash(wait:*)", "Task", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
 ---
 
 # Feature Specify Skill — Lean Orchestrator
 
-Guided feature specification with codebase understanding, Figma integration, CLI multi-stance validation (Codex/Gemini/OpenCode), and V-Model test strategy generation.
+Guided feature specification with codebase understanding, Figma integration, CLI dual-stance validation (Codex/Gemini) via ntm, and V-Model test strategy generation.
 
 **This workflow is resumable and resilient.** Progress is preserved in state files. User decisions are NEVER lost.
 
@@ -27,11 +27,11 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 1. **State Preservation**: ALWAYS checkpoint after user decisions via state file update. User decisions under `user_decisions` are IMMUTABLE — NEVER re-ask.
 2. **Delegation Pattern**: Complex analysis → specialized agents (BA: `business-analyst`, design: `design-brief-generator` + `gap-analyzer`, QA: `qa-strategist`). Load templates ONLY when stage reached.
 3. **File-Based Clarification**: All clarification questions written to `clarification-questions.md` for offline editing — NO AskUserQuestion for clarification batches. First option MUST be "(Recommended)" with rationale.
-4. **Lock Protocol**: Acquire lock at start, release at completion. Config: `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`.
+4. **Lock Protocol**: Acquire lock at start, release at completion. User config: `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`. Profile definitions: `@$CLAUDE_PLUGIN_ROOT/config/specify-profile-definitions.yaml`.
 5. **Design Artifacts MANDATORY**: `design-brief.md` AND `design-supplement.md` MUST be generated for EVERY specification. NEVER skip either.
 6. **No Artificial Limits**: There is NO maximum on clarification questions, user stories, acceptance criteria, NFRs, or iteration loops — capture ALL requirements, continue until COMPLETE.
 7. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion.
-8. **Stage 1 runs inline** — all other stages are coordinator-delegated. Iteration loop (Stage 3 <-> Stage 4A/4B) is owned by orchestrator until coverage >= 85% or user forces proceed.
+8. **Stage 1 runs inline** — all other stages are coordinator-delegated. Iteration loop (Stage 3 <-> Stage 4A/4B) is owned by orchestrator until coverage >= COVERAGE_TARGET (from profile) or user forces proceed.
 9. **Quality gates**: Orchestrator checks after Stages 2, 4, and 5 — non-blocking, notify user of issues. Summary max 500 chars YAML, 1000 chars Context body.
 10. **CLI dispatch rules**: See `cli-dispatch-patterns.md` → CLI Critical Rules for dispatch-specific rules (minimum responses, no substitution, inline content, graceful degradation).
 
@@ -39,7 +39,10 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 
 ## Configuration Reference
 
-All limits, thresholds, and feature flags: `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`
+- **User config** (clarification, CLI paths): `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml` (~35 lines)
+- **Profile definitions** (features, thresholds, CLI integrations): `@$CLAUDE_PLUGIN_ROOT/config/specify-profile-definitions.yaml` (~130 lines)
+- **Profile selection**: `profile` in user config, or interactive prompt at Stage 1 Step 1.2b
+- **3 profiles**: `rapid` (fast, no CLI/gates/test/retro), `standard` (recommended, all features), `thorough` (max rigor, 90% coverage, 1.5x timeouts)
 
 ---
 
@@ -84,7 +87,7 @@ Consider user input before proceeding (if non-empty).
 +-------------------------------------------+  |  update spec.md      |
                                                +-------+--------------+
                                                        |
-                               (loop if coverage < 85% via Stage 3)
+                               (loop if coverage < COVERAGE_TARGET via Stage 3)
                                                        |
 +------------------------------------------------------v-----------+
 |  Stage 5 (Coordinator): CLI VALIDATION & DESIGN                   |
@@ -157,21 +160,22 @@ Write summary to: `specs/{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`
 ## State Management
 
 **State file:** `specs/{FEATURE_DIR}/.specify-state.local.md`
-**Schema version:** 5 (stage-based, file-based clarification, RTM tracking)
+**Schema version:** 6 (stage-based, file-based clarification, RTM tracking, profile-based config)
 **Lock file:** `specs/{FEATURE_DIR}/.specify.lock`
 **Summaries:** `specs/{FEATURE_DIR}/.stage-summaries/`
 
 State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE.
 
 **Top-level fields:**
-- `schema_version`: 5
+- `schema_version`: 6
+- `profile`: `"rapid" | "standard" | "thorough"`
 - `current_stage`: 1-8
 - `feature_id`: "{NUMBER}-{SHORT_NAME}"
 - `feature_name`: "{FEATURE_NAME}"
 - `rtm_enabled`: `true | false | null` (null = not yet decided)
 - `requirements_inventory`: `{file_path, count, confirmed}`
-- `mcp_availability`: `{cli_available: bool, codex_available: bool, gemini_available: bool, opencode_available: bool, st_available: bool, figma_mcp_available: bool}`
-- `user_decisions`: immutable decision log (includes `rtm_enabled`, `rtm_dispositions[]`)
+- `mcp_availability`: `{ntm_available: bool, cli_available: bool, codex_available: bool, gemini_available: bool, st_available: bool, figma_mcp_available: bool}`
+- `user_decisions`: immutable decision log (includes `profile`, `rtm_enabled`, `rtm_dispositions[]`)
 - `model_failures`: array of `{model, stage, operation, error, timestamp, action_taken}`
 
 ---
@@ -237,7 +241,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 
 Rules 1-10 above MUST be followed. Key reminders:
 - Coordinators NEVER talk to users directly (rule 7)
-- Orchestrator owns the iteration loop: Stage 3 → Stage 4A → pause → Stage 4B → Stage 3 (rule 8)
+- Orchestrator owns the iteration loop: Stage 3 → Stage 4A → pause → Stage 4B → Stage 3 until COVERAGE_TARGET (rule 8)
 - Stage 1 is inline, all others coordinator-delegated (rule 8)
 - State file user_decisions are IMMUTABLE (rule 1)
 - No artificial limits on questions/stories/iterations (rule 6)

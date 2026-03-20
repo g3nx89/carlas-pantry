@@ -1,17 +1,17 @@
 # CLI Dispatch Patterns
 
-> Parameterized execution patterns for tri-CLI dispatch integration points in the Feature Specify workflow.
+> Parameterized execution patterns for dual-CLI parallel dispatch via ntm (Named Tmux Manager).
 > Referenced by Stage 2 (Challenge), Stage 4A (EdgeCases), Stage 4B (Triangulation), Stage 5 (Evaluation).
 >
-> Replaces: `thinkdeep-patterns.md` (PAL MCP ThinkDeep).
-> Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh`
-> Config: `$CLAUDE_PLUGIN_ROOT/config/cli_dispatch` in `specify-config.yaml`
+> Replaces: `dispatch-cli-agent.sh` (synchronous one-shot Bash dispatch).
+> Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh`
+> Config: CLI integration definitions and operational constants in `$CLAUDE_PLUGIN_ROOT/config/specify-profile-definitions.yaml`
 
-> **ANTI-PATTERN — DO NOT USE `ask` FOR CLI DISPATCH:**
-> The `ask` command (CCB async dispatch from CLAUDE.md) must NEVER be used for multi-model
-> analysis in the specify workflow. The async queue has no stage/integration scoping — calling
-> `ask codex` in Stage 4 may return stale results from a Stage 2 dispatch. ALWAYS use
-> `dispatch-cli-agent.sh` which is synchronous and writes results to dedicated output files.
+> **ANTI-PATTERN — DO NOT USE `ask` OR DIRECT CLI INVOCATION:**
+> The `ask` command (CCB async dispatch) has no stage/integration scoping — stale results
+> from a previous stage may be returned. Direct CLI invocation via `Bash()` bypasses
+> ntm session management (no parallel execution, no output capture, no metrics).
+> ALWAYS use `dispatch-via-ntm.sh` which manages the full ntm lifecycle.
 
 ---
 
@@ -20,54 +20,55 @@
 These rules apply to ALL CLI dispatch points in the workflow (Stages 2, 4A, 4B, 5). They are the authoritative source — stage files reference this section rather than duplicating.
 
 1. **Evaluation Minimum**: Evaluation (Integration 4, Stage 5) requires **minimum 2 substantive responses**. If < 2 → signal `needs-user-input` (NEVER self-assess).
-2. **No CLI Substitution**: If a CLI dispatch fails, **DO NOT** substitute with another CLI. Tri-CLI dispatch is for variety — substituting defeats the purpose.
-3. **Spec Content Inline**: NEVER pass local file paths to CLI dispatch prompt files. Embed spec content inline. External CLIs cannot read local files.
+2. **No CLI Substitution**: If a CLI dispatch fails, **DO NOT** substitute with another CLI. Dual-CLI dispatch is for variety — substituting defeats the purpose.
+3. **Spec Content Inline**: ALWAYS embed spec content inline in prompt files. External CLIs process the prompt text directly — they do not read local file paths.
 4. **User Notification MANDATORY**: When ANY CLI fails or is unavailable, **ALWAYS** notify user via summary context.
-5. **CLI Availability Check**: Before dispatching CLI, check if `scripts/dispatch-cli-agent.sh` is executable and at least one CLI binary is in PATH.
-6. **Fallback Behavior**: If CLI unavailable, skip Challenge, EdgeCases, Triangulation, and Evaluation steps — proceed with internal reasoning (see `error-handling.md` → Graceful Degradation).
-7. **OpenCode Requires --model**: OpenCode uses OpenRouter provider routing. Always pass `--model {OPENCODE_MODEL}` from config `cli_dispatch.cli_defaults.opencode.model`.
+5. **ntm Availability Check**: Before dispatching, verify `ntm` is in PATH and at least one CLI binary (`codex`, `gemini`) is available. Stage 1 records this in `NTM_AVAILABLE` and per-CLI availability flags.
+6. **Fallback Behavior**: If ntm or all CLIs are unavailable, skip Challenge, EdgeCases, Triangulation, and Evaluation steps — proceed with internal reasoning (see `error-handling.md` → Graceful Degradation).
 
 ---
 
-## Pattern: Tri-CLI Parallel Dispatch
+## Pattern: Dual-CLI Parallel Dispatch via ntm
 
-This pattern is used at 4 integration points. Each follows the same structure but with different parameters.
+This pattern is used at 4 integration points. Each follows the same structure but with different parameters. Both CLIs run in parallel within a single ntm tmux session.
 
 ### Execution Template
 
 ```
-FOR EACH cli IN integration.models:
-    WRITE prompt file:
-        Path: specs/{FEATURE_DIR}/analysis/cli-prompts/{INTEGRATION}-{CLI}.md
-        Content:
-            "# {INTEGRATION_NAME} Analysis\n\n"
-            "{ANALYSIS_PROMPT}\n\n"
-            "## Spec Content\n\n{SPEC_CONTENT}"
+STEP 1 — Write prompt files:
+    FOR EACH cli IN integration.models:
+        WRITE prompt file:
+            Path: specs/{FEATURE_DIR}/analysis/cli-prompts/{INTEGRATION}-{CLI}.md
+            Content:
+                "# {INTEGRATION_NAME} Analysis\n\n"
+                "{ROLE_SYSTEM_PROMPT}\n\n"
+                "{ANALYSIS_PROMPT}\n\n"
+                "## Spec Content\n\n{SPEC_CONTENT}"
 
+        NOTE: Role system prompts are in $CLAUDE_PLUGIN_ROOT/config/cli_clients/{CLI}_{ROLE}.txt
+        Read the role prompt file and prepend it to the analysis prompt.
+
+STEP 2 — Dispatch via ntm (SINGLE Bash() call):
     RUN via Bash():
-        $CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-          --cli {cli.name} \
-          --role {cli.role} \
-          --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/{INTEGRATION}-{CLI}.md \
-          --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-{CLI}.md \
-          --timeout {integration.timeout_seconds} \
-          --expected-fields "{expected_fields}" \
-          [--model {cli.model | cli_defaults.{cli.name}.model}]
-
-    NOTE on --model: Required for opencode (uses OpenRouter provider routing).
-    Resolve model from: (1) integration-level cli.model, (2) cli_dispatch.cli_defaults.{cli}.model.
-    Codex and gemini do NOT need --model (they use their built-in defaults).
+        $CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh \
+          --session "specify-{FEATURE_ID}-{INTEGRATION}" \
+          --dispatch "codex:{CODEX_ROLE}:specs/{FEATURE_DIR}/analysis/cli-prompts/{INTEGRATION}-codex.md:specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-codex.md" \
+          --dispatch "gemini:{GEMINI_ROLE}:specs/{FEATURE_DIR}/analysis/cli-prompts/{INTEGRATION}-gemini.md:specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-gemini.md" \
+          --timeout {integration.timeout_seconds * CLI_TIMEOUT_MULTIPLIER}
 
     EXIT CODES:
-        0 = success
-        1 = CLI failure (retry up to max_attempts)
-        2 = timeout (retry up to max_attempts)
-        3 = CLI not found (no retry — CLI unavailable)
-        4 = parse failure (content captured, but no structured output)
+        0 = all CLIs produced SUMMARY output
+        1 = partial failure (some CLIs produced no output)
+        2 = timeout (polling expired before all SUMMARY blocks detected)
+        3 = ntm not found or prerequisite failure (no retry)
+        4 = invalid arguments
+        5 = ntm spawn failed (session could not be created)
 
-    CAPTURE: output = read specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-{CLI}.md
+    CAPTURE:
+        codex_output = read specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-codex.md
+        gemini_output = read specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-gemini.md
 
-SYNTHESIZE:
+STEP 3 — Synthesize:
     CALL Task(subagent_type="general-purpose", model="sonnet") with:
         inputs: [all captured outputs from CLIs that succeeded]
         strategy: union_with_dedup (for analysis) or weighted_score (for evaluation)
@@ -84,13 +85,21 @@ SYNTHESIZE:
     (question dedup only, no severity analysis). All other integrations use sonnet.
 ```
 
+### Key Differences from Legacy Script
+
+| Aspect | Legacy (`dispatch-cli-agent.sh`) | ntm (`dispatch-via-ntm.sh`) |
+|--------|----------------------------------|----------------------------|
+| Parallelism | Sequential (1 Bash() per CLI) | True parallel (1 Bash() for all CLIs) |
+| Output capture | stdout pipe + 4-tier extraction | ntm pane copy + SUMMARY block extraction |
+| Visibility | None (silent file capture) | `ntm attach` / `ntm dashboard` |
+| Process management | setsid + timeout --kill-after | ntm tmux session lifecycle |
+| Completion detection | Exit code only | SUMMARY block polling + timeout |
+
 ### Least-to-Most Synthesis Protocol
 
 When synthesizing CLI outputs, read shortest output first to build a baseline, then layer unique findings from each subsequent output. This prevents anchoring on the first-read model's framing.
 
 ### Semantic Deduplication Scheme
-
-Replace numeric similarity thresholds with a categorical classification:
 
 | Classification | Criteria | Action |
 |---------------|----------|--------|
@@ -103,23 +112,32 @@ Apply this scheme in all synthesis steps. The synthesis agent classifies each pa
 ### CLI Failure Handling
 
 ```
-IF exit_code == 3 (CLI not found):
-    LOG to model_failures: {cli, exit_code: 3, action: "skipped — CLI not in PATH"}
+IF exit_code == 3 (ntm not found):
+    LOG to model_failures: {integration, exit_code: 3, action: "skipped — ntm not in PATH"}
     DO NOT retry
-    CONTINUE with remaining CLIs
+    SKIP this integration point
+    PROCEED with internal reasoning
 
-IF exit_code IN [1, 2] (CLI failure or timeout):
-    RETRY up to max_attempts (from config cli_dispatch.retry.max_attempts)
-    IF still failing after retries:
-        LOG to model_failures: {cli, exit_code, action: "skipped after retry"}
-        CONTINUE with remaining CLIs
+IF exit_code == 1 (partial failure):
+    READ output files — some CLIs may have produced valid output
+    INCLUDE valid outputs in synthesis (best-effort with available data)
+    LOG failed CLIs to model_failures
 
-IF exit_code == 4 (parse failure):
-    LOG to model_failures: {cli, exit_code: 4, note: "raw output captured"}
-    INCLUDE raw output in synthesis (best-effort)
-    CONTINUE
+IF exit_code == 2 (timeout):
+    READ output files — CLIs may have produced partial output before timeout
+    IF any output file has SUMMARY block content: include in synthesis
+    IF no usable output: treat as all-fail (see below)
 
-IF all CLIs fail:
+IF exit_code == 4 (bad arguments):
+    LOG as coordinator error — check prompt file paths and session naming
+    DO NOT retry (fix the coordinator logic)
+
+IF exit_code == 5 (spawn failed):
+    LOG to model_failures: {integration, exit_code: 5, action: "ntm session creation failed"}
+    RETRY up to 1 attempt (transient tmux issue)
+    IF still failing: SKIP this integration point, proceed with internal reasoning
+
+IF all CLIs fail (no usable output):
     IF circuit_breaker.skip_on_all_fail (true):
         SKIP this integration point
         PROCEED with internal reasoning
@@ -128,13 +146,24 @@ IF all CLIs fail:
         SET status = needs-user-input
 ```
 
+### Retry Protocol
+
+The ntm dispatch script does NOT retry internally. If the coordinator needs a retry:
+
+```
+IF exit_code IN [1, 2] AND retry_count < 2:
+    INCREMENT retry_count
+    RE-RUN dispatch-via-ntm.sh with same parameters
+    (ntm defensive cleanup kills stale sessions automatically)
+```
+
 ---
 
 ## Integration 1: Challenge (Stage 2)
 
-**Config path:** `cli_dispatch.integrations.challenge`
+**Config path:** `cli_integrations.challenge` in `specify-profile-definitions.yaml`
 **Trigger:** After BA spec draft, before Gate 1
-**Purpose:** Challenge problem framing assumptions from 3 independent perspectives
+**Purpose:** Challenge problem framing assumptions from 2 independent perspectives
 
 ### CLI Assignments
 
@@ -142,7 +171,6 @@ IF all CLIs fail:
 |-----|------|-------|
 | codex | `spec_root_cause` | Root cause vs symptoms, logical flaws in problem framing |
 | gemini | `spec_alt_framing` | Alternative interpretations, adjacent problems, cross-domain patterns |
-| opencode | `spec_assumption_probe` | Challenges user behavior assumptions, devil's advocate case |
 
 ### Analysis Prompt Template
 
@@ -162,15 +190,25 @@ Spec sections: Problem Statement, True Need, JTBD
 
 Append full spec content after the prompt (inline, no file paths).
 
+### Dispatch Example
+
+```bash
+$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh \
+  --session "specify-{FEATURE_ID}-challenge" \
+  --dispatch "codex:spec_root_cause:specs/{FD}/analysis/cli-prompts/challenge-codex.md:specs/{FD}/analysis/cli-outputs/challenge-codex.md" \
+  --dispatch "gemini:spec_alt_framing:specs/{FD}/analysis/cli-prompts/challenge-gemini.md:specs/{FD}/analysis/cli-outputs/challenge-gemini.md" \
+  --timeout 120
+```
+
 ### Synthesis Output
 
 ```markdown
 ## MPA-Challenge Synthesis
 
 ### Cross-Model Agreement
-| Finding | Codex | Gemini | OpenCode | Risk Level |
-|---------|-------|--------|----------|------------|
-| {finding} | {agree/disagree} | ... | ... | {GREEN/YELLOW/RED} |
+| Finding | Codex | Gemini | Risk Level |
+|---------|-------|--------|------------|
+| {finding} | {agree/disagree} | ... | {GREEN/YELLOW/RED} |
 
 ### Risk Assessment
 - Overall Risk: {GREEN | YELLOW | RED}
@@ -182,8 +220,6 @@ Append full spec content after the prompt (inline, no file paths).
 #### Codex (GPT-4o) — Root Cause Analysis
 {findings}
 #### Gemini (Gemini Pro) — Alternative Framings
-{findings}
-#### OpenCode (Grok) — Assumption Probe
 {findings}
 ```
 
@@ -204,17 +240,16 @@ Write to: `specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md`
 
 ## Integration 2: Edge Cases (Stage 4)
 
-**Config path:** `cli_dispatch.integrations.edge_cases`
+**Config path:** `cli_integrations.edge_cases` in `specify-profile-definitions.yaml`
 **Trigger:** After checklist validation, before clarification
-**Purpose:** Mine edge cases across security/performance, UX, and accessibility dimensions
+**Purpose:** Mine edge cases across technical quality and UX coverage dimensions
 
 ### CLI Assignments
 
 | CLI | Role | Focus |
 |-----|------|-------|
-| codex | `edge_technical_quality` | Security vulnerabilities, performance bottlenecks, data integrity, boundary conditions, scalability degradation (10x load behavior, p95/p99 latency, rate limits), external dependency failures |
-| gemini | `edge_ux_coverage` | Missing UI states, incomplete flows, user error recovery, multi-context gaps; UX manifestations of infrastructure failures (error messages, degraded-mode UI, fallback experiences during outages or rollbacks) |
-| opencode | `edge_ops_compliance` | Accessibility (a11y), i18n/l10n, adversarial use, non-standard users, deployment rollback scenarios (schema reversibility, blast radius), compliance & privacy obligations (GDPR/CCPA, PII classification, audit trail) |
+| codex | `edge_technical_quality` | Security vulnerabilities, performance bottlenecks, data integrity, boundary conditions, scalability degradation (10x load behavior, p95/p99 latency, rate limits), external dependency failures, deployment rollback scenarios, compliance & privacy (GDPR/CCPA, PII) |
+| gemini | `edge_ux_coverage` | Missing UI states, incomplete flows, user error recovery, multi-context gaps; accessibility (a11y), i18n/l10n, adversarial use, non-standard users; UX manifestations of infrastructure failures (error messages, degraded-mode UI, fallback experiences) |
 
 ### Analysis Prompt Template
 
@@ -242,7 +277,6 @@ Checklist gaps: {GAPS_FROM_STAGE_3}
 
 Cross-CLI agreement boosts severity:
 - 2 CLIs agree on same edge case: MEDIUM → HIGH
-- 3 CLIs agree: HIGH → CRITICAL
 
 ### Auto-Injection to Clarification
 
@@ -264,17 +298,16 @@ Write to: `specs/{FEATURE_DIR}/analysis/mpa-edgecases-parallel.md`
 
 ## Integration 3: Triangulation (Stage 4)
 
-**Config path:** `cli_dispatch.integrations.triangulation`
+**Config path:** `cli_integrations.triangulation` in `specify-profile-definitions.yaml`
 **Trigger:** After BA clarification questions generated, before user answers
-**Purpose:** Generate additional questions from 3 independent cross-cutting perspectives
+**Purpose:** Generate additional questions from 2 independent cross-cutting perspectives
 
 ### CLI Assignments
 
 | CLI | Role | Focus |
 |-----|------|-------|
 | codex | `spec_q_technical` | Technical product gaps, integration/dependency questions |
-| gemini | `spec_q_coverage` | Missing requirements, underrepresented stakeholders, NFR gaps |
-| opencode | `spec_q_contrarian` | Premise challenges, scope challenges, uncomfortable questions |
+| gemini | `spec_q_coverage` | Missing requirements, underrepresented stakeholders, NFR gaps, premise challenges, scope challenges |
 
 ### Analysis Prompt Template
 
@@ -305,9 +338,8 @@ FOR EACH new_question FROM CLIs:
         UNIQUE   → keep (no counterpart in existing questions)
 
 PRIORITY BOOST:
-    All 3 CLIs agree (BA + all CLIs) → CRITICAL
-    2 CLIs agree → HIGH
-    1 CLI only → MEDIUM
+    Both CLIs agree (BA + both CLIs) → CRITICAL
+    1 CLI only → HIGH
 ```
 
 ### Report Output
@@ -318,9 +350,9 @@ Write to: `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md`
 
 ## Integration 4: Evaluation (Stage 5)
 
-**Config path:** `cli_dispatch.integrations.evaluation`
+**Config path:** `cli_integrations.evaluation` in `specify-profile-definitions.yaml`
 **Trigger:** After spec is finalized (post-clarification), before design artifact generation
-**Purpose:** Multi-stance evaluation of spec quality
+**Purpose:** Dual-stance evaluation of spec quality
 
 ### CLI Assignments
 
@@ -328,39 +360,22 @@ Write to: `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md`
 |-----|------|--------|---------|
 | gemini | `spec_evaluator_neutral` | neutral | Objective evidence-based assessment |
 | codex | `spec_evaluator_for` | advocate | Articulate genuine strengths (forced stance) |
-| opencode | `spec_evaluator_against` | challenger | Surface every weakness and gap |
 
-### Dispatch Order (Fully Parallel)
+### Dispatch (Single Bash() Call)
 
-All 3 CLI evaluations run in parallel. The Least-to-Most synthesis protocol (reading shortest output first) prevents anchoring bias during synthesis.
+Both evaluations run in parallel within one ntm session:
 
 ```bash
-# Run all 3 evaluators in parallel
-$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli gemini --role spec_evaluator_neutral \
-  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-gemini.md \
-  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/evaluation-gemini.md \
-  --timeout 120 &
-
-$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli codex --role spec_evaluator_for \
-  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-codex.md \
-  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/evaluation-codex.md \
-  --timeout 120 &
-
-$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh \
-  --cli opencode --role spec_evaluator_against \
-  --prompt-file specs/{FEATURE_DIR}/analysis/cli-prompts/evaluation-opencode.md \
-  --output-file specs/{FEATURE_DIR}/analysis/cli-outputs/evaluation-opencode.md \
-  --timeout 120 \
-  --model {OPENCODE_MODEL} &
-
-wait  # collect all results
+$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh \
+  --session "specify-{FEATURE_ID}-evaluation" \
+  --dispatch "gemini:spec_evaluator_neutral:specs/{FD}/analysis/cli-prompts/evaluation-gemini.md:specs/{FD}/analysis/cli-outputs/evaluation-gemini.md" \
+  --dispatch "codex:spec_evaluator_for:specs/{FD}/analysis/cli-prompts/evaluation-codex.md:specs/{FD}/analysis/cli-outputs/evaluation-codex.md" \
+  --timeout 120
 ```
 
 ### Content Delivery (CRITICAL)
 
-External CLIs cannot access local files. Spec content MUST be embedded inline in the prompt file.
+Spec content MUST be embedded inline in the prompt file.
 
 ```
 READ specs/{FEATURE_DIR}/spec.md
@@ -408,24 +423,23 @@ Exclude responses that match these patterns:
 ### Synthesis Output
 
 ```markdown
-## Specification Evaluation — Multi-Stance Assessment
+## Specification Evaluation — Dual-Stance Assessment
 
 ### Aggregated Dimension Scores
-| Dimension | Gemini (Neutral) | Codex (Advocate) | OpenCode (Challenger) | Avg |
-|-----------|-----------------|------------------|----------------------|-----|
-| Business value clarity | {X}/4 | {X}/4 | {X}/4 | {X}/4 |
-| Requirements completeness | {X}/4 | {X}/4 | {X}/4 | {X}/4 |
-| Scope boundaries | {X}/4 | {X}/4 | {X}/4 | {X}/4 |
-| Stakeholder coverage | {X}/4 | {X}/4 | {X}/4 | {X}/4 |
-| Technology agnosticism | {X}/4 | {X}/4 | {X}/4 | {X}/4 |
-| **TOTAL** | **{X}/20** | **{X}/20** | **{X}/20** | **{X}/20** |
+| Dimension | Gemini (Neutral) | Codex (Advocate) | Avg |
+|-----------|-----------------|------------------|-----|
+| Business value clarity | {X}/4 | {X}/4 | {X}/4 |
+| Requirements completeness | {X}/4 | {X}/4 | {X}/4 |
+| Scope boundaries | {X}/4 | {X}/4 | {X}/4 |
+| Stakeholder coverage | {X}/4 | {X}/4 | {X}/4 |
+| Technology agnosticism | {X}/4 | {X}/4 | {X}/4 |
+| **TOTAL** | **{X}/20** | **{X}/20** | **{X}/20** |
 
 ### Decision: {APPROVED | CONDITIONAL | REJECTED}
 **Aggregate score:** {X}/20
 
 ### Key Findings
 **Strengths (from Advocate):** {top 3}
-**Weaknesses (from Challenger):** {top 3}
 **Neutral assessment:** {1 paragraph}
 ```
 

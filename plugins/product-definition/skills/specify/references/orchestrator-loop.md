@@ -13,7 +13,7 @@ These rules govern orchestrator behavior. They complement the 10 critical rules 
 2. **Summary size limits**: Coordinator summaries max 500 chars (YAML `summary` field), 1000 chars (Context for Next Stage body). Detailed analysis belongs in artifact files.
 3. **RTM Disposition Gate**: Stage 4A Step 4.0a BLOCKS on UNMAPPED/PENDING_STORY requirements. Post-Stage-4B orchestrator check is NON-BLOCKING (notification only, reported in Stage 7).
 4. **Stage 4 dispatch**: Stage 4A always produces `needs-user-input` (file-based pause). Stage 4B only dispatches after user re-entry.
-5. **Iteration loop**: Orchestrator dispatches Stage 3 → 4A → pause → 4B → Stage 3 until coverage >= 85% or user forces proceed.
+5. **Iteration loop**: Orchestrator dispatches Stage 3 → 4A → pause → 4B → Stage 3 until coverage >= COVERAGE_TARGET or user forces proceed.
 
 ---
 
@@ -57,16 +57,16 @@ For stages 2-8, dispatch a coordinator subagent using the per-stage dispatch pro
 
 ### Stage Dispatch Profiles
 
-| Stage | Shared Refs | Config YAML | Extra Refs |
-|-------|-------------|-------------|------------|
-| 2 (Spec Draft) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
-| 3 (Checklist) | checkpoint-protocol, error-handling | Yes | — |
+| Stage | Shared Refs | Clarification Config | Extra Refs |
+|-------|-------------|---------------------|------------|
+| 2 (Spec Draft) | checkpoint-protocol, error-handling | No | cli-dispatch-patterns (if CLI available) |
+| 3 (Checklist) | checkpoint-protocol, error-handling | No | — |
 | 4A (Analysis & Questions) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
 | 4B (Resolution & Update) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
-| 5 (Validation & Design) | checkpoint-protocol, error-handling | Yes | cli-dispatch-patterns (if CLI available) |
-| 6 (Test Strategy) | checkpoint-protocol, error-handling | Yes | — |
+| 5 (Validation & Design) | checkpoint-protocol, error-handling | No | cli-dispatch-patterns (if CLI available) |
+| 6 (Test Strategy) | checkpoint-protocol, error-handling | No | — |
 | 7 (Completion) | checkpoint-protocol | No | — |
-| 8 (Retrospective) | checkpoint-protocol | Yes | — |
+| 8 (Retrospective) | checkpoint-protocol | No | — |
 
 ### Dispatch Template
 
@@ -80,24 +80,34 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 ## Context
 - Feature directory: specs/{FEATURE_DIR}
 - Feature name: {FEATURE_NAME}
+- Profile: {PROFILE}
+- ntm available: {NTM_AVAILABLE}
 - CLI available: {CLI_AVAILABLE}
 - Codex available: {CODEX_AVAILABLE}
 - Gemini available: {GEMINI_AVAILABLE}
-- OpenCode available: {OPENCODE_AVAILABLE}
 - Sequential Thinking available: {ST_AVAILABLE}
 - Figma MCP available: {FIGMA_MCP_AVAILABLE}
 - Figma enabled: {FIGMA_ENABLED}
 - Entry type: {ENTRY_TYPE}
 - Iteration: {ITERATION_NUMBER}
-- OpenCode model: {OPENCODE_MODEL}
+- Incremental gates enabled: {INCREMENTAL_GATES_ENABLED}
+- CLI challenge enabled: {CLI_CHALLENGE_ENABLED}
+- CLI edge cases enabled: {CLI_EDGE_CASES_ENABLED}
+- CLI triangulation enabled: {CLI_TRIANGULATION_ENABLED}
+- CLI validation enabled: {CLI_EVALUATION_ENABLED}
+- Test strategy enabled: {TEST_STRATEGY_ENABLED}
+- Retrospective enabled: {RETROSPECTIVE_ENABLED}
+- Coverage target: {COVERAGE_TARGET}
+- Max iterations: {MAX_ITERATIONS}
+- CLI timeout multiplier: {CLI_TIMEOUT_MULTIPLIER}
 
 ## Shared References (load ONLY those listed for this stage)
 {IF stage needs checkpoint-protocol:}
 - Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/checkpoint-protocol.md
 {IF stage needs error-handling:}
 - Error handling: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/error-handling.md
-{IF stage needs config YAML:}
-- Config: @$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml
+{IF stage needs clarification config:}
+- Clarification config: @$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml
 {IF stage has extra refs:}
 - {extra_ref}: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{extra_ref}
 
@@ -136,21 +146,31 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/stage-4b-resolu
 ## Context
 - Feature directory: specs/1-meal-planning
 - Feature name: Meal Planning
+- Profile: standard
+- ntm available: true
 - CLI available: true
 - Codex available: true
 - Gemini available: true
-- OpenCode available: false
 - Sequential Thinking available: true
 - Figma MCP available: false
 - Figma enabled: false
 - Entry type: re_entry_after_user_input
 - Iteration: 2
-- OpenCode model: openrouter/x-ai/grok-4-fast
+- Incremental gates enabled: true
+- CLI challenge enabled: true
+- CLI edge cases enabled: true
+- CLI triangulation enabled: true
+- CLI validation enabled: true
+- Test strategy enabled: true
+- Retrospective enabled: true
+- Coverage target: 85
+- Max iterations: 10
+- CLI timeout multiplier: 1.0
 
 ## Shared References (load ONLY those listed for this stage)
 - Checkpoint protocol: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/checkpoint-protocol.md
 - Error handling: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/error-handling.md
-- Config: @$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml
+- Clarification config: @$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml
 - cli-dispatch-patterns: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/cli-dispatch-patterns.md
 
 ## Prior Stage Summaries (rolling window: Stage 2 baseline + 2 most recent)
@@ -177,17 +197,27 @@ Every dispatch variable MUST have a defined fallback:
 
 | Variable | Default | Rationale |
 |----------|---------|-----------|
+| `PROFILE` | `"standard"` | Default profile; resolved in Stage 1 Step 1.2b |
 | `ENTRY_TYPE` | `"first_entry"` | Safe default for first invocation |
-| `CLI_AVAILABLE` | `false` | Assume unavailable; prevents failed CLI dispatch calls |
+| `CLI_AVAILABLE` | `false` | Assume unavailable; requires ntm + at least one CLI binary |
+| `NTM_AVAILABLE` | `false` | Assume unavailable; detected in Stage 1 |
 | `CODEX_AVAILABLE` | `false` | Assume unavailable; detected in Stage 1 |
 | `GEMINI_AVAILABLE` | `false` | Assume unavailable; detected in Stage 1 |
-| `OPENCODE_AVAILABLE` | `false` | Assume unavailable; detected in Stage 1 |
 | `ST_AVAILABLE` | `false` | Assume unavailable; coordinators use internal reasoning |
 | `FIGMA_MCP_AVAILABLE` | `false` | Assume unavailable; Figma is always optional |
 | `FIGMA_ENABLED` | `false` | User must explicitly enable |
 | `ITERATION_NUMBER` | `1` | First iteration default |
 | `RTM_ENABLED` | `false` | Assume disabled; set to true in Stage 1 if user confirms inventory |
-| `OPENCODE_MODEL` | `"openrouter/x-ai/grok-4-fast"` | From `cli_dispatch.cli_defaults.opencode.model` in config |
+| `INCREMENTAL_GATES_ENABLED` | `true` | From profile; Rapid disables |
+| `CLI_CHALLENGE_ENABLED` | `false` | From profile AND CLI_AVAILABLE |
+| `CLI_EDGE_CASES_ENABLED` | `false` | From profile AND CLI_AVAILABLE |
+| `CLI_TRIANGULATION_ENABLED` | `false` | From profile AND CLI_AVAILABLE |
+| `CLI_EVALUATION_ENABLED` | `false` | From profile AND CLI_AVAILABLE |
+| `TEST_STRATEGY_ENABLED` | `true` | From profile; Rapid disables |
+| `RETROSPECTIVE_ENABLED` | `true` | From profile; Rapid disables |
+| `COVERAGE_TARGET` | `85` | From profile; Thorough uses 90 |
+| `MAX_ITERATIONS` | `10` | From profile; Rapid=5, Thorough=15 |
+| `CLI_TIMEOUT_MULTIPLIER` | `1.0` | From profile; Thorough uses 1.5 |
 | `FEATURE_DIR` | (none) | MUST be set by Stage 1 — abort if missing |
 | `FEATURE_NAME` | (none) | MUST be set by Stage 1 — abort if missing |
 
@@ -312,7 +342,7 @@ IF issues found:
 ```
 READ Stage 3 summary -> flags.coverage_pct
 
-IF coverage_pct >= 85% (config -> thresholds.checklist.green):
+IF coverage_pct >= COVERAGE_TARGET (from Stage 1 summary):
     PROCEED to RTM quality check (below), then Stage 5
 
 ELSE:
@@ -320,7 +350,7 @@ ELSE:
         NOTIFY user: "Coverage stalled at {PCT}%. Options:"
         Ask via AskUserQuestion: "Force proceed" or "Continue clarifying"
     ELSE:
-        NOTIFY user: "Coverage at {PCT}% (need 85%). Re-running checklist validation."
+        NOTIFY user: "Coverage at {PCT}% (need {COVERAGE_TARGET}%). Re-running checklist validation."
         RE-DISPATCH Stage 3 (new iteration)
         THEN RE-DISPATCH Stage 4A → pause → Stage 4B if Stage 3 still has gaps
 
@@ -360,7 +390,7 @@ The iteration loop is between Stages 3, 4A, and 4B. The orchestrator controls it
 DISPATCH Stage 3 (Checklist & Validation)
 READ Stage 3 summary -> coverage_pct, next_action
 
-IF next_action == "proceed" (coverage >= 85%):
+IF next_action == "proceed" (coverage >= COVERAGE_TARGET):
     SKIP Stage 4A/4B, advance to Stage 5
 
 IF next_action == "loop_clarify":
@@ -375,7 +405,7 @@ IF next_action == "loop_clarify":
     RE-DISPATCH Stage 3 (re-validate after clarifications)
     READ Stage 3 summary -> new coverage_pct
 
-    IF new coverage_pct >= 85%:
+    IF new coverage_pct >= COVERAGE_TARGET:
         ADVANCE to Stage 5
     ELSE:
         LOOP again (Stage 4A → pause → Stage 4B → Stage 3) until coverage met or user forces proceed
@@ -401,7 +431,7 @@ iterations:
 ### Hard Iteration Ceiling
 
 ```
-IF iteration_count >= max_iterations_before_checkpoint (config: limits.max_iterations_before_checkpoint, default 5):
+IF iteration_count >= MAX_ITERATIONS (from Stage 1 summary):
     FORCE user decision via AskUserQuestion:
         question: "Coverage at {PCT}% after {N} iterations. Continue iterating or proceed?"
         header: "Iteration"
@@ -451,7 +481,7 @@ ON RE-ENTRY after user answers:
 
 **Loaded on-demand.** Full procedures are in a separate reference file.
 
-**Load when:** A coordinator produces no summary file (crash) OR state file has `schema_version` < 5 (migration needed).
+**Load when:** A coordinator produces no summary file (crash) OR state file has `schema_version` < 6 (migration needed).
 
 **Reference:** `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/recovery-migration.md`
 
@@ -459,7 +489,7 @@ ON RE-ENTRY after user answers:
 
 **Crash Recovery:** If summary file missing for stage N, check for artifacts. If found, reconstruct minimal summary. If not, ask user to retry or skip.
 
-**State Migration:** Chained migrations: v2→v3 (phase→stage), v3→v4 (file-based clarification), v4→v5 (RTM tracking). Each migration is additive — new fields get null/empty defaults.
+**State Migration:** Chained migrations: v2→v3 (phase→stage), v3→v4 (file-based clarification), v4→v5 (RTM tracking), v5→v6 (profile-based config). Each migration is additive — new fields get null/empty defaults.
 
 ---
 

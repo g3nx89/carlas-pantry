@@ -56,7 +56,7 @@ For each question in the `## RTM Dispositions` section (identified by `source: r
 
 ## Step 4.4: MPA-Triangulation CLI Dispatch (Optional)
 
-**Check:** `cli_dispatch.integrations.triangulation.enabled` in config AND CLI_AVAILABLE
+**Check:** `CLI_TRIANGULATION_ENABLED` (from Stage 1 summary, profile-resolved)
 
 **If enabled:**
 
@@ -67,7 +67,6 @@ Execute **Integration 3: Triangulation** per `@$CLAUDE_PLUGIN_ROOT/skills/specif
 - `SPEC_CONTENT`: spec summary
 - `EXISTING_QUESTION_LIST`: questions from clarification-questions.md
 - `EDGE_CASE_SUMMARY`: from mpa-edgecases report
-- `OPENCODE_MODEL`: {OPENCODE_MODEL}
 - `TIMEOUT`: 90 seconds
 
 Each CLI generates 2-4 additional questions not covered by BA.
@@ -223,7 +222,7 @@ Edge case severity distribution: {CRITICAL: N, HIGH: N, MEDIUM: N}
 Spec updated with all clarification answers.
 ```
 
-**Note on iteration:** After this stage, the orchestrator re-dispatches Stage 3 for re-validation. The loop continues until coverage >= 85% or user requests proceed. The `next_action` from this stage is always `"proceed"` — the orchestrator checks Stage 3's `coverage_pct` to decide whether to loop back.
+**Note on iteration:** After this stage, the orchestrator re-dispatches Stage 3 for re-validation. The loop continues until coverage >= COVERAGE_TARGET or user requests proceed. The `next_action` from this stage is always `"proceed"` — the orchestrator checks Stage 3's `coverage_pct` to decide whether to loop back.
 
 ## Self-Verification (MANDATORY before writing summary)
 

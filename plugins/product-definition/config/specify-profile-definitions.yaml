@@ -1,0 +1,153 @@
+# Specify Profile Definitions (Internal)
+# ========================================
+# NOT user-facing. Referenced by Stage 1 setup to resolve profile → feature flags.
+# User-facing config: specify-config.yaml
+
+# ─────────────────────────────────────────────────────────────────
+# PROFILE DEFINITIONS
+# ─────────────────────────────────────────────────────────────────
+
+profiles:
+  rapid:
+    description: "Fast drafting, no external validation"
+    features:
+      incremental_gates: false
+      cli_challenge: false
+      cli_edge_cases: false
+      cli_triangulation: false
+      cli_evaluation: false
+      test_strategy: false
+      rtm_tracking: false
+      retrospective: false
+    thresholds:
+      coverage_target: 85
+      max_iterations: 5
+    cli_timeout_multiplier: 1.0   # N/A — CLI disabled
+
+  standard:
+    description: "Balanced quality with CLI analysis (Recommended)"
+    features:
+      incremental_gates: true
+      cli_challenge: true
+      cli_edge_cases: true
+      cli_triangulation: true
+      cli_evaluation: true
+      test_strategy: true
+      rtm_tracking: true
+      retrospective: true
+    thresholds:
+      coverage_target: 85
+      max_iterations: 10
+    cli_timeout_multiplier: 1.0
+
+  thorough:
+    description: "Maximum rigor for critical features"
+    features:
+      incremental_gates: true
+      cli_challenge: true
+      cli_edge_cases: true
+      cli_triangulation: true
+      cli_evaluation: true
+      test_strategy: true
+      rtm_tracking: true
+      retrospective: true
+    thresholds:
+      coverage_target: 90
+      max_iterations: 15
+    cli_timeout_multiplier: 1.5
+
+# ─────────────────────────────────────────────────────────────────
+# INVARIANTS (never profile-toggled — documentation for audit)
+# ─────────────────────────────────────────────────────────────────
+
+invariants:
+  self_critique: true                    # Always mandatory
+  design_artifacts: true                 # design-brief.md + design-supplement.md always required
+  no_artificial_limits: true             # No caps on questions/stories/ACs/NFRs
+  clarification_mode: "file_based"       # Always file-based
+
+# ─────────────────────────────────────────────────────────────────
+# CLI INTEGRATION DEFINITIONS
+# ─────────────────────────────────────────────────────────────────
+# Audit reference — actual dispatch templates in cli-dispatch-patterns.md
+# (the authoritative source coordinators read).
+
+cli_integrations:
+  challenge:
+    stage: 2
+    output_dir: "analysis/"
+    output_file: "mpa-challenge-parallel.md"
+    models:
+      - cli: "codex"
+        role: "spec_root_cause"
+      - cli: "gemini"
+        role: "spec_alt_framing"
+
+  edge_cases:
+    stage: 4
+    output_dir: "analysis/"
+    output_file: "mpa-edgecases-parallel.md"
+    models:
+      - cli: "codex"
+        role: "edge_technical_quality"
+      - cli: "gemini"
+        role: "edge_ux_coverage"
+
+  triangulation:
+    stage: 4
+    output_dir: "analysis/"
+    output_file: "mpa-triangulation.md"
+    models:
+      - cli: "codex"
+        role: "spec_q_technical"
+      - cli: "gemini"
+        role: "spec_q_coverage"
+
+  evaluation:
+    stage: 5
+    output_dir: "analysis/"
+    output_file: "mpa-evaluation.md"
+    models:
+      - cli: "gemini"
+        role: "spec_evaluator_neutral"
+      - cli: "codex"
+        role: "spec_evaluator_for"
+
+# ─────────────────────────────────────────────────────────────────
+# CLI OPERATIONAL CONSTANTS
+# ─────────────────────────────────────────────────────────────────
+
+# CLI operational constants — audit reference only.
+# Operative values are hardcoded in cli-dispatch-patterns.md (the authoritative source
+# coordinators read). Update BOTH places if changing these values.
+cli_operations:
+  timeouts:
+    challenge_seconds: 120
+    edge_cases_seconds: 150
+    triangulation_seconds: 90
+    evaluation_seconds: 120
+    default_seconds: 300
+
+  retry:
+    max_attempts: 2              # See cli-dispatch-patterns.md → "Retry Protocol"
+    retry_on_exit_codes: [1, 2]
+    no_retry_on: [3]
+
+  circuit_breaker:
+    skip_on_all_fail: true
+    min_responses_for_evaluation: 2
+
+  output:
+    prompt_dir: "analysis/cli-prompts/"
+    raw_output_dir: "analysis/cli-outputs/"
+    metrics_dir: "analysis/cli-metrics/"
+
+# ─────────────────────────────────────────────────────────────────
+# MODEL ASSIGNMENTS
+# ─────────────────────────────────────────────────────────────────
+
+model_assignments:
+  sonnet:
+    - "gate-judge"
+    - "qa-strategist"
+    - "definition-retrospective-writer"
