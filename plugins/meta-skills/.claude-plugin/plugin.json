@@ -1,7 +1,7 @@
 {
   "name": "meta-skills",
-  "version": "1.0.0",
-  "description": "Collection of meta-skills for mastering Claude Code, MCP servers, and agentic workflows",
+  "version": "1.1.0",
+  "description": "Collection of meta-skills for mastering Claude Code, MCP servers, multi-agent orchestration, and agentic workflows",
   "author": {
     "name": "Alessandro Fato"
   },
@@ -13,7 +13,10 @@
     "workflow",
     "best-practices",
     "tips",
-    "optimization"
+    "optimization",
+    "ntm",
+    "tmux",
+    "multi-agent"
   ],
   "license": "MIT"
 }
