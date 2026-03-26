@@ -27,11 +27,13 @@ Before proceeding, check which tools are available:
 ```
 CHECK ntm (Named Tmux Manager):
 - command -v ntm → NTM_AVAILABLE = true/false
-- If NTM_AVAILABLE: probe each CLI binary:
-    command -v codex  → CODEX_AVAILABLE = true/false
-    command -v gemini → GEMINI_AVAILABLE = true/false
-  CLI_AVAILABLE = true if ntm AND at least one CLI binary is found
-  (Both codex + gemini required for evaluation; 1+ for analysis steps)
+- If NTM_AVAILABLE:
+    RUN `ntm deps -v` (informational — displays full dependency status to user)
+    Probe each CLI binary:
+      command -v codex  → CODEX_AVAILABLE = true/false
+      command -v gemini → GEMINI_AVAILABLE = true/false
+    CLI_AVAILABLE = true if ntm AND at least one CLI binary is found
+    (Both codex + gemini required for evaluation; 1+ for analysis steps)
 
 CHECK Sequential Thinking:
 - Try invoking mcp__sequential-thinking__sequentialthinking with a simple thought
@@ -43,7 +45,7 @@ CHECK Figma MCP:
 ```
 
 **If CLI_AVAILABLE = false:**
-- Notify user: "CLI dispatch unavailable. Challenge, EdgeCase, Triangulation, and Evaluation steps will be skipped. Install ntm (`brew install dicklesworthstone/tap/ntm`) plus codex and gemini CLIs to enable multi-model analysis."
+- Notify user: "CLI dispatch unavailable. Challenge, EdgeCase, Triangulation, and Evaluation steps will be skipped. Install ntm (`brew install dicklesworthstone/tap/ntm`) plus codex and gemini CLIs to enable multi-model analysis. Run `ntm deps -v` to diagnose missing dependencies."
 
 **If ST_AVAILABLE = false:**
 - Notify user: "Sequential Thinking unavailable. Using internal reasoning."

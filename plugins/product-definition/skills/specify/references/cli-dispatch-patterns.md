@@ -3,7 +3,7 @@
 > Parameterized execution patterns for dual-CLI parallel dispatch via ntm (Named Tmux Manager).
 > Referenced by Stage 2 (Challenge), Stage 4A (EdgeCases), Stage 4B (Triangulation), Stage 5 (Evaluation).
 >
-> Replaces: `dispatch-cli-agent.sh` (synchronous one-shot Bash dispatch).
+> **Script version:** v2.0 (robot mode) — uses `--robot-spawn`, `--robot-ack`, `--robot-metrics` for structured interaction.
 > Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh`
 > Config: CLI integration definitions and operational constants in `$CLAUDE_PLUGIN_ROOT/config/specify-profile-definitions.yaml`
 
@@ -48,7 +48,7 @@ STEP 1 — Write prompt files:
         NOTE: Role system prompts are in $CLAUDE_PLUGIN_ROOT/config/cli_clients/{CLI}_{ROLE}.txt
         Read the role prompt file and prepend it to the analysis prompt.
 
-STEP 2 — Dispatch via ntm (SINGLE Bash() call):
+STEP 2 — Dispatch via ntm robot mode (SINGLE Bash() call):
     RUN via Bash():
         $CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh \
           --session "specify-{FEATURE_ID}-{INTEGRATION}" \
@@ -56,10 +56,20 @@ STEP 2 — Dispatch via ntm (SINGLE Bash() call):
           --dispatch "gemini:{GEMINI_ROLE}:specs/{FEATURE_DIR}/analysis/cli-prompts/{INTEGRATION}-gemini.md:specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-gemini.md" \
           --timeout {integration.timeout_seconds * CLI_TIMEOUT_MULTIPLIER}
 
+    INTERNALS (handled by script — coordinator does NOT call these directly):
+        - --robot-spawn creates session with JSON validation
+        - --robot-status verifies agents reach WAITING state before sending
+        - --robot-ack blocks until all agents return to WAITING (idle) or timeout
+        - --robot-metrics captures native ntm metrics (tokens, velocities, durations)
+        - ntm send delivers prompts (NOT --robot-send — deliberate: ntm send uses tmux
+          terminal input, proven for large payloads up to 200KB; --robot-send --msg= has
+          the same shell argument limit with no additional benefit for this use case)
+        - ntm copy captures output post-ack for SUMMARY block extraction
+
     EXIT CODES:
         0 = all CLIs produced SUMMARY output
         1 = partial failure (some CLIs produced no output)
-        2 = timeout (polling expired before all SUMMARY blocks detected)
+        2 = timeout (robot-ack expired before all agents idle)
         3 = ntm not found or prerequisite failure (no retry)
         4 = invalid arguments
         5 = ntm spawn failed (session could not be created)
@@ -67,6 +77,10 @@ STEP 2 — Dispatch via ntm (SINGLE Bash() call):
     CAPTURE:
         codex_output = read specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-codex.md
         gemini_output = read specs/{FEATURE_DIR}/analysis/cli-outputs/{INTEGRATION}-gemini.md
+
+    METRICS:
+        Consolidated dispatch metrics (including ntm native metrics) written to:
+        specs/{FEATURE_DIR}/analysis/cli-metrics/dispatch-{UUID}.json
 
 STEP 3 — Synthesize:
     CALL Task(subagent_type="general-purpose", model="sonnet") with:
@@ -85,15 +99,18 @@ STEP 3 — Synthesize:
     (question dedup only, no severity analysis). All other integrations use sonnet.
 ```
 
-### Key Differences from Legacy Script
+### Evolution: Legacy → v1.0 → v2.0 (Robot Mode)
 
-| Aspect | Legacy (`dispatch-cli-agent.sh`) | ntm (`dispatch-via-ntm.sh`) |
-|--------|----------------------------------|----------------------------|
-| Parallelism | Sequential (1 Bash() per CLI) | True parallel (1 Bash() for all CLIs) |
-| Output capture | stdout pipe + 4-tier extraction | ntm pane copy + SUMMARY block extraction |
-| Visibility | None (silent file capture) | `ntm attach` / `ntm dashboard` |
-| Process management | setsid + timeout --kill-after | ntm tmux session lifecycle |
-| Completion detection | Exit code only | SUMMARY block polling + timeout |
+| Aspect | Legacy (`dispatch-cli-agent.sh`) | v1.0 (`dispatch-via-ntm.sh`) | v2.0 (current, robot mode) |
+|--------|----------------------------------|------------------------------|---------------------------|
+| Parallelism | Sequential (1 Bash() per CLI) | True parallel (1 Bash()) | True parallel (1 Bash()) |
+| Session creation | N/A (no sessions) | `ntm spawn` + exit code | `--robot-spawn` + JSON validation |
+| Agent readiness | N/A | `sleep 8` (blind wait) | `--robot-status` polling (actual readiness) |
+| Completion detection | Exit code only | SUMMARY block polling loop (40 lines) | `--robot-ack` (1 line, native) |
+| Output capture | stdout pipe + 4-tier extraction | `ntm copy` + SUMMARY extraction | `ntm copy` + SUMMARY extraction |
+| Metrics | None | Per-CLI sidecar JSON (custom) | Consolidated + `--robot-metrics` (native) |
+| Visibility | None | `ntm attach` / `ntm dashboard` | Same + `--robot-status --json` |
+| Process management | setsid + timeout --kill-after | ntm tmux lifecycle | ntm tmux lifecycle |
 
 ### Least-to-Most Synthesis Protocol
 
@@ -123,8 +140,9 @@ IF exit_code == 1 (partial failure):
     INCLUDE valid outputs in synthesis (best-effort with available data)
     LOG failed CLIs to model_failures
 
-IF exit_code == 2 (timeout):
-    READ output files — CLIs may have produced partial output before timeout
+IF exit_code == 2 (robot-ack timeout):
+    READ output files — robot-ack timed out but agents may have produced output
+    before returning to idle. The script captures whatever is in the pane buffer.
     IF any output file has SUMMARY block content: include in synthesis
     IF no usable output: treat as all-fail (see below)
 
@@ -133,7 +151,7 @@ IF exit_code == 4 (bad arguments):
     DO NOT retry (fix the coordinator logic)
 
 IF exit_code == 5 (spawn failed):
-    LOG to model_failures: {integration, exit_code: 5, action: "ntm session creation failed"}
+    LOG to model_failures: {integration, exit_code: 5, action: "ntm robot-spawn failed"}
     RETRY up to 1 attempt (transient tmux issue)
     IF still failing: SKIP this integration point, proceed with internal reasoning
 
@@ -154,7 +172,7 @@ The ntm dispatch script does NOT retry internally. If the coordinator needs a re
 IF exit_code IN [1, 2] AND retry_count < 2:
     INCREMENT retry_count
     RE-RUN dispatch-via-ntm.sh with same parameters
-    (ntm defensive cleanup kills stale sessions automatically)
+    (ntm defensive cleanup kills stale sessions automatically via --robot-spawn)
 ```
 
 ---

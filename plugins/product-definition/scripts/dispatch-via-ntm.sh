@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# dispatch-via-ntm.sh — Parallel dual-CLI dispatch via ntm (Named Tmux Manager)
+# dispatch-via-ntm.sh v2.0 — Robot-mode parallel dual-CLI dispatch via ntm
 #
-# Replaces dispatch-cli-agent.sh. Spawns codex + gemini agents in parallel
-# via ntm, sends role-specific prompts, polls for SUMMARY block completion,
-# captures output, writes metrics sidecars.
+# Uses ntm robot mode for structured interaction:
+# - --robot-spawn for session creation with JSON validation
+# - --robot-status for agent readiness verification
+# - --robot-ack for native completion detection (replaces manual polling)
+# - --robot-metrics for native metrics capture
+# - ntm send for prompt delivery (handles large payloads via tmux input)
+# - ntm copy for output capture (with SUMMARY block extraction)
 #
 # Usage:
 #   dispatch-via-ntm.sh \
@@ -11,13 +15,12 @@
 #     --dispatch <cli>:<role>:<prompt-file>:<output-file> \
 #     [--dispatch <cli>:<role>:<prompt-file>:<output-file>] \
 #     --timeout <seconds> \
-#     [--poll-interval <seconds>] \
 #     [--init-wait <seconds>]
 #
 # Exit codes:
 #   0 = all CLIs produced SUMMARY output
 #   1 = partial failure (some CLIs produced no output)
-#   2 = timeout (no CLI produced SUMMARY before deadline)
+#   2 = timeout (robot-ack expired before all agents idle)
 #   3 = ntm not found or prerequisite failure
 #   4 = no dispatches specified or invalid args
 #   5 = ntm spawn failed (session could not be created)
@@ -42,7 +45,14 @@ fi
 # HELPERS
 # ─────────────────────────────────────────────────────────────────
 
-json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g'; }
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g' | tr '\n' ' ' | tr '\r' ' '
+}
+
+# Strip ANSI escape sequences from terminal output (CSI, OSC, charset switches)
+strip_ansi() {
+  printf '%s' "$1" | sed 's/\x1b\[[?]*[0-9;]*[a-zA-Z]//g; s/\x1b][^\x07]*\x07//g; s/\x1b[()][A-Z0-9]//g'
+}
 
 # ─────────────────────────────────────────────────────────────────
 # ARGUMENT PARSING
@@ -50,8 +60,7 @@ json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g'; }
 
 SESSION=""
 TIMEOUT_SEC=300
-POLL_INTERVAL=15
-INIT_WAIT=8
+INIT_WAIT=5
 declare -a DISPATCHES=()
 
 while [[ $# -gt 0 ]]; do
@@ -59,7 +68,7 @@ while [[ $# -gt 0 ]]; do
     --session)        SESSION="$2"; shift 2 ;;
     --dispatch)       DISPATCHES+=("$2"); shift 2 ;;
     --timeout)        TIMEOUT_SEC="$2"; shift 2 ;;
-    --poll-interval)  POLL_INTERVAL="$2"; shift 2 ;;
+    --poll-interval)  shift 2 ;;  # Deprecated (robot-ack replaces polling); accept silently
     --init-wait)      INIT_WAIT="$2"; shift 2 ;;
     *) echo "[DISPATCH_ERROR] Unknown argument: $1" >&2; exit 4 ;;
   esac
@@ -72,10 +81,10 @@ Usage: dispatch-via-ntm.sh \
   --dispatch <cli>:<role>:<prompt-file>:<output-file> \
   [--dispatch ...] \
   --timeout <seconds> \
-  [--poll-interval <seconds>] \
   [--init-wait <seconds>]
 
 Supported CLIs: codex, gemini
+Note: --poll-interval is deprecated (robot-ack replaces polling).
 USAGE
   exit 4
 fi
@@ -128,9 +137,7 @@ AGENT_COUNT=${#CLIS[@]}
 # ─────────────────────────────────────────────────────────────────
 
 DISPATCH_ID="$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "dispatch-$$-$(date +%s)")"
-TIMESTAMP_START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 START_EPOCH="$(date +%s)"
-DEADLINE=$((START_EPOCH + TIMEOUT_SEC))
 
 # ─────────────────────────────────────────────────────────────────
 # TRAP: CLEANUP ON ANY EXIT
@@ -143,7 +150,7 @@ cleanup() {
 trap cleanup EXIT
 
 # ─────────────────────────────────────────────────────────────────
-# SPAWN NTM SESSION
+# SPAWN VIA ROBOT MODE
 # ─────────────────────────────────────────────────────────────────
 
 # Defensive cleanup: kill stale session with same name
@@ -153,23 +160,50 @@ sleep 1
 # Handle nested tmux: unset TMUX so ntm can create a new session
 unset TMUX 2>/dev/null || true
 
-# Build spawn args
-SPAWN_ARGS=()
-[[ $COD_COUNT -gt 0 ]] && SPAWN_ARGS+=("--cod=$COD_COUNT")
-[[ $GMI_COUNT -gt 0 ]] && SPAWN_ARGS+=("--gmi=$GMI_COUNT")
+# Build robot-spawn args
+SPAWN_ARGS=("--robot-spawn=$SESSION")
+[[ $COD_COUNT -gt 0 ]] && SPAWN_ARGS+=("--spawn-cod=$COD_COUNT")
+[[ $GMI_COUNT -gt 0 ]] && SPAWN_ARGS+=("--spawn-gmi=$GMI_COUNT")
 
-echo "[ntm] Spawning session '$SESSION' with ${COD_COUNT} codex + ${GMI_COUNT} gemini agents..."
-if ! ntm spawn "$SESSION" "${SPAWN_ARGS[@]}" 2>&1; then
-  echo "[DISPATCH_ERROR] ntm spawn failed for session '$SESSION'" >&2
+echo "[ntm] Spawning session '$SESSION' via robot-spawn (${COD_COUNT} codex + ${GMI_COUNT} gemini)..."
+SPAWN_RESULT=$(ntm "${SPAWN_ARGS[@]}" --json 2>&1) || {
+  echo "[DISPATCH_ERROR] ntm robot-spawn failed for session '$SESSION': $SPAWN_RESULT" >&2
+  exit 5
+}
+
+# Validate spawn success from JSON envelope
+if echo "$SPAWN_RESULT" | grep -q '"success"[[:space:]]*:[[:space:]]*false'; then
+  SPAWN_ERROR=$(echo "$SPAWN_RESULT" | grep -o '"error"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+  echo "[DISPATCH_ERROR] ntm spawn reported failure: ${SPAWN_ERROR:-unknown}" >&2
   exit 5
 fi
 
 # Configure tmux scrollback to prevent truncation of verbose CLI output
 tmux set-option -t "$SESSION" history-limit 50000 2>/dev/null || true
 
-# Wait for agents to initialize (shell + CLI startup)
-echo "[ntm] Waiting ${INIT_WAIT}s for agent initialization..."
-sleep "$INIT_WAIT"
+# ─────────────────────────────────────────────────────────────────
+# WAIT FOR AGENT READINESS (robot-status replaces blind sleep)
+# ─────────────────────────────────────────────────────────────────
+
+echo "[ntm] Verifying agent readiness (max ${INIT_WAIT}s)..."
+READY_DEADLINE=$(($(date +%s) + INIT_WAIT))
+AGENTS_READY=false
+
+while [[ $(date +%s) -lt $READY_DEADLINE ]]; do
+  sleep 2
+  STATUS_JSON=$(ntm --robot-status --json 2>/dev/null || echo '{}')
+  # Check if session appears in status output (agents registered) — word-boundary match
+  if echo "$STATUS_JSON" | grep -qw "$SESSION"; then
+    AGENTS_READY=true
+    echo "[ntm] Session '$SESSION' confirmed active"
+    break
+  fi
+done
+
+if [[ "$AGENTS_READY" == "false" ]]; then
+  echo "[ntm] WARNING: Could not confirm agent readiness via robot-status — proceeding anyway"
+  sleep 2  # Grace period before sending
+fi
 
 # ─────────────────────────────────────────────────────────────────
 # SEND PROMPTS
@@ -192,6 +226,11 @@ for i in "${!CLIS[@]}"; do
     exit 4
   fi
 
+  # NOTE: Uses `ntm send` (not --robot-send) deliberately.
+  # ntm send delivers via tmux terminal input — proven for large payloads (up to 200KB).
+  # --robot-send --msg= uses shell arguments with the same size limit but adds no benefit
+  # here (we don't need the JSON envelope for send confirmation). Migrate if structured
+  # send-error diagnostics become needed.
   send_ok=true
   case "$cli" in
     codex)  ntm send "$SESSION" --cod "$prompt_content" || send_ok=false ;;
@@ -206,59 +245,32 @@ for i in "${!CLIS[@]}"; do
 done
 
 # ─────────────────────────────────────────────────────────────────
-# POLL FOR COMPLETION (wall-clock deadline)
+# WAIT FOR COMPLETION VIA ROBOT-ACK
 # ─────────────────────────────────────────────────────────────────
+# robot-ack blocks until all agents return to WAITING state (idle)
+# or the timeout expires. Replaces the manual poll-for-SUMMARY loop.
 
-echo "[ntm] Polling for SUMMARY blocks (timeout: ${TIMEOUT_SEC}s, interval: ${POLL_INTERVAL}s)..."
+echo "[ntm] Waiting for agent completion via robot-ack (timeout: ${TIMEOUT_SEC}s)..."
+ACK_SUCCESS=true
+ACK_STDERR=""
+ACK_STDERR=$(ntm --robot-ack="$SESSION" --ack-timeout="${TIMEOUT_SEC}s" 2>&1 >/dev/null) || ACK_SUCCESS=false
 
-declare -A DONE_MAP=()
-declare -A CACHED_OUTPUT=()
+CAPTURE_EPOCH="$(date +%s)"
+WALL_CLOCK_MS=$(( (CAPTURE_EPOCH - START_EPOCH) * 1000 ))
+ELAPSED_SEC=$((CAPTURE_EPOCH - START_EPOCH))
 
-while [[ $(date +%s) -lt $DEADLINE ]]; do
-  sleep "$POLL_INTERVAL"
-
-  for i in "${!CLIS[@]}"; do
-    # Skip already-completed agents
-    [[ -n "${DONE_MAP[$i]:-}" ]] && continue
-
-    cli="${CLIS[$i]}"
-    pane_output=""
-
-    case "$cli" in
-      codex)  pane_output="$(ntm copy "$SESSION" --cod 2>/dev/null || true)" ;;
-      gemini) pane_output="$(ntm copy "$SESSION" --gmi 2>/dev/null || true)" ;;
-    esac
-
-    if printf '%s' "$pane_output" | grep -q '</SUMMARY>'; then
-      DONE_MAP[$i]="done"
-      CACHED_OUTPUT[$i]="$pane_output"
-      ELAPSED=$(( $(date +%s) - START_EPOCH ))
-      echo "[ntm] ${cli} (${ROLES[$i]}) completed at ${ELAPSED}s"
-    fi
-  done
-
-  # Check if all done
-  if [[ ${#DONE_MAP[@]} -eq $AGENT_COUNT ]]; then
-    ELAPSED=$(( $(date +%s) - START_EPOCH ))
-    echo "[ntm] All agents completed in ${ELAPSED}s"
-    break
-  fi
-
-  ELAPSED=$(( $(date +%s) - START_EPOCH ))
-  echo "[ntm] Progress: ${#DONE_MAP[@]}/${AGENT_COUNT} completed (${ELAPSED}s/${TIMEOUT_SEC}s)"
-done
-
-ALL_DONE=false
-[[ ${#DONE_MAP[@]} -eq $AGENT_COUNT ]] && ALL_DONE=true
+if [[ "$ACK_SUCCESS" == "true" ]]; then
+  echo "[ntm] All agents completed in ${ELAPSED_SEC}s"
+else
+  echo "[ntm] robot-ack timed out after ${TIMEOUT_SEC}s — capturing available output"
+  [[ -n "$ACK_STDERR" ]] && echo "[ntm] ack diagnostic: $ACK_STDERR" >&2
+fi
 
 # ─────────────────────────────────────────────────────────────────
 # CAPTURE OUTPUT
 # ─────────────────────────────────────────────────────────────────
 
 EXIT_CODE=0
-CAPTURE_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-CAPTURE_EPOCH="$(date +%s)"
-WALL_CLOCK_MS=$(( (CAPTURE_EPOCH - START_EPOCH) * 1000 ))
 
 for i in "${!CLIS[@]}"; do
   cli="${CLIS[$i]}"
@@ -268,19 +280,15 @@ for i in "${!CLIS[@]}"; do
   # Ensure output directory exists
   mkdir -p "$(dirname "$output_file")"
 
-  # Use cached output from polling if available, otherwise re-capture
+  # Capture agent output
   raw_output=""
-  if [[ -n "${CACHED_OUTPUT[$i]:-}" ]]; then
-    raw_output="${CACHED_OUTPUT[$i]}"
-  else
-    case "$cli" in
-      codex)  raw_output="$(ntm copy "$SESSION" --cod 2>/dev/null || true)" ;;
-      gemini) raw_output="$(ntm copy "$SESSION" --gmi 2>/dev/null || true)" ;;
-    esac
-  fi
+  case "$cli" in
+    codex)  raw_output="$(ntm copy "$SESSION" --cod 2>/dev/null || true)" ;;
+    gemini) raw_output="$(ntm copy "$SESSION" --gmi 2>/dev/null || true)" ;;
+  esac
 
-  # Strip ANSI escape codes from terminal output
-  raw_output="$(printf '%s' "$raw_output" | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g')"
+  # Strip ANSI escape codes (CSI with ?, OSC, charset switches)
+  raw_output="$(strip_ansi "$raw_output")"
 
   # Extract SUMMARY block (handles both multi-line and single-line cases)
   SUMMARY_FOUND=false
@@ -311,48 +319,57 @@ for i in "${!CLIS[@]}"; do
 cli: $cli
 role: $role
 session: $SESSION
-timed_out: $([ "$ALL_DONE" = "true" ] && echo "false" || echo "true")
-wall_clock_seconds: $((CAPTURE_EPOCH - START_EPOCH))
+timed_out: $([ "$ACK_SUCCESS" = "true" ] && echo "false" || echo "true")
+wall_clock_seconds: ${ELAPSED_SEC}
 EOF
       echo "[ntm] ERROR: No output captured from $cli ($role)"
       EXIT_CODE=1
     fi
   fi
+done
 
-  # ─── Per-dispatch metrics sidecar ───
-  METRICS_FILE="${output_file}.metrics.json"
-  OUTPUT_BYTES="$(wc -c < "$output_file" 2>/dev/null | tr -d ' ' || echo 0)"
+# ─────────────────────────────────────────────────────────────────
+# METRICS VIA ROBOT MODE (consolidated, replaces per-CLI sidecars)
+# ─────────────────────────────────────────────────────────────────
 
-  cat > "$METRICS_FILE" <<SIDECAR
+METRICS_DIR="$(dirname "${OUTPUTS[0]}")/../cli-metrics"
+mkdir -p "$METRICS_DIR" 2>/dev/null || true
+METRICS_FILE="$METRICS_DIR/dispatch-${DISPATCH_ID}.json"
+
+# Capture native ntm session metrics (token counts, velocities, durations)
+NTM_METRICS=$(ntm --robot-metrics="$SESSION" --json 2>/dev/null || echo '{}')
+
+cat > "$METRICS_FILE" <<METRICS
 {
   "dispatch_id": "$(json_escape "$DISPATCH_ID")",
-  "timestamp_start": "$(json_escape "$TIMESTAMP_START")",
-  "timestamp_end": "$(json_escape "$CAPTURE_TIMESTAMP")",
+  "session": "$(json_escape "$SESSION")",
+  "timestamp_start": "$(date -u -r "$START_EPOCH" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "timestamp_end": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "wall_clock_ms": ${WALL_CLOCK_MS},
-  "cli": "$(json_escape "$cli")",
-  "role": "$(json_escape "$role")",
-  "exit_code": ${EXIT_CODE},
   "timeout_configured_ms": $((TIMEOUT_SEC * 1000)),
-  "timed_out": $([ "$ALL_DONE" = "true" ] && echo "false" || echo "true"),
-  "output_bytes": ${OUTPUT_BYTES},
-  "summary_block_found": ${SUMMARY_FOUND},
-  "dispatch_method": "ntm",
-  "capture_method": "ntm_copy_summary_extract",
-  "parallel": true,
+  "ack_success": ${ACK_SUCCESS},
+  "exit_code": ${EXIT_CODE},
   "agent_count": ${AGENT_COUNT},
-  "session": "$(json_escape "$SESSION")"
+  "dispatch_method": "ntm_robot_v2",
+  "agents": [$(
+    sep=""
+    for i in "${!CLIS[@]}"; do
+      printf '%s{"cli":"%s","role":"%s"}' "$sep" "$(json_escape "${CLIS[$i]}")" "$(json_escape "${ROLES[$i]}")"
+      sep=","
+    done
+  )],
+  "ntm_native_metrics": ${NTM_METRICS}
 }
-SIDECAR
-done
+METRICS
+
+echo "[ntm] Metrics written to $METRICS_FILE"
 
 # ─────────────────────────────────────────────────────────────────
 # FINAL EXIT CODE (cleanup runs via trap)
 # ─────────────────────────────────────────────────────────────────
 
-if [[ "$ALL_DONE" != "true" ]]; then
-  if [[ $EXIT_CODE -eq 0 ]]; then
-    EXIT_CODE=2  # timeout, but some may have partial output
-  fi
+if [[ "$ACK_SUCCESS" != "true" && $EXIT_CODE -eq 0 ]]; then
+  EXIT_CODE=2  # timeout, but some agents may have partial output
 fi
 
 echo "[ntm] Dispatch complete. Exit code: $EXIT_CODE (0=success, 1=partial, 2=timeout, 3=prereq, 4=bad args, 5=spawn fail)"
