@@ -1,18 +1,17 @@
 ---
 name: ntm-mastery
 description: >
-  This skill should be used when the user asks to "spawn agents", "launch ntm session",
-  "use ntm", "manage tmux agents", "broadcast prompt to agents", "ntm dashboard",
-  "ntm robot mode", "coordinate multiple Claude/Codex/Gemini agents", "ntm send",
-  "ntm spawn", "ntm quick", "agent mail", "ntm palette", "ntm config",
-  "multi-agent tmux", "ntm conflict tracking", "ntm context rotation",
-  "ntm bead", "ntm ensemble", "ntm safety", "ntm hooks", "kill ntm session",
-  "ntm status", "ntm health", "ntm checkpoint", "ntm CASS", "ntm profiles",
-  or when orchestrating parallel AI agents in tmux sessions via the ntm CLI.
-  Also use proactively when the user is working with multiple coding agents
-  and could benefit from ntm coordination patterns, even if they don't
-  mention ntm by name.
-version: 0.1.0
+  Expert guidance for ntm (Named Tmux Manager) — the CLI that turns tmux into a
+  multi-agent control plane for Claude, Codex, and Gemini. Covers session orchestration,
+  prompt dispatch, work triage, file coordination, safety policies, pipelines, and
+  monitoring. Use this skill whenever the user wants to coordinate multiple AI coding
+  agents in parallel, whether they mention ntm explicitly or not. Also trigger when
+  you see ntm commands (spawn, send, dashboard, work, assign, pipeline, serve, mail,
+  locks, checkpoint, approve, safety, policy), multi-agent tmux patterns, or when the
+  user is struggling with manual multi-agent coordination and could benefit from ntm.
+  Proactively suggest ntm when the user runs 2+ agents on the same codebase without
+  coordination tooling.
+version: 0.3.0
 ---
 
 # NTM Mastery — Named Tmux Manager
@@ -20,125 +19,182 @@ version: 0.1.0
 > **Compatibility**: Verified against ntm v1.x (March 2026)
 > GitHub: https://github.com/Dicklesworthstone/ntm
 
-## Overview
-
-NTM transforms tmux into a multi-agent command center for orchestrating Claude, Codex, and Gemini agents in parallel. It handles session lifecycle, prompt broadcasting, real-time monitoring, conflict tracking, and context rotation — eliminating the chaos of manual multi-agent coordination.
-
-**Core capabilities:**
-- **Session management**: Spawn, tile, and coordinate agent panes with one command
-- **Prompt broadcasting**: Send tasks to specific agents or all at once
-- **Live monitoring**: Dashboard with token velocity, health states, context usage
-- **Agent Mail**: Cross-session messaging and file reservations to prevent conflicts
-- **Robot mode**: Full JSON API for programmatic integration and CI/CD
-- **Safety system**: Blocks dangerous patterns (force push, rm -rf, DROP TABLE)
+NTM transforms tmux into a local control plane for multi-agent software development. It combines session orchestration, graph-aware work triage, safety policies, Agent Mail coordination, durable state capture, and automation surfaces (robot JSON, REST/WebSocket API) in one Go binary.
 
 ## Quick Start
 
-For simple tasks, use these commands directly:
-
-**Launch agents** → `ntm spawn myproject --cc=2 --cod=1`
-**Send a task** → `ntm send myproject --cc "implement the auth module"`
-**Check status** → `ntm status myproject`
-**Open dashboard** → `ntm dashboard myproject`
-**Kill session** → `ntm kill -f myproject`
-
-For complex workflows, load the relevant reference first.
-
-## Command Selection Decision Tree
-
-```
-Starting a new multi-agent session?
-├── YES ↓
-│   Need full project scaffold with template?
-│   ├── YES → ntm quick <project> --template=go|python|node|rust
-│   └── NO ↓
-│       Need AI agents immediately?
-│       ├── YES → ntm spawn <session> --cc=N --cod=N --gmi=N
-│       └── NO → ntm create <session> --panes=N  (empty panes)
-│
-└── NO ↓
-
-Sending work to running agents?
-├── YES ↓
-│   Same session, direct prompt?
-│   ├── YES → ntm send <session> --cc|cod|gmi|all "prompt"
-│   └── NO ↓
-│       Cross-session coordination needed?
-│       ├── YES → ntm mail send <project> --to <agent> "message"
-│       └── NO → ntm send (with --type filter)
-│
-└── NO ↓
-
-Monitoring agent progress?
-├── YES ↓
-│   Visual overview with token/health badges?
-│   ├── YES → ntm dashboard <session>
-│   └── NO ↓
-│       Quick agent counts and states?
-│       ├── YES → ntm status <session>
-│       └── NO ↓
-│           Live output streaming?
-│           ├── YES → ntm watch <session>
-│           └── NO → ntm activity <session> --watch
-│
-└── NO ↓
-
-Programmatic / CI/CD integration?
-├── YES → Robot mode (--robot-* flags)
-│         Read: $SKILL_PATH/references/robot-mode.md
-└── NO ↓
-
-Need command palette or output export?
-├── Palette → ntm palette <session>
-└── Export → ntm copy <session> --all  |  ntm save <session> -o <dir>
+```bash
+ntm spawn myproject --cc=2 --cod=1     # Launch 2 Claude + 1 Codex agent
+ntm send myproject --cc "implement auth" # Send task to Claude agents
+ntm dashboard myproject                  # Open live monitoring TUI
+ntm kill -f myproject                    # Terminate session
 ```
 
-## Quick Reference
+## When to Use What
 
-| Command | Purpose | Key Flags |
-|---------|---------|-----------|
-| `spawn` | Launch agents in tiled panes | `--cc=N --cod=N --gmi=N` |
-| `quick` | Scaffold + spawn | `--template=go\|python\|node\|rust` |
-| `send` | Broadcast prompt | `--cc\|cod\|gmi\|all "prompt"` |
-| `dashboard` | Visual monitoring TUI | (interactive) |
-| `palette` | Fuzzy command search | (interactive, F6 hotkey) |
-| `status` | Agent counts/states | (quick check) |
-| `health` | Health assessment | (state machine) |
-| `activity` | Real-time states | `--watch` |
-| `copy` | Export pane output | `--all --output FILE` |
-| `save` | Save all to files | `-o <dir>` |
-| `mail` | Cross-session messaging | `send\|inbox\|read\|ack\|reserve` |
-| `interrupt` | Ctrl+C to all agents | (emergency stop) |
-| `kill` | Terminate session | `-f` (force) |
-| `deps` | Verify dependencies | `-v` |
+Use this table to pick the right command for the situation. Load the linked reference for details.
+
+### Session Lifecycle → `session-management.md`
+
+| Situation | Command |
+|-----------|---------|
+| Start a project with scaffold | `ntm quick <project> --template=go\|python\|node\|rust` |
+| Launch agents immediately | `ntm spawn <session> --cc=N --cod=N --gmi=N` |
+| Multiple swarms on same project | `ntm spawn <session> --label backend` / `--label frontend` |
+| Initialize config without agents | `ntm init <project>` |
+| Add agents to running session | `ntm add <session> --cc=N` |
+| Inspect layout without attaching | `ntm view <session>` / `ntm zoom <session> <pane>` |
+| Terminate | `ntm kill -f <session>` |
+
+### Dispatch & Coordination → `agent-communication.md`
+
+| Situation | Command |
+|-----------|---------|
+| Send prompt to agent type | `ntm send <s> --cc\|cod\|gmi "prompt"` |
+| Send to all agents | `ntm send <s> --all "checkpoint and report"` |
+| Cross-session messaging | `ntm mail send <project> --to <agent> "message"` |
+| Reserve files to prevent conflicts | `ntm mail reserve <project> --agent X --paths "src/**"` |
+| Inspect/manage file locks | `ntm locks list\|renew\|force-release` |
+| Emergency stop | `ntm interrupt <session>` |
+
+### Monitoring & Analysis → `monitoring.md`
+
+| Situation | Command |
+|-----------|---------|
+| Visual dashboard with health badges | `ntm dashboard <session>` |
+| Quick status check | `ntm status <session>` |
+| Agent health assessment | `ntm health <session>` |
+| Live output streaming | `ntm watch <session>` |
+| Compare two agent responses | `ntm diff <session> cc_1 cod_1` |
+| Extract code from agent output | `ntm extract <session> --lang=go` |
+| Search pane history | `ntm grep "pattern" <session> -C 3` |
+| Usage analytics | `ntm analytics --days 7` |
+| Export output to file | `ntm copy <session> --all --output FILE` |
+
+### Work Intelligence → `work-intelligence.md`
+
+| Situation | Command |
+|-----------|---------|
+| Triage what to work on next | `ntm work triage [--by-track]` |
+| Get single highest-priority task | `ntm work next` |
+| Auto-assign tasks to agents | `ntm assign <session> --auto --strategy=dependency` |
+| Check for blockers | `ntm work alerts` |
+| Human overseer digest | `ntm coordinator digest <session>` |
+
+> Requires `br`/`bv` integration for graph-aware features. Without it, use manual bead creation + `ntm assign`.
+
+### Automation & Pipelines → `pipelines-automation.md`
+
+| Situation | Command |
+|-----------|---------|
+| Run multi-step workflow | `ntm pipeline run .ntm/pipelines/review.yaml --session <s>` |
+| Reusable session presets | `ntm recipes list\|show` |
+| Orchestration patterns | `ntm workflows list\|show` |
+| Prompt templates | `ntm template list\|show` |
+| Local REST/SSE/WebSocket server | `ntm serve --port 7337` |
+| Generate OpenAPI spec | `ntm openapi generate` |
+
+### Safety & Approvals → `hooks-safety.md`
+
+| Situation | Command |
+|-----------|---------|
+| Check safety status | `ntm safety status` |
+| Pre-check a command | `ntm safety check -- <command>` |
+| Manage policy rules | `ntm policy show\|validate\|edit\|reset` |
+| Review pending approvals | `ntm approve list\|show\|<id>\|deny` |
+| Install pre-commit guard | `ntm hooks guard install` |
+
+### Durable State & Recovery → `advanced-patterns.md`
+
+| Situation | Command |
+|-----------|---------|
+| Save checkpoint before risky work | `ntm checkpoint save <s> -m "description"` |
+| Resume interrupted session | `ntm resume <session>` |
+| View event timeline | `ntm timeline list\|show <id>` |
+| Audit trail | `ntm audit show <session>` |
+| Search past sessions | `ntm history search "keyword"` |
+| Check context usage per agent | `ntm --robot-context=<session>` |
+
+### Programmatic Integration → `robot-mode.md`
+
+| Situation | Command |
+|-----------|---------|
+| Machine-readable status | `ntm --robot-status --json` |
+| Full state snapshot | `ntm --robot-snapshot` |
+| Send prompt programmatically | `ntm --robot-send=<s> --msg="task" --type=claude` |
+| Minimal LLM-friendly state | `ntm --robot-terse` |
+
+## Common Tasks
+
+**"I want to split work between Claude and Codex"**
+```bash
+ntm spawn myapi --cc=2 --cod=1
+ntm send myapi --cc "implement the REST endpoints"
+ntm send myapi --cod "write unit tests for the endpoints"
+ntm mail reserve myapi --agent cc_1 --paths "internal/api/**"
+ntm dashboard myapi
+```
+
+**"I need a CI pipeline that runs agent-powered code review"**
+```bash
+ntm --robot-spawn=ci-review --spawn-cc=2
+ntm --robot-send=ci-review --msg="Review changed files. Report as JSON." --type=claude
+ntm --robot-ack=ci-review --ack-timeout=300s
+ntm --robot-files=ci-review --json
+ntm kill -f ci-review
+```
+
+**"An agent is stuck, how do I recover?"**
+```bash
+ntm health myproject                           # Check health states
+ntm --robot-tail=myproject --panes=2 --lines=50 # Inspect stuck pane
+ntm --robot-context=myproject                   # Check context usage
+ntm interrupt myproject                         # Ctrl+C all agents
+ntm send myproject --cc "continue with the task" # Re-prompt
+```
+
+**"I want multiple teams on the same repo without conflicts"**
+```bash
+ntm spawn payments --label backend --cc=2 --cod=1
+ntm spawn payments --label frontend --cc=2 --gmi=1
+ntm mail reserve payments --agent BackendLead --paths "internal/**/*.go"
+ntm mail reserve payments --agent FrontendLead --paths "web/src/**/*.tsx"
+ntm hooks guard install  # Block conflicting commits
+```
 
 ## Selective Reference Loading
 
-**Load the relevant reference only when the task requires deeper knowledge:**
+Load the relevant reference only when the task requires deeper knowledge. Each section header above notes which reference to load.
 
 ```
-# Session lifecycle (spawn, create, quick, attach, kill, list):
+# Session lifecycle (spawn, create, quick, init, attach, view, zoom, kill, list, labels):
 Read: $SKILL_PATH/references/session-management.md
 
-# Sending prompts, mail system, file reservations:
+# Sending prompts, mail system, file reservations, locks, worktrees:
 Read: $SKILL_PATH/references/agent-communication.md
 
-# Dashboard, status, health, activity, state detection:
+# Dashboard, status, health, activity, extract, diff, grep, analytics, state detection:
 Read: $SKILL_PATH/references/monitoring.md
+
+# Work triage (br/bv), assignment strategies, coordinator (human overseer):
+Read: $SKILL_PATH/references/work-intelligence.md
+
+# Pipelines, recipes, workflows, templates, REST/SSE/WebSocket API, OpenAPI:
+Read: $SKILL_PATH/references/pipelines-automation.md
 
 # Robot mode JSON API (--robot-* flags):
 Read: $SKILL_PATH/references/robot-mode.md
 
-# config.toml, environment variables, palette customization:
+# config.toml, environment variables, palette, project-level .ntm/:
 Read: $SKILL_PATH/references/configuration.md
 
-# Hook system, safety policies, pre-commit guard:
+# Hook system, safety policies, approvals, guards, pre-commit guard:
 Read: $SKILL_PATH/references/hooks-safety.md
 
-# Context rotation, conflicts, beads, CASS, ensembles, profiles:
+# Context rotation, conflicts, beads, CASS, ensembles, profiles, checkpoints, timelines, audit:
 Read: $SKILL_PATH/references/advanced-patterns.md
 
-# End-to-end workflow templates:
+# End-to-end workflow templates (solo dev, team coordination, code review, migration, CI/CD):
 Read: $SKILL_PATH/references/workflows.md
 
 # Error diagnosis and recovery:
@@ -147,25 +203,25 @@ Read: $SKILL_PATH/references/troubleshooting.md
 
 ## Essential Rules
 
-1. **Pane naming convention** — Agents are named `<project>__<type>_<number>` (e.g., `myproject__cc_1` for Claude agent 1). Understand this pattern when parsing status output or targeting specific panes.
+1. **Pane naming** — `<project>__<type>_<number>` (e.g., `myapi__cc_1`). Shorthands: `cc` = Claude, `cod` = Codex, `gmi` = Gemini.
 
-2. **Agent type shorthands** — `cc` = Claude, `cod` = Codex, `gmi` = Gemini. These appear in flags (`--cc=2`), pane names, and target filters.
+2. **Session = project directory** — `ntm spawn myapi` creates agents working in `~/Developer/myapi/` (configurable via `projects_base`).
 
-3. **Session vs. project** — Session names map to project directories under `projects_base` (default `~/Developer/`). Running `ntm spawn myapi` creates agents working in `~/Developer/myapi/`.
+3. **Labels for multi-swarm** — `--label` runs multiple swarms on the same project. Without labels, re-spawning replaces the session.
 
-4. **Robot mode for automation** — Any command that another tool or script needs to consume should use `--robot-*` flags, which output structured JSON. Human-facing commands use the standard TUI.
+4. **Robot mode vs REST** — `--robot-*` flags for local scripting/CI. `ntm serve` for long-lived dashboards and external services.
 
-5. **Mail for cross-session work** — Direct `send` works within a session. For coordination across sessions (different agent swarms on same project), use Agent Mail (`ntm mail`).
+5. **Mail within, locks across** — `ntm send` within a session. `ntm mail` across sessions. `ntm locks` to manage file reservations.
 
-6. **File reservations prevent conflicts** — Before assigning file-heavy tasks to multiple agents, use `ntm mail reserve` to claim paths. The pre-commit guard blocks conflicting commits.
+6. **Safety is on by default** — Force pushes, `rm -rf /`, `DROP TABLE` blocked. `approval`-gated operations require `ntm approve`. Custom policies in `~/.ntm/policy.yaml`.
 
-7. **Context rotation is automatic** — NTM monitors token usage and rotates agents before context exhaustion. Configure thresholds in `config.toml` if defaults (80% warning, 95% rotate) need adjustment.
+7. **Context rotation is automatic** — 80% warning, 95% rotate. Attempts compaction first. Configure in `config.toml` → `[context_rotation]`.
 
-8. **Safety blocks dangerous ops** — Force pushes, `rm -rf /`, and `DROP TABLE` are blocked by default. Custom policies go in `~/.ntm/policy.yaml`.
+8. **Project-level `.ntm/` overrides user config** — Use for team-shared recipes, pipelines, personas, and checkpoints.
+
+9. **Durable state by default** — Checkpoints, timelines, and audit trails persist. Always `ntm checkpoint save` before risky operations.
 
 ## Shell Integration
-
-Enable shell aliases for faster access:
 
 ```bash
 eval "$(ntm shell zsh)"   # or bash/fish

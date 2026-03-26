@@ -281,3 +281,62 @@ severity = "critical"
 - `NTM_PROFILE=1` — Profile startup and command execution times
 - `NTM_REDUCE_MOTION=1` — Disable animations for slower terminals
 - `NTM_ICONS=ascii` — Use ASCII icons if font rendering is problematic
+
+---
+
+## Project-Level Configuration
+
+NTM supports project-local assets under `.ntm/` that override user-level and built-in defaults.
+
+### Project Asset Directories
+
+| Directory / File | Purpose |
+|------------------|---------|
+| `.ntm/workflows/` | Project-specific orchestration patterns |
+| `.ntm/pipelines/` | Executable multi-step agent workflows |
+| `.ntm/personas.toml` | Project-specific agent profiles |
+| `.ntm/recipes.toml` | Project-specific session presets |
+| `.ntm/checkpoints/` | Session checkpoint storage |
+
+### Precedence Order
+
+```
+Project-level (.ntm/)  →  User-level (~/.config/ntm/)  →  Built-in defaults
+```
+
+Project-level assets take highest precedence. This allows teams to version-control ntm configuration alongside the codebase.
+
+### Config Management Commands
+
+```bash
+# Initialize config
+ntm config init
+
+# Show current effective config
+ntm config show
+
+# Diff project vs user config
+ntm config diff
+
+# Get a specific config value
+ntm config get projects_base
+
+# Edit config in $EDITOR
+ntm config edit
+
+# Reset to defaults
+ntm config reset
+```
+
+### Agent Launch Commands
+
+The `[agents]` section in config defines how each CLI agent is launched:
+
+```toml
+[agents]
+claude = '{{memLimitPrefix}} claude --dangerously-skip-permissions'
+codex = "codex --dangerously-bypass-approvals-and-sandbox -m gpt-5.1-codex-max"
+gemini = "gemini --yolo"
+```
+
+`{{memLimitPrefix}}` is a template variable ntm resolves at runtime for memory-constrained environments.

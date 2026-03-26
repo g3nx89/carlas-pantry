@@ -114,6 +114,55 @@ ntm hooks guard uninstall
 
 The guard checks staged files against active reservations and blocks the commit if conflicts exist.
 
+## File Lock Management
+
+The `ntm locks` commands provide direct management of file reservations — complementing the `ntm mail reserve` workflow with inspection, renewal, and force-release capabilities.
+
+### `ntm locks list <session>`
+
+View all active file reservations across agents.
+
+```bash
+# List all reservations for a session
+ntm locks list payments --all-agents
+```
+
+**Flags:**
+- `--all-agents` — Show reservations from all agents (not just current)
+
+### `ntm locks renew <session>`
+
+Extend the TTL on active reservations before they expire.
+
+```bash
+ntm locks renew payments
+```
+
+### `ntm locks force-release <session> <lock-id>`
+
+Forcefully release a reservation (e.g., when an agent is inactive or stuck).
+
+```bash
+ntm locks force-release payments 42 --note "agent inactive"
+```
+
+**Flags:**
+- `--note="reason"` — Required note explaining why the lock was force-released (audit trail)
+
+**When to use force-release:**
+- Agent holding the lock has crashed or been killed
+- Agent is stalled and unresponsive
+- Lock is blocking critical work and the original agent won't release
+
+### `ntm worktrees`
+
+Git worktree management for agent isolation — each agent can work in its own worktree to avoid file conflicts entirely.
+
+```bash
+ntm worktrees list payments
+ntm worktrees create payments --agent cc_1 --branch feature-auth
+```
+
 ## Communication Patterns
 
 ### Role-Based Task Distribution

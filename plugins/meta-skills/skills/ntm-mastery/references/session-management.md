@@ -28,6 +28,7 @@ ntm spawn myapi --profiles=architect,implementer,tester
 - `--cod=N` — Number of Codex agents
 - `--gmi=N` — Number of Gemini agents
 - `--profiles=list` — Assign persona profiles to agents
+- `--label=NAME` — Label for multi-swarm coordination on the same project
 
 **Behavior:**
 - Creates tmux session named `<session>`
@@ -133,19 +134,55 @@ ntm kill -f myapi
 
 **Warning:** This sends SIGTERM to all agents. Any unsaved work in agent context is lost. Use `ntm checkpoint save` before killing long-running sessions.
 
-## Multi-Session Labels
+## Session Labels
 
-Run multiple agent swarms on the same project with different goals:
+Run multiple agent swarms on the same project with different goals using labels:
 
 ```bash
-# Session 1: feature development
-ntm spawn myapi-features --cc=3
+# Backend swarm
+ntm spawn payments --label backend --cc=2 --cod=1
 
-# Session 2: test writing (same project)
-ntm spawn myapi-tests --cc=2 --cod=1
+# Frontend swarm (same project directory)
+ntm spawn payments --label frontend --cc=2
+
+# Add agents to a labeled session
+ntm add payments --label frontend --cc=1
 ```
 
-Both sessions can work in the same `~/Developer/myapi/` directory. Use Agent Mail for coordination between them and file reservations to prevent conflicts.
+Both labeled sessions work in the same `~/Developer/payments/` directory. Use Agent Mail for coordination between them and file reservations to prevent conflicts.
+
+**Note:** Without `--label`, running multiple `ntm spawn` on the same session name replaces the existing session. Labels create distinct sub-sessions.
+
+### `ntm view <session>`
+
+Inspect session layout and pane details without attaching.
+
+```bash
+ntm view payments
+```
+
+Shows pane grid, agent types, and current states in a non-interactive view.
+
+### `ntm zoom <session> <pane>`
+
+Zoom into a specific pane for focused inspection.
+
+```bash
+# Zoom to pane 3
+ntm zoom payments 3
+```
+
+Equivalent to tmux zoom but with ntm's pane awareness. Press `Ctrl-B z` to unzoom within tmux.
+
+### `ntm init`
+
+Initialize a project directory with ntm configuration without spawning agents.
+
+```bash
+ntm init myapi
+```
+
+Creates the `.ntm/` directory structure. Use when you want to set up project-level config before spawning.
 
 ## Utility Commands
 
@@ -181,4 +218,25 @@ Check for and apply self-updates.
 
 ```bash
 ntm upgrade
+```
+
+### Installation Methods
+
+```bash
+# Install script (recommended)
+curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/ntm/main/install.sh?$(date +%s)" | bash -s -- --easy-mode
+
+# Homebrew
+brew install dicklesworthstone/tap/ntm
+
+# Go install (requires Go 1.25+)
+go install github.com/Dicklesworthstone/ntm/cmd/ntm@latest
+
+# Docker
+docker build -t ntm .
+docker run --rm -it ntm
+
+# From source
+git clone https://github.com/Dicklesworthstone/ntm.git
+cd ntm && go build ./cmd/ntm
 ```

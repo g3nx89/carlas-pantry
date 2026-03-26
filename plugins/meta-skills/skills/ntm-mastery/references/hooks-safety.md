@@ -218,3 +218,67 @@ ntm hooks guard uninstall
 ```
 
 When installed, `git commit` checks staged files against active file reservations and blocks commits that would conflict with another agent's reserved paths.
+
+---
+
+## Approval Workflows
+
+For operations classified as `approval` in policy, ntm provides a durable, auditable approval system. Approvals support two-person workflows for high-risk operations.
+
+### Commands
+
+```bash
+# List pending approvals
+ntm approve list
+
+# Show details of a specific approval request
+ntm approve show abc123
+
+# Approve a pending request
+ntm approve abc123
+
+# Deny with reason
+ntm approve deny abc123 --reason "wrong target branch"
+```
+
+### How Approvals Work
+
+1. An agent or command triggers an operation matching an `approval` policy rule
+2. NTM blocks the operation and creates an approval request with a unique ID
+3. The human operator reviews via `ntm approve list` / `ntm approve show`
+4. Operator approves or denies — the decision is recorded in the audit trail
+5. If approved, the original operation proceeds; if denied, it's permanently blocked
+
+### Approval Properties
+
+- **Durable** — Approvals persist across ntm restarts
+- **Auditable** — Every approval/denial is logged with timestamp, operator, and reason
+- **Two-person capable** — Different operator can review vs. the one who triggered
+
+---
+
+## Guards
+
+Guards provide runtime protection beyond static policy rules — active monitoring and blocking of dangerous patterns during agent execution.
+
+### Commands
+
+```bash
+# View guard status
+ntm guards status
+
+# List active guards
+ntm guards list
+```
+
+Guards complement policy rules: policy defines WHAT is blocked, guards enforce it in real-time during agent execution.
+
+### Policy Automation
+
+Generate or manage policy rules programmatically:
+
+```bash
+ntm policy automation
+```
+
+Useful for CI/CD environments where policy needs to be version-controlled and applied automatically.

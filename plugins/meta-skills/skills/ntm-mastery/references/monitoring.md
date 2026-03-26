@@ -114,6 +114,62 @@ ntm palette myapi
 
 The palette includes built-in commands and custom entries from `config.toml`.
 
+## Analysis & Comparison
+
+### `ntm extract <session>`
+
+Extract code snippets from agent output, filtered by language.
+
+```bash
+# Extract Go code from agent output
+ntm extract payments --lang=go
+
+# Extract Python code
+ntm extract payments --lang=python
+```
+
+**Flags:**
+- `--lang=LANGUAGE` — Filter by programming language
+
+Useful for collecting code solutions from agents without manually copying from pane output.
+
+### `ntm diff <session> <pane1> <pane2>`
+
+Compare responses between two agents side-by-side.
+
+```bash
+# Compare Claude agent 1 vs Codex agent 1
+ntm diff payments cc_1 cod_1
+```
+
+Useful for ensemble workflows where you want to review divergent approaches.
+
+### `ntm grep <pattern> <session>`
+
+Search across pane history for a pattern.
+
+```bash
+# Search for timeout-related output
+ntm grep "timeout" payments -C 3
+
+# Search for error patterns
+ntm grep "Error:" payments -C 5
+```
+
+**Flags:**
+- `-C N` — Context lines around matches (like grep -C)
+
+### `ntm analytics`
+
+Usage analytics across sessions and time.
+
+```bash
+# Last 7 days of usage stats
+ntm analytics --days 7
+```
+
+Reports agent usage, session durations, token consumption, and command frequency.
+
 ## State Detection
 
 NTM infers agent states by analyzing terminal output patterns — no agent instrumentation needed.

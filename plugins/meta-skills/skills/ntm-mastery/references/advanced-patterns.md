@@ -2,6 +2,17 @@
 
 > **Compatibility**: ntm v1.x (March 2026)
 
+## Contents
+
+- [Context Rotation](#context-rotation)
+- [Conflict Tracking](#conflict-tracking)
+- [Bead Management](#bead-management)
+- [CASS Integration](#cass-integration)
+- [Ensemble System](#ensemble-system)
+- [Checkpoint System](#checkpoint-system)
+- [Profile / Persona System](#profile--persona-system)
+- [Durable State & Recovery](#durable-state--recovery)
+
 ## Context Rotation
 
 NTM monitors token usage and automatically rotates agents before context window exhaustion, preventing workflow interruption during long sessions.
@@ -310,3 +321,71 @@ personas = ["security-reviewer", "performance-reviewer", "maintainability-review
 ### Custom Profiles
 
 Define custom profiles to specialize agent behavior beyond the built-in set. Profiles inject system prompts that shape how agents approach tasks.
+
+---
+
+## Durable State & Recovery
+
+NTM treats recoverability as a core feature. Sessions can be checkpointed, timelines replayed, audit records exported, and prompt/session history searched.
+
+### Timeline
+
+Replay-capable session timelines with event sequencing.
+
+```bash
+# List all timelines
+ntm timeline list
+
+# Show timeline for a specific session
+ntm timeline show <session-id>
+```
+
+Timelines capture all events (spawns, sends, agent state changes, conflicts, approvals) in chronological order — useful for post-incident analysis.
+
+### Audit Trail
+
+Exportable audit records of agent actions and operator decisions.
+
+```bash
+# Show audit trail for a session
+ntm audit show payments
+```
+
+Audit records include: command executions, approval decisions, file modifications, agent rotations, and safety blocks.
+
+### History Search
+
+Search across past prompt and session history.
+
+```bash
+ntm history search "authentication error"
+```
+
+Searches prompts sent, agent outputs, and event logs. Useful for finding when a decision was made or how a problem was previously solved.
+
+### Change Tracking
+
+Track and review file changes across agents with conflict detection.
+
+```bash
+# View conflicts between agent changes
+ntm changes conflicts payments
+```
+
+Shows which agents modified which files and when overlapping edits occurred. Complements the conflict detection system (see Conflict Tracking above).
+
+### Session Resume
+
+Resume a previously checkpointed or interrupted session.
+
+```bash
+ntm resume payments
+```
+
+Restores agent panes and injects the last checkpoint's state. Pairs with checkpoints:
+
+```bash
+ntm checkpoint save payments -m "before risky change"
+# ... something goes wrong ...
+ntm resume payments   # Restores from last checkpoint
+```
