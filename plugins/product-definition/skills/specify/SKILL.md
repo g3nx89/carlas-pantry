@@ -1,7 +1,7 @@
 ---
 name: feature-specify
 description: Creates or updates detailed feature specifications through guided multi-stage analysis. Use whenever the user wants to specify a feature, create a spec, write requirements, document a feature, define acceptance criteria, spec out an idea, or turn a rough description into a structured specification — even if they don't use the word "spec". Also trigger when the user says "write spec for", "feature requirements for", "create specification", "define feature", "spec my idea", "write user stories", "requirements analysis", "business analysis for", "feature breakdown", "formalize requirements", "break down this feature", or describes a feature and asks to formalize, structure, or analyze it. Includes Figma design integration, multi-model quality validation, iterative file-based Q&A for completeness, and optional test strategy generation.
-version: 1.5.0
+version: 1.5.1
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Bash(command:*)", "Bash(wait:*)", "Task", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
 ---
 
