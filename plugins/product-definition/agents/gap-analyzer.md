@@ -35,7 +35,7 @@ derived from the specification.
 | FEATURE_NAME | Name of the feature | Yes |
 | FEATURE_DIR | Path to feature directory | Yes |
 | SPEC_FILE | Path to spec.md | Yes |
-| DESIGN_BRIEF_FILE | Path to design-brief.md | Yes |
+| DESIGN_BRIEF_FILE | Path to design-brief.md | No (optional — absent when Figma present) |
 | FIGMA_CONTEXT_FILE | Path to figma_context.md | No (optional) |
 | PLATFORM_TYPE | mobile, web, or generic | Yes |
 
@@ -47,12 +47,12 @@ derived from the specification.
 
 ```bash
 test -f {SPEC_FILE} || echo "ERROR: spec.md not found"
-test -f {DESIGN_BRIEF_FILE} || echo "ERROR: design-brief.md not found"
 ```
 
 Determine mode:
-- **With Figma**: `figma_context.md` exists → gap analysis + supplement
-- **Without Figma**: no `figma_context.md` → full supplement from spec
+- **figma_direct**: `figma_context.md` exists AND no `design-brief.md` → derive screen coverage from spec + figma_context + HANDOFF-SUPPLEMENT. This is the primary mode when Figma is present.
+- **with_design_brief**: `design-brief.md` exists → use design-brief for screen inventory (legacy mode, when Figma absent)
+- **spec_only**: no `figma_context.md` AND no `design-brief.md` → full supplement from spec alone
 
 ### Step 2: Analysis (Sequential Thinking — 6 thoughts)
 
@@ -66,12 +66,14 @@ Extract all requirements from spec that need visual/interaction coverage:
 - Interaction patterns (click, tap, hover, keyboard shortcuts, swipe, drag-drop)
 
 **Thought 2 — Coverage Mapping:**
-IF Figma: Map each requirement to Figma screens. Classify coverage:
+IF figma_direct mode: Map each requirement to Figma screens from figma_context.md (and HANDOFF-SUPPLEMENT if available). Classify coverage:
 - COVERED: Requirement fully represented in Figma
 - PARTIAL: Some aspects covered, others missing
 - NOT_COVERED: No corresponding Figma design
 
-IF no Figma: All requirements are NOT_COVERED (full supplement needed).
+IF with_design_brief mode: Map each requirement to screens from design-brief.md. Classify same as above.
+
+IF spec_only mode: All requirements are NOT_COVERED (full supplement needed).
 
 **Thought 3 — Missing Screens:**
 For each NOT_COVERED requirement that needs a new screen:
@@ -176,6 +178,6 @@ response:
 | Error | Recovery |
 |-------|----------|
 | spec.md not found | ABORT - requires spec |
-| design-brief.md not found | ABORT - requires design brief |
+| design-brief.md not found | Switch to figma_direct mode (if figma_context exists) or spec_only mode |
 | figma_context.md not found | Switch to spec-only mode (full supplement) |
 | Template not found | ABORT - requires template |

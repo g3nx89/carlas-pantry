@@ -4,6 +4,9 @@ artifacts_written:
   - specs/{FEATURE_DIR}/spec.md
   - specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md (conditional)
   - specs/{FEATURE_DIR}/analysis/mpa-challenge.md (conditional)
+  - specs/{FEATURE_DIR}/analysis/review-board-synthesis.md (conditional — REVIEW_BOARD_ENABLED)
+  - specs/{FEATURE_DIR}/analysis/qa-early-findings.md (conditional — PRODUCT_TRIO_ENABLED)
+  - specs/{FEATURE_DIR}/design-brief.md (conditional — trio Designer when Figma absent)
   - specs/{FEATURE_DIR}/rtm.md (conditional)
 ---
 
@@ -30,7 +33,27 @@ test -f "specs/{FEATURE_DIR}/spec.md" || echo "BLOCKER: spec template missing"
 
 **If BLOCKER found:** Set `status: failed`, `block_reason: "Pre-condition failed"`. Do not proceed.
 
-## Step 2.1: Launch BA Agent
+## Step 2.1: Launch Spec Creation
+
+**Check:** `PRODUCT_TRIO_ENABLED` (from dispatch context, resolved in Stage 1)
+
+**If trio enabled:**
+
+Load and execute: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/product-trio-protocol.md`
+
+After trio completes:
+- `spec.md` written by PM agent (same quality as solo BA)
+- `design-brief.md` written by Designer (if Figma absent)
+- `analysis/qa-early-findings.md` written by QA-Lead (if thorough profile)
+
+```
+SET trio_design_brief_generated = (designer was spawned AND design-brief.md exists)
+SET trio_qa_findings = (qa-early-findings.md exists ? count of findings : 0)
+```
+
+Continue to Step 2.2 (Parse BA Response — parse PM output).
+
+**If trio disabled (or fallback):**
 
 Dispatch BA agent via `Task(subagent_type="general-purpose")`:
 
@@ -159,13 +182,41 @@ flags:
 
 Write report: `specs/{FEATURE_DIR}/analysis/mpa-challenge-parallel.md`
 
+**If disabled:** Skip, proceed to Step 2.4b.
+
+## Step 2.4b: Adversarial Review Board (Conditional)
+
+**Check:** `REVIEW_BOARD_ENABLED` (from dispatch context, resolved in Stage 1)
+
+**If enabled:**
+
+Load and execute: `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/review-board-protocol.md`
+
+The review board creates a 3-critic team (product/ux/technical) that cross-examines the spec using CLI Challenge findings as input. If CLI Challenge was skipped, the review board reads spec.md directly.
+
+Review board synthesis report informs gate evaluation (Step 2.5):
+- Pass `review-board-synthesis.md` as additional context to gate-judge
+- Gate judges may reference review board findings in their evidence
+
 **If disabled:** Skip, proceed to Step 2.5.
 
-## Step 2.5: Gate 1 — Problem Quality
+## Step 2.5: Quality Gates (Parallel)
 
 **Check:** `INCREMENTAL_GATES_ENABLED` (from Stage 1 summary, profile-resolved)
 
 **If enabled:**
+
+Gate 1 and Gate 2 are independent evaluations — both read spec.md, both dispatch `gate-judge`, and produce independent scores. Dispatch BOTH via parallel `Task()` calls:
+
+```
+PARALLEL Task dispatch:
+    Task A: Gate 1 — Problem Quality
+    Task B: Gate 2 — True Need
+WAIT for both to complete
+PROCESS results (see thresholds below)
+```
+
+### Gate 1 — Problem Quality
 
 Dispatch `gate-judge` agent via `Task(subagent_type="general-purpose")` to evaluate 4 criteria:
 1. Problem statement is specific (not generic)
@@ -175,23 +226,7 @@ Dispatch `gate-judge` agent via `Task(subagent_type="general-purpose")` to evalu
 
 Score: Each criterion = 1 point (max 4)
 
-**Thresholds:**
-- 4 = GREEN → proceed silently
-- 3 = YELLOW → signal `needs-user-input` with gate feedback
-- <= 2 = RED → signal `needs-user-input` with gate feedback
-
-**If YELLOW/RED:**
-Signal `needs-user-input` with question:
-```
-"Problem statement scored {SCORE}/4. {DETAILS}. How would you like to proceed?"
-Options: "Needs refinement" | "Proceed anyway"
-```
-
-**If user wants refinement:** Re-invoke BA with gate feedback (coordinator-internal loop).
-
-## Step 2.6: Gate 2 — True Need
-
-**If incremental gates enabled:**
+### Gate 2 — True Need
 
 Dispatch `gate-judge` agent via `Task(subagent_type="general-purpose")` to evaluate 4 criteria:
 1. True need differs from stated request (root cause found)
@@ -199,7 +234,23 @@ Dispatch `gate-judge` agent via `Task(subagent_type="general-purpose")` to evalu
 3. Success criteria are defined
 4. Business value is articulated
 
-Same GREEN/YELLOW/RED logic as Gate 1.
+Score: Each criterion = 1 point (max 4)
+
+### Process Gate Results
+
+**Thresholds (same for both gates):**
+- 4 = GREEN → proceed silently
+- 3 = YELLOW → signal `needs-user-input` with gate feedback
+- <= 2 = RED → signal `needs-user-input` with gate feedback
+
+**If ANY gate is YELLOW/RED:**
+Signal `needs-user-input` with question:
+```
+"Gate results — Problem Quality: {SCORE1}/4, True Need: {SCORE2}/4. {DETAILS}. How would you like to proceed?"
+Options: "Needs refinement" | "Proceed anyway"
+```
+
+**If user wants refinement:** Re-invoke BA with gate feedback from both gates (coordinator-internal loop), then re-run both gates in parallel.
 
 ## Step 2.7: Checkpoint
 
@@ -257,6 +308,16 @@ flags:
   challenge_risk_level: "{GREEN|YELLOW|RED|skipped}"
   gate_1_score: {N}
   gate_2_score: {N}
+  trio_mode: {true|false}
+  trio_agents: {0|2|3}
+  trio_design_brief_generated: {true|false}
+  trio_qa_findings: {N|0}
+  trio_untestable_acs: {N|0}
+  review_board_ran: {true|false}
+  review_board_findings: {N|0}
+  review_board_high_confidence: {N|0}
+  review_board_cross_validated: {N|0}
+  review_board_cli_corroborated: {N|0}
   rtm_total: {N|0}
   rtm_covered: {N|0}
   rtm_partial: {N|0}

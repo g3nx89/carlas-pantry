@@ -88,7 +88,7 @@ Based on target market extracted from spec.md, generate:
 Write your synthesis to: `{FEATURE_DIR}/research/RESEARCH-AGENDA.md`
 
 **IMPORTANT**: The output is designed for AI deep search agents, NOT humans. Do NOT include:
-- Workflow instructions ("Run /sdd:01-specify")
+- Workflow instructions ("Run /product-definition:specify")
 - "How to Use This Document" sections
 - "Resume Instructions"
 - Deduplication logs (internal audit)

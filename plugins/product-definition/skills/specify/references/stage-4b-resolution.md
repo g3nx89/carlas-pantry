@@ -81,6 +81,8 @@ Each CLI generates 2-4 additional questions not covered by BA.
 
 Write report: `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md`
 
+**Team synthesis (when AGENT_TEAMS_ENABLED):** After CLI outputs are captured, synthesis uses a 2-agent team debate (depth-prober + breadth-scanner) per `cli-dispatch-patterns.md` → Team-Based Follow-Up Protocol. Falls back to Task-based synthesis if TeamCreate fails.
+
 **If disabled OR CLI_AVAILABLE = false:** Skip, proceed to Step 4.5.
 
 ## Step 4.5: Update Specification

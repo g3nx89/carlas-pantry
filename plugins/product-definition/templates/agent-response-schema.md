@@ -1,6 +1,6 @@
 # Agent Response Schema (P6)
 
-> Standard response format for all agents in the `/sdd:01-specify` workflow.
+> Standard response format for all agents in the `/product-definition:specify` workflow.
 > Version: 1.0 | Reference: `specs/config/specify-config.yaml`
 
 ---

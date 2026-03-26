@@ -68,6 +68,8 @@ For stages 2-8, dispatch a coordinator subagent using the per-stage dispatch pro
 | 7 (Completion) | checkpoint-protocol | No | — |
 | 8 (Retrospective) | checkpoint-protocol | No | — |
 
+> **Note:** Stages 7 and 8 use only checkpoint-protocol (no error-handling, no clarification config, no CLI dispatch). Stage 8 is read-only and non-blocking — failures never halt the workflow.
+
 ### Dispatch Template
 
 ```
@@ -100,6 +102,12 @@ Read and execute: @$CLAUDE_PLUGIN_ROOT/skills/specify/references/{STAGE_FILE}
 - Coverage target: {COVERAGE_TARGET}
 - Max iterations: {MAX_ITERATIONS}
 - CLI timeout multiplier: {CLI_TIMEOUT_MULTIPLIER}
+
+## Team Context
+- Agent Teams enabled: {AGENT_TEAMS_ENABLED}
+- Review Board enabled: {REVIEW_BOARD_ENABLED}
+- Product Trio enabled: {PRODUCT_TRIO_ENABLED}
+- Display mode: {AGENT_TEAMS_DISPLAY_MODE}
 
 ## Shared References (load ONLY those listed for this stage)
 {IF stage needs checkpoint-protocol:}
@@ -218,6 +226,12 @@ Every dispatch variable MUST have a defined fallback:
 | `COVERAGE_TARGET` | `85` | From profile; Thorough uses 90 |
 | `MAX_ITERATIONS` | `10` | From profile; Rapid=5, Thorough=15 |
 | `CLI_TIMEOUT_MULTIPLIER` | `1.0` | From profile; Thorough uses 1.5 |
+| `AGENT_TEAMS_ENABLED` | `false` | Resolved in Stage 1 from profile + TeamCreate availability |
+| `REVIEW_BOARD_ENABLED` | `false` | From profile: standard=true, thorough=true, rapid=false |
+| `PRODUCT_TRIO_ENABLED` | `false` | From profile: thorough=true, others=false |
+| `AGENT_TEAMS_DISPLAY_MODE` | `"in-process"` | Resolved in Stage 1: tmux if available, else in-process |
+| `HANDOFF_SUPPLEMENT_AVAILABLE` | `false` | Set in Stage 1 Step 1.9b; used by Stages 5, 6, 7, and Product Trio |
+| `HANDOFF_SUPPLEMENT_PATH` | `null` | Set in Stage 1 Step 1.9b; path to `design-handoff/HANDOFF-SUPPLEMENT.md` |
 | `FEATURE_DIR` | (none) | MUST be set by Stage 1 — abort if missing |
 | `FEATURE_NAME` | (none) | MUST be set by Stage 1 — abort if missing |
 
@@ -269,6 +283,13 @@ VALIDATE required fields in YAML frontmatter:
   - artifacts_written: array
   - summary: non-empty string
   - flags: object
+
+NOTE: Stage 4A and 4B both use stage_number: 4. Distinguish them via
+the `checkpoint` field:
+  - CLARIFICATION_WRITE = Stage 4A (analysis & question generation)
+  - CLARIFICATION = Stage 4B (resolution & spec update)
+When determining which sub-stage completed, always check `checkpoint`,
+not `stage_number`.
 
 IF any required field is missing:
     IF status field is present and valid:
@@ -367,15 +388,19 @@ NOTE: This check is NON-BLOCKING. Stage 4A Step 4.0a already offered disposition
 ### After Stage 5 (Design Artifacts)
 
 ```
-READ flags.design_brief_exists and flags.design_supplement_exists from Stage 5 summary
+READ flags.design_brief_exists, flags.design_brief_skipped_reason, and flags.design_supplement_exists from Stage 5 summary
 
 QUALITY CHECKS:
-1. design-brief.md exists (MANDATORY)
-2. design-supplement.md exists (MANDATORY)
+1. design-supplement.md exists (MANDATORY — always required)
+2. IF FIGMA_ENABLED == false AND HANDOFF_SUPPLEMENT_AVAILABLE == false:
+       design-brief.md exists (MANDATORY when Figma absent)
+   ELSE:
+       design-brief.md is optional (Figma provides equivalent coverage)
 
-IF either missing:
+IF design-supplement.md missing:
     CRITICAL ERROR — re-dispatch Stage 5
-    (These are MANDATORY outputs — NEVER proceed without them)
+IF design-brief.md missing AND should have been generated (Figma absent):
+    CRITICAL ERROR — re-dispatch Stage 5
 ```
 
 ---
@@ -481,7 +506,7 @@ ON RE-ENTRY after user answers:
 
 **Loaded on-demand.** Full procedures are in a separate reference file.
 
-**Load when:** A coordinator produces no summary file (crash) OR state file has `schema_version` < 6 (migration needed).
+**Load when:** A coordinator produces no summary file (crash) OR state file has `schema_version` < 7 (migration needed).
 
 **Reference:** `@$CLAUDE_PLUGIN_ROOT/skills/specify/references/recovery-migration.md`
 
@@ -489,7 +514,7 @@ ON RE-ENTRY after user answers:
 
 **Crash Recovery:** If summary file missing for stage N, check for artifacts. If found, reconstruct minimal summary. If not, ask user to retry or skip.
 
-**State Migration:** Chained migrations: v2→v3 (phase→stage), v3→v4 (file-based clarification), v4→v5 (RTM tracking), v5→v6 (profile-based config). Each migration is additive — new fields get null/empty defaults.
+**State Migration:** Chained migrations: v2→v3 (phase→stage), v3→v4 (file-based clarification), v4→v5 (RTM tracking), v5→v6 (profile-based config), v6→v7 (agent teams). Each migration is additive — new fields get null/empty defaults.
 
 ---
 

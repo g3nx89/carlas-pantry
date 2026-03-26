@@ -5,7 +5,9 @@
 >
 > **Script version:** v2.0 (robot mode) — uses `--robot-spawn`, `--robot-ack`, `--robot-metrics` for structured interaction.
 > Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh`
-> Config: CLI integration definitions and operational constants in `$CLAUDE_PLUGIN_ROOT/config/specify-profile-definitions.yaml`
+> Config: CLI integration definitions in `$CLAUDE_PLUGIN_ROOT/config/specify-profile-definitions.yaml`
+>
+> **This file is the single source of truth** for CLI operational constants (timeouts, retry logic, exit codes). `specify-profile-definitions.yaml` mirrors these values for audit visibility only — coordinators NEVER read constants from there.
 
 > **ANTI-PATTERN — DO NOT USE `ask` OR DIRECT CLI INVOCATION:**
 > The `ask` command (CCB async dispatch) has no stage/integration scoping — stale results
@@ -98,6 +100,41 @@ STEP 3 — Synthesize:
     NOTE: Integration 3 (Triangulation) uses model="haiku" — its synthesis is simpler
     (question dedup only, no severity analysis). All other integrations use sonnet.
 ```
+
+### Team-Based Follow-Up Protocol (when Agent Teams enabled)
+
+When `AGENT_TEAMS_ENABLED == true`, each CLI integration point can optionally run a 2-agent team debate AFTER CLI outputs are captured. This replaces the Task-based sonnet synthesis with a richer cross-examination.
+
+```
+STEP 3 becomes (when teams available):
+    IF AGENT_TEAMS_ENABLED:
+        TeamCreate("specify-{FEATURE_ID}-{INTEGRATION}")
+        Spawn 2 perspective-critic agents:
+            Read agent: @$CLAUDE_PLUGIN_ROOT/agents/perspective-critic.md
+            - critic-a: {ROLE_A} with {LENS_A}
+            - critic-b: {ROLE_B} with {LENS_B}
+        Both read CLI outputs + spec
+        Exchange findings via SendMessage (cross-examination)
+        Team lead synthesizes from debate
+        TeamDelete()
+    ELSE:
+        [existing Task-based synthesis with sonnet agent]
+```
+
+**Per-Integration Team Roles:**
+
+| Integration | Critic A Role | Critic A Lens | Critic B Role | Critic B Lens |
+|-------------|--------------|---------------|--------------|---------------|
+| Challenge | assumption-validator | Logical consistency, evidence quality | alternative-framer | Adjacent problems, reframing |
+| EdgeCases | risk-assessor | Security, performance, reliability | coverage-auditor | UX states, a11y, i18n gaps |
+| Triangulation | depth-prober | Technical gaps, integration risks | breadth-scanner | Missing stakeholders, NFR gaps |
+| Evaluation | quality-assessor | Rubric-based dimension scoring | strength-advocate | Genuine strengths, value articulation |
+
+**Fallback:** If TeamCreate fails at any integration point, fall back to existing Task-based synthesis. This is per-integration — a team failure at Challenge doesn't prevent team attempts at EdgeCases.
+
+**Timeout:** 120 seconds per team debate (covers both initial findings + cross-examination).
+
+---
 
 ### Evolution: Legacy → v1.0 → v2.0 (Robot Mode)
 

@@ -37,11 +37,13 @@ When ANY CLI dispatch fails, the coordinator MUST include this in the summary co
 +-----------------------------------------------------------+
 ```
 
-**Exit code descriptions:**
-- `1` = CLI failure (retried, still failing)
-- `2` = Timeout
-- `3` = CLI not found in PATH
-- `4` = Parse failure (output captured but unstructured)
+**Exit code descriptions** (authoritative source: `cli-dispatch-patterns.md`):
+- `0` = Success (all CLIs produced SUMMARY output)
+- `1` = Partial failure (some CLIs produced no output — retried, still failing)
+- `2` = Timeout (robot-ack expired before all agents idle)
+- `3` = ntm not found or prerequisite failure (no retry)
+- `4` = Invalid arguments (coordinator error — fix dispatch logic)
+- `5` = ntm spawn failed (session could not be created — retry once)
 
 **If substantive responses < 2 for evaluation (Stage 5):**
 Signal `needs-user-input` — do NOT self-assess.
@@ -103,7 +105,7 @@ model_failures:
 ## Design Brief/Supplement Generation Failure
 
 1. Log: "Agent {AGENT_NAME} failed to produce output"
-2. **CRITICAL:** design-brief.md and design-supplement.md are MANDATORY
+2. **CRITICAL:** design-supplement.md is MANDATORY. design-brief.md is MANDATORY only when Figma is absent (no figma_context.md and no HANDOFF-SUPPLEMENT.md)
 3. If agent fails: retry once
 4. If retry fails: set `status: failed` — do NOT skip mandatory outputs
 
@@ -133,10 +135,10 @@ When CLI dispatch is unavailable, replace each integration with internal reasoni
 
 | Integration | CLI Purpose | Internal Fallback |
 |-------------|------------|-------------------|
-| Challenge (Stage 2) | 3 models challenge assumptions | Self-critique: challenge own assumptions, list 3 alternative framings |
-| EdgeCases (Stage 4) | 3 models mine edge cases | Checklist-based: walk through error/boundary/security/a11y categories systematically |
-| Triangulation (Stage 4) | 3 models generate questions | Internal questions: generate 3-5 questions from technical, coverage, and contrarian lenses |
-| Evaluation (Stage 5) | 3 models evaluate spec quality | Internal rubric: score 5 dimensions + set `status: needs-user-input` to let user confirm quality |
+| Challenge (Stage 2) | 2 CLIs challenge assumptions | Self-critique: challenge own assumptions, list 3 alternative framings |
+| EdgeCases (Stage 4) | 2 CLIs mine edge cases | Checklist-based: walk through error/boundary/security/a11y categories systematically |
+| Triangulation (Stage 4) | 2 CLIs generate questions | Internal questions: generate 3-5 questions from technical, coverage, and contrarian lenses |
+| Evaluation (Stage 5) | 2 CLIs evaluate spec quality | Internal rubric: score 5 dimensions + set `status: needs-user-input` to let user confirm quality |
 
 ### Sequential Thinking Unavailable
 - Notify user: "Sequential Thinking unavailable. Using internal reasoning."
@@ -148,6 +150,30 @@ When CLI dispatch is unavailable, replace each integration with internal reasoni
 
 ---
 
+### Agent Teams Failures
+
+**TeamCreate fails:**
+- All team-based features (Review Board, MPA team synthesis, Product Trio) have per-feature fallback
+- Review Board → 3 parallel Task dispatches (no cross-examination)
+- MPA team synthesis → existing Task-based sonnet synthesis
+- Product Trio → standard solo BA dispatch (Step 2.1)
+- Log: "Agent Teams unavailable for {feature_name} — using {fallback_name}"
+
+**Team member timeout:**
+- Each team has an overall timeout (Review Board: 180s, Product Trio: 600s, MPA debate: 120s)
+- On timeout: collect whatever findings have been sent, proceed with partial results
+- Log: "Team {team_name} timed out — using partial findings"
+
+**TeamDelete fails:**
+- Non-blocking — orphaned teams are cleaned up by Claude Code session management
+- Log warning but do not halt workflow
+
+**Orphaned teams on crash recovery:**
+- If `state.agent_teams.active_teams` is non-empty on resume, attempt `TeamDelete` for each entry
+- If TeamDelete fails (team already cleaned up): ignore silently
+
+---
+
 ## Critical Rules
 
 1. **NEVER substitute CLIs** — If a CLI fails, continue with remaining, do NOT swap in another
@@ -155,4 +181,4 @@ When CLI dispatch is unavailable, replace each integration with internal reasoni
 3. **Minimum 2 for evaluation** — CLI Evaluation cannot be scored with < 2 substantive responses
 4. **Log everything** — All failures and recovery actions must be logged to state
 5. **Graceful degradation** — If CLI unavailable, fall back to internal capabilities
-6. **Mandatory outputs** — design-brief.md and design-supplement.md NEVER skipped, even on failure (retry required)
+6. **Mandatory outputs** — design-supplement.md NEVER skipped, even on failure (retry required). design-brief.md required only when Figma absent

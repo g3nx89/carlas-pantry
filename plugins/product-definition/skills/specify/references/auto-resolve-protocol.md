@@ -113,6 +113,66 @@ The following question types are NEVER auto-resolved, regardless of source match
 
 ---
 
+## Parallel Cross-Validation (Conditional)
+
+**Check:** `AGENT_TEAMS_ENABLED == true` AND `auto_resolved count >= 5`
+
+When Agent Teams are available and 5+ questions were auto-resolved, dispatch 3 parallel Task validators to verify auto-resolutions and catch false positives.
+
+### Dispatch
+
+```
+PARALLEL Task dispatch (3 independent validators — no inter-agent communication):
+
+Task A: source-validator
+    Focus: Verify citations match source text exactly — no paraphrasing errors
+    Input: All auto-resolved questions with their citations
+    Output: {question_id, validation: CONFIRMED | CHALLENGED, reason} per question
+
+Task B: intent-matcher
+    Focus: Verify question intent matches the cited answer — no semantic drift
+    Input: All auto-resolved questions with their citations
+    Output: {question_id, validation: CONFIRMED | CHALLENGED, reason} per question
+
+Task C: exclusion-auditor
+    Focus: Verify no exclusion rules were violated (subjective, trade-off, CRITICAL, scope, conflicting)
+    Input: All auto-resolved questions with their citations
+    Output: {question_id, validation: CONFIRMED | CHALLENGED, reason} per question
+```
+
+### Aggregation
+
+```
+FOR EACH auto-resolved question:
+    Collect validations from all 3 Tasks
+
+    IF 2/3 CHALLENGE a resolution:
+        Reclassify as REQUIRES_USER
+        Move from auto-resolved list to requires-user list
+        Add note: "Cross-validation: reclassified by {validator_names} — {reasons}"
+    IF 3/3 CONFIRM:
+        Keep as AUTO_RESOLVED (high confidence)
+    IF 1/3 CHALLENGE:
+        Keep as AUTO_RESOLVED but add note: "{validator_name} challenged: {reason}"
+```
+
+### Stats Update
+
+After cross-validation, update auto-resolve stats:
+```yaml
+auto_resolve_stats:
+  # ... existing stats ...
+  xval_validated: {N}        # questions confirmed by 3/3
+  xval_reclassified: {N}     # questions reclassified to REQUIRES_USER
+```
+
+### Fallback
+
+IF cross-validation disabled (teams unavailable or < 5 auto-resolved): Skip entirely (existing behavior, no regression).
+Cross-validation is a quality enhancement, not a required step.
+
+---
+
 ## Output: clarification-report.md
 
 Generated after answer processing. Contains audit trail for all questions.

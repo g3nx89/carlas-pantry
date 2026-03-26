@@ -1,6 +1,6 @@
 # Feature Specification Template
 
-> Use this template when creating feature specs via `/sdd:01-specify`
+> Use this template when creating feature specs via `/product-definition:specify`
 > Enhanced with PM Patterns: Problem Framing Canvas, JTBD, Epic Hypothesis, Obstacle-Aware Stories
 
 ---

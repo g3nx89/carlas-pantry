@@ -288,7 +288,7 @@ Use `mcp__sequential-thinking__sequentialthinking` for systematic generation:
 
 1. **Stakeholder Review:** {Who reviews}
 2. **Approval Process:** {How approved}
-3. **Handoff:** → `/sdd:01-specify`
+3. **Handoff:** → `/product-definition:specify`
 
 ---
 

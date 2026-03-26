@@ -42,6 +42,13 @@ CHECK Sequential Thinking:
 CHECK Figma MCP:
 - Check if mcp__figma-desktop__get_screenshot is available -> FIGMA_MCP_AVAILABLE = true/false
 - Also check mcp__figma__get_screenshot as fallback
+
+CHECK Agent Teams (TeamCreate):
+- Attempt to call TeamCreate with a probe team name "specify-probe-{timestamp}"
+- If succeeds: AGENT_TEAMS_AVAILABLE = true, immediately call TeamDelete to clean up
+- If fails (tool not available or env var not set): AGENT_TEAMS_AVAILABLE = false
+- Check tmux binary: `command -v tmux` → TMUX_AVAILABLE = true/false
+- Resolve display_mode: if config says "auto", use tmux if TMUX_AVAILABLE, else in-process
 ```
 
 **If CLI_AVAILABLE = false:**
@@ -61,6 +68,8 @@ test -f "$CLAUDE_PLUGIN_ROOT/agents/design-brief-generator.md" || echo "MISSING:
 test -f "$CLAUDE_PLUGIN_ROOT/agents/gap-analyzer.md" || echo "MISSING: gap-analyzer"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/qa-strategist.md" || echo "MISSING: qa-strategist"
 test -f "$CLAUDE_PLUGIN_ROOT/agents/gate-judge.md" || echo "MISSING: gate-judge"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/review-board-critic.md" || echo "MISSING: review-board-critic"
+test -f "$CLAUDE_PLUGIN_ROOT/agents/perspective-critic.md" || echo "MISSING: perspective-critic"
 
 # Check required reference protocols
 test -f "$CLAUDE_PLUGIN_ROOT/skills/specify/references/figma-capture-protocol.md" || echo "MISSING: figma-capture-protocol"
@@ -121,6 +130,23 @@ CLI_TIMEOUT_MULTIPLIER = profiles.{PROFILE}.cli_timeout_multiplier
 
 Record: `user_decisions.profile: "{PROFILE}"`
 
+**Resolve Agent Teams Features:**
+
+```
+RESOLVE Agent Teams Features:
+- Read AGENT_TEAMS_CONFIG from config.agent_teams.enabled (auto|always|never)
+- Read AGENT_TEAMS_PROFILE from profiles.{PROFILE}.features.agent_teams (false|review_board|all)
+- IF AGENT_TEAMS_CONFIG == "never" OR AGENT_TEAMS_PROFILE == false:
+      AGENT_TEAMS_ENABLED = false, REVIEW_BOARD_ENABLED = false, PRODUCT_TRIO_ENABLED = false
+  ELIF (AGENT_TEAMS_CONFIG == "auto" OR "always") AND AGENT_TEAMS_AVAILABLE:
+      REVIEW_BOARD_ENABLED = AGENT_TEAMS_PROFILE in ["review_board", "all"]
+      PRODUCT_TRIO_ENABLED = AGENT_TEAMS_PROFILE == "all"
+      AGENT_TEAMS_ENABLED = REVIEW_BOARD_ENABLED OR PRODUCT_TRIO_ENABLED
+  ELSE:
+      AGENT_TEAMS_ENABLED = false (fallback)
+      NOTIFY user: "Agent Teams unavailable. Using {config.agent_teams.fallback} dispatch."
+```
+
 ## Step 1.3: Lock Detection
 
 ```bash
@@ -166,7 +192,7 @@ find specs/ -name ".specify-state.local.md" -type f 2>/dev/null
 
 **If state files found:**
 Parse YAML frontmatter, determine current_stage and stage_status.
-Check schema_version — if < 6, migrate per `recovery-migration.md` (chained: v2→v3→v4→v5→v6).
+Check schema_version — if < 7, migrate per `recovery-migration.md` (chained: v2→v3→v4→v5→v6→v7).
 
 **Case A: User provided feature description AND no matching state exists**
 WORKFLOW_MODE = NEW, proceed to Step 1.6
@@ -375,7 +401,7 @@ This variable is injected into the BA agent dispatch context in Stage 2.
 Create state file from template or update existing:
 
 ```yaml
-schema_version: 6
+schema_version: 7
 feature_id: "{NUMBER}-{SHORT_NAME}"
 feature_name: "{FEATURE_NAME}"
 user_input: "{USER_INPUT}"
@@ -396,6 +422,14 @@ mcp_availability:
   gemini_available: {true|false}
   st_available: {true|false}
   figma_mcp_available: {true|false}
+  agent_teams_available: {true|false}
+  tmux_available: {true|false}
+agent_teams:
+  enabled: {true|false}
+  review_board_enabled: {true|false}
+  product_trio_enabled: {true|false}
+  display_mode: "{tmux|in-process}"
+  active_teams: []
 handoff_supplement:
   available: {true|false}
   path: "{design-handoff/HANDOFF-SUPPLEMENT.md | null}"
@@ -435,6 +469,10 @@ flags:
   rtm_enabled: {true|false}
   requirements_inventory_count: {N|0}
   workflow_mode: "{NEW|RESUME}"
+  agent_teams_available: {true|false}
+  agent_teams_enabled: {true|false}
+  review_board_enabled: {true|false}
+  product_trio_enabled: {true|false}
   # Resolved feature flags (from profile + MCP availability)
   incremental_gates_enabled: {true|false}
   cli_challenge_enabled: {true|false}
@@ -452,7 +490,7 @@ flags:
 ## Self-Verification (MANDATORY before writing summary)
 
 BEFORE writing the summary file, verify:
-1. `specs/{FEATURE_DIR}/.specify-state.local.md` exists with `schema_version: 6`
+1. `specs/{FEATURE_DIR}/.specify-state.local.md` exists with `schema_version: 7`
 2. `specs/{FEATURE_DIR}/.specify.lock` exists with timestamp
 3. All workspace directories created (`analysis/`, `.stage-summaries/`)
 4. If Figma enabled: `figma_context.md` exists in feature directory

@@ -5,13 +5,13 @@
 | File | Read When... |
 |------|--------------|
 | `orchestrator-loop.md` | Start of orchestration — dispatch loop, variable defaults, iteration logic, quality gates |
-| `recovery-migration.md` | On crash or v2/v3/v4/v5 state detected — crash recovery procedures, v2→v3→v4→v5→v6 state migration |
+| `recovery-migration.md` | On crash or older state detected — crash recovery procedures, v2→v3→v4→v5→v6→v7 state migration |
 | `stage-1-setup.md` | Stage 1 inline execution — init, MCP check, workspace, Figma capture |
 | `stage-2-spec-draft.md` | Dispatching Stage 2 — BA spec draft, MPA-Challenge CLI dispatch, incremental gates |
 | `stage-3-checklist.md` | Dispatching Stage 3 — platform detect, checklist creation, BA validation |
 | `stage-4a-analysis.md` | Dispatching Stage 4A (first entry) — RTM disposition, Figma mock gaps, MPA-EdgeCases, auto-resolve, write clarification-questions.md |
 | `stage-4b-resolution.md` | Dispatching Stage 4B (re-entry) — parse answers, MPA-Triangulation, spec update |
-| `stage-5-validation-design.md` | Dispatching Stage 5 — CLI multi-stance evaluation, design-brief, design-supplement (MANDATORY) |
+| `stage-5-validation-design.md` | Dispatching Stage 5 — CLI multi-stance evaluation, design-brief (conditional), design-supplement (MANDATORY) |
 | `stage-6-test-strategy.md` | Dispatching Stage 6 — V-Model test strategy, AC traceability (optional, profile-controlled) |
 | `stage-7-completion.md` | Dispatching Stage 7 — lock release, completion report, next steps |
 | `checkpoint-protocol.md` | Any checkpoint — state update patterns and immutable decision rules |
@@ -22,13 +22,15 @@
 | `clarification-protocol.md` | Stages 4A/4B (clarification dispatch) — file-based Q&A, BA recommendations, answer parsing |
 | `auto-resolve-protocol.md` | Stage 4A (pre-question generation) — auto-resolve gate, classification, citation rules, exclusion rules |
 | `stage-8-retrospective.md` | Dispatching Stage 8 — KPI report card, transcript extraction, retrospective narrative |
+| `review-board-protocol.md` | Stage 2 (if REVIEW_BOARD_ENABLED) — adversarial review board: team creation, 3-critic debate, confidence-scored synthesis |
+| `product-trio-protocol.md` | Stage 2 (if PRODUCT_TRIO_ENABLED) — Product Trio co-creation: PM+Designer+QA collaborative team |
 
 ## File Sizes
 
 | File | Lines (approx) | Purpose |
 |------|----------------|---------|
 | `orchestrator-loop.md` | ~540 | Dispatch loop, variable defaults, template rendering, iteration logic (Stage 3↔4A↔4B), quality gates, summary contract schema |
-| `recovery-migration.md` | ~215 | Crash recovery procedures, v2→v3→v4→v5→v6 state migration (loaded on-demand) |
+| `recovery-migration.md` | ~250 | Crash recovery procedures, v2→v3→v4→v5→v6→v7 state migration (loaded on-demand) |
 | `stage-1-setup.md` | ~450 | Inline setup: MCP check, pre-flight, profile selection, lock, workspace, Figma capture, RTM inventory, state init |
 | `stage-2-spec-draft.md` | ~280 | Pre-conditions, BA spec draft, RTM generation, MPA-Challenge (via cli-dispatch-patterns), gate-judge dispatch |
 | `stage-3-checklist.md` | ~228 | Pre-conditions, platform detect, checklist copy, BA validation, coverage scoring, RTM re-evaluation |
@@ -43,8 +45,10 @@
 | `cli-dispatch-patterns.md` | ~430 | CLI Critical Rules, parameterized execution for 4 CLI dispatch points, semantic dedup, least-to-most synthesis |
 | `figma-capture-protocol.md` | ~249 | Figma connection selection, capture process (ReAct), screenshot naming, error handling |
 | `clarification-protocol.md` | ~248 | File-based Q&A format, BA recommendations, answer parsing rules, state tracking |
-| `auto-resolve-protocol.md` | ~199 | Auto-resolve gate logic, classification levels, exclusion rules, worked examples |
+| `auto-resolve-protocol.md` | ~259 | Auto-resolve gate logic, classification levels, exclusion rules, worked examples |
 | `stage-8-retrospective.md` | ~239 | KPI report card, transcript extraction, writer dispatch, summary contract |
+| `review-board-protocol.md` | ~180 | Team creation, 3-critic spawn, cross-examination protocol, confidence synthesis, fallback to parallel Tasks |
+| `product-trio-protocol.md` | ~250 | Team creation, PM+Designer+QA spawn, communication protocol, file ownership, synthesis |
 
 ## Cross-References
 
@@ -52,6 +56,8 @@
 
 - Stages 2-7 reference `checkpoint-protocol.md` for state updates (Stage 1 implements checkpoints inline)
 - Stages 2-6 reference `error-handling.md` for failure recovery
+- `stage-2-spec-draft.md` references `review-board-protocol.md` (if REVIEW_BOARD_ENABLED)
+- `stage-2-spec-draft.md` references `product-trio-protocol.md` (if PRODUCT_TRIO_ENABLED)
 - `stage-2-spec-draft.md` references `cli-dispatch-patterns.md` (Integration 1: Challenge)
 - `stage-4a-analysis.md` references `cli-dispatch-patterns.md` (Integration 2: Edge Cases)
 - `stage-4b-resolution.md` references `cli-dispatch-patterns.md` (Integration 3: Triangulation)

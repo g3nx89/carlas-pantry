@@ -1,13 +1,13 @@
 ---
 name: feature-specify
-description: Creates or updates detailed feature specifications through guided multi-stage analysis. Use whenever the user wants to specify a feature, create a spec, write requirements, document a feature, define acceptance criteria, spec out an idea, or turn a rough description into a structured specification — even if they don't use the word "spec". Also trigger when the user says "write spec for", "feature requirements for", "create specification", "define feature", "spec my idea", or describes a feature and asks to formalize it. Includes Figma design integration, multi-model quality validation, iterative file-based Q&A for completeness, and optional test strategy generation.
+description: Creates or updates detailed feature specifications through guided multi-stage analysis. Use whenever the user wants to specify a feature, create a spec, write requirements, document a feature, define acceptance criteria, spec out an idea, or turn a rough description into a structured specification — even if they don't use the word "spec". Also trigger when the user says "write spec for", "feature requirements for", "create specification", "define feature", "spec my idea", "write user stories", "requirements analysis", "business analysis for", "feature breakdown", "formalize requirements", "break down this feature", or describes a feature and asks to formalize, structure, or analyze it. Includes Figma design integration, multi-model quality validation, iterative file-based Q&A for completeness, and optional test strategy generation.
 version: 1.5.0
 allowed-tools: ["Bash(cp:*)", "Bash(git:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(mkdir:*)", "Bash(test:*)", "Bash(command:*)", "Bash(wait:*)", "Task", "mcp__sequential-thinking__sequentialthinking", "mcp__figma-desktop__get_screenshot", "mcp__figma-desktop__get_design_context", "mcp__figma-desktop__get_metadata", "mcp__figma__get_screenshot", "mcp__figma__get_design_context", "mcp__figma__get_metadata"]
 ---
 
 # Feature Specify Skill — Lean Orchestrator
 
-Guided feature specification with codebase understanding, Figma integration, CLI dual-stance validation (Codex/Gemini) via ntm, and V-Model test strategy generation.
+Guided feature specification with codebase understanding, Figma integration, dual-CLI validation via ntm (default: Codex + Gemini — configurable in `config/specify-profile-definitions.yaml`), and V-Model test strategy generation.
 
 **This workflow is resumable and resilient.** Progress is preserved in state files. User decisions are NEVER lost.
 
@@ -28,7 +28,7 @@ Guided feature specification with codebase understanding, Figma integration, CLI
 2. **Delegation Pattern**: Complex analysis → specialized agents (BA: `business-analyst`, design: `design-brief-generator` + `gap-analyzer`, QA: `qa-strategist`). Load templates ONLY when stage reached.
 3. **File-Based Clarification**: All clarification questions written to `clarification-questions.md` for offline editing — NO AskUserQuestion for clarification batches. First option MUST be "(Recommended)" with rationale.
 4. **Lock Protocol**: Acquire lock at start, release at completion. User config: `@$CLAUDE_PLUGIN_ROOT/config/specify-config.yaml`. Profile definitions: `@$CLAUDE_PLUGIN_ROOT/config/specify-profile-definitions.yaml`.
-5. **Design Artifacts MANDATORY**: `design-brief.md` AND `design-supplement.md` MUST be generated for EVERY specification. NEVER skip either.
+5. **Design Artifacts**: `design-supplement.md` is MANDATORY for every specification. `design-brief.md` is generated ONLY when Figma is ABSENT (no `figma_context.md` and no `HANDOFF-SUPPLEMENT.md`). When Figma is present, spec.md + figma_context.md + HANDOFF-SUPPLEMENT.md provide equivalent screen/state coverage.
 6. **No Artificial Limits**: There is NO maximum on clarification questions, user stories, acceptance criteria, NFRs, or iteration loops — capture ALL requirements, continue until COMPLETE.
 7. **Coordinators NEVER interact with users directly** — set `status: needs-user-input` in summary; orchestrator mediates ALL prompts via AskUserQuestion.
 8. **Stage 1 runs inline** — all other stages are coordinator-delegated. Iteration loop (Stage 3 <-> Stage 4A/4B) is owned by orchestrator until coverage >= COVERAGE_TARGET (from profile) or user forces proceed.
@@ -91,7 +91,7 @@ Consider user input before proceeding (if non-empty).
                                                        |
 +------------------------------------------------------v-----------+
 |  Stage 5 (Coordinator): CLI VALIDATION & DESIGN                   |
-|  CLI multi-stance eval, design-brief, design-supplement (MANDATORY)|
+|  CLI multi-stance eval, design-brief (conditional), design-supplement|
 +-------------------------------+-----------------------------------+
                                 |
 +-------------------------------v-----------------------------------+
@@ -160,21 +160,22 @@ Write summary to: `specs/{FEATURE_DIR}/.stage-summaries/stage-1-summary.md`
 ## State Management
 
 **State file:** `specs/{FEATURE_DIR}/.specify-state.local.md`
-**Schema version:** 6 (stage-based, file-based clarification, RTM tracking, profile-based config)
+**Schema version:** 7 (stage-based, file-based clarification, RTM tracking, profile-based config, agent teams)
 **Lock file:** `specs/{FEATURE_DIR}/.specify.lock`
 **Summaries:** `specs/{FEATURE_DIR}/.stage-summaries/`
 
 State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE.
 
 **Top-level fields:**
-- `schema_version`: 6
+- `schema_version`: 7
 - `profile`: `"rapid" | "standard" | "thorough"`
 - `current_stage`: 1-8
 - `feature_id`: "{NUMBER}-{SHORT_NAME}"
 - `feature_name`: "{FEATURE_NAME}"
 - `rtm_enabled`: `true | false | null` (null = not yet decided)
 - `requirements_inventory`: `{file_path, count, confirmed}`
-- `mcp_availability`: `{ntm_available: bool, cli_available: bool, codex_available: bool, gemini_available: bool, st_available: bool, figma_mcp_available: bool}`
+- `mcp_availability`: `{ntm_available: bool, cli_available: bool, codex_available: bool, gemini_available: bool, st_available: bool, figma_mcp_available: bool, agent_teams_available: bool, tmux_available: bool}`
+- `agent_teams`: `{enabled: bool, review_board_enabled: bool, product_trio_enabled: bool, display_mode: string, active_teams: []}`
 - `user_decisions`: immutable decision log (includes `profile`, `rtm_enabled`, `rtm_dispositions[]`)
 - `model_failures`: array of `{model, stage, operation, error, timestamp, action_taken}`
 
@@ -189,6 +190,8 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `gap-analyzer` | 5 | Design analysis and recommendations | sonnet |
 | `qa-strategist` | 6 | V-Model test strategy generation | sonnet |
 | `gate-judge` | 2 | Incremental quality gate evaluation | sonnet |
+| `review-board-critic` | 2 | Adversarial spec review (parametric: product/ux/technical critics) | sonnet |
+| `perspective-critic` | 2, 4, 5 | MPA team debate at CLI integration points (parametric roles) | sonnet |
 | `definition-retrospective-writer` | 8 | Retrospective narrative composition | sonnet |
 
 ## Output Artifacts
@@ -197,13 +200,15 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 |----------|-------|-------------|
 | `specs/{FEATURE_DIR}/spec.md` | 2 | Feature specification |
 | `specs/{FEATURE_DIR}/spec-checklist.md` | 3 | Annotated checklist |
-| `specs/{FEATURE_DIR}/design-brief.md` | 5 | Screen and state inventory (MANDATORY) |
+| `specs/{FEATURE_DIR}/design-brief.md` | 5 | Screen and state inventory (CONDITIONAL — Figma absent only) |
 | `specs/{FEATURE_DIR}/clarification-questions.md` | 4 | Clarification questions for offline editing |
 | `specs/{FEATURE_DIR}/clarification-report.md` | 4 | Auto-resolve audit trail and answer summary |
 | `specs/{FEATURE_DIR}/design-supplement.md` | 5 | Design analysis (MANDATORY) |
 | `specs/{FEATURE_DIR}/test-strategy.md` | 6 | V-Model test strategy (optional) |
 | `specs/{FEATURE_DIR}/REQUIREMENTS-INVENTORY.md` | 1 | Source requirements with REQ-NNN IDs (conditional, RTM enabled) |
 | `specs/{FEATURE_DIR}/rtm.md` | 2 | Forward traceability matrix REQ→US/AC (conditional, RTM enabled) |
+| `specs/{FEATURE_DIR}/analysis/review-board-synthesis.md` | 2 | Review board adversarial findings (conditional, teams enabled) |
+| `specs/{FEATURE_DIR}/analysis/qa-early-findings.md` | 2 | Product Trio QA-Lead early AC findings (conditional, trio enabled) |
 | `specs/{FEATURE_DIR}/analysis/mpa-challenge*.md` | 2 | MPA Challenge CLI dispatch report |
 | `specs/{FEATURE_DIR}/analysis/mpa-edgecases*.md` | 4 | MPA Edge Cases CLI dispatch report |
 | `specs/{FEATURE_DIR}/analysis/mpa-triangulation.md` | 4 | MPA Triangulation report |
@@ -217,7 +222,7 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | Reference | Purpose | Load When |
 |-----------|---------|-----------|
 | `references/orchestrator-loop.md` | Dispatch loop, variable defaults, iteration, quality gates | Start of orchestration |
-| `references/recovery-migration.md` | Crash recovery, v2→v3→v4→v5 state migration | On crash or older state detected |
+| `references/recovery-migration.md` | Crash recovery, v2→v3→v4→v5→v6→v7 state migration | On crash or older state detected |
 | `references/stage-1-setup.md` | Inline setup: init, MCP check, workspace, Figma | Stage 1 execution |
 | `references/stage-2-spec-draft.md` | Spec draft, MPA-Challenge, incremental gates | Dispatching Stage 2 |
 | `references/stage-3-checklist.md` | Platform detect, checklist, BA validation | Dispatching Stage 3 |
@@ -234,6 +239,8 @@ State uses YAML frontmatter. User decisions under `user_decisions` are IMMUTABLE
 | `references/clarification-protocol.md` | File-based Q&A, BA recommendations, answer parsing | Stage 4 (clarification dispatch) |
 | `references/auto-resolve-protocol.md` | Auto-resolve gate, classification, citation rules | Stage 4 (pre-question-file generation) |
 | `references/stage-8-retrospective.md` | Retrospective protocol, KPI definitions | Dispatching Stage 8 |
+| `references/review-board-protocol.md` | Adversarial review board: team creation, debate, synthesis | Stage 2 (if REVIEW_BOARD_ENABLED) |
+| `references/product-trio-protocol.md` | Product Trio co-creation: PM+Designer+QA team | Stage 2 (if PRODUCT_TRIO_ENABLED) |
 
 ---
 
@@ -245,5 +252,5 @@ Rules 1-10 above MUST be followed. Key reminders:
 - Stage 1 is inline, all others coordinator-delegated (rule 8)
 - State file user_decisions are IMMUTABLE (rule 1)
 - No artificial limits on questions/stories/iterations (rule 6)
-- design-brief.md and design-supplement.md are MANDATORY (rule 5)
+- design-supplement.md is MANDATORY; design-brief.md only when Figma absent (rule 5)
 - CLI dispatch rules in `cli-dispatch-patterns.md` (rule 10)

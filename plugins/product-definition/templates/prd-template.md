@@ -190,7 +190,7 @@
 
 1. **Stakeholder Review:** {Who should review}
 2. **Approval Process:** {How it gets approved}
-3. **Handoff:** → `/sdd:01-specify`
+3. **Handoff:** → `/product-definition:specify`
 
 ---
 

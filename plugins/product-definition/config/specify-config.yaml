@@ -30,3 +30,10 @@ cli_dispatch:
   tool: "ntm"
   script_path: "scripts/dispatch-via-ntm.sh"
   cli_clients_dir: "config/cli_clients"
+
+# Agent Teams (Claude Code experimental multi-agent collaboration)
+# Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 environment variable
+agent_teams:
+  enabled: auto          # auto = use if available | always | never
+  fallback: task_parallel # task_parallel | task_sequential (when teams unavailable)
+  display_mode: auto     # auto = tmux if available, in-process fallback

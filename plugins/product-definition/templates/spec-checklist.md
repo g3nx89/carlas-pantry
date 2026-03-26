@@ -168,7 +168,7 @@
 | RTM Traceability | 5 | [ ]/5 |
 | **TOTAL** | **74** | **[ ]/74** |
 
-**Passing Threshold**: ≥67/74 items (90%) to proceed to `/sdd:02-plan`
+**Passing Threshold**: ≥67/74 items (90%) to proceed to `/sdd:plan`
 
 ---
 

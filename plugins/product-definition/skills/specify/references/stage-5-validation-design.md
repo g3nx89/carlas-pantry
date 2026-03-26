@@ -1,7 +1,7 @@
 ---
 stage: stage-5-validation-design
 artifacts_written:
-  - specs/{FEATURE_DIR}/design-brief.md
+  - specs/{FEATURE_DIR}/design-brief.md (conditional — Figma absent only)
   - specs/{FEATURE_DIR}/design-supplement.md
   - specs/{FEATURE_DIR}/analysis/mpa-evaluation.md (conditional)
 ---
@@ -9,14 +9,15 @@ artifacts_written:
 # Stage 5: CLI Validation & Design (Coordinator)
 
 > This stage runs multi-stance CLI evaluation of the spec, then generates
-> MANDATORY design artifacts (design-brief.md + design-supplement.md).
+> design artifacts. `design-supplement.md` is MANDATORY. `design-brief.md`
+> is CONDITIONAL — generated only when Figma is absent.
 > CLI evaluation retry is coordinator-internal (max 2 attempts).
 
 ## CRITICAL RULES (must follow — failure-prevention)
 
-1. **design-brief.md is MANDATORY**: NEVER skip — even if CLI evaluation fails
+1. **design-brief.md is CONDITIONAL**: Generate ONLY when Figma is absent (`FIGMA_ENABLED == false` AND `HANDOFF_SUPPLEMENT_AVAILABLE == false`). When Figma is present, skip — spec.md + figma_context.md + HANDOFF-SUPPLEMENT.md provide equivalent coverage.
 2. **design-supplement.md is MANDATORY**: NEVER skip — even if CLI evaluation fails
-3. **Verify BOTH files exist** before writing summary
+3. **Verify design-supplement.md exists** (always) and **design-brief.md exists** (when Figma absent) before writing summary
 4. **Retry max 2**: If REJECTED after 2 retries, signal `needs-user-input`
 5. **NEVER interact with users directly**: signal `needs-user-input` in summary
 6. **CLI dispatch**: Follow rules in `cli-dispatch-patterns.md` → CLI Critical Rules (minimum 2 responses, no substitution, inline content)
@@ -107,6 +108,8 @@ IF substantive_responses >= 2:
 Synthesize scores from substantive CLI responses.
 Write synthesis to: `specs/{FEATURE_DIR}/analysis/mpa-evaluation.md`
 
+**Team synthesis (when AGENT_TEAMS_ENABLED):** After CLI outputs are captured, synthesis uses a 2-agent team debate (quality-assessor + strength-advocate) per `cli-dispatch-patterns.md` → Team-Based Follow-Up Protocol. Falls back to Task-based synthesis if TeamCreate fails.
+
 Aggregate score = average across substantive responses per dimension.
 
 | Score | Decision | Action |
@@ -177,9 +180,30 @@ flags:
         description: "Stop workflow"
 ```
 
-## Step 5.5: Launch design-brief-generator
+## Step 5.5: Launch design-brief-generator (CONDITIONAL)
 
-**MANDATORY — always runs regardless of CLI evaluation outcome.**
+**Generate ONLY when Figma is absent.** When Figma is present, spec.md + figma_context.md + HANDOFF-SUPPLEMENT.md provide equivalent screen/state coverage.
+
+```
+CHECK pre-existing design-brief.md (may exist from Product Trio):
+
+IF specs/{FEATURE_DIR}/design-brief.md already exists:
+    SKIP — design brief already generated (by trio or prior run)
+    SET design_brief_generated = true (pre-existing)
+    LOG: "design-brief.md already exists — skipping generation"
+    PROCEED to Step 5.6
+
+CHECK: FIGMA_ENABLED (from dispatch context) AND HANDOFF_SUPPLEMENT_AVAILABLE (from dispatch context)
+
+IF FIGMA_ENABLED == true OR HANDOFF_SUPPLEMENT_AVAILABLE == true:
+    SKIP — Figma + handoff supplement provide equivalent coverage
+    SET design_brief_generated = false
+    LOG: "design-brief.md skipped (Figma present)"
+    PROCEED to Step 5.6
+
+ELSE (no Figma, no handoff supplement):
+    SET design_brief_generated = true
+```
 
 Dispatch via `Task(subagent_type="general-purpose")`:
 
@@ -189,7 +213,6 @@ Dispatch via `Task(subagent_type="general-purpose")`:
 Read the agent instructions: @$CLAUDE_PLUGIN_ROOT/agents/design-brief-generator.md
 
 Spec: @specs/{FEATURE_DIR}/spec.md
-{IF figma_context.md exists: Figma: @specs/{FEATURE_DIR}/figma_context.md}
 
 Output: specs/{FEATURE_DIR}/design-brief.md
 
@@ -200,6 +223,26 @@ Use Sequential Thinking (if available, 6 thoughts):
 4. Define navigation flows
 5. Document interaction patterns
 6. Self-critique completeness
+```
+
+### Parallel Dispatch Optimization (when Figma present)
+
+When `FIGMA_ENABLED == true` (design-brief skipped), Steps 5.1 (CLI Evaluation) and 5.6 (gap-analyzer) have NO dependency between them — both read spec.md independently, produce separate outputs. Dispatch BOTH via parallel `Task()` calls:
+
+```
+IF FIGMA_ENABLED == true AND CLI_EVALUATION_ENABLED == true:
+    PARALLEL Task dispatch:
+        Task A: CLI Evaluation (Steps 5.1-5.4 above)
+        Task B: gap-analyzer (Step 5.6 below) — uses spec+figma_context directly
+    WAIT for both to complete
+    PROCEED to Step 5.7 (Verify Outputs)
+
+ELSE:
+    SEQUENTIAL (current behavior):
+        Steps 5.1-5.4 (CLI eval, if enabled)
+        Step 5.5 (design-brief, if Figma absent)
+        Step 5.6 (gap-analyzer)
+        Step 5.7 (verify)
 ```
 
 ## Step 5.6: Launch gap-analyzer (Design Supplement)
@@ -214,8 +257,9 @@ Dispatch via `Task(subagent_type="general-purpose")`:
 Read the agent instructions: @$CLAUDE_PLUGIN_ROOT/agents/gap-analyzer.md
 
 Spec: @specs/{FEATURE_DIR}/spec.md
-Design Brief: @specs/{FEATURE_DIR}/design-brief.md
+{IF design-brief.md exists: Design Brief: @specs/{FEATURE_DIR}/design-brief.md}
 {IF figma_context.md exists: Figma: @specs/{FEATURE_DIR}/figma_context.md}
+{IF HANDOFF-SUPPLEMENT.md exists: Handoff Supplement: @{HANDOFF_SUPPLEMENT_PATH}}
 
 Output: specs/{FEATURE_DIR}/design-supplement.md
 
@@ -231,12 +275,15 @@ Use Sequential Thinking (if available, 6 thoughts):
 ## Step 5.7: Verify Outputs
 
 ```bash
-test -f "specs/{FEATURE_DIR}/design-brief.md" || echo "MISSING: design-brief.md"
 test -f "specs/{FEATURE_DIR}/design-supplement.md" || echo "MISSING: design-supplement.md"
+# design-brief.md only required when Figma absent
+if [ "$design_brief_generated" = "true" ]; then
+    test -f "specs/{FEATURE_DIR}/design-brief.md" || echo "MISSING: design-brief.md"
+fi
 ```
 
-**If either file missing:** Re-run the missing agent step (5.5 or 5.6).
-**If still missing after retry:** Set `status: failed` — mandatory outputs MUST exist.
+**If design-supplement.md missing:** Re-run gap-analyzer (Step 5.6). If still missing: set `status: failed`.
+**If design-brief.md missing AND was expected (Figma absent):** Re-run design-brief-generator (Step 5.5). If still missing: set `status: failed`.
 
 ## Step 5.8: Checkpoint
 
@@ -270,15 +317,16 @@ stage_number: 5
 status: completed | needs-user-input | failed
 checkpoint: CLI_GATE
 artifacts_written:
-  - specs/{FEATURE_DIR}/design-brief.md
+  - specs/{FEATURE_DIR}/design-brief.md  # conditional — only when Figma absent
   - specs/{FEATURE_DIR}/design-supplement.md
   - specs/{FEATURE_DIR}/analysis/mpa-evaluation.md  # if CLI evaluation ran
-summary: "CLI eval: {DECISION} ({SCORE}/20). Design artifacts generated. Brief: {SCREENS} screens. Feedback: {GAPS} gaps identified."
+summary: "CLI eval: {DECISION} ({SCORE}/20). Design artifacts generated. Brief: {generated|skipped (Figma present)}. Supplement: {GAPS} gaps identified."
 flags:
   cli_score: {N|null}
   cli_decision: "{APPROVED|CONDITIONAL|REJECTED|skipped}"
   cli_iterations: {N}
-  design_brief_exists: true
+  design_brief_exists: {true|false}
+  design_brief_skipped_reason: null | "figma_present"
   design_supplement_exists: true
   block_reason: null | "{reason}"
   pause_type: null | "interactive"
@@ -296,7 +344,7 @@ Design feedback: {GAPS} requirement-screen gaps found.
 ## Self-Verification (MANDATORY before writing summary)
 
 BEFORE writing the summary file, verify:
-1. `specs/{FEATURE_DIR}/design-brief.md` exists and has content
+1. IF design_brief_generated: `specs/{FEATURE_DIR}/design-brief.md` exists and has content
 2. `specs/{FEATURE_DIR}/design-supplement.md` exists and has content
 3. CLI score is populated (or marked as skipped)
 4. State file updated with stage 5 checkpoint data

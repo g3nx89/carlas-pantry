@@ -33,17 +33,26 @@ Determine platform type from available context:
 IF figma_context.md exists:
     GREP for mobile keywords: "iOS", "Android", "mobile", "screen", "tap", "swipe",
                               "notification", "push", "app store"
+    GREP for web keywords: "SPA", "single-page", "responsive", "viewport", "breakpoint",
+                           "browser", "URL", "route", "SEO", "SSR", "CSR", "PWA",
+                           "dashboard", "SaaS", "portal", "admin panel"
     IF mobile keywords found >= 3: PLATFORM = "mobile"
+    ELIF web keywords found >= 3: PLATFORM = "web"
     ELSE: PLATFORM = "generic"
 
 ELIF spec.md contains mobile-specific requirements:
     PLATFORM = "mobile"
 
+ELIF spec.md contains web-specific requirements (SPA, responsive, dashboard, SaaS):
+    PLATFORM = "web"
+
 ELSE:
     PLATFORM = "generic"
 ```
 
-**If ambiguous** (mobile keywords = 1-2):
+> **Note:** "web" and "generic" currently use the same checklist template (`spec-checklist.md`). The platform type is recorded in state for future checklist specialization and for informing downstream stages (e.g., test strategy focuses on browser compatibility for web).
+
+**If ambiguous** (mobile keywords = 1-2 AND web keywords = 1-2, or mixed signals):
 Signal `needs-user-input`:
 ```yaml
 flags:
@@ -55,7 +64,9 @@ flags:
     options:
       - label: "Mobile (iOS/Android)"
         description: "Use mobile-specific checklist with platform considerations"
-      - label: "Web/Generic"
+      - label: "Web/SaaS"
+        description: "Use standard checklist with web-specific context"
+      - label: "Generic/Cross-platform"
         description: "Use standard specification checklist"
 ```
 
@@ -67,6 +78,7 @@ Copy appropriate template to feature directory:
 IF PLATFORM == "mobile":
     cp "$CLAUDE_PLUGIN_ROOT/templates/spec-checklist-mobile.md" "specs/{FEATURE_DIR}/spec-checklist.md"
 ELSE:
+    # "web" and "generic" both use the standard checklist (web-specific checklist is a future enhancement)
     cp "$CLAUDE_PLUGIN_ROOT/templates/spec-checklist.md" "specs/{FEATURE_DIR}/spec-checklist.md"
 ```
 
@@ -172,7 +184,7 @@ stages:
   checklist_validation:
     status: completed
     timestamp: "{ISO_TIMESTAMP}"
-    platform_type: "{mobile|generic}"
+    platform_type: "{mobile|web|generic}"
     coverage_pct: {N}
     gaps_count: {N}
     markers_added: {N}
@@ -197,7 +209,7 @@ flags:
   coverage_color: "{GREEN|YELLOW|RED}"
   gaps_count: {N}
   markers_added: {N}
-  platform_type: "{mobile|generic}"
+  platform_type: "{mobile|web|generic}"
   iteration: {N}
   figma_mock_gaps_count: {N}
   rtm_unmapped_count: {N|0}

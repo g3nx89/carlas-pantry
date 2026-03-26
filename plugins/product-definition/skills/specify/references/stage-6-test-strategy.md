@@ -13,7 +13,7 @@ artifacts_written:
 ## CRITICAL RULES (must follow — failure-prevention)
 
 1. **Feature flag check**: Skip entirely if `TEST_STRATEGY_ENABLED == false`
-2. **Required inputs**: `spec.md` AND `design-brief.md` MUST exist
+2. **Required inputs**: `spec.md` MUST exist. At least one design source MUST exist: `design-brief.md` OR `figma_context.md` (or both)
 3. **Testability verification**: Every AC must be checked — flag non-testable ACs
 4. **No individual test IDs**: Define test categories and levels, not individual tests
 5. **No implementation references**: No component names, class names, architecture patterns
@@ -43,18 +43,24 @@ flags:
 
 ```bash
 test -f "specs/{FEATURE_DIR}/spec.md" || echo "MISSING: spec.md"
-test -f "specs/{FEATURE_DIR}/design-brief.md" || echo "MISSING: design-brief.md"
+# At least one design source must exist: design-brief.md OR figma_context.md OR HANDOFF-SUPPLEMENT.md
+if [ ! -f "specs/{FEATURE_DIR}/design-brief.md" ] && [ ! -f "specs/{FEATURE_DIR}/figma_context.md" ] && [ ! -f "design-handoff/HANDOFF-SUPPLEMENT.md" ]; then
+    echo "MISSING: design-brief.md, figma_context.md, or HANDOFF-SUPPLEMENT.md — at least one design source required"
+fi
 ```
 
 **If spec.md missing:** Set `status: failed` — critical error, spec should exist from Stage 2.
 
-**If design-brief.md missing:** Set `status: failed` — should exist from Stage 5. Signal orchestrator to re-run Stage 5.
+**If ALL design sources missing** (design-brief.md, figma_context.md, HANDOFF-SUPPLEMENT.md): Set `status: failed` — at least one design source needed. Signal orchestrator to re-run Stage 5.
+
+> **Note:** Stage 5 skips design-brief.md generation when HANDOFF-SUPPLEMENT.md is present (Figma provides equivalent coverage). Stage 6 must accept the same sources as Stage 5.
 
 ## Step 6.3: Gather Optional Context
 
 Check for additional inputs that enhance analysis:
 - `specs/{FEATURE_DIR}/analysis/mpa-edgecases*.md` — for edge case identification
 - `specs/{FEATURE_DIR}/design-supplement.md` — for visual test targets
+- `specs/{FEATURE_DIR}/analysis/qa-early-findings.md` — for early AC testability flags from Product Trio QA-Lead
 
 ## Step 6.4: Launch QA Strategist
 
@@ -67,7 +73,10 @@ Read the agent instructions: @$CLAUDE_PLUGIN_ROOT/agents/qa-strategist.md
 Load reference templates: @$CLAUDE_PLUGIN_ROOT/agents/qa-references/sequential-thinking-templates.md
 
 Spec: @specs/{FEATURE_DIR}/spec.md
-Design Brief: @specs/{FEATURE_DIR}/design-brief.md
+{IF design-brief.md exists: Design Brief: @specs/{FEATURE_DIR}/design-brief.md}
+{IF figma_context.md exists: Figma Context: @specs/{FEATURE_DIR}/figma_context.md}
+{IF HANDOFF-SUPPLEMENT.md exists: Handoff Supplement: @{HANDOFF_SUPPLEMENT_PATH}}
+{IF qa-early-findings.md exists: QA Early Findings: @specs/{FEATURE_DIR}/analysis/qa-early-findings.md}
 {IF mpa-edgecases*.md exists: Edge Cases: @specs/{FEATURE_DIR}/analysis/mpa-edgecases-parallel.md}
 {IF design-supplement.md exists: Design Supplement: @specs/{FEATURE_DIR}/design-supplement.md}
 

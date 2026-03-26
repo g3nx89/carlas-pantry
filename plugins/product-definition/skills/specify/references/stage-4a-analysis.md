@@ -182,6 +182,8 @@ FOR EACH edge_case WHERE severity IN [CRITICAL, HIGH]:
 
 Write report: `specs/{FEATURE_DIR}/analysis/mpa-edgecases-parallel.md`
 
+**Team synthesis (when AGENT_TEAMS_ENABLED):** After CLI outputs are captured, synthesis uses a 2-agent team debate (risk-assessor + coverage-auditor) per `cli-dispatch-patterns.md` → Team-Based Follow-Up Protocol. Falls back to Task-based synthesis if TeamCreate fails.
+
 **If disabled OR CLI_AVAILABLE = false:** Skip, proceed to Step 4.1b.
 
 ## Step 4.1b: Auto-Resolve Gate
@@ -192,6 +194,7 @@ For each pending question (from checklist gaps + edge cases + triangulation):
 1. Attempt auto-resolution against input documents, prior decisions, spec content
 2. Classify as AUTO_RESOLVED, INFERRED, or REQUIRES_USER
 3. Build the two question lists: auto-resolved (with citations) and requires-user
+4. **Team cross-validation (when AGENT_TEAMS_ENABLED AND auto_resolved >= 5):** See auto-resolve-protocol.md → Parallel Cross-Validation. May reclassify some AUTO_RESOLVED → REQUIRES_USER.
 
 **Stats to track:**
 ```yaml

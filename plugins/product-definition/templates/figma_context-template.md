@@ -27,7 +27,7 @@
 
 ## Usage
 
-This context is consumed by `/sdd:01-specify` to correlate design mocks with requirements.
+This context is consumed by `/product-definition:specify` to correlate design mocks with requirements.
 
 **Reference format in spec.md:**
 ```

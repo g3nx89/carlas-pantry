@@ -19,6 +19,7 @@ profiles:
       test_strategy: false
       rtm_tracking: false
       retrospective: false
+      agent_teams: false
     thresholds:
       coverage_target: 85
       max_iterations: 5
@@ -35,13 +36,14 @@ profiles:
       test_strategy: true
       rtm_tracking: true
       retrospective: true
+      agent_teams: review_board
     thresholds:
       coverage_target: 85
       max_iterations: 10
     cli_timeout_multiplier: 1.0
 
   thorough:
-    description: "Maximum rigor for critical features"
+    description: "Maximum rigor for critical features. Agent Teams add ~5-8 min (review board + MPA debates + product trio)."
     features:
       incremental_gates: true
       cli_challenge: true
@@ -51,6 +53,7 @@ profiles:
       test_strategy: true
       rtm_tracking: true
       retrospective: true
+      agent_teams: all
     thresholds:
       coverage_target: 90
       max_iterations: 15
@@ -62,9 +65,10 @@ profiles:
 
 invariants:
   self_critique: true                    # Always mandatory
-  design_artifacts: true                 # design-brief.md + design-supplement.md always required
+  design_artifacts: true                 # design-supplement.md always required; design-brief.md conditional (Figma absent only)
   no_artificial_limits: true             # No caps on questions/stories/ACs/NFRs
   clarification_mode: "file_based"       # Always file-based
+  agent_teams_fallback: "task_parallel"  # Default fallback when Agent Teams unavailable
 
 # ─────────────────────────────────────────────────────────────────
 # CLI INTEGRATION DEFINITIONS
@@ -117,9 +121,12 @@ cli_integrations:
 # CLI OPERATIONAL CONSTANTS
 # ─────────────────────────────────────────────────────────────────
 
-# CLI operational constants — audit reference only.
-# Operative values are hardcoded in cli-dispatch-patterns.md (the authoritative source
-# coordinators read). Update BOTH places if changing these values.
+# ⚠ AUDIT MIRROR — NOT READ AT RUNTIME
+# The single source of truth for CLI operational constants is:
+#   skills/specify/references/cli-dispatch-patterns.md
+# Coordinators read cli-dispatch-patterns.md directly — they never read this section.
+# These values are mirrored here ONLY for audit visibility. If they drift from
+# cli-dispatch-patterns.md, the values below are WRONG — cli-dispatch-patterns.md wins.
 cli_operations:
   timeouts:
     challenge_seconds: 120
@@ -151,3 +158,5 @@ model_assignments:
     - "gate-judge"
     - "qa-strategist"
     - "definition-retrospective-writer"
+    - "review-board-critic"       # Adversarial spec review (parametric, team-based)
+    - "perspective-critic"        # MPA team debate at CLI integration points (parametric)

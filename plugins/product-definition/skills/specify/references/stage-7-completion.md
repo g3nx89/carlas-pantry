@@ -18,8 +18,11 @@ artifacts_written:
 
 ```bash
 test -f "specs/{FEATURE_DIR}/spec.md" || echo "BLOCKER: spec.md missing"
-test -f "specs/{FEATURE_DIR}/design-brief.md" || echo "BLOCKER: design-brief.md missing — Stage 5 must complete first"
 test -f "specs/{FEATURE_DIR}/design-supplement.md" || echo "BLOCKER: design-supplement.md missing — Stage 5 must complete first"
+# design-brief.md only required when Figma is absent
+if [ "{FIGMA_ENABLED}" = "false" ] && [ "{HANDOFF_SUPPLEMENT_AVAILABLE}" = "false" ]; then
+    test -f "specs/{FEATURE_DIR}/design-brief.md" || echo "BLOCKER: design-brief.md missing — Stage 5 must complete first (Figma absent)"
+fi
 ```
 
 **If BLOCKER found:** Set `status: failed`, `block_reason: "Pre-condition failed"`. Do not proceed.
@@ -69,7 +72,7 @@ Collect metrics from state file and stage summaries:
 ## Next Steps
 1. Review spec with stakeholders
 2. Review test plan for TDD preparation
-3. Run `/sdd:02-plan` to create implementation plan
+3. Run `/sdd:plan` to create implementation plan
 4. Address any flagged gaps from design feedback
 ```
 
@@ -85,7 +88,7 @@ rm -f "specs/{FEATURE_DIR}/.specify.lock"
 current_stage: 7
 stage_status: "completed"
 completed_at: "{ISO_TIMESTAMP}"
-next_step: "Review with stakeholders, then run /sdd:02-plan"
+next_step: "Review with stakeholders, then run /sdd:plan"
 ```
 
 ## Step 7.4: Present Next Steps
@@ -104,7 +107,7 @@ Include in summary context for orchestrator to display:
 ### Next Steps:
 1. **Review** spec.md with stakeholders
 2. **Review** test-strategy.md for TDD preparation (if generated)
-3. **Run** `/sdd:02-plan` to create implementation plan
+3. **Run** `/sdd:plan` to create implementation plan
 4. **Address** any gaps from design-supplement.md
 
 ### Git Commands:

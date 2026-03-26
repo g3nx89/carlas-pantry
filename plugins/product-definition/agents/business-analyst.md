@@ -63,7 +63,7 @@ Set `nextThoughtNeeded: false` only on the final step of each phase.
 
 ## Checkpoint Resumption Support
 
-This agent supports **checkpoint-based resumption** when invoked from `/sdd:01-specify`.
+This agent supports **checkpoint-based resumption** when invoked from `/product-definition:specify`.
 
 ### Resume Detection
 
@@ -124,7 +124,7 @@ This agent supports **checkpoint-based resumption** when invoked from `/sdd:01-s
 
 ## Figma Design Context
 
-When `/sdd:01-specify` provides `<figma-context>`:
+When `/product-definition:specify` provides `<figma-context>`:
 
 ```markdown
 <figma-context>

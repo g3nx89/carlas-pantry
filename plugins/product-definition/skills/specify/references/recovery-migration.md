@@ -215,3 +215,56 @@ IF state.schema_version == 5:
 - Migration is triggered automatically when orchestrator detects `schema_version: 5`
 - The "standard" default preserves existing all-features-on behavior
 - `user_decisions.profile` is immutable once set — profile cannot be changed mid-workflow
+
+---
+
+## State Migration: v6 → v7
+
+v7 adds Agent Teams fields. This is an additive migration — all new fields have false/empty defaults, so v6 state files continue to function without migration.
+
+### New Fields
+
+```yaml
+mcp_availability:
+  # ... existing fields preserved ...
+  agent_teams_available: false    # NEW
+  tmux_available: false           # NEW
+
+agent_teams:                       # NEW block
+  enabled: false
+  review_board_enabled: false
+  product_trio_enabled: false
+  display_mode: "in-process"
+  active_teams: []
+```
+
+### Migration Procedure
+
+```
+IF state.schema_version == 6:
+    SET schema_version: 7
+    ADD mcp_availability.agent_teams_available: false
+    ADD mcp_availability.tmux_available: false
+    ADD agent_teams: {enabled: false, review_board_enabled: false, product_trio_enabled: false, display_mode: "in-process", active_teams: []}
+    PRESERVE all existing fields unchanged
+    WRITE updated state file
+```
+
+### Orphaned Team Cleanup
+
+On crash recovery, if `state.agent_teams.active_teams` is non-empty:
+
+```
+FOR EACH team_name in state.agent_teams.active_teams:
+    TRY: TeamDelete(team_name)
+    CATCH: ignore silently (team already cleaned up by session management)
+    REMOVE team_name from active_teams
+WRITE updated state file
+```
+
+This prevents orphaned teams from accumulating across crash/resume cycles.
+
+### Compatibility Notes
+- v6 state files work without migration — missing team fields default to teams-disabled behavior
+- Migration triggered automatically when orchestrator detects schema_version < 7
+- No user decisions are affected — agent_teams is infrastructure, not user choice
