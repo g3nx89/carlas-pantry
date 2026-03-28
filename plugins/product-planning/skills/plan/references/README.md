@@ -37,6 +37,7 @@ Quick guide to when to read each reference file during skill development or debu
 | `skill-loader-pattern.md` | Canonical dev-skills context loading via subagent delegation (referenced by Phases 2, 4, 6b, 7, 9) |
 | `deep-reasoning-dispatch-pattern.md` | Offering deep reasoning escalation after gate failures or security findings; understanding the manual user submission workflow |
 | `mpa-synthesis-pattern.md` | Adding or modifying MPA Deliberation (S1) or Convergence Detection (S2); understanding Jaccard similarity trade-offs |
+| `review-board-protocol.md` | Debugging Phase 6 adversarial review board (YELLOW/RED verdicts); understanding 3-critic debate + verdict adjustment |
 
 ## Working with CLI Integration
 
@@ -109,7 +110,7 @@ Each CLI role dispatches both CLIs (Gemini, Codex) in parallel via a single ntm 
 | `phase-3-clarification.md` | ~215 | User questions, gap resolution |
 | `phase-4-architecture.md` | ~545 | Diagonal Matrix MPA, architecture design |
 | `phase-5-thinkdeep.md` | ~170 | Multi-CLI deep analysis |
-| `phase-6-validation.md` | ~277 | CLI Consensus plan scoring |
+| `phase-6-validation.md` | ~305 | CLI Consensus plan scoring + review board |
 | `phase-6b-expert-review.md` | ~315 | Security/quality expert review |
 | `phase-7-test-strategy.md` | ~640 | V-Model test planning, QA MPA |
 | `phase-8-coverage.md` | ~162 | Test coverage validation |
@@ -121,7 +122,8 @@ Each CLI role dispatches both CLIs (Gemini, Codex) in parallel via a single ntm 
 | `self-critique-template.md` | ~143 | Agent verification template (phase-aware thresholds) |
 | `tot-workflow.md` | ~364 | Tree-of-Thoughts process |
 | `debate-protocol.md` | ~425 | Multi-round debate structure |
-| `cli-dispatch-pattern.md` | ~342 | Canonical CLI multi-CLI dispatch pattern |
+| `cli-dispatch-pattern.md` | ~537 | Canonical CLI dual-CLI dispatch pattern + team protocol |
+| `review-board-protocol.md` | ~251 | Phase 6 adversarial review board (YELLOW/RED verdicts) |
 | `skill-loader-pattern.md` | ~114 | Dev-skills context loading via subagent delegation |
 | `deep-reasoning-dispatch-pattern.md` | ~293 | Deep reasoning escalation dispatch pattern |
 | `mpa-synthesis-pattern.md` | ~164 | Shared MPA Deliberation + Convergence Detection algorithms |

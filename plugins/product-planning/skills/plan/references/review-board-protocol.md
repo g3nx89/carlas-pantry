@@ -60,6 +60,8 @@ Agent(
 
     CRITIC_ROLE: {role}
     EVALUATION_LENS: {lens}
+    ROLE_PREFIX: {prefix}  # PQ for plan-quality, RA for risk, SG for scope
+    PEER_NAMES: {comma-separated names of other 2 critics on this board}
     FEATURE_DIR: {FEATURE_DIR}
     PLAN_FILE: {FEATURE_DIR}/plan.md
     SPEC_FILE: {FEATURE_DIR}/spec.md

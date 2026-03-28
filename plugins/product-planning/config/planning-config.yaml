@@ -1727,7 +1727,8 @@ agent_teams:
   timeout_per_debate: 120 # seconds per team debate
   review_board:
     timeout: 180           # seconds for 3-critic board (longer than 2-critic debate)
-    trigger: "yellow_red"  # green = always, yellow_red = only on YELLOW/RED, never = disabled
+    # Trigger is controlled by team_preset (Step 1.10): balanced=enabled, rapid_team/skip=disabled.
+    # Runtime reads state.review_board_enabled + preliminary verdict YELLOW/RED.
     critics: 3             # number of review board critics
     verdict_override: "downgrade_only"  # review board can downgrade verdicts, never upgrade
 

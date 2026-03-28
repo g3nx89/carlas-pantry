@@ -15,8 +15,12 @@ artifacts_written:
   - "analysis/validation-report.md"
   - "analysis/cli-planreview-report.md"  # conditional: CLI dispatch enabled
   - "analysis/cli-consensus-report.md"  # conditional: CLI dispatch enabled
+  - "analysis/review-board-synthesis.md"  # conditional: review board enabled + YELLOW/RED verdict
 agents:
   - "product-planning:debate-judge"
+  - "product-planning:review-board-critic"  # conditional: review board enabled
+additional_references:
+  - "$CLAUDE_PLUGIN_ROOT/skills/plan/references/review-board-protocol.md"  # conditional: review board
 mcp_tools:
   - "mcp__sequential-thinking__sequentialthinking"
 feature_flags:
