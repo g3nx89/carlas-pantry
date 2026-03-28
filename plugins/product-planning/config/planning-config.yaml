@@ -166,6 +166,15 @@ feature_flags:
     requires: [cli_context_isolation]
     cost_impact: "~$0.15-0.30 additional; ~5-10 min latency for all roles"
 
+  # Agent Teams Integration
+  agent_teams_debate:
+    enabled: true
+    description: "Perspective-critic team debates after CLI dispatch"
+    rollback: "Set false to use Task-based synthesis only"
+    modes: [complete, advanced]
+    requires: [cli_context_isolation]
+    cost_impact: "~2 agent dispatches per CLI integration point; ~60-120s latency per debate"
+
   # Context Improvements
   a1_flow_analysis:
     enabled: true
@@ -399,16 +408,16 @@ analysis_modes:
   complete:
     description: "Full analysis with CLI Deep Analysis + Sequential Thinking + Consensus + Full Test Plan"
     mpa_agents: 6  # code-explorer, software-architect, tech-lead + 3 QA agents (MPA)
-    cli_deep_analysis_dispatches: 9  # 3 perspectives × 3 CLIs
+    cli_deep_analysis_dispatches: 6  # 3 perspectives × 2 CLIs
     sequential_thinking_enabled: true
     cli_consensus_enabled: true  # Both plan validation AND test coverage validation
     requires_mcp: true
-    estimated_cost: "$1.00-1.80"  # Includes 9-phase workflow with test planning
+    estimated_cost: "$0.80-1.50"  # Includes 12-phase workflow with test planning
 
   advanced:
     description: "MPA + CLI Deep Analysis (reduced perspectives) + Test Plan"
     mpa_agents: 5  # code-explorer, software-architect, tech-lead + 2 QA agents
-    cli_deep_analysis_dispatches: 6  # 2 perspectives × 3 CLIs
+    cli_deep_analysis_dispatches: 4  # 2 perspectives × 2 CLIs
     sequential_thinking_enabled: true  # Enabled for ST features: risk, revision, redteam, TAO, checkpoint, task decomposition
     cli_consensus_enabled: true  # Test coverage validation only
     requires_mcp: true
@@ -563,13 +572,11 @@ sequential_thinking:
 
 cli_analysis:
   deep_analysis:
-    # CLIs to use (maps to dispatch-cli-agent.sh --cli parameter)
-    # NOTE: These are the CLI binaries dispatched via Bash process-group dispatch.
-    # Add new entries when additional CLIs become available (script supports any CLI).
+    # CLIs to use (dispatched via ntm robot mode — 2 CLIs)
+    # NOTE: These are the CLI binaries dispatched via dispatch-via-ntm.sh.
     clis:
       - gemini    # Broad exploration, large context window
       - codex     # Code-level precision, import chain analysis
-      - opencode  # UX/Product lens, accessibility, user flow analysis
 
     # Architecture-focused perspectives
     perspectives:
@@ -625,12 +632,12 @@ cli_analysis:
     mode_matrix:
       complete:
         perspectives: [performance, maintainability, security]
-        clis_per_perspective: 3
-        total_dispatches: 9
+        clis_per_perspective: 2
+        total_dispatches: 6
       advanced:
         perspectives: [performance, security]  # Skip maintainability
-        clis_per_perspective: 3
-        total_dispatches: 6
+        clis_per_perspective: 2
+        total_dispatches: 4
 
     # Problem context template
     problem_context_template: |
@@ -666,9 +673,6 @@ cli_analysis:
       codex:
         stance: challenger
         stance_prompt: "Actively find gaps, risks, and overlooked failure modes. Score conservatively."
-      opencode:
-        stance: product_lens
-        stance_prompt: "Evaluate from user experience and product alignment perspective. Score based on user value delivery, accessibility, and product-market fit."
 
     # Score divergence thresholds
     divergence:
@@ -1572,7 +1576,8 @@ research_mcp:
 cli_integration:
   # Dispatch script configuration
   dispatch:
-    script_path: "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
+    script_path: "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh"
+    legacy_fallback: "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
 
   # CLI command templates (used by dispatch script via CLI_CMD_OVERRIDE env var)
   # {PROMPT_FILE} is replaced with the actual prompt file path at dispatch time.
@@ -1586,10 +1591,7 @@ cli_integration:
       template: 'codex exec --json --skip-git-repo-check -C {PROMPT_FILE}'
       smoke_prompt: "Reply with exactly one word: SMOKE_OK"
       smoke_expect: "SMOKE_OK"
-    opencode:
-      template: 'opencode run --format json -f {PROMPT_FILE}'
-      smoke_prompt: "Reply with exactly one word: SMOKE_OK"
-      smoke_expect: "SMOKE_OK"
+    # opencode: removed in v3.2.0 — dual-CLI mode (Gemini + Codex only)
 
   # Pending agent timeout (for context resume — see orchestrator-loop.md)
   pending_agent_timeout_minutes: 30
@@ -1621,20 +1623,13 @@ cli_integration:
       auto_approval_flag: "--dangerously-bypass-approvals-and-sandbox"
       best_for: "Import chains, coupling analysis, code-level security, file path verification"
 
-    opencode:
-      context_size: "200K tokens"
-      capabilities: [ux_analysis, accessibility_audit, user_flow_tracing, product_alignment]
-      auto_approval_flag: ""  # Non-interactive mode auto-rejects permissions
-      best_for: "User experience assessment, accessibility analysis, product alignment, user flow validation"
-
   # Multi-CLI MPA pattern
   multi_cli:
     enabled: true
-    synthesis_strategy: "unanimous_majority_divergent_unique"
-    # Unanimous (3 agree)  -> VERY HIGH confidence
-    # Majority (2 agree)   -> HIGH confidence
-    # All disagree         -> FLAG for user decision
-    # Unique (1 only)      -> VERIFY against existing findings
+    synthesis_strategy: "convergent_divergent_unique"
+    # Convergent (both CLIs agree)  -> HIGH confidence
+    # Divergent (CLIs disagree)     -> FLAG for user decision
+    # Unique (1 CLI only raised)    -> VERIFY against existing findings
 
   # Self-critique configuration
   self_critique:
@@ -1650,42 +1645,36 @@ cli_integration:
     deepthinker:
       gemini_focus: "Broad architecture exploration, tech stack, pattern conflicts"
       codex_focus: "Import chain analysis, coupling assessment, complexity hotspots"
-      opencode_focus: "User flow impact analysis, accessibility implications, UX patterns, design system alignment"
       phases: [5]
       modes: [complete, advanced]
 
     consensus:
       gemini_focus: "Strategic plan/coverage assessment, broad codebase exploration"
       codex_focus: "Code-level feasibility verification, dependency checking, file:line evidence"
-      opencode_focus: "Product alignment scoring, user story coverage, UX quality, feature completeness"
       phases: [6, 8]
       modes: [complete, advanced]
 
     planreviewer:
       gemini_focus: "Strategic risks, scope assessment, Red Team/Blue Team"
       codex_focus: "Technical feasibility, code structure support, dependency compatibility"
-      opencode_focus: "Product risk assessment, user journey gaps, feature completeness from user perspective"
       phases: [6]
       modes: [complete, advanced]
 
     teststrategist:
       gemini_focus: "Test infra discovery, framework patterns, coverage gaps, ThinkDeep reconciliation"
       codex_focus: "Test code patterns, assertion quality, mock patterns, test isolation"
-      opencode_focus: "UAT quality assessment, user acceptance scenarios, accessibility testing, exploratory testing"
       phases: [7]
       modes: [complete]
 
     securityauditor:
       gemini_focus: "Supply chain security, architectural attack surface, compliance"
       codex_focus: "OWASP code-level vulnerabilities, injection points, hardcoded secrets"
-      opencode_focus: "User data privacy, consent flows, PII handling, security UX (error messages, auth flows)"
       phases: [6b]
       modes: [complete, advanced]
 
     taskauditor:
       gemini_focus: "Requirements mapping, missing infrastructure, scope coverage"
       codex_focus: "File path verification, dependency ordering, code structure alignment"
-      opencode_focus: "User story coverage, definition of done alignment, UX task completeness, missing user-facing tasks"
       phases: [9]
       modes: [complete, advanced]
 
@@ -1707,7 +1696,6 @@ cli_integration:
     per_cli:
       gemini: 120        # Fast with large context
       codex: 90          # Fastest for code-level analysis
-      opencode: 150      # UX analysis may need more time
 
   # Latency estimates (per-role, includes all CLIs + synthesis + self-critique)
   latency:
@@ -1720,11 +1708,23 @@ cli_integration:
 
   # Fallback behavior
   fallback:
+    if_ntm_unavailable: "legacy_dispatch"  # Fall back to dispatch-cli-agent.sh
     if_cli_unavailable: "skip_cli_steps"
-    if_one_cli_missing: "reduced_cli_mode"
-    if_two_cli_missing: "single_cli_mode"
+    if_one_cli_missing: "single_cli_mode"
     if_all_missing: "skip_cli_steps"
     log_fallback: true
+
+# =============================================================================
+# AGENT TEAMS (native Claude Code feature)
+# =============================================================================
+# Perspective-critic team debates after CLI dispatch for richer cross-examination.
+# Requires TeamCreate/TeamDelete/Agent/SendMessage in SKILL.md allowed-tools.
+
+agent_teams:
+  enabled: auto          # auto = use if available | always | never
+  fallback: task_parallel # task_parallel | task_sequential (when teams unavailable)
+  display_mode: auto     # auto = tmux if available, in-process fallback
+  timeout_per_debate: 120 # seconds per team debate
 
 # =============================================================================
 # DEV-SKILLS INTEGRATION

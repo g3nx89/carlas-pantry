@@ -10,7 +10,7 @@ Plugin for feature planning, task decomposition, and **integrated test strategy 
 - **Multi-Perspective Analysis (MPA)** - Parallel agents with different focuses
 - **CLI Deep Analysis** - Multi-perspective architecture insights via CLI dispatch (replaces PAL ThinkDeep)
 - **CLI Consensus Scoring** - Multi-CLI validation with dimensional scoring rubric (replaces PAL Consensus)
-- **CLI Multi-CLI Dispatch** - Gemini + Codex + OpenCode in parallel via Bash process-group dispatch
+- **CLI Dual-CLI Dispatch** - Gemini + Codex in parallel via ntm robot-mode dispatch
 - **Sequential Thinking** - Structured reasoning templates
 - **Research MCP Integration** - Context7/Ref/Tavily for authoritative documentation lookup
 - **V-Model Test Planning** - Comprehensive test strategy aligned with development phases (integrated)
@@ -105,18 +105,18 @@ The plugin gracefully degrades when MCP tools are unavailable.
 
 ### CLI Deep Analysis (Phase 5)
 
-Phase 5 dispatches Gemini + Codex + OpenCode CLIs across perspectives via `dispatch-cli-agent.sh`:
+Phase 5 dispatches Gemini + Codex CLIs across perspectives via `dispatch-via-ntm.sh` (ntm robot mode):
 - **Performance** - Scalability, latency, resource efficiency
 - **Maintainability** - Code quality, extensibility, technical debt (Complete mode only)
 - **Security** - Threat modeling, compliance, vulnerabilities
 
-Each CLI brings a different analytical lens: Gemini (strategic/broad), Codex (code-level/challenger), OpenCode (UX/product). Tri-CLI synthesis uses unanimous (VERY HIGH), majority (HIGH), and divergent (FLAG) confidence levels.
+Each CLI brings a different analytical lens: Gemini (strategic/broad), Codex (code-level/challenger). Dual-CLI synthesis uses convergent (HIGH), divergent (FLAG), and unique (VERIFY) confidence levels. When Agent Teams are enabled, synthesis is enhanced with perspective-critic team debates.
 
-CLIs are configurable in `config/planning-config.yaml` `cli_analysis.deep_analysis.clis`. The dispatch script supports any CLI binary.
+CLIs are configurable in `config/planning-config.yaml` `cli_analysis.deep_analysis.clis`. Falls back to legacy `dispatch-cli-agent.sh` if ntm is unavailable.
 
 ### CLI Consensus Scoring (Phases 6, 8)
 
-Phases 6 and 8 dispatch CLIs with stance-differentiated scoring prompts (advocate + challenger + product_lens), then average dimensional scores. Replaces PAL Consensus MCP.
+Phases 6 and 8 dispatch CLIs with stance-differentiated scoring prompts (advocate + challenger), then average dimensional scores. Replaces PAL Consensus MCP.
 
 **Phase 6 (Plan):** 20 points across 5 dimensions (Problem Understanding, Architecture Quality, Risk Mitigation, Implementation Clarity, Feasibility). See `config/planning-config.yaml` for thresholds and weights.
 
@@ -302,7 +302,7 @@ Use `$CLAUDE_PLUGIN_ROOT` to reference plugin-relative paths in agents and skill
 ### Core MCP (Optional, enhances Complete mode)
 - `mcp__sequential-thinking__sequentialthinking` - Structured reasoning
 
-> **PAL MCP Removed:** `mcp__pal__thinkdeep`, `mcp__pal__consensus`, `mcp__pal__listmodels`, and `mcp__pal__challenge` have been replaced by CLI dispatch via `dispatch-cli-agent.sh`. Complete/Advanced modes now require CLI availability (Gemini/Codex/OpenCode) instead of PAL MCP.
+> **PAL MCP Removed:** `mcp__pal__thinkdeep`, `mcp__pal__consensus`, `mcp__pal__listmodels`, and `mcp__pal__challenge` have been replaced by CLI dispatch via `dispatch-via-ntm.sh` (ntm robot mode). Complete/Advanced modes now require CLI availability (Gemini/Codex) and ntm instead of PAL MCP. Legacy fallback to `dispatch-cli-agent.sh` if ntm unavailable.
 
 ### Research MCP (Optional but recommended)
 Used in Phases 2, 4, and 7 for authoritative documentation lookup.

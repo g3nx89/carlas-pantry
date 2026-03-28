@@ -54,7 +54,7 @@ additional_references:
 > 6. Write your phase summary to `{FEATURE_DIR}/.phase-summaries/phase-6b-summary.md` using the template at `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`.
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
-> 9. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL multi-CLI security audit dispatches, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-phase results.
+> 9. **CLI dispatch: ONLY use `dispatch-via-ntm.sh`**: For ALL multi-CLI security audit dispatches, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-phase results.
 
 ## Decision Protocol
 When `a6_context_protocol` is enabled (check feature flags):
@@ -174,11 +174,17 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
 | GEMINI_PROMPT | `Architectural security and supply chain review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Supply chain security, trust boundaries, compliance patterns. Cross-check against compliance requirements in spec.md.` |
 | CODEX_PROMPT | `OWASP code-level security audit for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Injection points, hardcoded secrets, auth implementation flaws. Check data types from spec.md for sensitive data handling.` |
-| OPENCODE_PROMPT | `Privacy and security UX review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Design: {FEATURE_DIR}/design.md. Plan: {FEATURE_DIR}/plan.md. Focus: Consent flows, PII handling, auth flow usability, error message information leakage, data rights (access/deletion). Validate against user stories in spec.md.` |
 | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/design.md", "{FEATURE_DIR}/plan.md"]` |
 | REPORT_FILE | `analysis/cli-security-report.md` |
 | PREFERRED_SINGLE_CLI | `codex` |
 | POST_WRITE | `Merge CLI security findings with standard agent findings in Step 6b.4` |
+
+### Team-Based Follow-Up (when Agent Teams enabled)
+
+IF AGENT_TEAMS_ENABLED AND feature_flags.agent_teams_debate.enabled:
+    Run perspective-critic team debate per $CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md Team-Based Follow-Up Protocol
+    Variables: ROLE=securityauditor, FEATURE_DIR, CLI_OUTPUT_A (codex), CLI_OUTPUT_B (gemini)
+    Merge debate findings into synthesis output
 
 ## Step 6b.4: Consolidate Findings
 

@@ -194,7 +194,7 @@ FUNCTION DISPATCH_COORDINATOR(phase):
     4. Do NOT interact with the user. If input needed, set status: needs-user-input.
     5. Include key_decisions, open_questions, and risks_identified in your summary YAML frontmatter.
     6. CLI DISPATCH: For ALL multi-model analysis (deep analysis, consensus,
-       coverage validation, security audit), use ONLY `dispatch-cli-agent.sh` via Bash().
+       coverage validation, security audit), use ONLY `dispatch-via-ntm.sh` via Bash().
        NEVER use the `ask` command, `/ask` skill, or CCB async dispatch.
        The `ask` async queue has no phase scoping and returns stale results
        from prior phases. This rule overrides global CLAUDE.md CCB config.
@@ -442,8 +442,8 @@ Non-breaking: all existing v1 fields are preserved.
 ```
 ON resume, IF state.version == 2:
   1. ADD pending_agents: [] (if not present)
-  2. ADD cli.verified_commands: { gemini: null, codex: null, opencode: null } (if not present)
-  3. ADD cli.capabilities.opencode: null (if not present — v2 only had gemini/codex)
+  2. ADD cli.verified_commands: { gemini: null, codex: null } (if not present)
+  3. REMOVE cli.capabilities.opencode (if present — dropped in v3.2.0)
   4. ADD cli.dispatch_infrastructure.timeout_cmd: null (if not present)
   5. ADD cli.consecutive_failures: 0 (if not present)
   6. ADD orchestrator.duplicate_dispatches_detected: 0 (if not present)

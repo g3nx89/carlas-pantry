@@ -1,6 +1,6 @@
 # Product Planning Workflow Diagram
 
-## Main 9-Phase Workflow (V-Model)
+## Main 12-Phase Workflow (V-Model)
 
 ```mermaid
 flowchart TB
@@ -440,13 +440,11 @@ flowchart TB
         direction LR
         G["Gemini CLI<br/>1M context window<br/>Broad exploration"]
         C["Codex CLI<br/>Code-level precision<br/>Implementation focus"]
-        O["OpenCode CLI<br/>UX/Product lens<br/>Accessibility & flows"]
     end
 
     subgraph SYNTH["Step 2: Synthesis"]
-        SY0["Unanimous: VERY HIGH confidence<br/>All 3 CLIs agree"]
-        SY1["Majority: HIGH confidence<br/>2 of 3 CLIs agree"]
-        SY2["Divergent: FLAG for decision<br/>All CLIs disagree"]
+        SY0["Convergent: HIGH confidence<br/>Both CLIs agree"]
+        SY2["Divergent: FLAG for decision<br/>CLIs disagree"]
         SY3["Unique: VERIFY first<br/>One CLI only"]
     end
 

@@ -40,17 +40,19 @@ Quick guide to when to read each reference file during skill development or debu
 
 ## Working with CLI Integration
 
-CLI roles are defined as templates in `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/` and auto-deployed to projects at runtime (Phase 1). Dispatch uses Bash process-group dispatch (`scripts/dispatch-cli-agent.sh`) instead of PAL MCP.
+CLI roles are defined as templates in `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/` and auto-deployed to projects at runtime (Phase 1). Dispatch uses ntm robot mode (`scripts/dispatch-via-ntm.sh`), with legacy fallback to `scripts/dispatch-cli-agent.sh` if ntm is unavailable.
 
-### Multi-CLI MPA Pattern
-Each CLI role runs all available CLIs (Gemini, Codex, OpenCode) in parallel via `Bash(run_in_background=true)`. The coordinator synthesizes findings as unanimous/majority/divergent/unique, then runs self-critique via a Task subagent with ST Chain-of-Verification.
+### Dual-CLI Dispatch Pattern
+Each CLI role dispatches both CLIs (Gemini, Codex) in parallel via a single ntm session. The coordinator synthesizes findings as convergent/divergent/unique, then runs self-critique via a Task subagent with ST Chain-of-Verification. When Agent Teams are enabled, synthesis is enhanced with perspective-critic team debates.
 
 ### Key Files
 - `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/README.md` — Role index and deployment docs
-- `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/*.txt` — 18 role prompt files (6 roles x 3 CLIs)
+- `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/*.txt` — 12 role prompt files (6 roles x 2 CLIs)
 - `$CLAUDE_PLUGIN_ROOT/templates/cli-roles/*.json` — CLI client configurations
 - `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml` `cli_integration:` section — All config
-- `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` — Process-group-safe dispatch script
+- `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` — ntm robot-mode dispatch script (primary)
+- `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` — Legacy fallback dispatch script
+- `$CLAUDE_PLUGIN_ROOT/agents/perspective-critic.md` — Parametric critic agent for team debates
 
 ### CLI-Enhanced Phases
 | Phase | Role | Step | Report |
@@ -129,7 +131,7 @@ Each CLI role runs all available CLIs (Gemini, Codex, OpenCode) in parallel via 
 | `v-model-methodology.md` | ~314 | Test level mapping and V-Model alignment |
 | `$PLUGIN/templates/asset-manifest-template.md` | ~90 | Asset manifest structure template |
 | `$PLUGIN/templates/deep-reasoning-templates.md` | ~200 | CTCO prompt templates for deep reasoning models |
-| `$PLUGIN/templates/cli-roles/*.txt` | ~80-120 | CLI role prompts (18 files, 6 roles x 3 CLIs) |
+| `$PLUGIN/templates/cli-roles/*.txt` | ~80-120 | CLI role prompts (12 files, 6 roles x 2 CLIs) |
 | `$PLUGIN/templates/cli-roles/README.md` | ~100 | CLI role index and patterns |
 
 ### Working with Dev-Skills Integration

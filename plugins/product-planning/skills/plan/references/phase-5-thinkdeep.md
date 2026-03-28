@@ -30,7 +30,7 @@ additional_references:
 | 5.1  | —     | —        | ✓        | ✓        | Skips phase for Rapid/Standard |
 | 5.2  | —     | —        | ✓        | ✓        | CLI availability check |
 | 5.3  | —     | —        | ✓        | ✓        | — |
-| 5.4  | —     | —        | ✓        | ✓        | 6 dispatches (Adv) / 9 dispatches (Complete) |
+| 5.4  | —     | —        | ✓        | ✓        | 4 dispatches (Adv) / 6 dispatches (Complete) |
 | 5.5  | —     | —        | ✓        | ✓        | Maintainability report Complete only |
 | 5.6  | —     | —        | ✓        | ✓        | User interaction |
 
@@ -46,7 +46,7 @@ additional_references:
 > 6. Write your phase summary to `{FEATURE_DIR}/.phase-summaries/phase-5-summary.md` using the template at `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`.
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
-> 9. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL multi-CLI deep analysis dispatches, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-phase results.
+> 9. **CLI dispatch: ONLY use `dispatch-via-ntm.sh`**: For ALL multi-CLI deep analysis dispatches, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-phase results.
 
 ## Decision Protocol
 When `a6_context_protocol` is enabled (check feature flags):
@@ -104,8 +104,8 @@ PREPARE problem_context with:
 
 | Mode | Perspectives | CLIs | Total Dispatches |
 |------|--------------|------|------------------|
-| Complete | 3 (perf, maint, sec) | 3 | 9 |
-| Advanced | 2 (perf, sec) | 3 | 6 |
+| Complete | 3 (perf, maint, sec) | 2 | 6 |
+| Advanced | 2 (perf, sec) | 2 | 4 |
 
 All dispatches are independent and can be launched simultaneously.
 
@@ -132,14 +132,13 @@ FOR each perspective IN perspectives:
   | MODE_CHECK | `analysis_mode in {complete, advanced}` |
   | GEMINI_PROMPT | Perspective prompt from config with architecture AND requirements context. Focus: Broad architecture exploration, tech stack validation, pattern conflicts for {perspective}. Include design.md content AND acceptance criteria from spec.md/requirements-anchor.md. |
   | CODEX_PROMPT | Perspective prompt from config with architecture AND requirements context. Focus: Import chain analysis, coupling assessment, code-level complexity for {perspective}. Include design.md content AND key constraints from spec.md/requirements-anchor.md. |
-  | OPENCODE_PROMPT | Perspective prompt from config with architecture AND requirements context. Focus: User flow impact, accessibility implications, UX pattern evaluation, design system alignment for {perspective}. Include design.md content AND user stories from spec.md/requirements-anchor.md. |
   | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/design.md"]` |
   | REPORT_FILE | `analysis/cli-deepthinker-{perspective}-report.md` |
   | PREFERRED_SINGLE_CLI | `gemini` |
   | POST_WRITE | none (synthesis happens in Step 5.5) |
 ```
 
-**Note:** All 9 (Complete) or 6 (Advanced) dispatches can be launched simultaneously since each perspective's dispatch is fully independent. The CLI dispatch pattern handles per-perspective retry and circuit breaker logic internally.
+**Note:** All 6 (Complete) or 4 (Advanced) dispatches can be launched simultaneously since each perspective's dispatch is fully independent. The CLI dispatch pattern handles per-perspective retry and circuit breaker logic internally.
 
 ## Step 5.5: Synthesize Insights
 
@@ -151,10 +150,17 @@ Read per-perspective CLI reports:
 Write `{FEATURE_DIR}/analysis/thinkdeep-insights.md`:
 - Per-perspective findings (from CLI reports)
 - **Unanimous insights** (all CLIs and/or multiple perspectives agree) → CRITICAL priority
-- **Majority insights** (2 of 3 CLIs agree) → HIGH priority
+- **Majority insights** (2 of 2 CLIs agree) → HIGH priority
 - **Divergent insights** (CLIs or perspectives all disagree) → FLAG for decision
 - **Unique insights** (single CLI or single perspective only) → VERIFY against existing findings
 - Recommended architecture updates
+
+### Team-Based Follow-Up (when Agent Teams enabled)
+
+IF AGENT_TEAMS_ENABLED AND feature_flags.agent_teams_debate.enabled:
+    Run perspective-critic team debate per $CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md Team-Based Follow-Up Protocol
+    Variables: ROLE=deepthinker, FEATURE_DIR, CLI_OUTPUT_A (codex), CLI_OUTPUT_B (gemini)
+    Merge debate findings into synthesis output
 
 ## Step 5.6: Present Findings [USER]
 

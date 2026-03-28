@@ -1,7 +1,7 @@
 ---
 name: feature-planning
-description: This skill should be used when the user asks to "plan a feature", "create an implementation plan", "design the architecture", "break down a feature into tasks", "decompose a specification", "plan development", "plan tests", or needs multi-perspective analysis for feature implementation. Provides 9-phase workflow with MPA agents, CLI deep analysis, V-Model test planning, and consensus scoring.
-version: 3.1.0
+description: This skill should be used when the user asks to "plan a feature", "create an implementation plan", "design the architecture", "break down a feature into tasks", "decompose a specification", "plan development", "plan tests", "create a plan for", "implementation breakdown", "task decomposition", "architecture review", "plan the implementation", "how should I implement", or needs multi-perspective analysis for feature implementation. Provides 12-phase workflow with MPA agents, CLI deep analysis, V-Model test planning, and consensus scoring.
+version: 3.2.0
 allowed-tools:
   # File operations
   - Read
@@ -18,9 +18,14 @@ allowed-tools:
   # Agent orchestration
   - Task
   - AskUserQuestion
+  # Agent Teams (native Claude Code)
+  - TeamCreate
+  - TeamDelete
+  - Agent
+  - SendMessage
   # Sequential Thinking MCP
   - mcp__sequential-thinking__sequentialthinking
-  # CLI dispatch (Bash-based, replaces PAL MCP)
+  # CLI dispatch (ntm robot mode, replaces Bash process-group dispatch)
   - Bash(dispatch:*)
   # Research MCP - Context7 (library documentation)
   - mcp__context7__resolve-library-id
@@ -82,17 +87,20 @@ Costs are base estimates without ST or CLI enhancements. See `config/planning-co
 
 ### CLI Dispatch
 
+CLI names and roles are defined in `config/planning-config.yaml` → `cli_integration.roles`. Default configuration:
+
 | CLI | Analytical Lens | Phases |
 |-----|----------------|--------|
 | Gemini | Strategic / broad | 5, 6, 8 |
 | Codex | Code-level / challenger | 5, 6, 8 |
-| OpenCode | UX / product | 5, 6, 8 |
 
-Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh`
+Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` (ntm robot mode, v2.0)
 
-Complete/Advanced modes dispatch all three CLIs in parallel, then synthesize findings. Tri-CLI synthesis uses unanimous (VERY HIGH), majority (HIGH), and divergent (FLAG) confidence levels. Adds ~6-9 min total latency.
+Complete/Advanced modes dispatch all configured CLIs in parallel (default: Gemini, Codex — see `config/planning-config.yaml`), then synthesize findings. Dual-CLI synthesis uses convergent (HIGH), divergent (FLAG), and unique (VERIFY) confidence levels. Adds ~4-6 min total latency.
 
-Graceful degradation: If CLIs are unavailable, fall back to Standard/Rapid modes (internal agents only). If ST is unavailable, fall back to Advanced mode.
+When Agent Teams are available (`AGENT_TEAMS_ENABLED`), CLI synthesis is enhanced with perspective-critic team debates for richer cross-examination. See `references/cli-dispatch-pattern.md` Team-Based Follow-Up Protocol.
+
+Graceful degradation: If ntm is unavailable, fall back to legacy `dispatch-cli-agent.sh`. If CLIs are unavailable, fall back to Standard/Rapid modes (internal agents only). If ST is unavailable, fall back to Advanced mode.
 
 ## Workflow Phases
 
@@ -166,7 +174,7 @@ Each coordinator dispatch adds ~5-15s overhead. This is the trade-off for ~78% o
 | 6 | `phase-6-validation.md` | phase-4, phase-5 | If YELLOW/RED | planreviewer | VALIDATION | `s6_debate`, `cli_*`, `deep_reasoning` | spec.md, plan.md, design.md | — |
 | 6b | `phase-6b-expert-review.md` | phase-6 | Blocking security | securityauditor | EXPERT_REVIEW | `a4_expert`, `cli_*`, `dev_skills`, `deep_reasoning`, `s13_confidence` | spec.md, design.md, plan.md | — |
 | 7 | `phase-7-test-strategy.md` | phase-4, phase-5, phase-6 | — | teststrategist | TEST_STRATEGY | `st_revision`, `st_redteam`, `st_tao`, `s3_judge`, `cli_*`, `dev_skills`, `deep_reasoning`, `s7_mpa`, `s8_convergence`, `s10_team` | spec.md, design.md, plan.md, thinkdeep-insights.md, test-strategy.md | — |
-| 8 | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | — | TEST_COVERAGE_VALIDATION | `cli_*` | test-plan.md, spec.md, test-strategy.md | `∥` |
+| 8 | `phase-8-coverage.md` | phase-7 | If YELLOW/RED | consensus | TEST_COVERAGE_VALIDATION | `cli_*` | test-plan.md, spec.md, test-strategy.md | `∥` |
 | 8b | `phase-8b-asset-consolidation.md` | phase-8 | Validate manifest | — | ASSET_CONSOLIDATION | — | spec.md, design.md, plan.md, test-plan.md, research.md, expert-review.md | `∥` |
 | 9 | `phase-9-completion.md` | phase-4, phase-6, phase-7, phase-8, phase-8b | Clarify tasks | taskauditor | COMPLETION | `st_task_decomp`, `a5_post_menu`, `cli_*`, `dev_skills`, `p9_parallel` | spec.md, plan.md, design.md, test-plan.md, test-cases/*, asset-manifest.md | — |
 | 10 | `phase-10-retrospective.md` | phase-1 through phase-9 | None | — | RETROSPECTIVE | — | `.planning-state.local.md` | — |
@@ -332,6 +340,10 @@ See `references/README.md` for the complete reference file catalog with usage pa
 - **Lock conflict** - Wait or manual intervention guidance
 - **RED gates** - Loop back (Phase 6 RED → Phase 4, Phase 8 RED → Phase 7)
 - **Coordinator crash** - See `orchestrator-loop.md` for crash recovery and summary reconstruction
+- **ntm unavailable (exit 3)** - Fall back to legacy `dispatch-cli-agent.sh`; if also unavailable, skip CLI steps
+- **ntm spawn failed (exit 5)** - Retry once; if persistent, fall back to legacy dispatch
+- **Agent Teams unavailable** - Graceful fallback to Task-based parallel synthesis (no quality loss, only reduced cross-examination depth)
+- **Team member timeout** - Collect partial findings, continue with available output
 
 ## Test Execution Order (V-Model)
 

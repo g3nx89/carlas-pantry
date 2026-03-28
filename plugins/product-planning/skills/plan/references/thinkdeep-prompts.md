@@ -203,7 +203,7 @@ What security vulnerabilities do you see? What mitigations would you recommend?
 
 ## CLI Dispatch Template
 
-Each perspective is dispatched via `dispatch-cli-agent.sh` using the CLI Multi-CLI Dispatch Pattern from `cli-dispatch-pattern.md`:
+Each perspective is dispatched via `dispatch-via-ntm.sh` using the Dual-CLI Dispatch Pattern from `cli-dispatch-pattern.md`:
 
 ```
 Follow CLI Multi-CLI Dispatch Pattern with:
@@ -215,7 +215,6 @@ Follow CLI Multi-CLI Dispatch Pattern with:
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
 | GEMINI_PROMPT | "{PROBLEM_CONTEXT_TEMPLATE}\n\n{PERSPECTIVE_PROMPT_WITH_FILLED_VALUES}" |
 | CODEX_PROMPT | "{PROBLEM_CONTEXT_TEMPLATE}\n\n{PERSPECTIVE_PROMPT_WITH_FILLED_VALUES}" |
-| OPENCODE_PROMPT | "{PROBLEM_CONTEXT_TEMPLATE}\n\n{PERSPECTIVE_PROMPT_WITH_FILLED_VALUES}" |
 | FILE_PATHS | ["{FEATURE_DIR}/design.md"] |
 | REPORT_FILE | "analysis/cli-deepthinker-{perspective}-report.md" |
 | PREFERRED_SINGLE_CLI | `gemini` |
@@ -240,18 +239,15 @@ Follow CLI Multi-CLI Dispatch Pattern with:
 ### Codex CLI Analysis (Code-Level)
 {findings}
 
-### OpenCode CLI Analysis (UX/Product)
-{findings}
+**Convergent Insights (Both CLIs Agree):**
+- {insight 1} → CRITICAL priority (HIGH confidence)
+- {insight 2} → CRITICAL priority (HIGH confidence)
 
-**Unanimous Insights (All CLIs Agree):**
-- {insight 1} → CRITICAL priority (VERY HIGH confidence)
-- {insight 2} → CRITICAL priority (VERY HIGH confidence)
+**Divergent Insights (CLIs Disagree):**
+- {topic}: Gemini says X, Codex says Y → FLAG for decision
 
-**Majority Insights (2 of 3 CLIs Agree):**
-- {insight}: {agreeing CLIs} agree, {dissenting CLI} differs → HIGH confidence
-
-**Divergent Insights (All CLIs Disagree):**
-- {topic}: Gemini says X, Codex says Y, OpenCode says Z → FLAG for decision
+**Unique Insights (One CLI Only):**
+- {insight}: raised by {CLI} only → VERIFY against existing findings
 
 ## MAINTAINABILITY PERSPECTIVE
 {same structure - Complete mode only}
@@ -261,20 +257,20 @@ Follow CLI Multi-CLI Dispatch Pattern with:
 
 ## CROSS-PERSPECTIVE SYNTHESIS
 
-### High-Priority Findings (Unanimous)
+### High-Priority Findings (Convergent)
 | Finding | Perspectives | CLIs | Confidence | Action |
 |---------|--------------|------|------------|--------|
-| {finding} | PERF, SEC | All 3 | VERY HIGH | {recommended action} |
+| {finding} | PERF, SEC | Both | HIGH | {recommended action} |
 
-### Majority Findings
-| Finding | Perspectives | Agree | Dissent | Confidence | Action |
-|---------|--------------|-------|---------|------------|--------|
-| {finding} | {list} | {2 CLIs} | {1 CLI} | HIGH | {action} |
+### Unique Findings (Single CLI)
+| Finding | Perspectives | Source CLI | Confidence | Action |
+|---------|--------------|-----------|------------|--------|
+| {finding} | {list} | {both CLIs} | — | HIGH | {action} |
 
 ### Decision Points (Divergent)
 | Topic | Perspectives | Issue | Options |
 |-------|--------------|-------|---------|
-| {topic} | {list} | {All CLIs disagree} | A: {opt}, B: {opt}, C: {opt} |
+| {topic} | {list} | {CLIs disagree} | A: {opt}, B: {opt} |
 
 ### Recommended Architecture Updates
 1. {specific change based on findings}
@@ -287,8 +283,8 @@ Follow CLI Multi-CLI Dispatch Pattern with:
 
 | Mode | Perspectives | CLIs/Perspective | Total Dispatches |
 |------|--------------|-----------------|------------------|
-| Complete | PERFORMANCE, MAINTAINABILITY, SECURITY | 3 | 9 |
-| Advanced | PERFORMANCE, SECURITY | 3 | 6 |
+| Complete | PERFORMANCE, MAINTAINABILITY, SECURITY | 2 | 6 |
+| Advanced | PERFORMANCE, SECURITY | 2 | 4 |
 | Standard | N/A (skipped) | 0 | 0 |
 | Rapid | N/A (skipped) | 0 | 0 |
 

@@ -121,82 +121,49 @@ ELSE:
 
 ## Step 1.6: CLI Capability Detection [IF cli_context_isolation]
 
-> **Note:** CLI smoke test verifies binary availability AND functional correctness via a real prompt/response cycle.
+> **Note:** CLI dispatch uses ntm robot mode (v2.0) for parallel dual-CLI analysis. Falls back to legacy `dispatch-cli-agent.sh` if ntm is unavailable.
 
 ```
 IF feature_flags.cli_context_isolation.enabled:
 
-  1. VERIFY dispatch infrastructure:
-     SCRIPT = "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
-     script_available = CHECK file exists at SCRIPT AND is executable
-     jq_available = CHECK "jq --version" succeeds
-     python3_available = CHECK "python3 --version" succeeds
+  1. VERIFY dispatch infrastructure (ntm preferred, legacy fallback):
+     NTM_SCRIPT = "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh"
+     LEGACY_SCRIPT = "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
 
-     IF NOT script_available:
-       LOG: "Dispatch script not found — skipping CLI integration"
+     ntm_available = CHECK "command -v ntm" succeeds
+     ntm_script_available = CHECK file exists at NTM_SCRIPT AND is executable
+     legacy_script_available = CHECK file exists at LEGACY_SCRIPT AND is executable
+
+     IF ntm_available AND ntm_script_available:
+       dispatch_method = "ntm"
+       LOG: "ntm detected — using robot-mode dispatch (dispatch-via-ntm.sh)"
+     ELIF legacy_script_available:
+       dispatch_method = "legacy"
+       LOG: "ntm not available — falling back to legacy dispatch (dispatch-cli-agent.sh)"
+       # Legacy dispatch needs jq/python3 for 4-tier output extraction
+       jq_available = CHECK "jq --version" succeeds
+       python3_available = CHECK "python3 --version" succeeds
+     ELSE:
+       LOG: "No dispatch infrastructure available — skipping CLI integration"
        SET state.cli.available = false
        SET state.cli.mode = "disabled"
        SKIP rest of 1.6
 
-  2. DETECT platform timeout command:
-     IF command -v timeout succeeds: timeout_cmd = "timeout"
-     ELIF command -v gtimeout succeeds: timeout_cmd = "gtimeout"
-     ELSE: timeout_cmd = "none"
-     LOG: "Detected timeout command: {timeout_cmd}"
-
-  3. CHECK which CLIs are installed AND functional via real smoke test:
-     # Functional smoke test: send a trivial prompt and verify non-empty meaningful output.
-     # This catches installed-but-broken CLIs (wrong flags, auth expired, untrusted dir).
-     # Uses dispatch script's own timeout handling — NEVER wrap with external `timeout`.
-     # Smoke prompt and expected response from config.cli_integration.cli_commands.{cli}.
-
-     verified_commands = {}
-
-     FOR each CLI_NAME IN [gemini, codex, opencode]:
-       smoke_prompt = config.cli_integration.cli_commands.{CLI_NAME}.smoke_prompt
-       smoke_expect = config.cli_integration.cli_commands.{CLI_NAME}.smoke_expect
-       smoke_prompt_file = /tmp/cli-smoke-prompt-{CLI_NAME}.txt
-       smoke_output_file = /tmp/cli-smoke-output-{CLI_NAME}.txt
-
-       WRITE smoke_prompt to smoke_prompt_file
-
-       # Use CLI_CMD_OVERRIDE to test the config template — ensures the same command
-       # used in real dispatch is the one validated by the smoke test (ISSUE-02 fix).
-       cmd_template = config.cli_integration.cli_commands.{CLI_NAME}.template
-       exit_code = Bash("CLI_CMD_OVERRIDE='{cmd_template}' {SCRIPT} --cli {CLI_NAME} --role smoke_test --prompt-file {smoke_prompt_file} --output-file {smoke_output_file} --timeout 30")
-
-       IF exit_code == 3:
-         # CLI binary not found
+  2. CHECK which CLIs are installed:
+     FOR each CLI_NAME IN [gemini, codex]:
+       IF command -v {CLI_NAME} succeeds:
+         {CLI_NAME}_available = true
+         LOG: "{CLI_NAME}: binary found"
+       ELSE:
          {CLI_NAME}_available = false
          LOG: "{CLI_NAME}: not found in PATH"
-       ELIF exit_code == 0 AND file_size(smoke_output_file) > 0:
-         output = READ(smoke_output_file)
-         IF output contains smoke_expect:
-           {CLI_NAME}_available = true
-           verified_commands[CLI_NAME] = config.cli_integration.cli_commands.{CLI_NAME}.template
-           LOG: "{CLI_NAME}: smoke test PASSED — command verified"
-         ELSE:
-           # CLI responded but output unexpected — mark available but unverified
-           {CLI_NAME}_available = true
-           verified_commands[CLI_NAME] = config.cli_integration.cli_commands.{CLI_NAME}.template
-           LOG: "{CLI_NAME}: smoke test responded but output unexpected (proceeding anyway)"
-       ELSE:
-         # CLI found but failed (exit 1/2/4 — wrong flags, timeout, 0-byte)
-         {CLI_NAME}_available = false
-         LOG: "{CLI_NAME}: smoke test FAILED (exit {exit_code}) — marking unavailable"
 
-       DELETE smoke_prompt_file, smoke_output_file
-
-     available_count = COUNT(true values in [gemini_available, codex_available, opencode_available])
+     available_count = COUNT(true values in [gemini_available, codex_available])
 
      # Determine CLI mode
-     IF available_count == 3:
-       cli_mode = "tri"
-       LOG: "Tri-CLI mode: full analysis with Gemini, Codex, and OpenCode"
-     ELSE IF available_count == 2:
+     IF available_count == 2:
        cli_mode = "dual"
-       missing = [name for name, avail in CLIs if not avail]
-       LOG: "{missing[0]} CLI not available — CLI dispatch will use dual-CLI mode"
+       LOG: "Dual-CLI mode: analysis with Gemini and Codex"
      ELSE IF available_count == 1:
        available_cli = [name for name, avail in CLIs if avail][0]
        cli_mode = "single_{available_cli}"
@@ -205,7 +172,7 @@ IF feature_flags.cli_context_isolation.enabled:
        cli_mode = "disabled"
        LOG: "No CLIs available — skipping CLI integration"
 
-  4. IF cli_mode != "disabled" AND feature_flags.cli_custom_roles.enabled:
+  3. IF cli_mode != "disabled" AND feature_flags.cli_custom_roles.enabled:
      # Auto-deploy role templates to project
      SOURCE = "$CLAUDE_PLUGIN_ROOT/templates/cli-roles/"
      TARGET = "PROJECT_ROOT/conf/cli_clients/"
@@ -219,29 +186,69 @@ IF feature_flags.cli_context_isolation.enabled:
        LOG: "CLI role templates already deployed and up to date"
        roles_deployed = true
 
-  5. UPDATE state:
+  4. UPDATE state:
      cli:
        available: {available_count >= 1}
        capabilities:
          gemini: {gemini_available}
          codex: {codex_available}
-         opencode: {opencode_available}
        roles_deployed: {roles_deployed}
        mode: {cli_mode}
        dispatch_infrastructure:
-         script_available: {script_available}
-         jq_available: {jq_available}
-         python3_available: {python3_available}
-         timeout_cmd: {timeout_cmd}
-       verified_commands:
-         gemini: {verified_commands.gemini or null}
-         codex: {verified_commands.codex or null}
-         opencode: {verified_commands.opencode or null}
+         dispatch_method: {dispatch_method}  # "ntm" or "legacy"
+         ntm_available: {ntm_available}
+         ntm_script_available: {ntm_script_available}
+         legacy_script_available: {legacy_script_available}
        consecutive_failures: 0
 
 ELSE:
   SET state.cli.available = false
   SET state.cli.mode = "disabled"
+```
+
+## Step 1.6b: Agent Teams Availability Probe
+
+> **Note:** Agent Teams are native Claude Code features. This probe verifies the tools are accessible in this environment.
+
+```
+1. PROBE Agent Teams:
+   TRY:
+     TeamCreate("planning-probe-{timestamp}")
+     # If we get here, TeamCreate is available
+     AGENT_TEAMS_AVAILABLE = true
+     TeamDelete("planning-probe-{timestamp}")  # Cleanup immediately
+     LOG: "Agent Teams: available"
+   CATCH (tool not available or error):
+     AGENT_TEAMS_AVAILABLE = false
+     LOG: "Agent Teams: not available — team debates will use Task-based fallback"
+
+2. CHECK tmux binary (for display_mode resolution):
+   tmux_available = CHECK "command -v tmux" succeeds
+
+3. RESOLVE Agent Teams configuration:
+   teams_config = config.agent_teams.enabled  # auto | always | never
+   IF teams_config == "never":
+     AGENT_TEAMS_ENABLED = false
+   ELIF teams_config == "auto" AND AGENT_TEAMS_AVAILABLE:
+     AGENT_TEAMS_ENABLED = true
+   ELIF teams_config == "always" AND AGENT_TEAMS_AVAILABLE:
+     AGENT_TEAMS_ENABLED = true
+   ELSE:
+     AGENT_TEAMS_ENABLED = false
+
+   # Resolve display mode
+   IF config.agent_teams.display_mode == "auto":
+     display_mode = "tmux" IF tmux_available ELSE "in-process"
+   ELSE:
+     display_mode = config.agent_teams.display_mode
+
+4. UPDATE state:
+   mcp_availability:
+     agent_teams_available: {AGENT_TEAMS_AVAILABLE}
+   agent_teams:
+     enabled: {AGENT_TEAMS_ENABLED}
+     display_mode: {display_mode}
+     active_teams: []
 ```
 
 ## Step 1.7: Dev-Skills Relevance Detection [IF dev_skills_integration]

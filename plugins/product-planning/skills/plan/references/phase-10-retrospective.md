@@ -53,7 +53,7 @@ Compute 10 planning-specific KPIs from state file and phase summaries. Write to 
 |----|-----|--------|-------|--------|-----|
 | P1 | Analysis Mode | `state.analysis_mode` | Complete | Advanced/Standard | Rapid |
 | P2 | Architecture Options | Phase 4 summary `flags.options_count` | 3+ | 2 | 1 |
-| P3 | CLI Deep Analysis | Phase 5 summary `flags.cli_count` | 3 CLIs | 2 | 1 or N/A |
+| P3 | CLI Deep Analysis | Phase 5 summary `flags.cli_count` | 2 CLIs | 1 | N/A |
 | P4 | Plan Validation Score | Phase 6 summary `gate.score` | >= 16 | >= 12 | < 12 |
 | P5 | Expert Review | Phase 6b summary `flags.critical_count` | 0 critical | advisory only | critical blocking |
 | P6 | Test Coverage Score | Phase 8 summary `gate.score` | >= 80% | >= 60% | < 60% |

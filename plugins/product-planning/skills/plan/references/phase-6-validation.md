@@ -54,7 +54,7 @@ additional_references:
 > 6. Write your phase summary to `{FEATURE_DIR}/.phase-summaries/phase-6-summary.md` using the template at `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`.
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
-> 9. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL multi-CLI consensus and validation dispatches, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-phase results.
+> 9. **CLI dispatch: ONLY use `dispatch-via-ntm.sh`**: For ALL multi-CLI consensus and validation dispatches, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-phase results.
 
 ## Decision Protocol
 When `a6_context_protocol` is enabled (check feature flags):
@@ -92,7 +92,6 @@ Follow the **CLI Multi-CLI Dispatch Pattern** from `$CLAUDE_PLUGIN_ROOT/skills/p
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
 | GEMINI_PROMPT | `Strategic plan review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Strategic risks, scope assessment, Red Team/Blue Team analysis. Cross-check plan against acceptance criteria in spec.md.` |
 | CODEX_PROMPT | `Technical feasibility review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: Code structure support, dependency compatibility, import path resolution. Verify plan covers all technical constraints from spec.md.` |
-| OPENCODE_PROMPT | `Product risk review for feature: {FEATURE_NAME}. Spec: {FEATURE_DIR}/spec.md. Plan: {FEATURE_DIR}/plan.md. Design: {FEATURE_DIR}/design.md. Focus: User journey gaps, missing user flows, feature completeness from user perspective, UX dead-ends. Validate against user stories in spec.md.` |
 | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]` |
 | REPORT_FILE | `analysis/cli-planreview-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
@@ -134,7 +133,6 @@ IF mode in {Complete, Advanced} AND state.cli.available:
   | MODE_CHECK | `analysis_mode in {complete, advanced}` |
   | GEMINI_PROMPT | see below (advocate stance + scoring rubric) |
   | CODEX_PROMPT | see below (challenger stance + scoring rubric) |
-  | OPENCODE_PROMPT | see below (product_lens stance + scoring rubric) |
   | FILE_PATHS | `["{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/plan.md", "{FEATURE_DIR}/design.md"]` |
   | REPORT_FILE | `analysis/cli-consensus-report.md` |
   | PREFERRED_SINGLE_CLI | `gemini` |
@@ -182,33 +180,19 @@ IF mode in {Complete, Advanced} AND state.cli.available:
 
     Return per-dimension scores with evidence."
 
-  OPENCODE_PROMPT:
-    "STANCE: PRODUCT_LENS — Evaluate from user experience and product alignment perspective. Score based on user value delivery, accessibility, and product-market fit.
-
-    Score this implementation plan for feature: {FEATURE_NAME}
-
-    ORIGINAL REQUIREMENTS:
-    {requirements_content}
-
-    PLAN: {plan_summary}
-    ARCHITECTURE: {selected_architecture}
-
-    Score dimensions (max 20 total):
-    1. Problem Understanding (20%) — score 1-4. Validate against user stories from requirements.
-    2. Architecture Quality (25%) — score 1-5
-    3. Risk Mitigation (20%) — score 1-4
-    4. Implementation Clarity (20%) — score 1-4
-    5. Feasibility (15%) — score 1-3
-
-    Return per-dimension scores with evidence."
-
   # Extract and average scores from all CLI outputs
   gemini_scores = PARSE dimensional scores from gemini output
   codex_scores = PARSE dimensional scores from codex output
-  opencode_scores = PARSE dimensional scores from opencode output (if available)
   final_scores = AVERAGE(all available CLI scores) per dimension
   total_score = SUM(final_scores)
 ```
+
+### Team-Based Follow-Up (when Agent Teams enabled)
+
+IF AGENT_TEAMS_ENABLED AND feature_flags.agent_teams_debate.enabled:
+    Run perspective-critic team debate per $CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md Team-Based Follow-Up Protocol
+    Variables: ROLE=consensus, FEATURE_DIR, CLI_OUTPUT_A (codex), CLI_OUTPUT_B (gemini)
+    Merge debate findings into synthesis output
 
 ## Step 6.5: Score Divergence Check
 

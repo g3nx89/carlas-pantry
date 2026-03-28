@@ -1,348 +1,537 @@
-# CLI Multi-CLI Dispatch Pattern
+# CLI Dispatch Patterns
 
-> **Canonical reference for CLI integration steps in all phases.**
-> Each phase file specifies parameters; this file defines the execution pattern.
-> Supports tri-CLI (gemini + codex + opencode), dual-CLI, and single-CLI modes.
+> Parameterized execution patterns for dual-CLI parallel dispatch via ntm (Named Tmux Manager).
+> Referenced by Phase 5 (ThinkDeep), Phase 6 (Validation), Phase 6b (Expert Review), Phase 7 (Test Strategy), Phase 8 (Coverage), Phase 9 (Completion).
+>
+> **Script version:** v2.0 (robot mode) — uses `--robot-spawn`, `--robot-ack`, `--robot-metrics` for structured interaction.
+> Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh`
+> Config: CLI integration definitions in `$CLAUDE_PLUGIN_ROOT/config/planning-config.yaml`
+>
+> **This file is the single source of truth** for CLI operational constants (timeouts, retry logic, exit codes). `planning-config.yaml` mirrors these values for audit visibility only — coordinators NEVER read constants from there.
 
-> **ANTI-PATTERN — DO NOT USE `ask` FOR CLI DISPATCH:**
-> The `ask` command (CCB async dispatch from CLAUDE.md) must NEVER be used for multi-model
-> analysis in the planning workflow. The async queue has no phase/integration scoping — calling
-> `ask codex` in Phase 6 may return stale results from a Phase 5 dispatch. ALWAYS use
-> `dispatch-cli-agent.sh` which is synchronous and writes results to dedicated output files.
+> **ANTI-PATTERN — DO NOT USE `ask` OR DIRECT CLI INVOCATION:**
+> The `ask` command (CCB async dispatch) has no phase/integration scoping — stale results
+> from a previous phase may be returned. Direct CLI invocation via `Bash()` bypasses
+> ntm session management (no parallel execution, no output capture, no metrics).
+> ALWAYS use `dispatch-via-ntm.sh` which manages the full ntm lifecycle.
 
-## Prerequisites
+---
 
-Before executing this pattern, the calling phase MUST verify:
+## CLI Critical Rules
 
-```
-IF state.cli.available AND state.cli.mode != "disabled"
-   AND feature_flags.cli_custom_roles.enabled
-   AND {MODE_CHECK}:
-  EXECUTE pattern below (mode: state.cli.mode — "tri", "dual", or "single_*")
-ELSE:
-  LOG: "CLI unavailable or mode mismatch — skipping {ROLE} step"
-  SKIP
-```
+These rules apply to ALL CLI dispatch points in the workflow (Phases 5, 6, 6b, 7, 8, 9). They are the authoritative source — phase files reference this section rather than duplicating.
 
-## Parameters (provided by calling phase)
+1. **Evaluation Minimum**: Consensus scoring (Phases 6, 8) requires **minimum 2 substantive responses**. If < 2 → signal `needs-user-input` (NEVER self-assess).
+2. **No CLI Substitution**: If a CLI dispatch fails, **DO NOT** substitute with another CLI. Dual-CLI dispatch is for variety — substituting defeats the purpose.
+3. **Plan Content Inline**: ALWAYS embed plan content inline in prompt files. External CLIs process the prompt text directly — they do not read local file paths.
+4. **User Notification MANDATORY**: When ANY CLI fails or is unavailable, **ALWAYS** notify user via summary context.
+5. **ntm Availability Check**: Before dispatching, verify `ntm` is in PATH and both CLI binaries (`codex`, `gemini`) are available. Phase 1 records this in `state.cli.dispatch_infrastructure.ntm_available` and per-CLI availability flags.
+6. **Fallback Behavior**: If ntm or all CLIs are unavailable, fall back to `dispatch-cli-agent.sh` legacy script. If that also fails, skip CLI steps and proceed with internal reasoning (see Legacy Fallback section below).
 
-| Parameter | Description |
-|-----------|-------------|
-| `ROLE` | CLI role name (deepthinker, planreviewer, teststrategist, securityauditor, taskauditor) |
-| `PHASE_STEP` | Step number in the calling phase (e.g., 5.4, 6.2) |
-| `MODE_CHECK` | Analysis mode condition (e.g., `analysis_mode in {complete, advanced}`) |
-| `GEMINI_PROMPT` | Prompt text for Gemini CLI |
-| `CODEX_PROMPT` | Prompt text for Codex CLI |
-| `OPENCODE_PROMPT` | Prompt text for OpenCode CLI (UX/Product lens) |
-| `FILE_PATHS` | Array of absolute file paths to include in prompt |
-| `REPORT_FILE` | Output report path relative to `{FEATURE_DIR}/` |
-| `PREFERRED_SINGLE_CLI` | Which CLI to prefer in single-CLI fallback (`gemini` or `codex`) |
-| `POST_WRITE` | Optional post-write action (e.g., append to another file, merge findings) |
+---
 
-## Step A: Parallel Multi-CLI Dispatch (with Retry)
+## Pattern: Dual-CLI Parallel Dispatch via ntm
+
+This pattern is used at 6 integration points (one per role). Each follows the same structure but with different parameters. Both CLIs run in parallel within a single ntm tmux session.
+
+### Execution Template
 
 ```
-SCRIPT = "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
-max_retries = config.cli_integration.retry.max_retries  # default: 1
-timeout = config.cli_integration.timeout.per_role.{ROLE}  # default: 120s
+STEP 1 — Write prompt files:
+    FOR EACH cli IN [codex, gemini]:
+        WRITE prompt file:
+            Path: {FEATURE_DIR}/analysis/cli-prompts/{ROLE}-{CLI}.md
+            Content:
+                "# {ROLE} Analysis\n\n"
+                "{ROLE_SYSTEM_PROMPT}\n\n"
+                "## Analysis Task\n\n{ANALYSIS_PROMPT}\n\n"
+                "## Plan Context\n\n{PLAN_CONTENT}"
 
-# Generate unique output file names
-suffix = first 8 chars of uuidgen
-gemini_prompt_file = /tmp/cli-dispatch-gemini-{ROLE}-{suffix}.txt
-gemini_output_file = {FEATURE_DIR}/.dispatch-output-gemini-{ROLE}-{suffix}.txt
-codex_prompt_file = /tmp/cli-dispatch-codex-{ROLE}-{suffix}.txt
-codex_output_file = {FEATURE_DIR}/.dispatch-output-codex-{ROLE}-{suffix}.txt
-opencode_prompt_file = /tmp/cli-dispatch-opencode-{ROLE}-{suffix}.txt
-opencode_output_file = {FEATURE_DIR}/.dispatch-output-opencode-{ROLE}-{suffix}.txt
+        NOTE: Role system prompts are in $CLAUDE_PLUGIN_ROOT/config/cli_clients/{CLI}_{ROLE}.txt
+        Read the role prompt file and prepend it to the analysis prompt.
+        CRITICAL: Embed all content inline — external CLIs cannot read file paths.
 
-# Write prompt files (include FILE_PATHS content inline)
-WRITE {GEMINI_PROMPT} to gemini_prompt_file
-WRITE {CODEX_PROMPT} to codex_prompt_file
-WRITE {OPENCODE_PROMPT} to opencode_prompt_file
+STEP 2 — Dispatch via ntm robot mode (SINGLE Bash() call):
+    RUN via Bash():
+        $CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh \
+          --session "planning-{FEATURE_ID}-{ROLE}" \
+          --dispatch "codex:{ROLE}:{FEATURE_DIR}/analysis/cli-prompts/{ROLE}-codex.md:{FEATURE_DIR}/analysis/cli-outputs/{ROLE}-codex.md" \
+          --dispatch "gemini:{ROLE}:{FEATURE_DIR}/analysis/cli-prompts/{ROLE}-gemini.md:{FEATURE_DIR}/analysis/cli-outputs/{ROLE}-gemini.md" \
+          --timeout {TIMEOUT}
 
-IF state.cli.mode == "tri":
-  # Launch ALL THREE in parallel using background Bash calls
-  FOR attempt IN [1..max_retries + 1]:
-    gemini_task = Bash(
-      command: "{SCRIPT} --cli gemini --role {ROLE} --prompt-file {gemini_prompt_file} --output-file {gemini_output_file} --timeout {timeout}",
-      run_in_background: true
-    )
+    INTERNALS (handled by script — coordinator does NOT call these directly):
+        - --robot-spawn creates session with JSON validation
+        - --robot-status verifies agents reach WAITING state before sending
+        - --robot-ack blocks until all agents return to WAITING (idle) or timeout
+        - --robot-metrics captures native ntm metrics (tokens, velocities, durations)
+        - ntm send delivers prompts (NOT --robot-send — deliberate: ntm send uses tmux
+          terminal input, proven for large payloads up to 200KB; --robot-send --msg= has
+          the same shell argument limit with no additional benefit for this use case)
+        - ntm copy captures output post-ack for SUMMARY block extraction
 
-    codex_task = Bash(
-      command: "{SCRIPT} --cli codex --role {ROLE} --prompt-file {codex_prompt_file} --output-file {codex_output_file} --timeout {timeout}",
-      run_in_background: true
-    )
+    EXIT CODES:
+        0 = all CLIs produced SUMMARY output
+        1 = partial failure (some CLIs produced no output)
+        2 = timeout (robot-ack expired before all agents idle)
+        3 = ntm not found or prerequisite failure (no retry — fall back to legacy)
+        4 = invalid arguments
+        5 = ntm spawn failed (session could not be created)
 
-    opencode_task = Bash(
-      command: "{SCRIPT} --cli opencode --role {ROLE} --prompt-file {opencode_prompt_file} --output-file {opencode_output_file} --timeout {timeout}",
-      run_in_background: true
-    )
+    CAPTURE:
+        codex_output = read {FEATURE_DIR}/analysis/cli-outputs/{ROLE}-codex.md
+        gemini_output = read {FEATURE_DIR}/analysis/cli-outputs/{ROLE}-gemini.md
 
-    # Wait for all to complete, then read outputs
-    gemini_exit = check gemini_task exit code
-    codex_exit = check codex_task exit code
-    opencode_exit = check opencode_task exit code
-    gemini_result = Read(gemini_output_file) if gemini_exit == 0
-    codex_result = Read(codex_output_file) if codex_exit == 0
-    opencode_result = Read(opencode_output_file) if opencode_exit == 0
+    METRICS:
+        Consolidated dispatch metrics (including ntm native metrics) written to:
+        {FEATURE_DIR}/analysis/cli-metrics/dispatch-{UUID}.json
 
-    # Check metrics sidecars for diagnostics
-    gemini_metrics = Read(gemini_output_file + ".metrics.json")
-    codex_metrics = Read(codex_output_file + ".metrics.json")
-    opencode_metrics = Read(opencode_output_file + ".metrics.json")
+STEP 3 — Synthesize:
+    CALL Task(subagent_type="general-purpose", model="sonnet") with:
+        inputs: [all captured outputs from CLIs that succeeded]
+        strategy: union_with_dedup (for analysis) or weighted_score (for consensus)
+        dedup_scheme: DUPLICATE/RELATED/UNIQUE (see Semantic Deduplication below)
+        read_order: shortest output first (Least-to-Most protocol)
+        Output: merged findings written to {FEATURE_DIR}/analysis/{REPORT_FILE}
 
-    successful_count = COUNT(exit_code == 0 for each CLI)
-    IF successful_count == 3:
-      BREAK
-    ELSE IF attempt <= max_retries:
-      LOG: "CLI {ROLE} attempt {attempt}: {3 - successful_count} CLI(s) failed — retrying failed only"
-      # Retry only the failed CLI(s)
-      CONTINUE
+    POST-SYNTHESIS VALIDATION:
+        Count findings in merged output
+        IF finding_count == 0 AND any CLI succeeded: flag as synthesis error, re-run
+        IF finding_count > (sum of input findings): flag as hallucination, re-run
+```
+
+---
+
+## Team-Based Follow-Up Protocol (when Agent Teams enabled)
+
+When `AGENT_TEAMS_ENABLED == true`, each CLI integration point can optionally run a 2-agent perspective-critic team debate AFTER CLI outputs are captured. This replaces the Task-based sonnet synthesis with a richer cross-examination.
+
+```
+STEP 3 becomes (when teams available):
+    IF AGENT_TEAMS_ENABLED:
+        TeamCreate("planning-{FEATURE_ID}-{ROLE}")
+        Spawn 2 perspective-critic agents:
+            Read agent: @$CLAUDE_PLUGIN_ROOT/agents/perspective-critic.md
+            - critic-a: {ROLE_A} with {LENS_A}
+            - critic-b: {ROLE_B} with {LENS_B}
+        Both read CLI outputs + plan artifacts
+        Exchange findings via SendMessage (cross-examination)
+        Team lead synthesizes from debate
+        TeamDelete()
     ELSE:
-      # Circuit breaker check
-      INCREMENT state.cli.consecutive_failures
-      IF state.cli.consecutive_failures >= config.cli_integration.retry.circuit_breaker_threshold:
-        LOG: "Circuit breaker triggered — disabling CLI dispatch for remainder of session"
-        SET state.cli.mode = "disabled"
-        SKIP remaining CLI steps
-      # Continue with partial results if any CLI succeeded
-      IF successful_count >= 1:
-        LOG: "Proceeding with partial CLI results ({successful_count}/3 CLIs)"
-      ELSE:
-        LOG: "All CLIs failed — skipping {ROLE} step"
-        SKIP
-
-ELSE IF state.cli.mode == "dual":
-  # Launch TWO available CLIs in parallel
-  available_clis = [cli for cli in ["gemini", "codex", "opencode"] if state.cli.capabilities.{cli}]
-  # Use first two available CLIs
-  cli_a = available_clis[0], cli_b = available_clis[1]
-  FOR attempt IN [1..max_retries + 1]:
-    # Dispatch both available CLIs using their respective prompt/output files
-    task_a = Bash(command: "{SCRIPT} --cli {cli_a} --role {ROLE} --prompt-file {cli_a}_prompt_file --output-file {cli_a}_output_file --timeout {timeout}", run_in_background: true)
-    task_b = Bash(command: "{SCRIPT} --cli {cli_b} --role {ROLE} --prompt-file {cli_b}_prompt_file --output-file {cli_b}_output_file --timeout {timeout}", run_in_background: true)
-
-    # Wait, read, retry logic same as tri-CLI but with 2 CLIs
-    IF both succeed: BREAK
-    ELSE IF attempt <= max_retries: retry failed CLI(s)
-    ELSE: circuit breaker check, continue with partial or skip
-
-ELSE:
-  # Single-CLI fallback
-  cli = IF state.cli.capabilities.{PREFERRED_SINGLE_CLI} THEN "{PREFERRED_SINGLE_CLI}"
-        ELSE (first available CLI)
-  prompt_file = {cli}_prompt_file
-  output_file = {cli}_output_file
-  FOR attempt IN [1..max_retries + 1]:
-    result_task = Bash(
-      command: "{SCRIPT} --cli {cli} --role {ROLE} --prompt-file {prompt_file} --output-file {output_file} --timeout {timeout}",
-      run_in_background: true
-    )
-    exit_code = check result_task exit code
-    single_result = Read(output_file) if exit_code == 0
-    IF exit_code == 0: BREAK
-    ELSE IF attempt <= max_retries: CONTINUE
-    ELSE:
-      INCREMENT state.cli.consecutive_failures
-      IF consecutive_failures >= circuit_breaker_threshold:
-        SET state.cli.mode = "disabled"
-      SKIP
-
-# Clean up temporary prompt files
-DELETE gemini_prompt_file, codex_prompt_file, opencode_prompt_file
+        [existing Task-based synthesis with sonnet agent]
 ```
 
-### Exit Code Reference
+**Per-Role Team Assignments:**
 
-| Code | Meaning | Action |
-|------|---------|--------|
-| 0 | Success | Read output file |
-| 1 | CLI command failed | Retry or fallback |
-| 2 | Timeout | Retry or fallback |
-| 3 | CLI binary not found | Mark CLI unavailable, single-CLI fallback |
-| 4 | No usable content (Tier 4) | Use degraded output with warning |
+| Role | Critic A Role | Critic A Lens | Critic B Role | Critic B Lens |
+|------|--------------|---------------|--------------|---------------|
+| deepthinker | architecture-challenger | Performance risks, scalability limits | design-advocate | Architectural elegance, pattern fit |
+| consensus | gap-detector | Missing requirements, untested paths | feasibility-assessor | Implementation realism, effort accuracy |
+| planreviewer | risk-assessor | Security, reliability, failure modes | scope-guardian | Over-engineering, unnecessary complexity |
+| teststrategist | coverage-auditor | Untested paths, missing edge cases | pragmatist | Test ROI, maintenance cost |
+| securityauditor | attack-modeler | STRIDE threat modeling, exploit paths | compliance-reviewer | Privacy, regulatory, data protection |
+| taskauditor | dependency-validator | Task ordering, missing prerequisites | completeness-checker | Missing tasks, definition of done gaps |
 
-### Metrics Sidecar
+**Fallback:** If TeamCreate fails at any integration point, fall back to existing Task-based synthesis. This is per-integration — a team failure at deepthinker doesn't prevent team attempts at planreviewer.
 
-Each dispatch writes a `.metrics.json` sidecar alongside the output file containing:
-`dispatch_id`, `duration_ms`, `parse_tier`, `parse_method`, `summary_block_found`, `timed_out`, `exit_code`.
+**Timeout:** 120 seconds per team debate (covers both initial findings + cross-examination).
 
-Coordinators SHOULD read the sidecar after each dispatch for KPI tracking.
+---
 
-## Step B: Synthesis
+## Planning-Specific Roles
+
+Six CLI roles, each dispatched as dual-CLI (Codex + Gemini) at specific phases.
+
+### deepthinker (Phase 5)
+
+**Purpose:** Deep architecture analysis from 2 independent technical perspectives.
+**Modes:** complete, advanced
+
+| CLI | Role File | Focus |
+|-----|-----------|-------|
+| codex | `codex_deepthinker.txt` | Import chain analysis, coupling assessment, complexity hotspots |
+| gemini | `gemini_deepthinker.txt` | Broad architecture exploration, tech stack, pattern conflicts |
+
+**Session:** `planning-{FEATURE_ID}-deepthinker`
+**Timeout:** 180s (audit mirror: source planning-config.yaml → timeout.per_role.deepthinker)
+
+### consensus (Phases 6, 8)
+
+**Purpose:** Dual-stance dimensional scoring — one advocate, one challenger.
+**Modes:** complete, advanced
+
+| CLI | Role File | Stance | Focus |
+|-----|-----------|--------|-------|
+| codex | `codex_consensus.txt` | challenger | Code-level feasibility, dependency checking, file:line evidence |
+| gemini | `gemini_consensus.txt` | advocate | Strategic plan/coverage assessment, broad codebase exploration |
+
+**Session:** `planning-{FEATURE_ID}-consensus`
+**Timeout:** 120s (audit mirror: source planning-config.yaml → timeout.per_role.consensus)
+
+### planreviewer (Phase 6)
+
+**Purpose:** Risk-focused plan review from strategic and technical perspectives.
+**Modes:** complete, advanced
+
+| CLI | Role File | Focus |
+|-----|-----------|-------|
+| codex | `codex_planreviewer.txt` | Technical feasibility, code structure support, dependency compatibility |
+| gemini | `gemini_planreviewer.txt` | Strategic risks, scope assessment, Red Team/Blue Team |
+
+**Session:** `planning-{FEATURE_ID}-planreviewer`
+**Timeout:** 120s (audit mirror: source planning-config.yaml → timeout.per_role.planreviewer)
+
+### teststrategist (Phase 7)
+
+**Purpose:** Test strategy quality from code-pattern and infra-discovery perspectives.
+**Modes:** complete
+
+| CLI | Role File | Focus |
+|-----|-----------|-------|
+| codex | `codex_teststrategist.txt` | Test code patterns, assertion quality, mock patterns, test isolation |
+| gemini | `gemini_teststrategist.txt` | Test infra discovery, framework patterns, coverage gaps, ThinkDeep reconciliation |
+
+**Session:** `planning-{FEATURE_ID}-teststrategist`
+**Timeout:** 150s (audit mirror: source planning-config.yaml → timeout.per_role.teststrategist)
+
+### securityauditor (Phase 6b)
+
+**Purpose:** Security review from vulnerability-scan and compliance perspectives.
+**Modes:** complete, advanced
+
+| CLI | Role File | Focus |
+|-----|-----------|-------|
+| codex | `codex_securityauditor.txt` | OWASP code-level vulnerabilities, injection points, hardcoded secrets |
+| gemini | `gemini_securityauditor.txt` | Supply chain security, architectural attack surface, compliance |
+
+**Session:** `planning-{FEATURE_ID}-securityauditor`
+**Timeout:** 150s (audit mirror: source planning-config.yaml → timeout.per_role.securityauditor)
+
+### taskauditor (Phase 9)
+
+**Purpose:** Task list validation from requirements-mapping and code-structure perspectives.
+**Modes:** complete, advanced
+
+| CLI | Role File | Focus |
+|-----|-----------|-------|
+| codex | `codex_taskauditor.txt` | File path verification, dependency ordering, code structure alignment |
+| gemini | `gemini_taskauditor.txt` | Requirements mapping, missing infrastructure, scope coverage |
+
+**Session:** `planning-{FEATURE_ID}-taskauditor`
+**Timeout:** 120s (audit mirror: source planning-config.yaml → timeout.per_role.taskauditor)
+
+---
+
+## Synthesis Pattern (Dual-CLI)
 
 ### Confidence Categories
 
-| Mode | Category | Condition | Confidence | Action |
-|------|----------|-----------|------------|--------|
-| Tri | Unanimous | All 3 CLIs agree | VERY HIGH | Accept finding directly |
-| Tri | Majority | 2 of 3 CLIs agree | HIGH | Accept, note dissenting CLI |
-| Tri | Divergent | All 3 disagree | FLAG | Escalate for user decision |
-| Tri | Unique | 1 CLI only raised it | VERIFY | Cross-check against existing findings |
-| Dual | Convergent | Both CLIs agree | HIGH | Accept finding directly |
-| Dual | Divergent | CLIs disagree | FLAG | Escalate for user decision |
-| Dual | Unique | 1 CLI only raised it | VERIFY | Cross-check against existing findings |
-| Single | — | Only 1 CLI available | SINGLE | Accept with `mode: single_{cli}` marker |
+| Category | Condition | Confidence | Action |
+|----------|-----------|------------|--------|
+| **Convergent** | Both CLIs agree on the same finding | HIGH | Accept finding directly |
+| **Divergent** | CLIs disagree on the same topic | FLAG | Escalate for user decision |
+| **Unique** | Only one CLI raised the finding | VERIFY | Cross-check against existing plan analysis |
 
 ### Synthesis Algorithm
 
 ```
-# Collect findings from all successful CLI outputs
 all_findings = []
-FOR each cli_result IN [gemini_result, codex_result, opencode_result]:
-  IF cli_result exists AND cli_result is not empty:
-    EXTRACT findings list from cli_result
-    TAG each finding with source_cli = cli_name
-    APPEND to all_findings
+FOR EACH cli_result IN [codex_result, gemini_result]:
+    IF cli_result exists AND cli_result is not empty:
+        EXTRACT findings list from cli_result
+        TAG each finding with source_cli = cli_name
+        APPEND to all_findings
 
 available_cli_count = COUNT(non-empty results)
 
 IF available_cli_count == 0:
-  SKIP synthesis — no CLI data available
-  RETURN empty with flags.degraded = true
+    SKIP synthesis — no CLI data available
+    RETURN empty with flags.degraded = true
 
-# Group findings into concrete topic categories with recommendation direction
-finding_groups = GROUP(all_findings) into these categories:
-#   1. Architecture — structural decisions, patterns, component design
-#   2. Performance — scalability, latency, resource efficiency
-#   3. Security — threats, vulnerabilities, compliance
-#   4. Maintainability — code quality, extensibility, technical debt
-#   5. Testing — test strategy, coverage, testability
-#   6. Data — schema design, data flow, storage
-#   7. UX — user experience, accessibility, usability
-#   8. Deployment — CI/CD, infrastructure, monitoring
-#   9. Dependencies — third-party libraries, version constraints
-#
-# Within each category, sub-group by recommendation direction:
-#   - Add/Improve — new capabilities or enhancements
-#   - Remove/Reduce — simplifications or eliminations
+finding_groups = GROUP(all_findings) by topic + recommendation direction
 
-FOR each group IN finding_groups:
-  sources = UNIQUE(cli names in group)
+FOR EACH group IN finding_groups:
+    sources = UNIQUE(cli names in group)
 
-  IF available_cli_count >= 3:
-    # Tri-CLI synthesis
-    IF LEN(sources) == 3:
-      category = "unanimous"
-      confidence = "VERY HIGH"
-      merged_finding = MERGE(group findings, keep strongest evidence)
-    ELSE IF LEN(sources) == 2:
-      category = "majority"
-      confidence = "HIGH"
-      dissenter = CLI not in sources
-      merged_finding = MERGE(group findings)
-      merged_finding.note = "{dissenter} did not raise this finding"
-    ELSE IF LEN(sources) == 1 AND all 3 CLIs raised different findings:
-      category = "divergent"
-      confidence = "FLAG"
-      merged_finding = LIST(all 3 positions separately)
-    ELSE:
-      category = "unique"
-      confidence = "VERIFY"
-      merged_finding = group findings[0]
-      merged_finding.note = "Only raised by {sources[0]} — verify against existing analysis"
-
-  ELSE IF available_cli_count == 2:
-    # Dual-CLI synthesis (reduced mode)
     IF LEN(sources) == 2:
-      category = "convergent"
-      confidence = "HIGH"
-      merged_finding = MERGE(group findings)
+        category = "convergent"
+        confidence = "HIGH"
+        merged_finding = MERGE(group findings, keep strongest evidence)
     ELSE:
-      category = "unique"
-      confidence = "VERIFY"
-      merged_finding = group findings[0]
+        other_cli = CLI not in sources
+        IF other_cli raised a DIFFERENT finding on same topic:
+            category = "divergent"
+            confidence = "FLAG"
+            merged_finding = LIST(both positions separately)
+        ELSE:
+            category = "unique"
+            confidence = "VERIFY"
+            merged_finding = group findings[0]
+            merged_finding.note = "Only raised by {sources[0]} — verify against existing analysis"
 
-  ELSE:
-    # Single-CLI mode
-    category = "single"
-    confidence = "SINGLE"
-    merged_finding = group findings[0]
-    merged_finding.mode = "single_{sources[0]}"
+    EMIT merged_finding with category, confidence
 
-  EMIT merged_finding with category, confidence
-
-# Sort output: unanimous/convergent first, then majority, then unique, then divergent
-SORT findings by confidence DESC
+SORT findings: convergent first, then unique, then divergent
 ```
 
-### Score Synthesis (for Consensus Roles)
+### Score Synthesis (for Consensus Role)
 
-For roles that produce dimensional scores (consensus, coverage validation):
+For dimensional scoring in Phases 6 and 8:
 
 ```
-FOR each scoring_dimension:
-  scores = COLLECT(score from each CLI for this dimension)
+FOR EACH scoring_dimension:
+    scores = COLLECT(score from each CLI for this dimension)
 
-  IF LEN(scores) >= 2:
-    delta = MAX(scores) - MIN(scores)
-    averaged = MEAN(scores)
+    IF LEN(scores) == 2:
+        delta = MAX(scores) - MIN(scores)
+        averaged = MEAN(scores)
 
-    IF delta <= divergence.low:          # config: 1.0 (plan) / 5% (coverage)
-      USE averaged score → HIGH confidence
-    ELSE IF delta > divergence.high:     # config: 4.0 (plan) / 15% (coverage)
-      FLAG for user review
-      INCLUDE per-CLI score breakdown in report
+        IF delta <= 1.0:                         # audit mirror: 1.0 (source: planning-config.yaml → divergence.low)
+            USE averaged score → HIGH confidence
+        ELSE IF delta > 4.0:                     # audit mirror: 4.0 (source: planning-config.yaml → divergence.high)
+            FLAG for user review
+            INCLUDE per-CLI score breakdown in report
+        ELSE:
+            USE averaged score
+            NOTE disagreement in report
     ELSE:
-      USE averaged score
-      NOTE disagreement in report
-  ELSE:
-    USE single available score
-    MARK as "single-CLI score"
+        USE single available score
+        MARK as "single-CLI score"
 ```
 
-## Step C: Self-Critique via Task Subagent
+---
 
-Run Chain-of-Verification in a separate Task to avoid coordinator context pollution.
+## Least-to-Most Synthesis Protocol
+
+When synthesizing CLI outputs, read shortest output first to build a baseline, then layer unique findings from each subsequent output. This prevents anchoring on the first-read model's framing.
+
+```
+outputs = SORT(cli_outputs, by=word_count, ascending=true)
+baseline = outputs[0]
+FOR EACH subsequent_output IN outputs[1:]:
+    DIFF against baseline findings
+    ADD only RELATED or UNIQUE findings (skip DUPLICATEs)
+    UPDATE baseline with merged result
+RETURN baseline as final synthesis
+```
+
+---
+
+## Semantic Deduplication Scheme
+
+| Classification | Criteria | Action |
+|---------------|----------|--------|
+| **DUPLICATE** | Same finding, same recommendation, different wording | Merge: keep the more detailed version |
+| **RELATED** | Same topic area but different aspects or recommendations | Keep both, group under shared heading |
+| **UNIQUE** | No counterpart in other CLI outputs | Keep as-is |
+
+Apply this scheme in all synthesis steps. The synthesis agent classifies each pair, then merges DUPLICATEs and groups RELATEDs.
+
+---
+
+## Chain-of-Verification (CoVe) Self-Critique
+
+Run CoVe in a separate Task to avoid coordinator context pollution.
 
 ```
 validated = Task(
-  subagent_type: "general-purpose",
-  prompt: """
-    Apply Chain-of-Verification (CoVe) to these CLI {ROLE} findings:
+    subagent_type: "general-purpose",
+    model: "sonnet",
+    prompt: """
+        Apply Chain-of-Verification (CoVe) to these CLI {ROLE} findings:
 
-    {synthesized_findings}
+        {synthesized_findings}
 
-    Process:
-    1. Generate 3-5 verification questions targeting the highest-risk findings
-    2. Answer each question against the evidence provided
-    3. Revise or remove findings where verification fails
-    4. Return ONLY validated findings in the original output format
+        Process:
+        1. Generate 3-5 verification questions targeting the highest-risk findings
+        2. Answer each question against the evidence provided
+        3. Revise or remove findings where verification fails
+        4. Return ONLY validated findings in the original output format
 
-    Quality gate: At least 3 verification questions must pass for submission.
-  """,
-  description: "CoVe self-critique for CLI {ROLE}"
+        Quality gate: At least 3 verification questions must pass for submission.
+    """,
+    description: "CoVe self-critique for CLI {ROLE}"
 )
 ```
 
-## Step D: Write Validated Report
+---
+
+## CLI Failure Handling
 
 ```
-WRITE validated findings to {FEATURE_DIR}/{REPORT_FILE}
+IF exit_code == 0 (all CLIs produced output):
+    PROCEED to synthesis (Step 3)
 
-# Reset failure counter on success
-SET state.cli.consecutive_failures = 0
+IF exit_code == 1 (partial failure):
+    READ output files — some CLIs may have produced valid output
+    INCLUDE valid outputs in synthesis (best-effort with available data)
+    LOG failed CLIs to model_failures
+    IF retry_count < max_retries:
+        max_retries = config.cli_integration.retry.max_retries  # audit mirror: 1 (source: planning-config.yaml)
+        INCREMENT retry_count
+        RE-RUN dispatch-via-ntm.sh with same parameters
+    ELSE:
+        SYNTHESIZE with partial results
 
-# Clean up dispatch output files
-DELETE gemini_output_file, codex_output_file, opencode_output_file
-DELETE gemini_output_file + ".metrics.json", codex_output_file + ".metrics.json", opencode_output_file + ".metrics.json"
+IF exit_code == 2 (robot-ack timeout):
+    READ output files — robot-ack timed out but agents may have produced output
+    before returning to idle. The script captures whatever is in the pane buffer.
+    IF any output file has SUMMARY block content: include in synthesis
+    IF no usable output: treat as all-fail
+    RETRY up to max_retries attempts, then synthesize partial
 
-# Execute optional post-write action
-IF {POST_WRITE} defined:
-  EXECUTE {POST_WRITE}
+IF exit_code == 3 (ntm not found):
+    LOG to model_failures: {role, exit_code: 3, action: "ntm not in PATH — falling back to legacy"}
+    DO NOT retry via ntm
+    FALL BACK to dispatch-cli-agent.sh (see Legacy Fallback below)
+
+IF exit_code == 4 (bad arguments):
+    LOG as coordinator error — check prompt file paths and session naming
+    DO NOT retry (fix the coordinator logic)
+
+IF exit_code == 5 (spawn failed):
+    LOG to model_failures: {role, exit_code: 5, action: "ntm robot-spawn failed"}
+    RETRY up to 1 attempt (transient tmux issue)
+    IF still failing: FALL BACK to dispatch-cli-agent.sh
+
+IF all CLIs fail (no usable output after retries):
+    IF circuit_breaker.skip_on_all_fail:
+        SKIP this integration point
+        PROCEED with internal reasoning
+        LOG: "CLI dispatch skipped — all CLIs failed"
+    ELSE:
+        SET status = needs-user-input
 ```
+
+### Error Notification Format
+
+When a CLI dispatch fails, the coordinator MUST include a WARNING box in the phase summary:
+
+```markdown
+> [!WARNING]
+> **CLI Dispatch Degraded — {ROLE} (Phase {N})**
+> Exit code: {CODE} — {MEANING}
+> CLIs attempted: codex, gemini
+> CLIs succeeded: {LIST or "none"}
+> Action taken: {synthesized partial | fell back to legacy | skipped}
+> Impact: {description of reduced coverage}
+```
+
+---
+
+## Retry Protocol
+
+The ntm dispatch script does NOT retry internally. If the coordinator needs a retry:
+
+```
+max_retries = config.cli_integration.retry.max_retries  # audit mirror: 1 (source: planning-config.yaml)
+
+IF exit_code IN [1, 2] AND retry_count < max_retries:
+    INCREMENT retry_count
+    RE-RUN dispatch-via-ntm.sh with same parameters
+    (ntm defensive cleanup kills stale sessions automatically via --robot-spawn)
+
+IF exit_code == 5 AND retry_count < 1:
+    INCREMENT retry_count
+    RE-RUN dispatch-via-ntm.sh with same parameters
+
+circuit_breaker_threshold = 2  # audit mirror: 2 (source: planning-config.yaml → retry.circuit_breaker_threshold)
+IF state.cli.consecutive_failures >= circuit_breaker_threshold:
+    LOG: "Circuit breaker triggered — disabling CLI dispatch for remainder of session"
+    SET state.cli.mode = "disabled"
+    SKIP remaining CLI steps
+```
+
+---
+
+## Legacy Fallback (when ntm unavailable)
+
+When `dispatch-via-ntm.sh` returns exit code 3 (ntm not found) or exit code 5 (spawn failed after retry), fall back to the legacy `dispatch-cli-agent.sh` script which uses sequential Bash process-group dispatch.
+
+```
+SCRIPT_LEGACY = "$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh"
+
+IF ntm_exit_code IN [3, 5]:
+    LOG: "ntm unavailable — falling back to legacy dispatch-cli-agent.sh"
+
+    FOR EACH cli IN [codex, gemini]:
+        result = Bash(
+            command: "{SCRIPT_LEGACY} --cli {cli} --role {ROLE} \
+                --prompt-file {FEATURE_DIR}/analysis/cli-prompts/{ROLE}-{cli}.md \
+                --output-file {FEATURE_DIR}/analysis/cli-outputs/{ROLE}-{cli}.md \
+                --timeout {TIMEOUT}",
+            run_in_background: true
+        )
+
+    # Wait for both, read outputs, proceed to Step 3 (synthesis)
+    # Same synthesis logic applies — only the dispatch mechanism differs
+
+    IF legacy dispatch also fails:
+        LOG: "Both ntm and legacy dispatch failed — skipping CLI step"
+        SKIP this integration point
+        PROCEED with internal reasoning
+```
+
+### Evolution: Legacy → v2.0 (Robot Mode)
+
+| Aspect | Legacy (`dispatch-cli-agent.sh`) | v2.0 (current, `dispatch-via-ntm.sh`) |
+|--------|----------------------------------|----------------------------------------|
+| Parallelism | N parallel `Bash(run_in_background)` | True parallel (1 Bash() call) |
+| Session creation | N/A (no sessions) | `--robot-spawn` + JSON validation |
+| Agent readiness | N/A | `--robot-status` polling (actual readiness) |
+| Completion detection | Exit code only | `--robot-ack` (native, 1 line) |
+| Output capture | stdout pipe + tiered extraction | `ntm copy` + SUMMARY block extraction |
+| Metrics | Per-CLI sidecar JSON | Consolidated + `--robot-metrics` (native) |
+| Visibility | None | `ntm attach` / `ntm dashboard` / `--robot-status --json` |
+| Process management | setsid + timeout --kill-after | ntm tmux lifecycle |
+
+---
+
+## Dispatch Examples
+
+### deepthinker (Phase 5)
+
+```bash
+$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh \
+  --session "planning-{FEATURE_ID}-deepthinker" \
+  --dispatch "codex:deepthinker:{FD}/analysis/cli-prompts/deepthinker-codex.md:{FD}/analysis/cli-outputs/deepthinker-codex.md" \
+  --dispatch "gemini:deepthinker:{FD}/analysis/cli-prompts/deepthinker-gemini.md:{FD}/analysis/cli-outputs/deepthinker-gemini.md" \
+  --timeout 180
+```
+
+### consensus (Phase 6)
+
+```bash
+$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh \
+  --session "planning-{FEATURE_ID}-consensus" \
+  --dispatch "codex:consensus:{FD}/analysis/cli-prompts/consensus-codex.md:{FD}/analysis/cli-outputs/consensus-codex.md" \
+  --dispatch "gemini:consensus:{FD}/analysis/cli-prompts/consensus-gemini.md:{FD}/analysis/cli-outputs/consensus-gemini.md" \
+  --timeout 120
+```
+
+### securityauditor (Phase 6b)
+
+```bash
+$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh \
+  --session "planning-{FEATURE_ID}-securityauditor" \
+  --dispatch "codex:securityauditor:{FD}/analysis/cli-prompts/securityauditor-codex.md:{FD}/analysis/cli-outputs/securityauditor-codex.md" \
+  --dispatch "gemini:securityauditor:{FD}/analysis/cli-prompts/securityauditor-gemini.md:{FD}/analysis/cli-outputs/securityauditor-gemini.md" \
+  --timeout 150
+```
+
+---
 
 ## Error Handling Summary
 
 | Scenario | Behavior |
 |----------|----------|
-| All CLIs succeed (exit 0) | Normal tri/dual-CLI synthesis |
+| Both CLIs succeed (exit 0) | Normal dual-CLI synthesis |
 | One CLI fails, retry succeeds | Normal (delayed) |
-| One CLI fails after retries | Proceed with remaining CLI results (reduced synthesis) |
-| Two CLIs fail after retries | Proceed with single-CLI results |
-| All CLIs fail after retries | Skip CLI step, log warning |
+| One CLI fails after retries | Proceed with single-CLI result (reduced synthesis) |
+| Both CLIs fail after retries | Skip CLI step, log warning |
+| Exit code 3 (ntm not found) | Fall back to legacy `dispatch-cli-agent.sh` |
+| Exit code 4 (invalid args) | Log coordinator error, do not retry |
+| Exit code 5 (spawn failed) | Retry once, then fall back to legacy |
 | 2+ consecutive failures across phases | Circuit breaker: disable CLI dispatch for session |
-| Exit code 3 (CLI not found) | Mark CLI unavailable, reduce mode (tri→dual→single) |
-| Exit code 4 (Tier 4 parse failure) | Use degraded output with `flags.degraded: true` |
 | Self-critique Task fails | Use unsynthesized findings with `flags.degraded: true` |
-| Template deployment missing | Phase 1 detection sets `state.cli.mode = "disabled"` |
+| Team debate fails (AGENT_TEAMS_ENABLED) | Per-role fallback to Task-based synthesis |

@@ -181,17 +181,19 @@ When adding new ST template groups:
 
 ## CLI Integration
 
-### Multi-CLI MPA Pattern
-- **Pattern**: Run Gemini + Codex + OpenCode in parallel via Bash process-group dispatch for each analysis role, then synthesize
-- **Rationale**: Gemini (1M context) excels at broad exploration; Codex excels at code-level precision; OpenCode brings UX/Product lens (accessibility, user flows, product alignment)
-- **Implementation**: Each CLI step has 4 sub-steps: dispatch (parallel `Bash(run_in_background=true)`) → synthesis → self-critique (Task subagent) → write report
-- **Dispatch script**: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` — process-group-safe with 4-tier output extraction
+### Dual-CLI Dispatch Pattern (ntm robot mode)
+- **Pattern**: Run Gemini + Codex in parallel via a single ntm session for each analysis role, then synthesize
+- **Rationale**: Gemini (1M context) excels at broad exploration; Codex excels at code-level precision
+- **Implementation**: Each CLI step has 4 sub-steps: dispatch (single `dispatch-via-ntm.sh` call) → synthesis → self-critique (Task subagent) → write report
+- **Dispatch script**: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` — ntm robot-mode with SUMMARY block extraction
+- **Legacy fallback**: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` — used when ntm is unavailable
 - **Self-critique isolation**: CoVe verification runs in a separate `Task(general-purpose)` subagent to avoid coordinator context pollution
+- **Agent Teams enhancement**: When enabled, perspective-critic team debates enhance synthesis with cross-examination
 - **Modes**: Complete and Advanced only
 
 ### Role Design
 - **6 roles**: deepthinker, consensus, planreviewer, teststrategist, securityauditor, taskauditor
-- **18 prompt files**: Each role has `gemini_{role}.txt`, `codex_{role}.txt`, and `opencode_{role}.txt` in `templates/cli-roles/`
+- **12 prompt files**: Each role has `gemini_{role}.txt` and `codex_{role}.txt` in `templates/cli-roles/`
 - **EXPLORE directives**: Every role MUST include filesystem exploration instructions
 - **No researcher**: Removed — duplicates Research MCP (Context7/Ref/Tavily)
 - **No reconciliator**: Absorbed into teststrategist review protocol
@@ -202,9 +204,8 @@ When adding new ST template groups:
 - **Deployment**: Phase 1 auto-copies if missing or version marker mismatch
 
 ### Synthesis Categorization
-- **Unanimous** (all 3 CLIs agree): VERY HIGH confidence, merge directly
-- **Majority** (2 of 3 CLIs agree): HIGH confidence, note dissenting view
-- **Divergent** (all CLIs disagree): FLAG for user decision or use higher severity
+- **Convergent** (both CLIs agree): HIGH confidence, merge directly
+- **Divergent** (CLIs disagree): FLAG for user decision or use higher severity
 - **Unique** (one CLI only): VERIFY against existing findings before accepting
 
 ### Shared Dispatch Pattern (DRY)
@@ -225,9 +226,8 @@ When adding new ST template groups:
 
 ### External Prompt Authoring
 
-- CLI role prompt files (.txt) must include conditional availability notes for MCP tools (Gemini/Codex/OpenCode environments don't have Claude's MCP servers)
+- CLI role prompt files (.txt) must include conditional availability notes for MCP tools (Gemini/Codex environments don't have Claude's MCP servers)
 - CLI auto-approval flags (`--yolo`, `--dangerously-bypass-approvals-and-sandbox`) must have documented security trade-off notes in README
-- OpenCode uses non-interactive mode (`opencode run --format json -f <file>`) which auto-rejects permissions — no auto-approval flag needed
 
 ---
 

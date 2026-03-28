@@ -43,7 +43,7 @@ additional_references:
 > 6. Write your phase summary to `{FEATURE_DIR}/.phase-summaries/phase-8-summary.md` using the template at `$CLAUDE_PLUGIN_ROOT/templates/phase-summary-template.md`.
 > 7. You MUST NOT interact with the user directly. If user input is needed, set `status: needs-user-input` in your summary with `block_reason` explaining what is needed and what options are available.
 > 8. If a sub-agent (Task) fails, retry once. If it fails again, continue with partial results and set `flags.degraded: true` in your summary.
-> 9. **CLI dispatch: ONLY use `dispatch-cli-agent.sh`**: For ALL multi-CLI coverage validation dispatches, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-phase results.
+> 9. **CLI dispatch: ONLY use `dispatch-via-ntm.sh`**: For ALL multi-CLI coverage validation dispatches, use `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` via Bash(). NEVER use the `ask` command or CCB async dispatch — the async queue returns stale cross-phase results.
 
 ## Decision Protocol
 When `a6_context_protocol` is enabled (check feature flags):
@@ -78,11 +78,17 @@ Follow CLI Multi-CLI Dispatch Pattern from $CLAUDE_PLUGIN_ROOT/skills/plan/refer
 | MODE_CHECK | `analysis_mode in {complete, advanced}` |
 | GEMINI_PROMPT | see below (advocate stance + coverage rubric) |
 | CODEX_PROMPT | see below (challenger stance + coverage rubric) |
-| OPENCODE_PROMPT | see below (product_lens stance + coverage rubric) |
 | FILE_PATHS | `["{FEATURE_DIR}/test-plan.md", "{FEATURE_DIR}/spec.md", "{FEATURE_DIR}/test-strategy.md"]` |
 | REPORT_FILE | `analysis/cli-coverage-consensus-report.md` |
 | PREFERRED_SINGLE_CLI | `gemini` |
 | POST_WRITE | none |
+
+### Team-Based Follow-Up (when Agent Teams enabled)
+
+IF AGENT_TEAMS_ENABLED AND feature_flags.agent_teams_debate.enabled:
+    Run perspective-critic team debate per $CLAUDE_PLUGIN_ROOT/skills/plan/references/cli-dispatch-pattern.md Team-Based Follow-Up Protocol
+    Variables: ROLE=consensus, FEATURE_DIR, CLI_OUTPUT_A (codex), CLI_OUTPUT_B (gemini)
+    Merge debate findings into synthesis output
 
 GEMINI_PROMPT:
   "STANCE: ADVOCATE — Highlight coverage strengths.
@@ -103,11 +109,6 @@ GEMINI_PROMPT:
 
 CODEX_PROMPT:
   "STANCE: CHALLENGER — Find coverage gaps and missing edge cases.
-  [same dimensions]
-  Return per-dimension percentage scores with evidence."
-
-OPENCODE_PROMPT:
-  "STANCE: PRODUCT_LENS — Evaluate test coverage from user experience and product alignment perspective.
   [same dimensions]
   Return per-dimension percentage scores with evidence."
 

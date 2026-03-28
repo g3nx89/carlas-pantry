@@ -7,7 +7,7 @@ Transform specifications into actionable implementation plans, tasks, and test s
 - **Transforms** specifications into implementation plans and dependency-ordered tasks
 - **Uses V-Model methodology** for integrated test planning (Unit, Integration, E2E, UAT)
 - **Provides 4 analysis modes** from rapid single-agent to full multi-model consensus
-- **Supports 9-phase workflow** with parallel Multi-Perspective Analysis (MPA)
+- **Supports 12-phase workflow** with parallel Multi-Perspective Analysis (MPA)
 - **Integrates Research MCP** for authoritative documentation lookup
 - **Degrades gracefully** when MCP tools are unavailable
 
@@ -33,7 +33,7 @@ claude plugins enable product-planning
 ## Skills
 
 ### /product-planning:plan
-Main skill orchestrating 9-phase workflow including test strategy and task generation.
+Main skill orchestrating 12-phase workflow including test strategy and task generation.
 
 **Phases:**
 1. Setup - Initialize workspace, detect state

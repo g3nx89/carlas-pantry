@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DISPATCH_SCRIPT="$SCRIPT_DIR/dispatch-cli-agent.sh"
 VERBOSE="${1:-}"
 
-CLIS=("gemini" "codex" "opencode")
+CLIS=("gemini" "codex")
 PASS=0
 FAIL=0
 SKIP=0
