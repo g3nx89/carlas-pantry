@@ -98,7 +98,7 @@ Script: `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` (ntm robot mode, v2.0)
 
 Complete/Advanced modes dispatch all configured CLIs in parallel (default: Gemini, Codex — see `config/planning-config.yaml`), then synthesize findings. Dual-CLI synthesis uses convergent (HIGH), divergent (FLAG), and unique (VERIFY) confidence levels. Adds ~4-6 min total latency.
 
-When Agent Teams are available (`AGENT_TEAMS_ENABLED`), CLI synthesis is enhanced with perspective-critic team debates for richer cross-examination. See `references/cli-dispatch-pattern.md` Team-Based Follow-Up Protocol.
+When Agent Teams are available (`AGENT_TEAMS_ENABLED`), CLI synthesis is enhanced with perspective-critic team debates for richer cross-examination. See `references/cli-dispatch-pattern.md` Team-Based Follow-Up Protocol. On YELLOW/RED verdicts in Phase 6, a 3-critic review board (plan-quality, risk, scope) provides adversarial cross-examination before final verdict. See `references/review-board-protocol.md`.
 
 Graceful degradation: If ntm is unavailable, fall back to legacy `dispatch-cli-agent.sh`. If CLIs are unavailable, fall back to Standard/Rapid modes (internal agents only). If ST is unavailable, fall back to Advanced mode.
 
@@ -344,6 +344,7 @@ See `references/README.md` for the complete reference file catalog with usage pa
 - **ntm spawn failed (exit 5)** - Retry once; if persistent, fall back to legacy dispatch
 - **Agent Teams unavailable** - Graceful fallback to Task-based parallel synthesis (no quality loss, only reduced cross-examination depth)
 - **Team member timeout** - Collect partial findings, continue with available output
+- **Review board timeout** - Collect partial critic findings, keep preliminary verdict (review board cannot upgrade verdicts, so timeout is safe)
 
 ## Test Execution Order (V-Model)
 

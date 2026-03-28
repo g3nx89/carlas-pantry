@@ -171,7 +171,7 @@ feature_flags:
     enabled: true
     description: "Perspective-critic team debates after CLI dispatch"
     rollback: "Set false to use Task-based synthesis only"
-    modes: [complete, advanced]
+    modes: [complete, advanced, standard]
     requires: [cli_context_isolation]
     cost_impact: "~2 agent dispatches per CLI integration point; ~60-120s latency per debate"
 
@@ -204,11 +204,11 @@ feature_flags:
     cost_impact: "Negligible — keyword extraction + set comparison"
 
   s10_team_presets:
-    enabled: false
-    description: "User-selectable agent team configurations (balanced, rapid_prototype)"
+    enabled: true
+    description: "User-selectable agent team configurations (balanced, rapid_team, skip)"
     rollback: "Set false to always use default agent configuration per mode"
     modes: [complete, advanced, standard]
-    cost_impact: "rapid_prototype reduces agent count; balanced is default behavior"
+    cost_impact: "balanced = all 6 CLI roles use 2-agent debates (~$0.60/session); rapid_team = only securityauditor+teststrategist use debates (~$0.20/session); skip = Task-based synthesis only"
 
   s12_specify_gate:
     enabled: false
@@ -1725,6 +1725,11 @@ agent_teams:
   fallback: task_parallel # task_parallel | task_sequential (when teams unavailable)
   display_mode: auto     # auto = tmux if available, in-process fallback
   timeout_per_debate: 120 # seconds per team debate
+  review_board:
+    timeout: 180           # seconds for 3-critic board (longer than 2-critic debate)
+    trigger: "yellow_red"  # green = always, yellow_red = only on YELLOW/RED, never = disabled
+    critics: 3             # number of review board critics
+    verdict_override: "downgrade_only"  # review board can downgrade verdicts, never upgrade
 
 # =============================================================================
 # DEV-SKILLS INTEGRATION

@@ -469,15 +469,19 @@ IF feature_flags.s10_team_presets.enabled:
      │                                                              │
      │ 1. balanced (Recommended)                                    │
      │    All MPA agents active. Full convergence + deliberation.   │
+     │    CLI debates: all 6 roles use 2-agent perspective-critic   │
+     │    teams. Review board on YELLOW/RED verdicts.               │
      │    Best for: Most features, comprehensive analysis.          │
      │                                                              │
-     │ 2. rapid_prototype                                           │
-     │    software-architect + qa-strategist only. Skip security    │
-     │    and performance specialists. Faster, lower cost.          │
+     │ 2. rapid_team                                                │
+     │    MPA: software-architect + qa-strategist only.             │
+     │    CLI debates: securityauditor + teststrategist only.       │
+     │    No review board. Faster, lower cost (~60% savings).       │
      │    Best for: Prototypes, internal tools, low-risk features.  │
      │                                                              │
      │ 3. Skip preset                                               │
-     │    Use default agent configuration for selected mode.        │
+     │    MPA: default agent configuration for selected mode.       │
+     │    CLI debates: Task-based synthesis only (no teams).        │
      │                                                              │
      └─────────────────────────────────────────────────────────────┘
 
@@ -485,17 +489,30 @@ IF feature_flags.s10_team_presets.enabled:
      selected_preset = SAFE_ASK_USER(
        question: "Which agent team preset would you like?",
        options: [
-         {label: "balanced (Recommended)", description: "All MPA agents, full analysis"},
-         {label: "rapid_prototype", description: "Minimal agents, faster execution"},
-         {label: "Skip", description: "Use default mode configuration"}
+         {label: "balanced (Recommended)", description: "All agents + all CLI team debates + review board"},
+         {label: "rapid_team", description: "Minimal agents, security+test debates only, no review board"},
+         {label: "Skip", description: "Default mode config, no team debates"}
        ],
        confirm_irreversible: false  # Team preset is less critical than mode
      )
 
-  3. SAVE to state:
-     team_preset: {selected_preset or null}
+  3. RESOLVE team debate scope from preset:
+     IF selected_preset == "balanced":
+       state.team_debate_roles = ["deepthinker", "consensus", "planreviewer", "teststrategist", "securityauditor", "taskauditor"]
+       state.review_board_enabled = true
+     ELIF selected_preset == "rapid_team":
+       state.team_debate_roles = ["securityauditor", "teststrategist"]
+       state.review_board_enabled = false
+     ELSE:  # Skip or null
+       state.team_debate_roles = []
+       state.review_board_enabled = false
 
-  4. LOG: "Team preset: {selected_preset or 'default'}"
+  4. SAVE to state:
+     team_preset: {selected_preset or null}
+     team_debate_roles: {resolved list}
+     review_board_enabled: {boolean}
+
+  5. LOG: "Team preset: {selected_preset or 'default'} — debates: {team_debate_roles}, review board: {review_board_enabled}"
 ```
 
 ## Step 1.11: Requirements Digest Extraction

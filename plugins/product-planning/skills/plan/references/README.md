@@ -53,6 +53,8 @@ Each CLI role dispatches both CLIs (Gemini, Codex) in parallel via a single ntm 
 - `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-via-ntm.sh` — ntm robot-mode dispatch script (primary)
 - `$CLAUDE_PLUGIN_ROOT/scripts/dispatch-cli-agent.sh` — Legacy fallback dispatch script
 - `$CLAUDE_PLUGIN_ROOT/agents/perspective-critic.md` — Parametric critic agent for team debates
+- `$CLAUDE_PLUGIN_ROOT/agents/review-board-critic.md` — Parametric critic agent for review board (3-critic adversarial review)
+- `$CLAUDE_PLUGIN_ROOT/skills/plan/references/review-board-protocol.md` — Review board dispatch protocol (Phase 6, YELLOW/RED trigger)
 
 ### CLI-Enhanced Phases
 | Phase | Role | Step | Report |

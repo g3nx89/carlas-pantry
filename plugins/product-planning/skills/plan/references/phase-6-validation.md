@@ -229,6 +229,47 @@ ELSE:
 | Feasibility | 15% | 1-3 | 3 |
 | **Total** | **100%** | | **20** |
 
+## Step 6.6b: Review Board (when enabled + YELLOW/RED) [CONDITIONAL]
+
+> Dispatched only when `state.review_board_enabled == true` AND preliminary verdict is YELLOW or RED.
+> Protocol: `@$CLAUDE_PLUGIN_ROOT/skills/plan/references/review-board-protocol.md`
+
+```
+# Calculate preliminary verdict from Step 6.6 scores
+preliminary_total = SUM(final_scores)
+
+IF preliminary_total >= 16:
+  preliminary_verdict = "GREEN"
+ELIF preliminary_total >= 12:
+  preliminary_verdict = "YELLOW"
+ELSE:
+  preliminary_verdict = "RED"
+
+IF state.review_board_enabled AND preliminary_verdict IN ["YELLOW", "RED"] AND AGENT_TEAMS_AVAILABLE:
+  LOG: "Preliminary verdict is {preliminary_verdict} — dispatching review board"
+
+  # Execute review board protocol (3-critic adversarial debate)
+  # See review-board-protocol.md for full Steps RB.1-RB.7
+  Execute Review Board per @$CLAUDE_PLUGIN_ROOT/skills/plan/references/review-board-protocol.md
+  Variables: FEATURE_DIR, FEATURE_NAME, FEATURE_ID
+
+  # Review board may downgrade verdict (never upgrade):
+  # - 1+ CRITICAL findings → RED (regardless of original)
+  # - 1+ HIGH findings (no CRITICAL) → keep YELLOW
+  # - 0 CRITICAL + 0 HIGH → keep original verdict
+
+  IF review_board_synthesis has CRITICAL findings:
+    final_verdict = "RED"
+    LOG: "Review board found CRITICAL issues — verdict downgraded to RED"
+  ELSE:
+    final_verdict = preliminary_verdict
+
+ELSE:
+  final_verdict = preliminary_verdict
+  IF state.review_board_enabled AND preliminary_verdict == "GREEN":
+    LOG: "Preliminary verdict GREEN — review board skipped (no value in reviewing passing plan)"
+```
+
 ## Step 6.7: Determine Status [USER]
 
 | Score | Status | Action |
