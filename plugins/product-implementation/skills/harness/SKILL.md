@@ -1,0 +1,193 @@
+---
+name: harness
+description: >-
+  Set up a project's Claude Code harness so it can autonomously implement a development plan
+  across multiple sessions. Takes tasks.md and plan.md (from product-planning or any planning
+  phase) and configures everything the project needs: CLAUDE.md with build commands, hooks in
+  settings.json, feature-list.json for progress tracking, evaluation criteria, session startup
+  checklists, and external CLI review scripts (Codex/Gemini). Use this skill PROACTIVELY
+  whenever the user wants to start implementing a planned feature, configure a project for
+  autonomous coding, set up hooks and progress tracking, prepare a codebase for long-running
+  agent work, bridge the gap between planning and implementation, or set up external reviewers.
+  Trigger phrases include: "set up the harness", "configure for implementation", "prepare for
+  coding", "help me start implementing", "configure the project", "configura il progetto",
+  "configura l'ambiente", "prepara per l'implementazione", "ho un piano pronto", "set up
+  progress tracking", "create feature-list.json", "set up hooks for my project",
+  "configure evaluation criteria", "set up external review with codex/gemini". Also trigger
+  when the user mentions having tasks.md or plan.md ready and wanting to start coding, or when
+  they ask about session continuity, cross-session handoffs, or feature tracking for
+  implementation. Do NOT trigger for actual code implementation (writing code, TDD, fixing bugs),
+  creating plans (architecture, task breakdown), or reviewing PRs.
+---
+
+# Harness Configurator
+
+Set up a project so Claude Code can autonomously implement a development plan across sessions.
+Instead of scripting every agent decision, invest complexity in the *environment* — knowledge,
+enforcement, progress tracking, evaluation, tooling — so the model reasons freely within
+well-designed constraints.
+
+## Core Principles
+
+These come from harness engineering research and are the foundation for every decision:
+
+1. **Map, Not Manual** — CLAUDE.md is a table of contents (~100 lines), not an encyclopedia.
+   Point to `docs/` for depth. The agent finds what it needs via progressive disclosure.
+
+2. **Enforce Invariants, Not Implementations** — Hooks and lints constrain *what must be true*
+   (tests pass, specs untouched, builds succeed). The model decides *how* to get there.
+
+3. **JSON Contracts Over Markdown** — Feature lists as JSON with immutable descriptions and
+   mutable `passes` field. Models are less likely to inappropriately modify JSON than Markdown.
+
+4. **Generator ≠ Evaluator** — The agent building code should not be the sole judge of its
+   quality. Set up separate evaluation criteria with concrete, gradable dimensions.
+
+5. **Context Resets Over Compaction** — Each session starts fresh with structured handoff.
+   Progress files and git history bridge the gap between sessions.
+
+## Prerequisites
+
+Plan artifacts from product-planning (in a feature directory):
+- `tasks.md` (required) — phased task list with acceptance criteria
+- `plan.md` (required) — architecture decisions and implementation approach
+- `design.md`, `test-plan.md`, `test-cases/` (optional) — richer context
+
+## Stage 1: Analyze & Interview
+
+### 1a. Read the Plan
+
+Load `tasks.md` and `plan.md`. Extract: phase count, task breakdown, tech stack, frameworks,
+test strategy, architectural constraints, external dependencies.
+
+### 1b. Analyze the Project
+
+Examine the target project directory:
+
+| Check | What to Look For |
+|-------|-----------------|
+| CLAUDE.md | Existing guidance — augment, don't replace |
+| .claude/settings.json | Current hooks, permissions, allowed tools |
+| Build system | package.json, build.gradle, Makefile, Cargo.toml, etc. |
+| Test setup | Test runner, coverage config, existing test files |
+| Git state | Clean working tree? On a feature branch? |
+| MCP servers | Probe for Playwright, Figma, mobile-mcp, etc. |
+| CLI agents | Check for `codex`, `gemini` CLIs (`command -v`) |
+| Installed skills | Check what Claude Code skills are already available |
+
+### 1c. Interview the User
+
+Ask only what you can't infer from the plan or project. Skip questions where context gives
+a clear answer. Present remaining questions together, not one-by-one.
+
+| Question | Determines |
+|----------|-----------|
+| Quality bar: fast iteration / balanced / thorough? | Hook strictness, review frequency, eval thresholds |
+| Autonomy: commit freely / ask before commits / human reviews? | Auto-commit hooks, push permissions, PR workflow |
+| Protected paths: files or dirs Claude must never modify? | Spec-protection hooks |
+| Definition of done: tests pass / reviewed / deployed? | Evaluation criteria, completion checklist |
+| Review strategy: self-review / agent review / human PRs? | Evaluator setup, review hooks |
+
+### 1d. Save Analysis
+
+Write `{feature_dir}/.harness/analysis.json` with all findings and preferences.
+This file is the context bus — all Stage 2 decisions reference it.
+
+## Stage 2: Configure Harness
+
+Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/harness-components.md` for templates and
+detailed guidance per category. Below is the overview of what each category produces and why.
+
+### 2a. Knowledge Store — "Give a Map, Not a Manual"
+
+Augment the project's CLAUDE.md with a lean section (~100 lines) covering build/test/run
+commands, architecture overview pointing to `docs/ARCHITECTURE.md`, key conventions, and
+common pitfalls. Also generate `docs/ARCHITECTURE.md` from plan.md if not present.
+
+The agent can only act on what it sees in-repo. If build commands live in a wiki or README
+the agent might not read, it will guess wrong.
+
+### 2b. Enforcement Layer — "Enforce Invariants"
+
+Configure hooks in `.claude/settings.json` and generate lint scripts in `.claude/scripts/`.
+Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/hooks-catalog.md` for the full catalog.
+
+Hooks catch mistakes mechanically at the moment they happen, without consuming context or
+relying on the model to remember rules.
+
+### 2c. Evaluation Criteria — "Generator ≠ Evaluator"
+
+Generate `{feature_dir}/.harness/eval-criteria.md` with 3-5 gradable quality dimensions,
+scoring rubric (1-5 with examples), blocking vs advisory thresholds, and an evaluator
+session prompt for a fresh Claude session to review completed work.
+
+If external CLI agents are available (Codex, Gemini), also generate review dispatch scripts
+and instruction files. Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/cli-agents.md`
+for templates. External agents provide genuinely independent evaluation (different model,
+different training) — the strongest form of the generator/evaluator split. They also
+distribute token costs across subscriptions.
+
+Without explicit criteria, the builder agent will "confidently praise its own work — even
+when the quality is obviously mediocre."
+
+### 2d. Progress Tracking — "Bridge Context Gaps"
+
+Convert `tasks.md` → `feature-list.json` using the schema in
+`$CLAUDE_PLUGIN_ROOT/skills/harness/references/feature-list-schema.md`. Also generate
+`progress.md` template and `session-startup.md` checklist.
+
+Each new session starts with zero memory. Progress files and JSON contracts let the agent
+pick up exactly where the last session left off.
+
+### 2e. Tooling Setup — "Environment Design"
+
+Recommend MCP servers and Claude Code skills based on project domain, verify build/test
+commands work, configure `.claude/settings.json` tool permissions. If CLI agents are
+available, generate `AGENTS.md` (Codex) and/or `GEMINI.md` with project-specific context.
+
+The right tools reduce friction dramatically — a Playwright MCP turns browser testing from
+impossible to trivial. External CLI agents turn code review from self-assessment to
+independent evaluation.
+
+### 2f. Workflow Guide — "Humans Steer, Agents Execute"
+
+Create sprint contract template, recommend iteration pattern (one feature at a time, verify,
+commit, next), and document entropy management cadence.
+
+The agent needs to know HOW to work, not just WHAT to build.
+
+## Stage 3: Verify & Hand Off
+
+1. **Verify files**: Check all generated artifacts exist and are syntactically valid
+2. **Test hooks**: Run each configured hook once to confirm it works
+3. **Present summary**: List everything configured with file paths and brief explanations
+4. **Suggest first sprint**: Recommend which task to start with, based on dependency order
+5. **Demo session startup**: Walk through how a new coding session should begin
+
+## Output Artifacts
+
+| Artifact | Location | Purpose |
+|----------|----------|---------|
+| Analysis | `{feature_dir}/.harness/analysis.json` | Context bus for configuration decisions |
+| CLAUDE.md | `{project}/CLAUDE.md` | Knowledge map — commands, architecture, conventions |
+| Architecture | `{project}/docs/ARCHITECTURE.md` | System of record for design decisions |
+| Hooks | `{project}/.claude/settings.json` | Mechanical enforcement layer |
+| Lint scripts | `{project}/.claude/scripts/` | Custom checks with remediation instructions |
+| Eval criteria | `{feature_dir}/.harness/eval-criteria.md` | Gradable quality dimensions + evaluator prompt |
+| Feature list | `{feature_dir}/.harness/feature-list.json` | JSON contract — immutable descriptions, mutable passes |
+| Progress | `{feature_dir}/.harness/progress.md` | Cross-session handoff state |
+| Session startup | `{feature_dir}/.harness/session-startup.md` | New-session checklist |
+| Sprint contract | `{feature_dir}/.harness/sprint-contract.md` | Agreement template: what "done" means |
+| Review script | `{project}/.claude/scripts/external-review.sh` | Dispatch review to Codex/Gemini (if available) |
+| AGENTS.md | `{project}/AGENTS.md` | Codex instruction file (if available) |
+| GEMINI.md | `{project}/GEMINI.md` | Gemini instruction file (if available) |
+
+## Reference Map
+
+| File | ~Lines | Purpose | Read When |
+|------|--------|---------|-----------|
+| `harness-components.md` | 350 | Templates and examples for all 6 categories | Stage 2 — section for the category being configured |
+| `feature-list-schema.md` | 100 | JSON schema, tasks.md conversion, examples | Stage 2d — converting the plan to JSON contract |
+| `hooks-catalog.md` | 150 | Hook catalog with use cases and config examples | Stage 2b — choosing which hooks to install |
+| `cli-agents.md` | 170 | External CLI dispatch scripts and instruction templates | Stage 2c/2e — when Codex or Gemini is available |
+| `README.md` | 30 | Reference index with cross-references | As needed |

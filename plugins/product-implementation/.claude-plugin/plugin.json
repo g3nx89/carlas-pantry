@@ -1,17 +1,19 @@
 {
   "name": "product-implementation",
-  "version": "3.6.0",
-  "description": "Execute implementation plans produced by product-planning, orchestrating TDD cycles, code generation, quality review, documentation, and implementation retrospective with KPI framework. Supports autonomous execution via ralph-loop.",
+  "version": "5.0.0",
+  "description": "Configure project harnesses for autonomous implementation of development plans. Analyzes plan artifacts, interviews the user, then sets up CLAUDE.md, hooks, progress tracking (feature-list.json), evaluation criteria, and external CLI review (Codex/Gemini) so Claude Code can execute effectively across multiple sessions.",
   "author": {
     "name": "Alessandro Fato",
     "email": "afato@example.com"
   },
   "keywords": [
+    "harness",
     "implementation",
-    "tdd",
-    "code-generation",
-    "plan-execution",
-    "verification",
+    "hooks",
+    "progress-tracking",
+    "evaluation",
+    "codex",
+    "gemini",
     "product-development"
   ],
   "license": "MIT"

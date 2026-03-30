@@ -4,39 +4,36 @@ Plugin-specific guidance for Claude Code when working in this plugin.
 
 ## Plugin Purpose
 
-Executes feature implementation plans produced by product-planning. Orchestrates TDD cycles, code generation, quality review, and testing against an approved plan using session-isolated `claude -p` calls per phase.
+Configures projects so Claude Code can autonomously implement development plans produced by product-planning. Instead of orchestrating implementation directly, this plugin sets up the project *environment* — knowledge, hooks, progress tracking, evaluation criteria, external reviewers — so the model works effectively within well-designed constraints.
 
 ## Workflow Chain Position
 
-Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-plan) → **Product Implementation** (code, tests, docs)
+Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-plan) → **Product Implementation** (harness setup → autonomous coding sessions)
 
 ## Architecture
 
-### Bash Orchestrator (v4.0)
+### Harness Configurator (v5.0 — current)
 
-`scripts/implement-android.sh` is the primary orchestrator. Two-level architecture:
+`skills/harness/SKILL.md` is the primary entry point. Three-stage workflow:
+
+1. **Analyze & Interview** — Read plan artifacts, analyze project, detect domain, ask user preferences
+2. **Configure Harness** — Generate 6 categories of environment components:
+   - Knowledge Store (CLAUDE.md, ARCHITECTURE.md)
+   - Enforcement Layer (hooks in settings.json, lint scripts)
+   - Evaluation Criteria (gradable dimensions, evaluator prompt, external CLI review)
+   - Progress Tracking (feature-list.json, progress.md, session-startup.md)
+   - Tooling Setup (MCP servers, skills, CLI agents — Codex/Gemini)
+   - Workflow Guide (sprint contracts, iteration pattern)
+3. **Verify & Hand Off** — Test hooks, present summary, suggest first sprint
+
+After the harness is configured, Claude Code executes the plan naturally — one feature at a time, fresh context per session, progress tracked via JSON contract.
+
+### Legacy: Bash Orchestrator (v4.0)
+
+`scripts/implement-android.sh` is the previous orchestrator approach, retained for reference and direct script usage. Two-level architecture:
 
 - **Bash** (inter-phase, deterministic): parse tasks.md, probe MCPs, build verification, commit per phase
 - **Claude** (`claude -p`, fresh context per phase): TDD cycles, subagent dispatch, Figma handoff, iteration
-
-Each phase gets a fresh context window via session isolation, eliminating the cross-phase context accumulation that plagued the previous LLM orchestrator.
-
-```
-Bash: parse → probe → setup → FOR EACH PHASE [ claude -p → build → commit ]
-```
-
-### Pipeline Steps (per phase)
-
-| Step | Agent(s) | Optional |
-|------|----------|----------|
-| 1. TDD Implementation | test-writer → vertical-agent → output-verifier | No |
-| 2. Code simplification | code-simplifier | `--no-simplify` |
-| 3. UAT mobile testing | uat-tester + debugger (UI phases only) | `--no-uat` |
-| 4a. Test augmentation | Gemini→Codex gap analysis | `--no-augment` |
-| 4b. Native review | 3× developer (parallel perspectives) | `--no-review` |
-| 4c. CLI review | Codex/Gemini specialized reviewers | `--no-review` |
-| 4d. Quality fix | vertical-agent (Critical/High findings) | auto |
-| 5. Auto-commit | git commit with task changelog | `--no-commit` |
 
 ### Agent Assignments
 
@@ -56,16 +53,21 @@ Bash: parse → probe → setup → FOR EACH PHASE [ claude -p → build → com
 
 ### Key Files
 
-- `scripts/implement-android.sh` — Bash orchestrator (primary entry point)
-- `skills/implement/SKILL.md` — Skill wrapper for script invocation
-- `skills/implement/references/developer-core-instructions.md` — Shared engineering process for developer-family agents
+**Harness skill (current):**
+- `skills/harness/SKILL.md` — Harness configurator entry point (184 lines)
+- `skills/harness/references/harness-components.md` — Templates for 6 harness categories
+- `skills/harness/references/feature-list-schema.md` — JSON contract schema and conversion
+- `skills/harness/references/hooks-catalog.md` — Hook catalog with remediation patterns
+- `skills/harness/references/cli-agents.md` — External CLI agent (Codex/Gemini) dispatch templates
+
+**Legacy orchestrator (retained):**
+- `scripts/implement-android.sh` — Bash orchestrator
+- `skills/implement/SKILL.md` — LLM orchestrator skill wrapper
+- `skills/implement/references/developer-core-instructions.md` — Shared engineering process (still used by agents)
 - `config/implementation-config.yaml` — User-facing settings (~45 lines)
 - `config/profile-definitions.yaml` — Internal profile definitions, domain mapping, vertical agents
 - `config/cli_clients/shared/` — CLI instruction content for AGENTS.md/GEMINI.md
-- `scripts/uat/run-uat.sh` — Standalone UAT engine dispatch
-- `scripts/uat/capture-figma-refs.sh` — Figma REST API screenshot exporter
 - `scripts/dispatch-cli-agent.sh` — CLI agent dispatch with output extraction
-- `scripts/dispatch-test-augmenter.sh` — Dual-model test gap analysis
 
 ### Required Input Artifacts
 
