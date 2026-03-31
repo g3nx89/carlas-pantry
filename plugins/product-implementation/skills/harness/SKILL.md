@@ -13,11 +13,15 @@ description: >-
   coding", "help me start implementing", "configure the project", "configura il progetto",
   "configura l'ambiente", "prepara per l'implementazione", "ho un piano pronto", "set up
   progress tracking", "create feature-list.json", "set up hooks for my project",
-  "configure evaluation criteria", "set up external review with codex/gemini". Also trigger
-  when the user mentions having tasks.md or plan.md ready and wanting to start coding, or when
-  they ask about session continuity, cross-session handoffs, or feature tracking for
-  implementation. Do NOT trigger for actual code implementation (writing code, TDD, fixing bugs),
-  creating plans (architecture, task breakdown), or reviewing PRs.
+  "configure evaluation criteria", "set up external review with codex/gemini",
+  "set up the evaluation loop", "configure UAT testing", "set up evaluator for my app",
+  "configure interactive testing", "imposta il loop di valutazione",
+  "configura la valutazione esterna". Also trigger when the user mentions having tasks.md
+  or plan.md ready and wanting to start coding, or when they ask about session continuity,
+  cross-session handoffs, feature tracking for implementation, or setting up a separate
+  evaluator agent to test the running application. Do NOT trigger for actual code
+  implementation (writing code, TDD, fixing bugs), creating plans (architecture, task
+  breakdown), or reviewing PRs.
 ---
 
 # Harness Configurator
@@ -73,6 +77,7 @@ Examine the target project directory:
 | Git state | Clean working tree? On a feature branch? |
 | MCP servers | Probe for Playwright, Figma, mobile-mcp, etc. |
 | CLI agents | Check for `codex`, `gemini` CLIs (`command -v`) |
+| Codex plugin | Check if `codex-plugin-cc` is installed (enables `/codex:*` commands) |
 | Installed skills | Check what Claude Code skills are already available |
 
 ### 1c. Interview the User
@@ -87,6 +92,7 @@ a clear answer. Present remaining questions together, not one-by-one.
 | Protected paths: files or dirs Claude must never modify? | Spec-protection hooks |
 | Definition of done: tests pass / reviewed / deployed? | Evaluation criteria, completion checklist |
 | Review strategy: self-review / agent review / human PRs? | Evaluator setup, review hooks |
+| Evaluation loop: code review only / interactive UAT / both? | Evaluation loop depth, tool requirements |
 
 ### 1d. Save Analysis
 
@@ -115,20 +121,31 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/hooks-catalog.md` for the fu
 Hooks catch mistakes mechanically at the moment they happen, without consuming context or
 relying on the model to remember rules.
 
-### 2c. Evaluation Criteria — "Generator ≠ Evaluator"
+### 2c. Evaluation Criteria & Loop — "Generator ≠ Evaluator"
 
 Generate `{feature_dir}/.harness/eval-criteria.md` with 3-5 gradable quality dimensions,
-scoring rubric (1-5 with examples), blocking vs advisory thresholds, and an evaluator
-session prompt for a fresh Claude session to review completed work.
-
-If external CLI agents are available (Codex, Gemini), also generate review dispatch scripts
-and instruction files. Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/cli-agents.md`
-for templates. External agents provide genuinely independent evaluation (different model,
-different training) — the strongest form of the generator/evaluator split. They also
-distribute token costs across subscriptions.
+scoring rubric (1-5 with examples), per-criterion hard thresholds (any single FAIL blocks),
+few-shot calibration examples, and an evaluator session prompt.
 
 Without explicit criteria, the builder agent will "confidently praise its own work — even
 when the quality is obviously mediocre."
+
+**Evaluation Loop (opt-in):** If the project has a runnable UI and appropriate MCP tools
+(Playwright for web, mobile-mcp for mobile), also configure the evaluation loop — where
+a separate evaluator session interacts with the RUNNING application as a user would.
+Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/evaluation-loop.md` for the full
+protocol: sprint contract negotiation, evaluator prompt template, feedback report format,
+and multi-round build→QA cycles.
+
+**External CLI agents:** If Codex or Gemini CLIs are available, also generate review and
+UAT dispatch scripts. Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/cli-agents.md`
+for templates. External agents provide genuinely independent evaluation (different model,
+different training) — the strongest form of the generator/evaluator split.
+
+**Project-specific adaptations:** The reference templates are starting points. Research
+the project's tech stack, existing tests, and quality standards to produce evaluation
+criteria, testing procedures, and sprint contract criteria that feel custom-built for the
+project — not a generic template with swapped names. See `evaluation-loop.md` Section 8.
 
 ### 2d. Progress Tracking — "Bridge Context Gaps"
 
@@ -173,12 +190,18 @@ The agent needs to know HOW to work, not just WHAT to build.
 | Architecture | `{project}/docs/ARCHITECTURE.md` | System of record for design decisions |
 | Hooks | `{project}/.claude/settings.json` | Mechanical enforcement layer |
 | Lint scripts | `{project}/.claude/scripts/` | Custom checks with remediation instructions |
-| Eval criteria | `{feature_dir}/.harness/eval-criteria.md` | Gradable quality dimensions + evaluator prompt |
+| Eval criteria | `{feature_dir}/.harness/eval-criteria.md` | Gradable dimensions, weights, 3-tier thresholds |
 | Feature list | `{feature_dir}/.harness/feature-list.json` | JSON contract — immutable descriptions, mutable passes |
 | Progress | `{feature_dir}/.harness/progress.md` | Cross-session handoff state |
-| Session startup | `{feature_dir}/.harness/session-startup.md` | New-session checklist |
-| Sprint contract | `{feature_dir}/.harness/sprint-contract.md` | Agreement template: what "done" means |
+| Session startup | `{feature_dir}/.harness/session-startup.md` | Unified new-session checklist (all conditional steps) |
+| Sprint contract | `{feature_dir}/.harness/sprint-contract.md` | What "done" means — verification table + DoD |
 | Review script | `{project}/.claude/scripts/external-review.sh` | Dispatch review to Codex/Gemini (if available) |
+| Evaluator prompt | `{feature_dir}/.harness/evaluator-prompt.md` | Calibrated QA session prompt (if eval loop enabled) |
+| Report template | `{feature_dir}/.harness/evaluation-report-template.md` | Structured feedback format (if eval loop enabled) |
+| Eval reports dir | `{feature_dir}/.harness/eval-reports/` | Timestamped evaluation reports (if eval loop enabled) |
+| Tuning log | `{feature_dir}/.harness/evaluator-tuning-log.md` | Evaluator calibration observations (if eval loop) |
+| App launch | `{project}/.claude/scripts/launch-app.sh` | Start dev server + readiness check (if eval loop enabled) |
+| UAT dispatch | `{project}/.claude/scripts/uat-dispatch.sh` | Dispatch UAT to Codex/Gemini (if CLI agents + eval loop) |
 | AGENTS.md | `{project}/AGENTS.md` | Codex instruction file (if available) |
 | GEMINI.md | `{project}/GEMINI.md` | Gemini instruction file (if available) |
 
@@ -186,8 +209,9 @@ The agent needs to know HOW to work, not just WHAT to build.
 
 | File | ~Lines | Purpose | Read When |
 |------|--------|---------|-----------|
-| `harness-components.md` | 350 | Templates and examples for all 6 categories | Stage 2 — section for the category being configured |
-| `feature-list-schema.md` | 100 | JSON schema, tasks.md conversion, examples | Stage 2d — converting the plan to JSON contract |
-| `hooks-catalog.md` | 150 | Hook catalog with use cases and config examples | Stage 2b — choosing which hooks to install |
-| `cli-agents.md` | 170 | External CLI dispatch scripts and instruction templates | Stage 2c/2e — when Codex or Gemini is available |
-| `README.md` | 30 | Reference index with cross-references | As needed |
+| `harness-components.md` | 515 | Templates for all 6 categories + project adaptation | Stage 2 — section for the category being configured |
+| `evaluation-loop.md` | 467 | Eval loop: UAT, judging, feedback, stop gate, adaptations | Stage 2c — when configuring interactive evaluation |
+| `feature-list-schema.md` | 108 | JSON schema, tasks.md conversion, examples | Stage 2d — converting the plan to JSON contract |
+| `hooks-catalog.md` | 168 | Hook catalog with use cases and config examples | Stage 2b — choosing which hooks to install |
+| `cli-agents.md` | 513 | Codex Plugin, CLI dispatch, review, UAT, stop gate | Stage 2c/2e — when Codex or Gemini is available |
+| `README.md` | 40 | Reference index with deduplication notes | As needed |

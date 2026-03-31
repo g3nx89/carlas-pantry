@@ -20,7 +20,7 @@ Product Definition (PRD, spec) → Product Planning (design, plan, tasks, test-p
 2. **Configure Harness** — Generate 6 categories of environment components:
    - Knowledge Store (CLAUDE.md, ARCHITECTURE.md)
    - Enforcement Layer (hooks in settings.json, lint scripts)
-   - Evaluation Criteria (gradable dimensions, evaluator prompt, external CLI review)
+   - Evaluation Criteria & Loop (gradable dimensions, evaluator prompt, external CLI review, interactive UAT)
    - Progress Tracking (feature-list.json, progress.md, session-startup.md)
    - Tooling Setup (MCP servers, skills, CLI agents — Codex/Gemini)
    - Workflow Guide (sprint contracts, iteration pattern)
@@ -54,11 +54,12 @@ After the harness is configured, Claude Code executes the plan naturally — one
 ### Key Files
 
 **Harness skill (current):**
-- `skills/harness/SKILL.md` — Harness configurator entry point (184 lines)
+- `skills/harness/SKILL.md` — Harness configurator entry point (~210 lines)
 - `skills/harness/references/harness-components.md` — Templates for 6 harness categories
+- `skills/harness/references/evaluation-loop.md` — Evaluation loop: UAT testing, judging, feedback protocol
 - `skills/harness/references/feature-list-schema.md` — JSON contract schema and conversion
 - `skills/harness/references/hooks-catalog.md` — Hook catalog with remediation patterns
-- `skills/harness/references/cli-agents.md` — External CLI agent (Codex/Gemini) dispatch templates
+- `skills/harness/references/cli-agents.md` — External CLI agent (Codex/Gemini) dispatch: review + UAT
 
 **Legacy orchestrator (retained):**
 - `scripts/implement-android.sh` — Bash orchestrator

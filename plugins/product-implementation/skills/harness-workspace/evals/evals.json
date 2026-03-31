@@ -1,0 +1,220 @@
+{
+  "skill_name": "harness",
+  "evals": [
+    {
+      "id": 1,
+      "name": "android-balanced-autonomous",
+      "prompt": "I have an Android app project at fixtures/android-app/ and the implementation plan for user authentication is at features/user-auth/. Set up the harness so I can start implementing autonomously. I want balanced quality — not too slow but catch real problems. Claude should commit freely without asking. Don't touch the plan files. I'll review PRs myself before merging.",
+      "expected_output": "Should produce: augmented CLAUDE.md with gradle build/test commands, .harness/feature-list.json with 6 tasks converted from tasks.md, hooks for build verification and test gates, eval criteria focused on Android/Compose quality dimensions, session-startup.md checklist, sprint contract template. Should detect Android/Kotlin/Compose domain automatically.",
+      "files": [
+        "fixtures/android-app/features/user-auth/tasks.md",
+        "fixtures/android-app/features/user-auth/plan.md",
+        "fixtures/android-app/build.gradle.kts",
+        "fixtures/android-app/CLAUDE.md"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": "features/user-auth/.harness/feature-list.json"},
+        {"text": "feature-list.json contains exactly 6 tasks", "type": "json_query", "path": "features/user-auth/.harness/feature-list.json", "query": ".features | length == 6"},
+        {"text": "all tasks start with passes: false", "type": "json_query", "path": "features/user-auth/.harness/feature-list.json", "query": "[.features[].passes] | all(. == false)"},
+        {"text": "CLAUDE.md exists and contains gradlew build command", "type": "file_contains", "path": "CLAUDE.md", "pattern": "gradlew"},
+        {"text": "CLAUDE.md preserves original content (MyApp header)", "type": "file_contains", "path": "CLAUDE.md", "pattern": "MyApp"},
+        {"text": ".claude/settings.json exists with hooks", "type": "file_contains", "path": ".claude/settings.json", "pattern": "hooks"},
+        {"text": "hooks include build verification (balanced quality)", "type": "file_contains", "path": ".claude/settings.json", "pattern": "verify-build|build"},
+        {"text": "hooks include test gate", "type": "file_contains", "path": ".claude/settings.json", "pattern": "test"},
+        {"text": "eval-criteria.md exists with Android-relevant dimensions", "type": "file_contains", "path": "features/user-auth/.harness/eval-criteria.md", "pattern": "[Cc]ompose|[Mm]aterial|[Aa]ndroid"},
+        {"text": "session-startup.md exists", "type": "file_exists", "path": "features/user-auth/.harness/session-startup.md"},
+        {"text": "analysis.json exists and is valid JSON", "type": "file_json_valid", "path": "features/user-auth/.harness/analysis.json"},
+        {"text": "sprint-contract.md exists", "type": "file_exists", "path": "features/user-auth/.harness/sprint-contract.md"},
+        {"text": "spec protection hook present (user said don't touch plan files)", "type": "file_contains", "path": ".claude/settings.json", "pattern": "protect|spec|plan"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "nextjs-thorough-human-review",
+      "prompt": "Configure the harness for my Next.js analytics dashboard project at fixtures/nextjs-dashboard/. The plan artifacts are in .specs/features/dashboard/. I want thorough quality — coverage checks, lint enforcement, the works. I want to review every PR before it merges, so set up the evaluator prompts properly. Also I have Playwright available for E2E testing.",
+      "expected_output": "Should produce: augmented CLAUDE.md (or new one) with npm scripts, .harness/feature-list.json with 6 tasks, thorough hooks (build + lint + tests + coverage + spec protection), eval criteria with frontend-specific dimensions (accessibility, responsiveness, visual fidelity), evaluator prompt mentioning Playwright for verification, session-startup with Playwright test step. Should detect Next.js/React/TypeScript domain.",
+      "files": [
+        "fixtures/nextjs-dashboard/.specs/features/dashboard/tasks.md",
+        "fixtures/nextjs-dashboard/.specs/features/dashboard/plan.md",
+        "fixtures/nextjs-dashboard/package.json"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": ".specs/features/dashboard/.harness/feature-list.json"},
+        {"text": "feature-list.json contains exactly 6 tasks", "type": "json_query", "path": ".specs/features/dashboard/.harness/feature-list.json", "query": ".features | length == 6"},
+        {"text": "all tasks start with passes: false", "type": "json_query", "path": ".specs/features/dashboard/.harness/feature-list.json", "query": "[.features[].passes] | all(. == false)"},
+        {"text": "CLAUDE.md exists and contains npm/vitest commands", "type": "file_contains", "path": "CLAUDE.md", "pattern": "npm|vitest|next"},
+        {"text": ".claude/settings.json has hooks", "type": "file_contains", "path": ".claude/settings.json", "pattern": "hooks"},
+        {"text": "hooks include coverage check (thorough quality)", "type": "file_contains", "path": ".claude/settings.json", "pattern": "coverage"},
+        {"text": "hooks include lint check (thorough quality)", "type": "file_contains", "path": ".claude/settings.json", "pattern": "lint"},
+        {"text": "hooks include spec protection", "type": "file_contains", "path": ".claude/settings.json", "pattern": "protect|spec"},
+        {"text": "eval-criteria.md mentions accessibility (frontend dimension)", "type": "file_contains", "path": ".specs/features/dashboard/.harness/eval-criteria.md", "pattern": "[Aa]ccessib"},
+        {"text": "eval-criteria.md contains evaluator prompt section", "type": "file_contains", "path": ".specs/features/dashboard/.harness/eval-criteria.md", "pattern": "[Ee]valuator"},
+        {"text": "eval-criteria or session-startup mentions Playwright", "type": "file_contains_any", "paths": [".specs/features/dashboard/.harness/eval-criteria.md", ".specs/features/dashboard/.harness/session-startup.md"], "pattern": "[Pp]laywright"},
+        {"text": "session-startup.md exists", "type": "file_exists", "path": ".specs/features/dashboard/.harness/session-startup.md"},
+        {"text": "analysis.json exists", "type": "file_exists", "path": ".specs/features/dashboard/.harness/analysis.json"}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "bare-api-fast-iteration",
+      "prompt": "I just got a plan for a Python FastAPI project. The project is at fixtures/bare-api/ and the plan is in features/api-v2/. I want to move fast — minimal hooks, no reviews, just make sure tests pass before committing. Set up the bare minimum harness to get started.",
+      "expected_output": "Should produce: new CLAUDE.md with Python/FastAPI commands (uv, pytest, alembic), .harness/feature-list.json with 4 tasks, minimal hooks (PreCommit test gate only), lightweight eval criteria (API correctness, error handling), session-startup.md, sprint contract. Should NOT set up coverage checks, lint hooks, or elaborate review process. Should detect Python/FastAPI/backend domain.",
+      "files": [
+        "fixtures/bare-api/features/api-v2/tasks.md",
+        "fixtures/bare-api/features/api-v2/plan.md"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": "features/api-v2/.harness/feature-list.json"},
+        {"text": "feature-list.json contains exactly 4 tasks", "type": "json_query", "path": "features/api-v2/.harness/feature-list.json", "query": ".features | length == 4"},
+        {"text": "all tasks start with passes: false", "type": "json_query", "path": "features/api-v2/.harness/feature-list.json", "query": "[.features[].passes] | all(. == false)"},
+        {"text": "CLAUDE.md exists and contains pytest or uv", "type": "file_contains", "path": "CLAUDE.md", "pattern": "pytest|uv|fastapi"},
+        {"text": ".claude/settings.json has hooks", "type": "file_contains", "path": ".claude/settings.json", "pattern": "hooks"},
+        {"text": "hooks include test gate", "type": "file_contains", "path": ".claude/settings.json", "pattern": "test"},
+        {"text": "hooks are minimal — no coverage hook (fast iteration)", "type": "file_not_contains", "path": ".claude/settings.json", "pattern": "coverage"},
+        {"text": "hooks are minimal — no lint hook (fast iteration)", "type": "file_not_contains", "path": ".claude/settings.json", "pattern": "lint"},
+        {"text": "eval-criteria.md exists", "type": "file_exists", "path": "features/api-v2/.harness/eval-criteria.md"},
+        {"text": "session-startup.md exists", "type": "file_exists", "path": "features/api-v2/.harness/session-startup.md"},
+        {"text": "analysis.json exists", "type": "file_exists", "path": "features/api-v2/.harness/analysis.json"}
+      ]
+    },
+    {
+      "id": 4,
+      "name": "nextjs-eval-loop-with-playwright",
+      "prompt": "Configure the harness for my Next.js dashboard at fixtures/nextjs-dashboard/. Plan is in .specs/features/dashboard/. I want the full evaluation loop set up — not just code review, I want a separate evaluator session that actually opens the app in a browser and tests it like a real user. I have Playwright MCP available. Set up the evaluator prompt, sprint contracts, and the whole feedback cycle. Thorough quality bar.",
+      "expected_output": "Should produce everything from eval 2 PLUS: evaluator-prompt.md with calibrated QA session prompt mentioning Playwright and browser interaction, evaluation-report-template.md with structured per-criterion format, sprint-contract.md template with concrete verifiable criteria, launch-app.sh script to start dev server, session-startup.md with evaluation report check step (4b). analysis.json should show evaluation_loop.enabled=true and platform=web.",
+      "files": [
+        "fixtures/nextjs-dashboard/.specs/features/dashboard/tasks.md",
+        "fixtures/nextjs-dashboard/.specs/features/dashboard/plan.md",
+        "fixtures/nextjs-dashboard/package.json"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": ".specs/features/dashboard/.harness/feature-list.json"},
+        {"text": "all tasks start with passes: false", "type": "json_query", "path": ".specs/features/dashboard/.harness/feature-list.json", "query": "[.features[].passes] | all(. == false)"},
+        {"text": "evaluator-prompt.md exists", "type": "file_exists", "path": ".specs/features/dashboard/.harness/evaluator-prompt.md"},
+        {"text": "evaluator prompt mentions Playwright for browser interaction", "type": "file_contains", "path": ".specs/features/dashboard/.harness/evaluator-prompt.md", "pattern": "[Pp]laywright"},
+        {"text": "evaluator prompt includes skepticism instruction", "type": "file_contains", "path": ".specs/features/dashboard/.harness/evaluator-prompt.md", "pattern": "[Ss]keptic"},
+        {"text": "evaluator prompt includes calibration examples", "type": "file_contains", "path": ".specs/features/dashboard/.harness/evaluator-prompt.md", "pattern": "[Cc]alibrat|[Ee]xample.*[Ss]core"},
+        {"text": "evaluation-report-template.md exists with structured format", "type": "file_contains", "path": ".specs/features/dashboard/.harness/evaluation-report-template.md", "pattern": "[Vv]erdict|PASS|FAIL"},
+        {"text": "sprint-contract.md has verifiable criteria format", "type": "file_contains", "path": ".specs/features/dashboard/.harness/sprint-contract.md", "pattern": "[Vv]erif|[Cc]riterion|[Hh]ow to"},
+        {"text": "launch-app.sh exists for dev server startup", "type": "file_exists", "path": ".claude/scripts/launch-app.sh"},
+        {"text": "launch-app.sh contains npm/next dev server command", "type": "file_contains", "path": ".claude/scripts/launch-app.sh", "pattern": "npm|next|localhost"},
+        {"text": "session-startup.md includes evaluation report check step", "type": "file_contains", "path": ".specs/features/dashboard/.harness/session-startup.md", "pattern": "evaluation.report|evaluation-report|eval.*report"},
+        {"text": "eval-criteria.md has per-criterion hard thresholds", "type": "file_contains", "path": ".specs/features/dashboard/.harness/eval-criteria.md", "pattern": "[Tt]hreshold|[Bb]locking"},
+        {"text": "analysis.json records evaluation loop as enabled", "type": "file_contains", "path": ".specs/features/dashboard/.harness/analysis.json", "pattern": "evaluation_loop|eval.*loop"},
+        {"text": "analysis.json records web platform", "type": "file_contains", "path": ".specs/features/dashboard/.harness/analysis.json", "pattern": "web|playwright"}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "android-eval-loop-with-cli-agents",
+      "prompt": "Set up the harness for the Android app at fixtures/android-app/ with the user-auth plan. I want balanced quality with the evaluation loop enabled. I have mobile-mcp for emulator testing, and I also have both codex and gemini CLIs installed. Set up both the native evaluator (using mobile-mcp to test on emulator) AND the external CLI agents for independent UAT review. I want the full feedback cycle — sprint contracts, evaluator prompt, UAT dispatch scripts for both codex and gemini.",
+      "expected_output": "Should produce: full harness (CLAUDE.md, hooks, feature-list.json, etc) PLUS evaluation loop artifacts: evaluator-prompt.md mentioning mobile-mcp and emulator interaction, sprint-contract.md, evaluation-report-template.md, uat-dispatch.sh for CLI agents, external-review.sh for code review. analysis.json should show evaluation_loop enabled with platform=mobile and both CLI agents available. AGENTS.md and GEMINI.md should be generated.",
+      "files": [
+        "fixtures/android-app/features/user-auth/tasks.md",
+        "fixtures/android-app/features/user-auth/plan.md",
+        "fixtures/android-app/build.gradle.kts",
+        "fixtures/android-app/CLAUDE.md"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": "features/user-auth/.harness/feature-list.json"},
+        {"text": "all tasks start with passes: false", "type": "json_query", "path": "features/user-auth/.harness/feature-list.json", "query": "[.features[].passes] | all(. == false)"},
+        {"text": "evaluator-prompt.md exists", "type": "file_exists", "path": "features/user-auth/.harness/evaluator-prompt.md"},
+        {"text": "evaluator prompt mentions mobile-mcp or emulator", "type": "file_contains", "path": "features/user-auth/.harness/evaluator-prompt.md", "pattern": "mobile.mcp|emulator|mobile_"},
+        {"text": "evaluator prompt includes skepticism instruction", "type": "file_contains", "path": "features/user-auth/.harness/evaluator-prompt.md", "pattern": "[Ss]keptic"},
+        {"text": "sprint-contract.md exists", "type": "file_exists", "path": "features/user-auth/.harness/sprint-contract.md"},
+        {"text": "evaluation-report-template.md exists", "type": "file_exists", "path": "features/user-auth/.harness/evaluation-report-template.md"},
+        {"text": "uat-dispatch.sh exists for CLI UAT", "type": "file_exists", "path": ".claude/scripts/uat-dispatch.sh"},
+        {"text": "uat-dispatch.sh supports both codex and gemini", "type": "file_contains", "path": ".claude/scripts/uat-dispatch.sh", "pattern": "codex|gemini"},
+        {"text": "external-review.sh exists for code review", "type": "file_exists", "path": ".claude/scripts/external-review.sh"},
+        {"text": "AGENTS.md generated for Codex", "type": "file_exists", "path": "AGENTS.md"},
+        {"text": "GEMINI.md generated for Gemini", "type": "file_exists", "path": "GEMINI.md"},
+        {"text": "session-startup.md includes evaluation report check", "type": "file_contains", "path": "features/user-auth/.harness/session-startup.md", "pattern": "evaluation.report|evaluation-report|eval.*report"},
+        {"text": "analysis.json records evaluation loop enabled", "type": "file_contains", "path": "features/user-auth/.harness/analysis.json", "pattern": "evaluation_loop|eval.*loop"},
+        {"text": "analysis.json records mobile platform", "type": "file_contains", "path": "features/user-auth/.harness/analysis.json", "pattern": "mobile"},
+        {"text": "analysis.json records both CLI agents available", "type": "file_contains", "path": "features/user-auth/.harness/analysis.json", "pattern": "codex.*true|gemini.*true"}
+      ]
+    },
+    {
+      "id": 6,
+      "name": "nextjs-codex-plugin-thorough",
+      "prompt": "Configure the harness for the Next.js dashboard at fixtures/nextjs-dashboard/. Plan is in .specs/features/dashboard/. Thorough quality bar with the full evaluation loop. I have Playwright MCP available AND the OpenAI Codex Plugin for Claude Code is installed (codex-plugin-cc, so /codex:review and /codex:adversarial-review are available). I also have the codex CLI directly. Set up the harness to use the Codex Plugin for reviews (not just codex exec), include adversarial review for thorough evaluation, and document the stop gate as an option for critical features. I want 3-tier verdicts (not just pass/fail), timestamped evaluation reports that preserve history, and an evaluator tuning log for calibration adjustments.",
+      "expected_output": "Should produce full harness with Codex Plugin integration: eval-criteria.md with 3-tier verdict (PASS/REVISE/FAIL) and optional dimension weights, evaluator-prompt.md mentioning Playwright, evaluation-report-template.md with timestamped pattern and Score Trend section, evaluator-tuning-log.md template, sprint-contract.md with verification table AND Definition of Done. Session-startup.md should mention eval-reports/ directory (not single file), include stop gate opt-in step, and reference /codex:adversarial-review. analysis.json should record codex_plugin=true. AGENTS.md should be generated.",
+      "files": [
+        "fixtures/nextjs-dashboard/.specs/features/dashboard/tasks.md",
+        "fixtures/nextjs-dashboard/.specs/features/dashboard/plan.md",
+        "fixtures/nextjs-dashboard/package.json"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": ".specs/features/dashboard/.harness/feature-list.json"},
+        {"text": "eval-criteria.md uses 3-tier verdict (REVISE)", "type": "file_contains", "path": ".specs/features/dashboard/.harness/eval-criteria.md", "pattern": "REVISE"},
+        {"text": "eval-criteria.md has dimension weights", "type": "file_contains", "path": ".specs/features/dashboard/.harness/eval-criteria.md", "pattern": "[Ww]eight|%"},
+        {"text": "evaluation-report-template.md has timestamped pattern", "type": "file_contains", "path": ".specs/features/dashboard/.harness/evaluation-report-template.md", "pattern": "eval-reports|timestamp|YYYY"},
+        {"text": "evaluation-report-template.md has Score Trend section", "type": "file_contains", "path": ".specs/features/dashboard/.harness/evaluation-report-template.md", "pattern": "[Ss]core.*[Tt]rend|[Tt]rend"},
+        {"text": "evaluator-tuning-log.md exists", "type": "file_exists", "path": ".specs/features/dashboard/.harness/evaluator-tuning-log.md"},
+        {"text": "evaluator-tuning-log has observation/adjustment structure", "type": "file_contains", "path": ".specs/features/dashboard/.harness/evaluator-tuning-log.md", "pattern": "[Oo]bservation|[Aa]djustment"},
+        {"text": "sprint-contract.md has verification table", "type": "file_contains", "path": ".specs/features/dashboard/.harness/sprint-contract.md", "pattern": "[Hh]ow to [Vv]erify|[Vv]erification"},
+        {"text": "sprint-contract.md has Definition of Done", "type": "file_contains", "path": ".specs/features/dashboard/.harness/sprint-contract.md", "pattern": "[Dd]efinition of [Dd]one|[Dd]one"},
+        {"text": "session-startup.md references eval-reports directory", "type": "file_contains", "path": ".specs/features/dashboard/.harness/session-startup.md", "pattern": "eval-reports|eval.reports"},
+        {"text": "session-startup or evaluator-prompt references /codex:adversarial-review or adversarial", "type": "file_contains_any", "paths": [".specs/features/dashboard/.harness/session-startup.md", ".specs/features/dashboard/.harness/eval-criteria.md", ".specs/features/dashboard/.harness/evaluator-prompt.md"], "pattern": "adversarial|/codex:"},
+        {"text": "session-startup mentions stop gate as opt-in", "type": "file_contains", "path": ".specs/features/dashboard/.harness/session-startup.md", "pattern": "stop.gate|review.gate|enable-review-gate"},
+        {"text": "analysis.json records codex_plugin as true", "type": "file_contains", "path": ".specs/features/dashboard/.harness/analysis.json", "pattern": "codex_plugin|codex.plugin"},
+        {"text": "AGENTS.md generated", "type": "file_exists", "path": "AGENTS.md"},
+        {"text": "evaluator-prompt.md has project-specific Next.js content", "type": "file_contains", "path": ".specs/features/dashboard/.harness/evaluator-prompt.md", "pattern": "[Nn]ext|[Rr]eact|[Rr]echarts|dashboard"}
+      ]
+    },
+    {
+      "id": 7,
+      "name": "bare-api-eval-loop-no-ui",
+      "prompt": "Configure the harness for the Python FastAPI project at fixtures/bare-api/. Plan is in features/api-v2/. I want balanced quality with the evaluation loop enabled, but this is an API-only project — no UI, no browser, no mobile. I have codex CLI available (no plugin, no gemini). Set up the evaluation loop adapted for API testing: the evaluator should test endpoints via HTTP, check logs, verify database state — not try to open a browser. I want 3-tier verdicts, timestamped reports, and the evaluator prompt adapted specifically for API/backend evaluation patterns.",
+      "expected_output": "Should produce harness with API-adapted evaluation loop: evaluator-prompt.md focused on HTTP testing (curl, API endpoints) NOT Playwright/browser. eval-criteria.md with backend dimensions (API correctness, error handling, performance) and 3-tier verdict. Sprint contract with API-specific verification criteria. analysis.json should show platform=api. No launch-app.sh for browser, but may have one for starting the API server. Session-startup with eval report check. Project-specific Python/FastAPI adaptations.",
+      "files": [
+        "fixtures/bare-api/features/api-v2/tasks.md",
+        "fixtures/bare-api/features/api-v2/plan.md"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": "features/api-v2/.harness/feature-list.json"},
+        {"text": "evaluator-prompt.md exists", "type": "file_exists", "path": "features/api-v2/.harness/evaluator-prompt.md"},
+        {"text": "evaluator prompt focuses on API/HTTP testing", "type": "file_contains", "path": "features/api-v2/.harness/evaluator-prompt.md", "pattern": "curl|HTTP|endpoint|API|request"},
+        {"text": "evaluator prompt does NOT mention Playwright or browser", "type": "file_not_contains", "path": "features/api-v2/.harness/evaluator-prompt.md", "pattern": "[Pp]laywright|browser_click|browser_navigate"},
+        {"text": "eval-criteria.md uses 3-tier verdict (REVISE)", "type": "file_contains", "path": "features/api-v2/.harness/eval-criteria.md", "pattern": "REVISE"},
+        {"text": "eval-criteria.md has backend-relevant dimensions", "type": "file_contains", "path": "features/api-v2/.harness/eval-criteria.md", "pattern": "API|[Ee]rror|[Pp]erformance|[Cc]orrect"},
+        {"text": "evaluation-report-template.md has timestamped pattern", "type": "file_contains", "path": "features/api-v2/.harness/evaluation-report-template.md", "pattern": "eval-reports|timestamp|YYYY"},
+        {"text": "sprint-contract.md has API-specific verification", "type": "file_contains", "path": "features/api-v2/.harness/sprint-contract.md", "pattern": "curl|endpoint|POST|GET|HTTP|API"},
+        {"text": "analysis.json records api platform", "type": "file_contains", "path": "features/api-v2/.harness/analysis.json", "pattern": "api"},
+        {"text": "session-startup.md references eval-reports directory", "type": "file_contains", "path": "features/api-v2/.harness/session-startup.md", "pattern": "eval-reports|eval.reports|evaluation"},
+        {"text": "evaluator prompt has Python/FastAPI specific content", "type": "file_contains", "path": "features/api-v2/.harness/evaluator-prompt.md", "pattern": "[Pp]ython|[Ff]ast[Aa][Pp][Ii]|pytest|uvicorn"},
+        {"text": "AGENTS.md generated for Codex", "type": "file_exists", "path": "AGENTS.md"},
+        {"text": "evaluator prompt mentions log/observability checking", "type": "file_contains", "path": "features/api-v2/.harness/evaluator-prompt.md", "pattern": "[Ll]og|[Oo]bserv|response.time|[Mm]etric"}
+      ]
+    },
+    {
+      "id": 8,
+      "name": "android-codex-plugin-stop-gate",
+      "prompt": "Set up the harness for the Android app at fixtures/android-app/ with the user-auth plan. Thorough quality bar. I have mobile-mcp for emulator testing, the Codex Plugin (codex-plugin-cc) installed, and gemini CLI. I want the full evaluation loop with these specifics: use /codex:adversarial-review for code review after each feature, use the native evaluator with mobile-mcp for interactive UAT on the emulator, and document the Codex stop gate as an opt-in for critical auth features. Set up 3-tier verdicts, timestamped reports, evaluator tuning log. For debugging auth issues, document how to use /codex:rescue to delegate investigation to Codex.",
+      "expected_output": "Should produce full harness with: Codex Plugin integration (adversarial review, stop gate, rescue), mobile-mcp native evaluator, 3-tier verdict, timestamped reports, evaluator tuning log, unified sprint contract. Session-startup should document stop gate opt-in and /codex:rescue for debugging. analysis.json should show codex_plugin=true, platform=mobile, stop_gate documented. AGENTS.md and GEMINI.md generated.",
+      "files": [
+        "fixtures/android-app/features/user-auth/tasks.md",
+        "fixtures/android-app/features/user-auth/plan.md",
+        "fixtures/android-app/build.gradle.kts",
+        "fixtures/android-app/CLAUDE.md"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": "features/user-auth/.harness/feature-list.json"},
+        {"text": "eval-criteria.md uses 3-tier verdict (REVISE)", "type": "file_contains", "path": "features/user-auth/.harness/eval-criteria.md", "pattern": "REVISE"},
+        {"text": "evaluator-prompt.md mentions mobile-mcp", "type": "file_contains", "path": "features/user-auth/.harness/evaluator-prompt.md", "pattern": "mobile.mcp|emulator|mobile_"},
+        {"text": "evaluator-prompt.md includes skepticism", "type": "file_contains", "path": "features/user-auth/.harness/evaluator-prompt.md", "pattern": "[Ss]keptic"},
+        {"text": "evaluation-report-template.md has timestamped pattern", "type": "file_contains", "path": "features/user-auth/.harness/evaluation-report-template.md", "pattern": "eval-reports|timestamp|YYYY"},
+        {"text": "evaluator-tuning-log.md exists", "type": "file_exists", "path": "features/user-auth/.harness/evaluator-tuning-log.md"},
+        {"text": "sprint-contract.md has verification table", "type": "file_contains", "path": "features/user-auth/.harness/sprint-contract.md", "pattern": "[Hh]ow to [Vv]erify|[Vv]erification"},
+        {"text": "session-startup mentions adversarial review or /codex:", "type": "file_contains", "path": "features/user-auth/.harness/session-startup.md", "pattern": "adversarial|/codex:|codex.plugin"},
+        {"text": "session-startup mentions stop gate opt-in", "type": "file_contains", "path": "features/user-auth/.harness/session-startup.md", "pattern": "stop.gate|review.gate|enable-review-gate"},
+        {"text": "session-startup or eval-criteria mentions /codex:rescue for debugging", "type": "file_contains_any", "paths": ["features/user-auth/.harness/session-startup.md", "features/user-auth/.harness/eval-criteria.md", "CLAUDE.md"], "pattern": "rescue|/codex:rescue"},
+        {"text": "analysis.json records codex_plugin", "type": "file_contains", "path": "features/user-auth/.harness/analysis.json", "pattern": "codex_plugin|codex.plugin"},
+        {"text": "analysis.json records mobile platform", "type": "file_contains", "path": "features/user-auth/.harness/analysis.json", "pattern": "mobile"},
+        {"text": "AGENTS.md generated", "type": "file_exists", "path": "AGENTS.md"},
+        {"text": "GEMINI.md generated", "type": "file_exists", "path": "GEMINI.md"},
+        {"text": "evaluator prompt has Android/Compose specific content", "type": "file_contains", "path": "features/user-auth/.harness/evaluator-prompt.md", "pattern": "[Aa]ndroid|[Cc]ompose|[Kk]otlin|[Mm]aterial"}
+      ]
+    }
+  ]
+}

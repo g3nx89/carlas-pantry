@@ -178,7 +178,7 @@ Based on quality bar preference:
 
 ---
 
-## 2c. Evaluation Criteria
+## 2c. Evaluation Criteria & Evaluation Loop
 
 ### Why Separate Evaluation Matters
 
@@ -187,6 +187,20 @@ human observer, the quality is obviously mediocre." The fix is to define concret
 BEFORE building, shared with both the generator (the coding agent) and the evaluator
 (a separate session that reviews the work).
 
+### Evaluation Modes
+
+The harness supports two evaluation modes. Choose based on the user's quality bar and
+available tools:
+
+| Mode | What It Does | When to Use |
+|------|-------------|-------------|
+| **Code Review** | Evaluator reads code, runs tests, grades against criteria | Always available; minimum evaluation |
+| **Evaluation Loop (UAT)** | Evaluator interacts with the RUNNING app as a user would | When app has UI + interaction tools available |
+
+Code Review is always configured. The Evaluation Loop is opt-in — enable it when the
+project has a runnable UI and appropriate MCP tools (Playwright for web, mobile-mcp for
+mobile). Read `evaluation-loop.md` for full details on the evaluation loop.
+
 ### Defining Quality Dimensions
 
 Choose 3-5 dimensions relevant to the project domain. Each dimension needs:
@@ -194,6 +208,8 @@ Choose 3-5 dimensions relevant to the project domain. Each dimension needs:
 - What it measures (1 sentence)
 - Scoring rubric (1-5 scale with brief description per level)
 - Threshold: minimum passing score (blocking) or advisory
+- **Hard threshold rule**: if ANY single blocking dimension scores below its threshold,
+  the sprint verdict is FAIL. No averaging across dimensions — one critical failure blocks.
 
 **Domain-specific dimension suggestions:**
 
@@ -227,27 +243,92 @@ Choose 3-5 dimensions relevant to the project domain. Each dimension needs:
 
 {repeat for each dimension}
 
-## Evaluator Prompt
+## Hard Threshold Rule
 
-Use this prompt to start a fresh Claude session for evaluation:
+If ANY blocking dimension scores below its minimum, verdict is FAIL — regardless of other
+scores. This prevents the evaluator from averaging away real problems.
 
-> You are evaluating the implementation of {feature_name}. Your job is to grade the work
-> against the criteria below — not to fix or improve anything. Be skeptical: assume the
-> builder thinks everything is fine, and your job is to verify that claim.
->
-> 1. Read `{feature_dir}/.harness/feature-list.json` and check each feature's `passes` claim
-> 2. For each feature marked `passes: true`, verify it actually works
-> 3. Score each dimension below from 1-5 with evidence
-> 4. Any blocking dimension below threshold = FAIL with specific issues
->
-> {paste dimensions here}
+## Verdict Rules
+
+- **PASS** — All blocking dimensions ≥ threshold, weighted score ≥ 80%
+- **REVISE** — All blocking dimensions ≥ threshold, but weighted score 65-79% or advisory issues
+- **FAIL** — Any single blocking dimension below threshold
+
+## Dimension Weights (optional)
+
+Assign percentage weights to dimensions. If omitted, all blocking dimensions are equally weighted.
+
+| Dimension | Weight | Blocking |
+|-----------|--------|----------|
+| {name} | {N}% | yes/no |
+| ... | ... | ... |
+| **Total** | **100%** | |
 ```
+
+### Evaluator Prompt
+
+For the full evaluator session prompt template, see `evaluation-loop.md` Section 4a. That
+template includes critical rules, tool inventory, calibration examples, and output format.
+Do not write the evaluator prompt from scratch — use the template and fill in project-specific
+details.
 
 ### Few-Shot Calibration
 
+Include 2-3 grading examples in the evaluator prompt to calibrate rigor. Without these,
+evaluators tend to be lenient — finding real issues but talking themselves into approving.
+
+**Example calibration entry:**
+```markdown
+## Calibration Example — Score: 2 (FAIL)
+Criterion: "User can create a project and see it in the list"
+Evidence: Form works, but list doesn't refresh after creation. User must reload manually.
+Why not 3: Auto-refresh is part of the criterion, not a nice-to-have.
+```
+
 If the codebase has existing code that represents "good" quality, reference specific files
-or patterns in the evaluation criteria so the evaluator has concrete examples to calibrate
-against, rather than relying solely on abstract descriptions.
+or patterns so the evaluator has concrete examples, rather than relying solely on abstract
+descriptions.
+
+### Evaluator Tuning
+
+After the first evaluation round, the user should review the evaluator's scores:
+1. Read `.harness/eval-reports/` for the latest report
+2. Flag any scores that seem too lenient or too strict
+3. Record observations in `.harness/evaluator-tuning-log.md`
+4. Update the evaluator prompt's calibration examples to correct drift
+
+Template for `evaluator-tuning-log.md`:
+
+    # Evaluator Tuning Log
+
+    ## Round {N} — {date}
+    **Observation:** {what the evaluator scored vs what you expected}
+    **Adjustment:** {how the evaluator prompt was updated}
+    **Rationale:** {why this calibration matters}
+
+This is an iterative process — expect 2-3 rounds of tuning over the project lifetime.
+Calibration drift is normal as the codebase evolves.
+
+### Evaluation Loop Configuration
+
+When the user wants interactive UAT evaluation (not just code review), read
+`$CLAUDE_PLUGIN_ROOT/skills/harness/references/evaluation-loop.md` and configure:
+
+1. **Sprint contract template** — Coder and evaluator agree on testable "done" criteria
+   before coding starts. Prevents scope drift and gives the evaluator concrete items to test.
+
+2. **Evaluator session prompt** — A calibrated prompt for a SEPARATE Claude session that
+   tests the running app. Includes platform-specific tools, launch instructions, criteria,
+   and few-shot calibration examples.
+
+3. **App launch script** — `.claude/scripts/launch-app.sh` that starts the dev server and
+   waits for readiness. The evaluator runs this before testing.
+
+4. **Feedback re-ingestion** — The evaluator writes `.harness/evaluation-report.md`; the
+   coder reads it next session and addresses issues before new work.
+
+If external CLI agents are available (Codex, Gemini), also configure UAT dispatch scripts.
+Read `cli-agents.md` Section 3 for UAT-specific dispatch patterns.
 
 ---
 
@@ -283,21 +364,40 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
 
 ### Session Startup Checklist
 
-```markdown
-# Session Startup — {feature_name}
+    # Session Startup — {feature_name}
 
-When beginning a new coding session, follow these steps in order:
+    When beginning a new coding session, follow these steps in order:
 
-1. **Orient**: Read this file and `progress.md` to understand current state
-2. **Check git**: Run `git log --oneline -10` and `git status` for recent history
-3. **Read feature list**: Open `.harness/feature-list.json`, find first `passes: false`
-4. **Verify baseline**: Run `{build_command}` and `{test_command}` to confirm clean state
-5. **Sprint contract**: Before coding, write a brief contract in progress.md:
-   - Which feature(s) you'll work on this session
-   - What "done" looks like (tests to write, behavior to verify)
-6. **Work**: Implement one feature at a time. Test each before moving to the next.
-7. **Wrap up**: Update `progress.md`, update `feature-list.json` passes, commit work.
-```
+    1. **Orient**: Read this file and `progress.md` to understand current state
+    2. **Check git**: Run `git log --oneline -10` and `git status` for recent history
+    3. **Read feature list**: Open `.harness/feature-list.json`, find first `passes: false`
+    4. **Verify baseline**: Run `{build_command}` and `{test_command}` to confirm clean state
+
+    ## If evaluation loop is enabled:
+    4b. **Check evaluation reports**: Read the latest file in `.harness/eval-reports/`:
+        - If FAIL: address ALL critical issues before starting new work
+        - If REVISE: address critical issues, note advisory issues for later
+        - If PASS: proceed to next feature
+        - Check score trend: if scores flat/declined for 2+ rounds, consider pivoting
+
+    ## If external CLI agents are configured:
+    4c. **Check CLI reviews**: Read `.harness/cli-evaluation.md` and `.harness/last-review.md`
+        if they exist. Address any CRITICAL findings before new work.
+
+    5. **Sprint contract**: Before coding, write a sprint contract:
+       - Which feature(s) you'll work on this session
+       - Concrete acceptance verification criteria (see sprint contract template)
+    6. **Work**: Implement one feature at a time. Test each before moving to the next.
+    7. **Wrap up**: Update `progress.md`, update `feature-list.json` passes, commit work.
+
+    ## If evaluation loop is enabled:
+    8. **Trigger evaluation**: After committing, start a fresh evaluator session using
+       `.harness/evaluator-prompt.md`. The evaluator tests the running app and writes
+       a report to `.harness/eval-reports/`.
+
+    ## If external CLI agents are configured:
+    9. **External review**: Run `.claude/scripts/external-review.sh` and/or
+       `.claude/scripts/uat-dispatch.sh` for independent evaluation.
 
 ---
 
@@ -339,22 +439,45 @@ Check these locations for commands (in order):
 
 ### Sprint Contract Template
 
-```markdown
-# Sprint Contract — {date}
+The sprint contract is an agreement between coder and evaluator on what "done" looks like.
+It prevents scope drift and gives the evaluator concrete, testable criteria.
 
-## Scope
-Feature(s) to implement this session:
-- {feature_id}: {description}
+**Critical:** Fill ALL placeholders with project-specific content. Do NOT emit template
+instructions, examples, or "How to Use" sections in the output file.
 
-## Definition of Done
-- [ ] All acceptance criteria from feature-list.json are met
-- [ ] Tests written and passing
-- [ ] Build succeeds
-- [ ] Code committed with descriptive message
+    # Sprint Contract — {date}
 
-## Out of Scope
-{anything explicitly NOT being done this session — prevents scope creep}
-```
+    ## Scope
+    Feature(s) from feature-list.json:
+    - {feature_id}: {description}
+
+    ## Acceptance Verification
+
+    | # | Criterion | How to Verify | Tool |
+    |---|-----------|--------------|------|
+    | 1 | {concrete, testable behavior} | {specific test action} | {Playwright/mobile-mcp/curl} |
+    | 2 | {error state or edge case} | {how to trigger and verify} | {tool} |
+    | ... | ... | ... | ... |
+
+    ## Definition of Done
+    - [ ] All acceptance criteria verified (table above)
+    - [ ] Tests written and passing
+    - [ ] Build succeeds
+    - [ ] Code committed with descriptive message
+    - [ ] {If eval loop: evaluation report verdict is PASS or REVISE}
+    - [ ] {If human review: PR submitted for review}
+
+    ## Out of Scope
+    {explicitly excluded items — prevents scope creep}
+
+    ## Review Plan
+    - Evaluation method: {native evaluator / CLI review / both}
+    - Review scope: {changed files / --uncommitted / --base main}
+
+**Negotiation protocol:** Before each sprint, the coder writes this contract. If evaluation
+loop is enabled, the evaluator reviews it (max 2 rounds). On disagreement after 2 rounds,
+the evaluator's version wins (bias toward rigor). See `evaluation-loop.md` Section 3 for
+the full negotiation protocol.
 
 ### Iteration Pattern
 
@@ -375,3 +498,18 @@ Over many sessions, the codebase will drift. Recommend periodic cleanup:
 - **Every 5 features**: Review and update ARCHITECTURE.md if design evolved
 - **Every 10 features**: Run full lint + test suite, fix any accumulated warnings
 - **End of plan**: Final review session with evaluation criteria, update docs
+
+---
+
+## Project-Specific Adaptation
+
+The templates above are starting points. When generating harness artifacts, adapt them
+to the specific project:
+- Replace generic dimension names with domain-specific ones
+- Fill sprint contract criteria with concrete behaviors from the plan
+- Add project-specific pitfalls and conventions discovered during Stage 1 analysis
+- Research the project's framework for idiomatic testing patterns
+- If the project has existing quality standards (lint configs, coverage thresholds,
+  accessibility requirements), encode them in the eval criteria
+
+The harness should feel custom-built for the project, not a template with swapped names.
