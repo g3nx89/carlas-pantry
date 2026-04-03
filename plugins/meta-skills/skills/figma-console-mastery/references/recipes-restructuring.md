@@ -4,7 +4,7 @@
 >
 > **Prerequisites**: Load `recipes-foundation.md` first — restructuring recipes assume familiarity with the IIFE wrapper, font preloading, and node reference patterns.
 >
-> For Plugin API details, see `plugin-api.md`. For design rules and M3 specs, see `design-rules.md`. For common errors, see `anti-patterns.md`.
+> For Plugin API details, see `plugin-api-foundation.md` (see also `plugin-api-visuals.md`, `plugin-api-advanced.md`). For design rules and M3 specs, see `design-rules.md`. For common errors, see `anti-patterns.md`.
 > For component recipes, see `recipes-components.md`. For composition and advanced patterns, see `recipes-advanced.md`.
 
 ## Recipe Index
@@ -468,7 +468,7 @@ Additional per-type fields: INSTANCE → `mainComponentKey`, `componentPropertie
 
 **Returns**: `{ success: true, direction: "VERTICAL", spacing: 12, padding: { ... } }`
 
-**Next**: Screenshot to validate. Adjust sizing modes for children — see `layoutSizingHorizontal`/`layoutSizingVertical` in `plugin-api.md`.
+**Next**: Screenshot to validate. Adjust sizing modes for children — see `layoutSizingHorizontal`/`layoutSizingVertical` in `plugin-api-foundation.md`.
 
 ### Recipe: Reparent Children into New Container
 

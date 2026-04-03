@@ -1,0 +1,12 @@
+{
+  "eval_name": "multi-team-coordination",
+  "variant": "with_skill",
+  "expectations": [
+    {"text": "Recommends --label flag for multi-swarm on same project", "passed": true, "evidence": "Uses ntm spawn --label backend / --label frontend as primary approach"},
+    {"text": "Includes ntm mail reserve with glob patterns for file paths", "passed": true, "evidence": "Detailed glob patterns for Go (internal/**/*.go) and React (src/**/*.tsx) files"},
+    {"text": "Mentions ntm hooks guard install for pre-commit protection", "passed": true, "evidence": "Explicit step for installing pre-commit guard"},
+    {"text": "Provides concrete spawn command with correct agent counts", "passed": true, "evidence": "Backend 2-3 agents + Frontend 2 agents = 5 total as requested"},
+    {"text": "Does NOT suggest creating separate session names as primary approach", "passed": true, "evidence": "Labels are the primary mechanism, not separate session names"}
+  ],
+  "pass_rate": 1.0
+}

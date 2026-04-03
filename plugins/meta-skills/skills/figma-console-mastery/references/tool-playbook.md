@@ -2,7 +2,7 @@
 
 > **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 
-This reference covers tool selection decisions across the full 61 tool surface area. For Plugin API code patterns used inside `figma_execute`, see `plugin-api.md`. For error recovery procedures, see `anti-patterns.md`.
+This reference covers tool selection decisions across the full 61 tool surface area. For Plugin API code patterns used inside `figma_execute`, see `plugin-api-foundation.md` (see also `plugin-api-visuals.md`, `plugin-api-advanced.md`). For error recovery procedures, see `anti-patterns.md`.
 
 ---
 
@@ -292,7 +292,7 @@ try {
 - No documented hard timeout, but excessively large operations should be split into multiple calls
 - Library variable IDs require `getVariableByIdAsync()` for resolution
 
-> For complete Plugin API property reference and code patterns, see `plugin-api.md`.
+> For complete Plugin API property reference and code patterns, see `plugin-api-foundation.md` (see also `plugin-api-visuals.md`, `plugin-api-advanced.md`).
 
 ---
 

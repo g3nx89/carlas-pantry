@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "ci-cd-integration",
+  "prompt": "devo integrare ntm nella mia pipeline CI per fare code review automatiche con 2 agenti Claude prima di ogni merge, voglio output JSON parsabile. Come lo imposto?",
+  "assertions": [
+    {"text": "Uses --robot-spawn and --robot-send (not ntm spawn/send)", "type": "content"},
+    {"text": "Includes --robot-ack with timeout for completion detection", "type": "content"},
+    {"text": "Shows --json flag for parseable output", "type": "content"},
+    {"text": "Includes session cleanup (ntm kill) at the end", "type": "content"},
+    {"text": "Does NOT recommend ntm serve for this CI use case", "type": "absence"}
+  ]
+}

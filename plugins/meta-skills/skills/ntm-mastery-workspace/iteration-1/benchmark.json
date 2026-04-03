@@ -1,0 +1,92 @@
+{
+  "skill_name": "ntm-mastery",
+  "iteration": 1,
+  "configurations": [
+    {
+      "name": "with_skill (v0.3.0)",
+      "label": "new",
+      "evals": [
+        {
+          "eval_name": "multi-team-coordination",
+          "pass_rate": 1.0,
+          "assertions_passed": 5,
+          "assertions_total": 5,
+          "total_tokens": 44732,
+          "duration_ms": 83444
+        },
+        {
+          "eval_name": "ci-cd-integration",
+          "pass_rate": 1.0,
+          "assertions_passed": 5,
+          "assertions_total": 5,
+          "total_tokens": 46736,
+          "duration_ms": 129977
+        },
+        {
+          "eval_name": "debug-recovery",
+          "pass_rate": 1.0,
+          "assertions_passed": 5,
+          "assertions_total": 5,
+          "total_tokens": 41653,
+          "duration_ms": 77463
+        }
+      ],
+      "aggregate": {
+        "mean_pass_rate": 1.0,
+        "mean_tokens": 44374,
+        "stddev_tokens": 2084,
+        "mean_duration_ms": 96961,
+        "stddev_duration_ms": 23277
+      }
+    },
+    {
+      "name": "old_skill (v0.2.0)",
+      "label": "old",
+      "evals": [
+        {
+          "eval_name": "multi-team-coordination",
+          "pass_rate": 1.0,
+          "assertions_passed": 5,
+          "assertions_total": 5,
+          "total_tokens": 44942,
+          "duration_ms": 74608
+        },
+        {
+          "eval_name": "ci-cd-integration",
+          "pass_rate": 1.0,
+          "assertions_passed": 5,
+          "assertions_total": 5,
+          "total_tokens": 45330,
+          "duration_ms": 133355
+        },
+        {
+          "eval_name": "debug-recovery",
+          "pass_rate": 1.0,
+          "assertions_passed": 5,
+          "assertions_total": 5,
+          "total_tokens": 42926,
+          "duration_ms": 84044
+        }
+      ],
+      "aggregate": {
+        "mean_pass_rate": 1.0,
+        "mean_tokens": 44399,
+        "stddev_tokens": 993,
+        "mean_duration_ms": 97336,
+        "stddev_duration_ms": 26170
+      }
+    }
+  ],
+  "delta": {
+    "pass_rate_delta": 0.0,
+    "tokens_delta_pct": -0.06,
+    "duration_delta_pct": -0.39
+  },
+  "analyst_observations": [
+    "All 15 assertions pass for both skill versions — the assertions are non-discriminating at this level of granularity. Both versions correctly route to the right reference files and produce comprehensive answers.",
+    "Token usage is nearly identical (44374 vs 44399 mean) — the v0.3.0 SKILL.md is slightly shorter (210 vs 258 lines) but reference files are the same, so total context loaded is comparable.",
+    "Duration is comparable (97s vs 97s mean) with high variance driven by CI/CD eval (~130s both) which involves generating a complete bash script.",
+    "The key differences are QUALITATIVE, not quantitative: v0.3.0 produces more structured responses with better section headers, summary tables, and the Common Tasks examples in SKILL.md directly influence response patterns (particularly visible in CI/CD eval where the new skill's response closely mirrors the Common Tasks CI example).",
+    "The v0.2.0 decision tree (ASCII art) and v0.3.0 situation tables both successfully guide to the correct reference files — the routing mechanism change is a readability improvement, not a correctness one."
+  ]
+}

@@ -373,5 +373,7 @@ After each screen's mod-audit-loop completes (pass or max iterations), write a s
 - **convergence-execution.md** — Batch scripting, subagent dispatch templates, session snapshots, compact recovery
 - **recipes-foundation.md** — Required for any figma_execute code
 - **recipes-restructuring.md** — Restructure mode patterns
-- **recipes-components.md** — Component creation patterns
+- **recipes-components.md** — Basic component creation patterns
+- **recipes-components-composite.md** — Composite component patterns (forms, data tables, modals)
+- **recipes-handoff.md** — Handoff patterns (GROUP→FRAME, componentize from clone)
 - **compound-learning.md** — Cross-session learning persistence

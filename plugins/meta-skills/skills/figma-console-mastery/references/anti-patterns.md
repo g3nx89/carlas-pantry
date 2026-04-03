@@ -2,7 +2,7 @@
 
 > **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 
-This reference catalogs the most common failures, anti-patterns, and hard constraints encountered when working with figma-console-mcp. Each entry includes a clear recovery path. For correct patterns, see `plugin-api.md`. For design rules, see `design-rules.md`. For GUI-only recovery steps (plugin setup, cache refresh), see `gui-walkthroughs.md`.
+This reference catalogs the most common failures, anti-patterns, and hard constraints encountered when working with figma-console-mcp. Each entry includes a clear recovery path. For correct patterns, see `plugin-api-foundation.md` (see also `plugin-api-visuals.md`, `plugin-api-advanced.md`). For design rules, see `design-rules.md`. For GUI-only recovery steps (plugin setup, cache refresh), see `gui-walkthroughs.md`.
 
 ---
 
@@ -50,7 +50,7 @@ This reference catalogs the most common failures, anti-patterns, and hard constr
 
 ## The Top 5 figma_execute Failures
 
-Ranked by frequency. These five errors account for the vast majority of `figma_execute` debugging time. All are preventable by following the correct operation order documented in `plugin-api.md`.
+Ranked by frequency. These five errors account for the vast majority of `figma_execute` debugging time. All are preventable by following the correct operation order documented in `plugin-api-foundation.md`.
 
 | # | Error Message | Cause | Solution |
 |---|--------------|-------|---------|
@@ -85,7 +85,7 @@ Full catalog of Plugin API errors encountered during `figma_execute` calls. Most
 | STRETCH + AUTO conflict | `layoutAlign='STRETCH'` with parent `counterAxisSizingMode='AUTO'` | Use `counterAxisSizingMode = 'FIXED'` when any child uses STRETCH |
 | `resize()` no-ops on one dimension | Frame has AUTO sizing on that axis | `resize()` only works on FIXED axes; AUTO dimensions are computed from children |
 | `in set_opacity: Expected number but got string` | Passing wrong type to property setter | Ensure correct types: opacity is 0-1 number, colors are 0-1 `{r,g,b}` |
-| `"object is not extensible"` on GROUP | Setting `constraints` on a GROUP node — GROUPs don't support constraints | Convert GROUP to FRAME first (see `recipes-components.md` GROUP→FRAME recipe), then set constraints on the FRAME |
+| `"object is not extensible"` on GROUP | Setting `constraints` on a GROUP node — GROUPs don't support constraints | Convert GROUP to FRAME first (see `recipes-handoff.md` GROUP→FRAME recipe), then set constraints on the FRAME |
 | `"The node with id X does not exist"` after GROUP child move | Calling `group.remove()` after all children were moved out — GROUP auto-deletes when empty | Never call `group.remove()` after moving children. The GROUP is already gone |
 | `createInstance()` returns undefined or throws on COMPONENT_SET | Calling `createInstance()` on a COMPONENT_SET instead of on a COMPONENT variant child | Get the COMPONENT_SET, find the variant child via `set.children.find(c => c.name.includes("State=Default"))`, call `createInstance()` on the child |
 | Async IIFE return value is `undefined` | `(async () => { return data; })()` without outer `return` — bridge sees the Promise but doesn't await it | Use `return (async () => { ... return data; })()` — the outer `return` is required. Confirmed working as of 2026-02-22 |
@@ -178,7 +178,7 @@ These patterns cause structural or visual failures specific to the Draft-to-Hand
 
 | Anti-Pattern | Problem | Solution |
 |-------------|---------|---------|
-| **Setting constraints on GROUP nodes** | GROUP nodes don't have the `constraints` property — assignment silently fails or throws `"object is not extensible"`. 30-60% of cloned screen children are GROUPs | Convert ALL GROUPs to transparent FRAMEs before setting constraints — see `recipes-components.md` GROUP→FRAME recipe. Run batch conversion on every cloned screen |
+| **Setting constraints on GROUP nodes** | GROUP nodes don't have the `constraints` property — assignment silently fails or throws `"object is not extensible"`. 30-60% of cloned screen children are GROUPs | Convert ALL GROUPs to transparent FRAMEs before setting constraints — see `recipes-handoff.md` GROUP→FRAME recipe. Run batch conversion on every cloned screen |
 | **Calling `group.remove()` after moving children** | After all children are moved out, the GROUP auto-deletes. Explicit `remove()` throws `"node does not exist"`, and code after it in the same try-block is silently skipped (including constraint assignment) | Never call `group.remove()`. The GROUP is already gone when its last child is moved |
 | **Uniform Y-shift for proportional resize** | Shifting all elements by `(newHeight - oldHeight) / 2` breaks proportional relationships between differently-anchored elements | Use per-constraint-type formulas: MIN keeps y, MAX pins to bottom, CENTER keeps proportional center, STRETCH resizes. See `recipes-foundation.md` Proportional Resize Calculator |
 | **Using MAX when STRETCH is needed** | MAX pins the bottom edge only — element shifts but keeps height. STRETCH pins both edges — element resizes. Using MAX for fill-areas leaves gaps | Use STRETCH for elements that fill remaining space (e.g., content area between header and footer). Use MAX for fixed-height elements anchored to bottom |
@@ -233,7 +233,7 @@ These patterns cause slow execution or excessive resource usage, especially on l
 | `figma_get_variables` with `format: "full"` | Full variable dump auto-summarizes above 25K tokens, losing detail | Start with `format: "summary"`, then use `format: "filtered"` with `collection`, `namePattern`, or `mode` parameters for specific data |
 | Full-canvas `figma_take_screenshot` on complex files | Rendering the entire canvas is slow and captures unrelated content | Use `figma_capture_screenshot` with a specific `nodeId` for targeted validation |
 
-> For the correct performance patterns (code examples), see the Performance Optimization section in `plugin-api.md`.
+> For the correct performance patterns (code examples), see the Performance Optimization section in `plugin-api-advanced.md`.
 
 ---
 
@@ -374,4 +374,4 @@ Console MCP itself imposes no artificial rate limits beyond what the Figma API e
 
 ---
 
-> **Cross-references**: For correct operation patterns and code templates, see `plugin-api.md`. For spacing, typography, and layout rules, see `design-rules.md`.
+> **Cross-references**: For correct operation patterns and code templates, see `plugin-api-foundation.md` (see also `plugin-api-visuals.md`, `plugin-api-advanced.md`). For spacing, typography, and layout rules, see `design-rules.md`.

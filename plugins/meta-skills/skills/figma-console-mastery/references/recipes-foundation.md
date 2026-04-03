@@ -2,8 +2,8 @@
 
 > **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
-> For Plugin API details, see `plugin-api.md`. For M3 specs, see `design-rules.md`. For common errors, see `anti-patterns.md`.
-> For component recipes (cards, buttons, forms, tables, etc.), see `recipes-components.md`. For composition and advanced patterns, see `recipes-advanced.md`.
+> For Plugin API details, see `plugin-api-foundation.md` (see also `plugin-api-visuals.md`, `plugin-api-advanced.md`). For M3 specs, see `design-rules.md`. For common errors, see `anti-patterns.md`.
+> For component recipes (cards, buttons, etc.), see `recipes-components.md`. For forms, tables, and modals, see `recipes-components-composite.md`. For composition and advanced patterns, see `recipes-advanced.md`.
 
 ## Recipe Index
 

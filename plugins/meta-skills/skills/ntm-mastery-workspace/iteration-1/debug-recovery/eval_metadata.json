@@ -1,0 +1,12 @@
+{
+  "eval_id": 2,
+  "eval_name": "debug-recovery",
+  "prompt": "un agente si e' stallato durante una sessione lunga, il dashboard mostra STALLED. Come recupero senza perdere il contesto?",
+  "assertions": [
+    {"text": "Suggests ntm health or --robot-tail to diagnose the stall", "type": "content"},
+    {"text": "Recommends checking context usage (--robot-context)", "type": "content"},
+    {"text": "Mentions context rotation as automatic recovery mechanism", "type": "content"},
+    {"text": "Provides recovery steps (interrupt + re-prompt or checkpoint + resume)", "type": "content"},
+    {"text": "Does NOT immediately suggest killing the session", "type": "absence"}
+  ]
+}

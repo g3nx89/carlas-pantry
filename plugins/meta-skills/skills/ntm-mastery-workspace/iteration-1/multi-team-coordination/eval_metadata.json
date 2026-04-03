@@ -1,0 +1,12 @@
+{
+  "eval_id": 0,
+  "eval_name": "multi-team-coordination",
+  "prompt": "ho due team che lavorano sullo stesso repo, uno sul backend Go e uno sul frontend React. Vorrei usare ntm per coordinare 5 agenti totali senza che si pestino i piedi sui file. Come faccio?",
+  "assertions": [
+    {"text": "Recommends --label flag for multi-swarm on same project", "type": "content"},
+    {"text": "Includes ntm mail reserve with glob patterns for file paths", "type": "content"},
+    {"text": "Mentions ntm hooks guard install for pre-commit protection", "type": "content"},
+    {"text": "Provides concrete spawn command with correct agent counts", "type": "content"},
+    {"text": "Does NOT suggest creating separate session names as primary approach", "type": "absence"}
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "eval_name": "debug-recovery",
+  "variant": "with_skill",
+  "expectations": [
+    {"text": "Suggests ntm health or --robot-tail to diagnose the stall", "passed": true, "evidence": "Diagnosis-first approach with --robot-tail, health, --robot-context"},
+    {"text": "Recommends checking context usage (--robot-context)", "passed": true, "evidence": "ntm --robot-context explicitly recommended in diagnosis step"},
+    {"text": "Mentions context rotation as automatic recovery mechanism", "passed": true, "evidence": "Discusses context_rotation config, try_compact_first, threshold tuning"},
+    {"text": "Provides recovery steps (interrupt + re-prompt or checkpoint + resume)", "passed": true, "evidence": "Multiple recovery paths: crash, rate limit, context exhaustion, logical stall"},
+    {"text": "Does NOT immediately suggest killing the session", "passed": true, "evidence": "Kill never suggested; all paths use non-destructive recovery"}
+  ],
+  "pass_rate": 1.0
+}

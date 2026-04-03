@@ -432,6 +432,104 @@ After classification, present summary to user if >3 mismatches.
 
 ---
 
+## 5. Advanced Journal Patterns
+
+### Cross-Screen Operations Journal
+
+For operations that affect multiple screens simultaneously (batch token binding, global naming rules, cross-screen component extraction), use a dedicated cross-screen journal:
+
+```
+specs/figma/journal/_cross-screen.jsonl
+```
+
+**When to use**: Any operation that modifies nodes across 2+ screens in a single batch.
+
+**Entry format**:
+```json
+{"v":1,"ts":"...","op":"cross_screen_batch","target":"screens:ONB-01,ONB-02,ONB-03","detail":{"action":"batch_token_bind","variables_bound":12,"screens_affected":3},"flow":1,"phase":3}
+```
+
+**Rules**:
+- Cross-screen operations are logged to `_cross-screen.jsonl`, NOT to individual screen journals
+- After cross-screen operation completes, append a summary entry to each affected screen's journal: `{"op":"cross_screen_ref","ref":"_cross-screen.jsonl","entry_ts":"..."}`
+- Convergence checks for a screen must read BOTH the screen journal AND `_cross-screen.jsonl` entries referencing that screen
+
+### Journal Compaction
+
+For complex screens with heavy rework, journals can grow large. Compaction prevents context bloat when loading into subagents.
+
+**Trigger**: When a per-screen journal exceeds 100 entries or ~4K tokens, compact before the next subagent load.
+
+**Compaction procedure**:
+1. Read the full journal
+2. Identify completed operation sequences (create -> modify -> modify -> final state)
+3. Collapse sequences into a summary entry: `{ "op": "compacted", "original_count": N, "summary": "Created frame X, applied auto-layout, renamed to Y", "final_state": {...}, "timestamp": "..." }`
+4. Preserve: all `quality_audit` entries (score history), all `error` entries (learning), last entry per unique node ID (crash recovery)
+5. Write compacted journal to `{screen-name}.jsonl` (replace in-place)
+6. Archive original to `{screen-name}.pre-compact.jsonl` (safety net)
+
+**What survives compaction**: latest state of every modified node, all audit results, all errors, session boundary markers.
+**What gets collapsed**: intermediate modification steps for same node, redundant convergence checks, superseded retry sequences.
+
+### Session Summary Compaction
+
+For long-running projects with many rework sessions, `_session-summary.jsonl` can grow large.
+
+**Trigger**: When `_session-summary.jsonl` exceeds 50 entries.
+
+**Compaction procedure**:
+1. Read all entries
+2. Keep: latest `session_start` entry, all `mode_selection` entries (needed for history), latest `session_end` per session
+3. Collapse intermediate entries (screen dispatches, status checks) into a per-session summary: `{"op":"session_compacted","original_count":N,"sessions_preserved":M,"timestamp":"..."}`
+4. Write compacted file in-place
+5. Archive original to `_session-summary.pre-compact.jsonl`
+
+**What survives**: Session boundaries, mode selections, final outcomes
+**What gets collapsed**: Intermediate dispatch entries, status checks, redundant session metadata
+
+---
+
+## 6. Advanced Convergence Patterns
+
+### Extended Convergence Rules (C4–C9)
+
+| # | Rule | Rationale |
+|---|------|-----------|
+| C4 | **Node ID is the primary key** — convergence checks match on node ID + operation type, not node name (names can be ambiguous) | Prevents false negatives from renamed nodes |
+| C5 | **Phase boundaries are logged** — `phase_complete` entries allow skipping entire phases on resume | Prevents re-executing completed phases |
+| C6 | **Treat journal as append-only truth** — if the journal says X was done, do not redo X even if it appears to need redoing | Breaks the regression loop |
+| C7 | **When in doubt, verify via Figma** — if a journal entry seems stale or wrong, use `figma_execute` to read node properties (`getNodeByIdAsync`, `findOne`, `children.map(c => ({id,name,type}))`) to check the actual Figma state, then decide whether to proceed or add a correction entry | Safety valve for journal integrity |
+| C8 | **Consult Session Index before MCP discovery calls** — when resolving a screen/frame by name, `Grep` the Session Index (`specs/figma/session-index.jsonl`) before calling `figma_get_file_for_plugin` or `figma_execute` discovery scripts. See `session-index-protocol.md` | Eliminates redundant MCP roundtrips; lookup cost is ~0 (local Grep) vs ~2-5s (MCP call) |
+| C9 | **Validate Session Index at phase boundaries** — before trusting index after a phase transition, compact recovery, or >5-min gap, check freshness via `figma_get_design_changes(since=last_validated)`. Rebuild if changes affect depth-1 nodes | Prevents stale ID references from external Figma edits or mutations by other subagents |
+
+### Quick Convergence Patterns
+
+**Pattern: Resume after compact**
+```
+1. Read operation-journal.jsonl → build completed set
+2. Read session-state.json → identify current phase + last checkpoint
+3. Determine remaining operations for current phase
+4. Continue from first uncompleted operation
+```
+
+**Pattern: Re-entering a screen already partially processed**
+```
+1. Grep journal for screen node ID → list all operations on this screen
+2. Check which sub-operations are done (rename, set_layout, replace_instances, etc.)
+3. Execute only missing sub-operations
+4. Log each as completed
+```
+
+**Pattern: Batch operation with partial completion**
+```
+1. Grep journal for batch operation on target set
+2. If batch_rename logged with count=12 and 12 renames are needed → skip
+3. If batch_rename logged with count=8 and 12 are needed → rename only the 4 missing nodes
+4. Log the completion of remaining operations
+```
+
+---
+
 ## Cross-References
 
 - **Core journal format and convergence rules**: `convergence-protocol.md` (Tier 1 companion)

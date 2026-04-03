@@ -1,0 +1,12 @@
+{
+  "eval_name": "ci-cd-integration",
+  "variant": "with_skill",
+  "expectations": [
+    {"text": "Uses --robot-spawn and --robot-send (not ntm spawn/send)", "passed": true, "evidence": "--robot-spawn and --robot-send used throughout the script"},
+    {"text": "Includes --robot-ack with timeout for completion detection", "passed": true, "evidence": "--robot-ack with configurable timeout_seconds"},
+    {"text": "Shows --json flag for parseable output", "passed": true, "evidence": "--json flag used on --robot-tail and other collection commands"},
+    {"text": "Includes session cleanup (ntm kill) at the end", "passed": true, "evidence": "trap cleanup EXIT with ntm kill -f"},
+    {"text": "Does NOT recommend ntm serve for this CI use case", "passed": true, "evidence": "Explicitly recommends robot mode over serve for CI/CD"}
+  ],
+  "pass_rate": 1.0
+}

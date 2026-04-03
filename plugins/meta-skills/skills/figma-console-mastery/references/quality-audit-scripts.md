@@ -937,7 +937,7 @@ return (async () => {
 - **quality-dimensions.md** — 11 dimension rubrics, composite scoring formula, depth tier definitions, contradiction resolutions
 - **quality-procedures.md** — Spot/Standard/Deep audit execution procedures, fix cycles, Handoff Audit Template that references these scripts, Deep judge templates
 - **Convergence Protocol** (journal schema for audit results): `convergence-protocol.md`
-- **Plugin API** (figma_execute patterns): `plugin-api.md`
+- **Plugin API** (figma_execute patterns): `plugin-api-foundation.md`, `plugin-api-visuals.md`, `plugin-api-advanced.md`
 - **Design Rules** (MUST/SHOULD/AVOID — context for interpreting script findings): `design-rules.md`
 
 ---

@@ -1,7 +1,7 @@
 ---
 name: figma-console-mastery
-version: 1.3.0
-description: This skill should be used when the user asks to "create a Figma design", "use figma_execute", "design in Figma", "create Figma components", "set up design tokens in Figma", "build a UI in Figma", "use figma-console MCP", "automate Figma design", "create variables in Figma", "instantiate Figma component", "import library components", or when developing skills/commands that use the figma-console MCP server.
+version: 1.4.0
+description: This skill is the advanced technique library and full protocol reference for figma-console MCP (Southleft, 61 tools). Use when developing skills or commands that integrate figma-console, when the user explicitly asks for "the full figma protocol" or "figma-console-mastery", or when a task requires convergence protocol, compound learning, Sequential Thinking integration, or the complete 28-file reference library. For common tasks, prefer the focused skills: figma-execute (creation/manipulation), figma-restructure (structural cleanup), figma-qa (quality audits). Do NOT trigger for "create a design" (use figma-execute), "restructure" or "clean up" (use figma-restructure), "audit" or "quality check" (use figma-qa), "handoff to developers" (use design-handoff skill), FigJam diagrams, Figma REST API setup, or when the user mentions figma-desktop MCP or Official Figma MCP.
 ---
 
 # Figma Console Mastery
@@ -19,8 +19,8 @@ description: This skill should be used when the user asks to "create a Figma des
 2. **Discover before creating** — check existing components/tokens before building from scratch
 3. **Converge, never regress** — log every operation to per-screen journal; never redo completed work (`convergence-protocol.md`)
 4. **Validate visually** — 11-dimension quality audit with tiered depth Spot/Standard/Deep (`quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`)
-5. **Subagent-first (Sonnet)** — all Figma modifications and audits delegated to Sonnet subagents; main context orchestrates only
-6. **Ask user when in doubt** — every `AskUserQuestion` includes "Let's discuss this" option
+5. **Subagent-first** — all Figma modifications and audits delegated to subagents; main context orchestrates only
+6. **Ask user when in doubt** — see P3 below
 7. **GROUP→FRAME before constraints** — GROUPs don't support `constraints`; assignment silently fails
 
 ## Prerequisites
@@ -33,6 +33,8 @@ description: This skill should be used when the user asks to "create a Figma des
 
 **Gate check**: Call `figma_get_status` before any operation. If `"not connected"`, load `references/gui-walkthroughs.md`.
 
+**Subagent model**: All Figma subagents use `sonnet` unless overridden. To change, set a different model in subagent dispatch.
+
 ## Quick Start
 
 **Check & navigate**: `figma_get_status` (always first) → `figma_list_open_files` → `figma_navigate`
@@ -43,19 +45,37 @@ description: This skill should be used when the user asks to "create a Figma des
 
 **External library import**: Team Library → `figma_execute` with `importComponentByKeyAsync(key)` / `importComponentSetByKeyAsync(key)` | UI Kit (M3, iOS) → Clone Pattern via `getMainComponentAsync()` → `createInstance()` (see `recipes-advanced.md` § External Library Import)
 
-**Create elements**: `figma_execute` with async IIFE + outer `return` (see `recipes-foundation.md`)
+**Create elements**: `figma_execute` with async IIFE + outer `return` (see `recipes-foundation.md`):
+```javascript
+// Minimal figma_execute pattern (outer return required):
+return (async () => {
+  const frame = figma.createFrame();
+  frame.name = "MyFrame";
+  return JSON.stringify({ id: frame.id, name: frame.name });
+})()
+```
 
 **Variables**: `figma_setup_design_tokens` (atomic) | `figma_batch_create_variables` (up to 100) | `figma_batch_update_variables` (up to 100)
 
-**Validate**: `figma_capture_screenshot` (live, post-mutation) | `figma_take_screenshot` (REST API, saved designs)
+**Validate**: `figma_capture_screenshot` | `figma_take_screenshot` (see Essential Rules MUST #5 for distinction)
 
 ## Cross-Cutting Principles
 
 **P1: figma-console Only** — This skill uses ONLY figma-console MCP. No Official Figma MCP, figma-desktop MCP, or figma-use MCP.
 
-**P2: Subagent-First (Sonnet)** — Main context dispatches subagents for all Figma work; never executes `figma_execute` or quality audits inline. Exception: lightweight read-only operations in Phase 1 (Preflight).
+**P2: Subagent-First** — Main context dispatches subagents for all Figma work; never executes `figma_execute` or quality audits inline. Exception: lightweight read-only operations in Phase 1 (Preflight).
 
 **P3: Explicit User Interaction** — Every `AskUserQuestion` MUST include "Let's discuss this" option. Never force users into constrained choices.
+
+## Simple Task Fast Path
+
+For single-element tasks (one component, one variable, one screenshot) with no multi-screen context:
+- Skip Phase 2 (Socratic Protocol) and convergence journaling
+- Load only Tier 1 references
+- Execute directly via subagent with approved checklist = user's request
+- Run Spot audit only (skip Standard/Deep)
+
+**Trigger**: Task involves ≤2 Figma operations AND no cross-screen dependencies.
 
 ## Flow 1 — Design Session
 
@@ -72,8 +92,10 @@ Unified flow for design creation, restructuring, targeted fixes, and audits. **F
 
 **Ambiguous intent?** If user intent maps to multiple modes (e.g., "fix the colors" could be Audit or Restructure), ask the user to clarify scope: "Should I apply targeted fixes to specific elements (Audit), or systematically restructure the screen (Restructure)?" Always include "Let's discuss this" option.
 
+**No verbal description?** If user provides only a Figma URL/file with no instruction, run Phase 1 Preflight to inspect the file, then ask: "I see [description of file contents]. Would you like me to: (a) Create new screens, (b) Restructure existing designs, (c) Audit quality, or (d) Let's discuss this."
+
 ### Phase 1 — Preflight & Discovery (inline)
-Shared: `figma_get_status` → `figma_list_open_files` → `figma_navigate` → build/validate Session Index → load learnings → `figma_get_design_system_kit` (preferred, or `figma_get_design_system_summary` + `figma_get_variables` for lighter context). Mode-specific additions via subagent (Sonnet). See `flow-procedures.md` §1.1.
+Shared: `figma_get_status` → `figma_list_open_files` → `figma_navigate` → build/validate Session Index → load learnings → `figma_get_design_system_kit` (preferred, or `figma_get_design_system_summary` + `figma_get_variables` for lighter context). Mode-specific additions via subagent. See `flow-procedures.md` §1.1.
 
 ### Phase 2 — Analysis & Planning (Create/Restructure only)
 Expanded Socratic Protocol with 11 categories (Cat. 0-10). **Question templates**: `references/socratic-protocol.md`. **Procedures**: `flow-procedures.md` §1.2. Do NOT proceed to Phase 3 until user approves checklist.
@@ -90,10 +112,10 @@ Quality assurance for code handoff readiness. Does NOT generate manifest. **Full
 
 | Phase | Focus | Who |
 |-------|-------|-----|
-| 1 — Screen Inventory | Baseline screenshots, screen catalog | Sonnet subagent |
-| 2 — Quality Audit | 11-dimension Standard per screen | Sonnet subagent |
-| 3 — Mod-Audit-Loop | Fix → re-audit → loop (max 3/screen) | Sonnet subagents |
-| 4 — Handoff Readiness | Naming rules, token alignment, health check | Sonnet + user |
+| 1 — Screen Inventory | Baseline screenshots, screen catalog | subagent |
+| 2 — Quality Audit | 11-dimension Standard per screen | subagent |
+| 3 — Mod-Audit-Loop | Fix → re-audit → loop (max 3/screen) | subagents |
+| 4 — Handoff Readiness | Naming rules, token alignment, health check | subagent + user |
 
 ## Decision Matrix
 
@@ -134,7 +156,7 @@ Evaluate G0→G0b→G0c→G0d→G1a→G1b→G2→G3→G4 in order. **Full decisi
 
 ## Selective Reference Loading
 
-**Reference map**: `references/README.md` lists all 24 reference files with sizes, triggers, and cross-references.
+**Reference map**: `references/README.md` lists all 28 reference files with sizes, triggers, and cross-references.
 
 ### Tier 1 — Always Load
 
@@ -142,7 +164,8 @@ Evaluate G0→G0b→G0c→G0d→G1a→G1b→G2→G3→G4 in order. **Full decisi
 # Foundation patterns — ALWAYS load when writing figma_execute code
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-foundation.md
 
-# Convergence protocol — per-screen journal, anti-regression rules
+# Convergence protocol — per-screen journal, anti-regression rules (C1-C3)
+# Note: ~145L after v1.4.0 slim; advanced patterns (C4-C9, compaction) in convergence-execution.md
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-protocol.md
 ```
 
@@ -155,14 +178,26 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/convergence-ex
 # Tool selection — which of the 61 tools to call and when
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/tool-playbook.md
 
-# Plugin API reference — writing figma_execute code
-Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api.md
+# Plugin API — foundation (operation order, node creation, auto-layout, CSS Grid)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api-foundation.md
+
+# Plugin API — visuals (text, colors, effects, images, cross-page)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api-visuals.md
+
+# Plugin API — advanced (components, prototypes, variables, performance)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/plugin-api-advanced.md
 
 # Design rules — MUST/SHOULD/AVOID, dimensions, typography, M3 specs
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/design-rules.md
 
-# Component recipes — cards, buttons, inputs, toast, navbar, sidebar, form, data table, modal
+# Component recipes — basic (card, button, input, toast, navbar, sidebar)
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-components.md
+
+# Component recipes — composite (form, data table, empty state, modal, dashboard, variants)
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-components-composite.md
+
+# Handoff patterns — GROUP→FRAME, componentize from clone, variant instantiation
+Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-handoff.md
 
 # Restructuring patterns — analysis, auto-layout conversion, componentization, naming
 Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/recipes-restructuring.md
@@ -230,7 +265,7 @@ Read: $CLAUDE_PLUGIN_ROOT/skills/figma-console-mastery/references/field-learning
 | `figma_execute` returns empty/error | Wrap in async IIFE with outer `return` |
 | Font loading error | `figma.loadFontAsync({family, style})` before `.characters` |
 | Layout properties silently ignored | Set `layoutMode` BEFORE padding/spacing |
-| Screenshot shows stale content | Use `figma_capture_screenshot` (see Essential Rules MUST #5) |
+| Screenshot shows stale content | See Essential Rules MUST #5 |
 | Node IDs lost after compaction | Re-read per-screen journal + `session-state.json` |
 
 **Full troubleshooting index (34 entries)**: `references/anti-patterns.md` § Quick Troubleshooting Index

@@ -2,11 +2,11 @@
 
 > **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
-> **Scope**: Effective strategies, workflows, and patterns empirically discovered during production Figma sessions. These are NOT API errors (see `anti-patterns.md`) or API reference (see `plugin-api.md`) — they are hard-won "how to do it right" patterns from building real screens.
+> **Scope**: Effective strategies, workflows, and patterns empirically discovered during production Figma sessions. These are NOT API errors (see `anti-patterns.md`) or API reference (see `plugin-api-foundation.md`) — they are hard-won "how to do it right" patterns from building real screens.
 >
 > **Source**: Distilled from `~/.figma-console-mastery/learnings.md` cross-session knowledge base.
 >
-> **Graduation policy**: Patterns that stabilize after 2-3 sessions should be promoted to their canonical owner file (`plugin-api.md`, `anti-patterns.md`, `recipes-components.md`, etc.), with this file retaining only a cross-reference. This keeps `field-learnings.md` as a staging area for empirically-discovered patterns, not a permanent parallel reference.
+> **Graduation policy**: Patterns that stabilize after 2-3 sessions should be promoted to their canonical owner file (`plugin-api-foundation.md`, `plugin-api-visuals.md`, `plugin-api-advanced.md`, `anti-patterns.md`, `recipes-components.md`, etc.), with this file retaining only a cross-reference. This keeps `field-learnings.md` as a staging area for empirically-discovered patterns, not a permanent parallel reference.
 
 ---
 
@@ -64,7 +64,7 @@ If `setProperties` silently does nothing, verify the property name matches exact
 
 ### swapComponent In-Place Migration
 
-> See `plugin-api.md` § Component Properties for the full `swapComponent` code pattern (capture x/y/w/h/constraints before, restore after).
+> See `plugin-api-advanced.md` § Component Properties for the full `swapComponent` code pattern (capture x/y/w/h/constraints before, restore after).
 
 **Field insight**: Component properties from the OLD component are gone after swap — set new properties by name or by finding TEXT nodes directly. This is the most common post-swap surprise.
 
@@ -111,7 +111,7 @@ Any 2+ instances of the same component stacked/aligned = **Major** issue if not 
 
 ### SPACE_BETWEEN for 2-Child Rows
 
-> See `plugin-api.md` § Auto-Layout Gotchas for the `SPACE_BETWEEN` property reference.
+> See `plugin-api-foundation.md` § Auto-Layout Gotchas for the `SPACE_BETWEEN` property reference.
 
 **Field insight**: For exactly-2-child HORIZONTAL rows, `SPACE_BETWEEN` eliminates the need for spacers, avoids Check C violations, and avoids hardcoded widths. Does NOT work when uniform `itemSpacing` is needed across 3+ children.
 
@@ -173,7 +173,7 @@ After appending: shift content below by ToggleRow height. Then check if content 
 
 ### textAutoResize + FILL Interaction
 
-> See `anti-patterns.md` § Common Plugin API Errors for the textAutoResize + FILL rule. See `plugin-api.md` § Text Properties for the property reference.
+> See `anti-patterns.md` § Common Plugin API Errors for the textAutoResize + FILL rule. See `plugin-api-visuals.md` § Text Properties for the property reference.
 
 **Field insight**: The competing sizing systems manifest as text that either overflows its container or refuses to grow. The decision tree: `FILL` parent → use `'HEIGHT'`; free-floating → use `'WIDTH_AND_HEIGHT'`.
 
@@ -195,7 +195,7 @@ After appending: shift content below by ToggleRow height. Then check if content 
 
 ### globalThis for Cross-Call Data Persistence
 
-> See `plugin-api.md` § State Tracking for the full `globalThis` pattern with code examples.
+> See `plugin-api-advanced.md` § State Tracking for the full `globalThis` pattern with code examples.
 
 **Field insight**: Use unique key names per operation (e.g., `globalThis.__swapResult`, not `globalThis.__result`) to avoid collisions when multiple workflows run in the same session. This is the most reliable pattern for async → sync data handoff across `figma_execute` calls.
 
@@ -399,7 +399,7 @@ When drawing flow maps with one hub node connecting to multiple sub-screens (fan
 ## Cross-References
 
 - **Anti-patterns** (API errors, common failures): `anti-patterns.md`
-- **Plugin API** (property tables, operation order): `plugin-api.md`
+- **Plugin API** (property tables, operation order): `plugin-api-foundation.md`, `plugin-api-visuals.md`, `plugin-api-advanced.md`
 - **Quality model** (audit templates, scoring, 11 dimensions): `quality-dimensions.md`, `quality-audit-scripts.md`, `quality-procedures.md`
 - **Convergence protocol** (journal, anti-regression): `convergence-protocol.md`
-- **Component recipes** (GROUP->FRAME, component creation): `recipes-components.md`
+- **Component recipes** (basic components): `recipes-components.md`; (composite patterns): `recipes-components-composite.md`; (GROUP->FRAME, componentize from clone): `recipes-handoff.md`

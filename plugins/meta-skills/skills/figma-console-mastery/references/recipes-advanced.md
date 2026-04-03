@@ -2,9 +2,9 @@
 
 > **Compatibility**: Verified against figma-console-mcp v1.11.2 (February 2026)
 >
-> **Prerequisites**: Load `recipes-foundation.md` and `recipes-components.md` first. Foundation provides the IIFE wrapper, font preloading, and node reference patterns. Component recipes provide the sidebar, form, and button patterns reused in composition and full-page recipes below.
+> **Prerequisites**: Load `recipes-foundation.md` and `recipes-components.md` first. Foundation provides the IIFE wrapper, font preloading, and node reference patterns. Component recipes provide the sidebar and button patterns reused in composition and full-page recipes below. For form, data table, and modal patterns, see `recipes-components-composite.md`.
 >
-> For Plugin API details, see `plugin-api.md`. For M3 specs, see `design-rules.md`. For common errors, see `anti-patterns.md`. For M3 component recipes, see `recipes-m3.md`.
+> For Plugin API details, see `plugin-api-foundation.md` (see also `plugin-api-visuals.md`, `plugin-api-advanced.md`). For M3 specs, see `design-rules.md`. For common errors, see `anti-patterns.md`. For M3 component recipes, see `recipes-m3.md`.
 
 ## Recipe Index
 
@@ -344,7 +344,7 @@ figma_set_description(nodeId, "Filled button component. Uses Primary color token
 
 ### Recipe: CSS Grid Card Layout
 
-> Requires: Plugin API Update 115+ (July 2025). See `plugin-api.md` Grid Layout section.
+> Requires: Plugin API Update 115+ (July 2025). See `plugin-api-foundation.md` Grid Layout section.
 
 Creates a 3-column responsive grid with flexible tracks, gaps, and a featured card spanning 2 rows.
 

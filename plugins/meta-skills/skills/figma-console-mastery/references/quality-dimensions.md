@@ -411,9 +411,9 @@ This unified model resolves 10 contradictions between reflection-protocol.md (R0
 - **Compound Learning** (save triggers T1-T6, cross-session persistence): `compound-learning.md`
 - **Anti-patterns** (known errors to distinguish from quality gaps): `anti-patterns.md`
 - **Design Rules** (MUST/SHOULD/AVOID — referenced by all judges): `design-rules.md`
-- **Plugin API** (figma_execute patterns used in audit scripts): `plugin-api.md`
+- **Plugin API** (figma_execute patterns used in audit scripts): `plugin-api-foundation.md`, `plugin-api-visuals.md`, `plugin-api-advanced.md`
 - **Field Learnings** (production strategies): `field-learnings.md`
-- **Component Recipes** (fixes for component issues): `recipes-components.md`
+- **Component Recipes** (fixes for component issues): `recipes-components.md`, `recipes-components-composite.md`, `recipes-handoff.md`
 - **SKILL.md** (Phase 4 protocol, MUST/AVOID rules): `SKILL.md`
 
 ---
