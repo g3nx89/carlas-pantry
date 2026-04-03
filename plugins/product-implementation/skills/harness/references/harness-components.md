@@ -331,11 +331,38 @@ When the user wants interactive UAT evaluation (not just code review), read
 3. **App launch script** — `.claude/scripts/launch-app.sh` that starts the dev server and
    waits for readiness. The evaluator runs this before testing.
 
-4. **Feedback re-ingestion** — The evaluator writes `.harness/evaluation-report.md`; the
-   coder reads it next session and addresses issues before new work.
+4. **Feedback re-ingestion** — The evaluator writes timestamped reports to
+   `.harness/eval-reports/eval-{YYYY-MM-DD-HHmm}.md` (plus a `latest.md` copy); the
+   coder reads the latest report next session and addresses issues before new work.
 
-If external CLI agents are available (Codex, Gemini), also configure UAT dispatch scripts.
-Read `cli-agents.md` Section 3 for UAT-specific dispatch patterns.
+**UAT evaluation uses four mandatory layers** (read `cli-agents.md` Section 3):
+
+5. **Maestro scripted regression** — For mobile projects, generates YAML E2E flows from
+   sprint contract criteria. Runs autonomously (zero Claude tokens) as a session-startup
+   smoke gate and post-feature regression check. Read `cli-agents.md` Section 3e for flow
+   generation and invocation. Read `evaluation-loop.md` Section 2f for the evaluation
+   interface.
+
+6. **Native MCP UAT (primary)** — Playwright for web, mobile-mcp for mobile. The evaluator
+   interacts with the running app in real time via MCP tools. Tests dynamic behavior (state
+   transitions, animations, error states) that scripted regression cannot catch.
+
+7. **Figma visual parity (mandatory)** — For all UI projects, the evaluator compares
+   implementation screenshots against Figma design references using
+   `figma_check_design_parity` (automated scoring) or `figma_capture_screenshot` (LLM
+   comparison). Visual parity failures are blocking — any screen below the parity threshold
+   must be addressed before marking `passes: true`. Read `evaluation-loop.md` Section 2e
+   for the procedure. Requires a screen-to-frame map in `analysis.json`.
+
+8. **CLI evidence review** — When Codex or Gemini CLIs are available, dispatch captured
+   evidence for independent second-opinion review. Read `cli-agents.md` Section 3d for the
+   dispatch script.
+
+**All layers are mandatory** when the corresponding tools are available. If tools are
+missing, the harness prompts the user to install them (Maestro, Playwright, mobile-mcp,
+figma-console). Read `cli-agents.md` Section 3a for the detection procedure and install
+checklist template. Users may decline — the gap is recorded in `analysis.json` and surfaced
+in every evaluation report as reduced coverage.
 
 ---
 
@@ -394,6 +421,21 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
     4c. **Check CLI reviews**: Read `.harness/last-review.md` and any `cli-uat-*` files
         in `.harness/eval-reports/`. Address any CRITICAL findings before new work.
 
+    4d. **Verify Figma connection**: Call `figma_get_status` to confirm figma-console
+        is connected. If disconnected:
+        - Ensure Figma Desktop is running with the design file open
+        - Ensure the Desktop Bridge Plugin is active
+        - If connection cannot be restored, flag as coverage gap — visual parity is
+          mandatory; proceed with reduced coverage and document the gap in eval report
+
+    ## If Maestro is configured (mobile projects):
+    4e. **Run Maestro smoke gate**: Execute `maestro test --include-tags=smoke --output
+        .harness/eval-reports/maestro-smoke.xml .maestro/`
+        - If ALL pass: proceed — no regressions detected
+        - If ANY fail: fix regressions BEFORE starting new work. Read the JUnit XML
+          report and check screenshots in `.harness/eval-evidence/maestro/`
+        - This runs outside Claude (zero tokens) — do NOT skip it
+
     5. **Sprint contract**: Before coding, write a sprint contract:
        - Which feature(s) you'll work on this session
        - Concrete acceptance verification criteria (see sprint contract template)
@@ -410,12 +452,27 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
     ## If evaluation loop is NOT enabled:
     8b. **Mark done**: Set `passes: true` after tests pass and build succeeds (step 7).
 
+    ## If evaluation loop is NOT enabled (visual parity still mandatory for UI features):
+    10. **Visual parity check**: Run Figma visual parity standalone for each UI screen.
+        Compare implementation screenshots against Figma designs (see cli-agents.md
+        Section 3c for procedure). Screens scoring below parity threshold are blocking —
+        address before marking `passes: true`.
+        Note: when evaluation loop IS enabled (step 8), the evaluator prompt already
+        includes visual parity — do NOT run it again as a separate step.
+
+    ## If Maestro is configured (mobile projects):
+    11. **Maestro post-feature regression**: Run the feature-specific Maestro flow +
+        full smoke suite: `maestro test --output .harness/eval-reports/maestro-regression.xml .maestro/`
+        - Confirms the new feature works AND nothing regressed
+        - On pass: the feature flow joins the permanent smoke suite
+
     ## If external CLI agents are configured:
-    10. **External review**: Run `.claude/scripts/external-review.sh` and/or
-        `.claude/scripts/uat-dispatch.sh` for independent evaluation.
+    12. **CLI evidence review**: Run `.claude/scripts/external-review.sh` for code review
+        and/or `.claude/scripts/uat-dispatch.sh` to dispatch captured evidence for
+        independent second-opinion review by Codex/Gemini.
 
     ## Entropy management (check every session):
-    11. **Check cleanup state**: Compare completed features in `feature-list.json`
+    13. **Check cleanup state**: Compare completed features in `feature-list.json`
         against `next_major_at` in `.harness/last-cleanup.json`:
         - If completed >= next_major_at: **cleanup required** before new features:
           1. Run full test suite (and lint if configured): `{test_command}`

@@ -76,6 +76,11 @@ to be ready (e.g., `npm run dev` then poll `http://localhost:3000` until 200).
 
 Never chain multiple interactions without verification — coordinates shift between screens.
 
+**Maestro scripted regression:** Before interactive UAT, run Maestro smoke flows as a
+regression gate (`maestro test --include-tags=smoke`). This catches regressions at zero
+Claude token cost. See `cli-agents.md` Section 3e for flow generation and invocation, and
+Section 2f below for the scripted regression evaluation interface.
+
 ### 2c. Desktop Applications
 
 **Primary tool:** Accessibility APIs or OS-level automation (project-specific)
@@ -102,6 +107,67 @@ For backends without UI, the evaluation loop uses HTTP requests instead of inter
 | Query | Database queries, log files, metrics | Check user record was created in DB |
 | Grade | Evaluator prompt logic | Score "API Correctness": 5/5, all endpoints match OpenAPI spec |
 | Feedback | File write to `.harness/eval-reports/` | Structured report |
+
+### 2e. Figma Visual Parity (Cross-Platform)
+
+**Primary tool:** figma-console MCP (preferred) or figma-desktop MCP
+
+Visual parity is a cross-platform evaluation layer — it applies to both web and mobile
+projects. It compares the running implementation against the original Figma designs to
+verify that what was built matches what was designed.
+
+**Prerequisites:**
+- Figma Desktop app running with the target design file open
+- figma-console MCP connected (`figma_get_status` returns `{ status: "connected" }`)
+- Screen-to-frame mapping in `analysis.json` (maps app screens to Figma node IDs)
+
+| Step | Tool | Example |
+|------|------|---------|
+| Interact | Platform-specific (Playwright or mobile-mcp) — navigate to target screen | Navigate to /dashboard, wait for load |
+| Observe | `browser_take_screenshot` or `mobile_take_screenshot` — capture implementation | Save to `.harness/eval-evidence/dashboard-impl.png` |
+| Query | `figma_navigate(nodeId)` → `figma_capture_screenshot` — fetch design reference | Save to `.harness/eval-evidence/dashboard-figma.png` |
+| Grade | `figma_check_design_parity` (automated) or evaluator visual comparison (manual) | Score 5 dimensions: layout, color, typography, spacing, component fidelity |
+| Feedback | File write to `.harness/eval-reports/` | Per-screen parity scores with both screenshot paths |
+
+Visual parity uses a 5-level tool fallback chain (from `figma_check_design_parity` down to
+skip) and optionally includes design token verification via `figma_get_variables`. Findings
+are mandatory for all UI projects — any screen scoring below the parity threshold blocks
+the feature from being marked as passed.
+
+**Critical rule:** Always use `figma_capture_screenshot` (live state), NOT
+`figma_take_screenshot` (cloud cache) for comparison.
+
+See `cli-agents.md` Section 3c for the full procedure: tool fallback chain, screen-to-frame
+mapping, design token verification, evaluator prompt additions, and anti-patterns.
+
+### 2f. Maestro Scripted Regression (Mobile)
+
+**Primary tool:** Maestro CLI
+
+Maestro provides a scripted regression layer that runs outside Claude — zero token cost.
+YAML flow files define repeatable E2E scenarios. The harness generates flows from sprint
+contract criteria and accumulates them as features are completed.
+
+| Step | Tool | Example |
+|------|------|---------|
+| Interact | Maestro YAML commands: `tapOn`, `inputText`, `swipe`, `scroll` | `- tapOn: "Login"`, `- inputText: ${USERNAME}` |
+| Observe | `takeScreenshot`, `assertVisible`, `assertNotVisible` | `- assertVisible: "Welcome"`, `- takeScreenshot: "post-login"` |
+| Query | `evalScript` (JavaScript), `assertScreenshot` | Check dynamic content, visual snapshot comparison |
+| Grade | JUnit XML report (pass/fail per flow) | `report.xml` with test results parseable by CI and evaluator |
+| Feedback | Report file + screenshots in `--test-output-dir` | `.harness/eval-reports/maestro-smoke.xml` |
+
+**When Maestro runs:**
+- **Session startup** — smoke flows as regression gate (before any new work)
+- **Post-feature** — feature-specific flow after implementation completes
+- **Pre-evaluation** — full suite before interactive UAT (catches regressions so Claude
+  evaluator doesn't waste tokens on broken basics)
+
+**Key difference from mobile-mcp:** Maestro is deterministic (same YAML, same result).
+mobile-mcp is exploratory (Claude drives, different each run). Use both: Maestro for
+regression certainty, mobile-mcp for interactive discovery.
+
+See `cli-agents.md` Section 3e for flow generation, invocation patterns, accumulation
+strategy, and Maestro MCP integration.
 
 ---
 
@@ -218,15 +284,23 @@ model, different training data. This is the strongest form of the generator/eval
 | Factor | Native Claude Session | External CLI (Codex/Gemini) |
 |--------|----------------------|----------------------------|
 | Independence | Same model family, different session | Different model entirely |
-| Tool access | Full MCP access (Playwright, mobile-mcp) | Limited (file reading, code review) |
-| UAT capability | Can interact with running app | Code review + static analysis only |
-| Best for | Interactive UAT, browser testing | Code review, spec compliance, security |
+| Tool access | Full MCP access (Playwright, mobile-mcp, figma-console) | Limited (file reading, code review) |
+| Interactive UAT | Real-time interaction with running app (SAV loops, live debugging) | Static evidence review only (pre-captured screenshots) |
+| Visual parity | `figma_check_design_parity` (automated scoring) or `figma_capture_screenshot` (LLM comparison) | Manual comparison of exported PNG pairs (subjective) |
+| Best for | Interactive UAT, browser/mobile testing, Figma visual parity | Code review, spec compliance, security, independent second opinion |
 
-**Recommendation:** Use native Claude evaluator for interactive UAT (it needs MCP tools),
-and external CLI agents for code-level review (they bring independence). When both are
-available, run both — they catch different things.
+**Recommendation:** Native MCP is the primary UAT method — it can interact with the
+running app and access Figma for visual parity. External CLI agents complement native UAT
+by providing genuinely independent review of captured evidence (different model = different
+blind spots). When both are available:
 
-See also `cli-agents.md` Section 3 for the full capability comparison and dispatch scripts.
+1. **Native evaluator first** — interactive UAT + Figma visual parity (captures evidence)
+2. **CLI evidence review second** — reviews the captured evidence with fresh eyes
+3. **Compare findings** — disagreements between native and CLI often reveal real issues
+
+See `cli-agents.md` Section 3 for the full four-layer UAT architecture: Maestro scripted
+regression (Section 3e), native MCP (Section 3b), Figma visual parity (Section 3c), and
+CLI evidence review (Section 3d).
 
 ### 4d. Stop Gate — Automated In-Session Evaluation
 
@@ -398,6 +472,12 @@ When configuring the evaluation loop in Stage 2c, generate these artifacts:
 | App launch script | `.claude/scripts/launch-app.sh` | When app has a runnable UI |
 | UAT dispatch script (CLI) | `.claude/scripts/uat-dispatch.sh` | When CLI agents available |
 | Evidence directory | `.harness/eval-evidence/` | Created by evaluator at runtime |
+| Visual parity config | `analysis.json → visual_parity` | When figma-console or figma-desktop available |
+| Screen-to-frame map | `analysis.json → visual_parity.screen_to_frame_map` | When visual parity enabled |
+| Maestro workspace | `.maestro/config.yaml` + `.maestro/flows/` | When Maestro available + mobile project |
+| Maestro smoke report | `.harness/eval-reports/maestro-smoke.xml` | Created by Maestro at session startup |
+| Maestro config | `analysis.json → maestro` | When Maestro available |
+| Install prompts | `session-startup.md` install checklist | When needed tools are missing |
 
 ### analysis.json Additions
 
@@ -406,21 +486,29 @@ When configuring the evaluation loop in Stage 2c, generate these artifacts:
   "evaluation_loop": {
     "enabled": true,
     "platform": "web|mobile|desktop|api",
+    "primary_uat": "native_mcp",
+    "scripted_regression": "maestro",
     "evaluator_type": "native|cli|both",
     "report_format": "timestamped",
     "tools": {
-      "interact": "playwright|mobile-mcp|accessibility-api|curl",
-      "observe": "screenshots|dom-snapshots|view-hierarchy|response-body"
+      "interact": "playwright|mobile-mcp|maestro|accessibility-api|curl",
+      "observe": "screenshots|dom-snapshots|view-hierarchy|response-body|junit-xml"
     },
     "criteria_count": 5,
     "blocking_criteria": 3,
     "cli_agents": {
       "codex": true,
-      "gemini": false
+      "gemini": false,
+      "role": "complement"
     }
   }
 }
 ```
+
+For the `visual_parity` configuration schema (method, fallback, parity_threshold,
+figma_file_key, screen_to_frame_map), see the canonical definition in
+`cli-agents.md` Section 3c. It lives under `harness_decisions.visual_parity` in
+`analysis.json`, not under `evaluation_loop`.
 
 ---
 

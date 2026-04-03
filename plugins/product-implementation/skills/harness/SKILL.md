@@ -77,7 +77,11 @@ Examine the target project directory:
 | Build system | package.json, build.gradle, Makefile, Cargo.toml, etc. |
 | Test setup | Test runner, coverage config, existing test files |
 | Git state | Clean working tree? On a feature branch? |
-| MCP servers | Probe for Playwright, Figma, mobile-mcp, etc. |
+| MCP servers — UAT | Probe for Playwright MCP (web) and mobile-mcp (mobile) — primary interactive UAT tools |
+| MCP servers — Figma | Probe for figma-console and figma-desktop — mandatory visual parity checks |
+| Maestro CLI | Check for `maestro` CLI (`command -v maestro`) — scripted mobile regression |
+| Maestro MCP | Probe for Maestro MCP server if registered — enables hybrid CLI+MCP workflows |
+| Missing tool prompting | If mandatory tools are absent, generate install checklist (see `cli-agents.md` Section 3a) |
 | CLI agents | Check for `codex`, `gemini` CLIs (`command -v`) |
 | Codex plugin | Check if `codex-plugin-cc` is installed (enables `/codex:*` commands) |
 | Installed skills | Check what Claude Code skills are already available |
@@ -140,10 +144,19 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/evaluation-loop.md` for the 
 protocol: sprint contract negotiation, evaluator prompt template, feedback report format,
 and multi-round build→QA cycles.
 
-**External CLI agents:** If Codex or Gemini CLIs are available, also generate review and
-UAT dispatch scripts. Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/cli-agents.md`
-for templates. External agents provide genuinely independent evaluation (different model,
-different training) — the strongest form of the generator/evaluator split.
+**UAT four-layer mandatory architecture:** Read `$CLAUDE_PLUGIN_ROOT/skills/harness/references/cli-agents.md`
+Section 3 for the full UAT configuration:
+- **Maestro scripted regression** — For mobile projects, generate YAML E2E flows from
+  sprint contract. Runs as session-startup smoke gate (zero Claude tokens). Section 3e.
+  Also see `evaluation-loop.md` Section 2f.
+- **Native MCP UAT (primary)** — Playwright for web, mobile-mcp for mobile. Real-time
+  interaction with the running app. If tools are missing, generate install prompts
+  (Section 3a).
+- **Figma visual parity (mandatory)** — Compare implementation against Figma designs
+  using `figma_check_design_parity` or `figma_capture_screenshot` (Section 3c). Failures
+  are blocking. Also see `evaluation-loop.md` Section 2e.
+- **CLI evidence review** — Codex/Gemini review captured evidence for independent second
+  opinion (Section 3d). External agents provide genuinely different model perspective.
 
 **Project-specific adaptations:** The reference templates are starting points. Research
 the project's tech stack, existing tests, and quality standards to produce evaluation
@@ -208,7 +221,10 @@ The agent needs to know HOW to work, not just WHAT to build.
 | Eval reports dir | `{feature_dir}/.harness/eval-reports/` | Timestamped evaluation reports (if eval loop enabled) |
 | Tuning log | `{feature_dir}/.harness/evaluator-tuning-log.md` | Evaluator calibration observations (if eval loop) |
 | App launch | `{project}/.claude/scripts/launch-app.sh` | Start dev server + readiness check (if eval loop enabled) |
-| UAT dispatch | `{project}/.claude/scripts/uat-dispatch.sh` | Dispatch UAT to Codex/Gemini (if CLI agents + eval loop) |
+| UAT dispatch | `{project}/.claude/scripts/uat-dispatch.sh` | CLI evidence review dispatch to Codex/Gemini (complement to native MCP UAT) |
+| Visual parity | `analysis.json → visual_parity` | Screen-to-frame map, parity method, threshold (mandatory for UI projects) |
+| Maestro workspace | `{project}/.maestro/config.yaml` + `flows/` | YAML E2E flows, workspace config (if Maestro available + mobile) |
+| Maestro config | `analysis.json → maestro` | Flow dirs, smoke tags, app ID, session-startup gate config |
 | AGENTS.md | `{project}/AGENTS.md` | Codex instruction file (if available) |
 | GEMINI.md | `{project}/GEMINI.md` | Gemini instruction file (if available) |
 
@@ -216,9 +232,9 @@ The agent needs to know HOW to work, not just WHAT to build.
 
 | File | ~Lines | Purpose | Read When |
 |------|--------|---------|-----------|
-| `harness-components.md` | 665 | Templates for all 6 categories + quality score + entropy management | Stage 2 — section for the category being configured |
-| `evaluation-loop.md` | 467 | Eval loop: UAT, judging, feedback, stop gate, adaptations | Stage 2c — when configuring interactive evaluation |
-| `feature-list-schema.md` | 108 | JSON schema, tasks.md conversion, examples | Stage 2d — converting the plan to JSON contract |
-| `hooks-catalog.md` | 394 | Hook catalog: essential + architecture guards + entropy + custom | Stage 2b — choosing which hooks to install |
-| `cli-agents.md` | 513 | Codex Plugin, CLI dispatch, review, UAT, stop gate | Stage 2c/2e — when Codex or Gemini is available |
-| `README.md` | 48 | Reference index with deduplication notes | As needed |
+| `harness-components.md` | ~734 | Templates for all 6 categories + quality score + entropy management | Stage 2 — section for the category being configured |
+| `evaluation-loop.md` | ~615 | Eval loop: UAT, Maestro regression, Figma visual parity, feedback, stop gate | Stage 2c — when configuring interactive evaluation |
+| `feature-list-schema.md` | ~108 | JSON schema, tasks.md conversion, examples | Stage 2d — converting the plan to JSON contract |
+| `hooks-catalog.md` | ~394 | Hook catalog: essential + architecture guards + entropy + custom | Stage 2b — choosing which hooks to install |
+| `cli-agents.md` | ~1122 | 4-layer UAT: Maestro, native MCP, Figma parity, CLI review + Codex Plugin, stop gate | Stage 2c/2e — all UAT tools, Figma parity, CLI agents |
+| `README.md` | ~66 | Reference index with deduplication notes | As needed |
