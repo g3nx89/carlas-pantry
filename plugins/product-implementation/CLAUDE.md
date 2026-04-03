@@ -54,11 +54,11 @@ After the harness is configured, Claude Code executes the plan naturally — one
 ### Key Files
 
 **Harness skill (current):**
-- `skills/harness/SKILL.md` — Harness configurator entry point (~210 lines)
-- `skills/harness/references/harness-components.md` — Templates for 6 harness categories
+- `skills/harness/SKILL.md` — Harness configurator entry point (~224 lines)
+- `skills/harness/references/harness-components.md` — Templates for 6 harness categories + quality score + entropy management
 - `skills/harness/references/evaluation-loop.md` — Evaluation loop: UAT testing, judging, feedback protocol
 - `skills/harness/references/feature-list-schema.md` — JSON contract schema and conversion
-- `skills/harness/references/hooks-catalog.md` — Hook catalog with remediation patterns
+- `skills/harness/references/hooks-catalog.md` — Hook catalog: essential, architecture guards, entropy management, custom
 - `skills/harness/references/cli-agents.md` — External CLI agent (Codex/Gemini) dispatch: review + UAT
 
 **Legacy orchestrator (retained):**

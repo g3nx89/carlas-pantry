@@ -31,6 +31,7 @@ See `docs/ARCHITECTURE.md` for system design, component relationships, and data 
 Feature: {feature_name}
 Plan: `{feature_dir}/plan.md`
 Progress: `{feature_dir}/.harness/feature-list.json`
+Quality: `{feature_dir}/.harness/quality-score.json`
 Session startup: `{feature_dir}/.harness/session-startup.md`
 
 ### Conventions
@@ -180,8 +181,8 @@ Based on quality bar preference:
 | Quality Bar | Hooks |
 |------------|-------|
 | Fast iteration | PreCommit: tests only |
-| Balanced | PostToolUse(Edit/Write): build verify; PreCommit: tests |
-| Thorough | PostToolUse(Edit/Write): build+lint; PreCommit: tests+coverage; spec protection |
+| Balanced | PostToolUse(Edit/Write): build verify + import boundaries; PreCommit: tests; PostCommit: entropy check |
+| Thorough | PostToolUse(Edit/Write): build+lint + import boundaries + conventions; PreCommit: tests+coverage; spec protection; PostCommit: entropy check |
 
 ---
 
@@ -378,6 +379,9 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
     2. **Check git**: Run `git log --oneline -10` and `git status` for recent history
     3. **Read feature list**: Open `.harness/feature-list.json`, find first `passes: false`
     4. **Verify baseline**: Run `{build_command}` and `{test_command}` to confirm clean state
+    4a. **Check quality score**: Read `.harness/quality-score.json`:
+        - If any dimension has `trend: declining` for 2+ entries, investigate before new work
+        - Note dimensions to watch during this session
 
     ## If evaluation loop is enabled:
     4b. **Check evaluation reports**: Read the latest file in `.harness/eval-reports/`:
@@ -409,6 +413,102 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
     ## If external CLI agents are configured:
     10. **External review**: Run `.claude/scripts/external-review.sh` and/or
         `.claude/scripts/uat-dispatch.sh` for independent evaluation.
+
+    ## Entropy management (check every session):
+    11. **Check cleanup state**: Compare completed features in `feature-list.json`
+        against `next_major_at` in `.harness/last-cleanup.json`:
+        - If completed >= next_major_at: **cleanup required** before new features:
+          1. Run full test suite (and lint if configured): `{test_command}`
+          2. Fix accumulated warnings
+          3. Review `docs/ARCHITECTURE.md` — does it still match the code?
+          4. Update `.harness/quality-score.json` dimensions
+          5. Update `.harness/last-cleanup.json` with new thresholds
+          6. Commit: `chore: entropy management after {N} features`
+        - If completed >= next_minor_at: consider reviewing ARCHITECTURE.md for drift
+        - Otherwise: proceed to step 5 (sprint contract)
+
+### Quality Score
+
+Track project health across sessions. The quality score is a JSON contract —
+dimensions are set at configuration time, only `score`, `trend`, `evidence`, and
+`history` are updated by the coding agent. Declining dimensions signal problems
+that compound if ignored.
+
+**Template for `quality-score.json`:**
+
+```json
+{
+  "schema_version": 1,
+  "feature_name": "{feature_name}",
+  "last_updated": "{ISO 8601 timestamp}",
+  "updated_after_feature": "{feature_id}",
+  "overall_grade": "B",
+  "dimensions": [
+    {
+      "name": "{dimension — e.g., Test Coverage}",
+      "score": 3,
+      "max": 5,
+      "trend": "stable",
+      "evidence": "{what supports this score}",
+      "gap": "{what would raise the score, or null}"
+    }
+  ],
+  "history": [
+    {
+      "date": "{ISO 8601}",
+      "overall": "{letter grade}",
+      "features_completed": 0,
+      "scores": { "{dimension_name}": 3 },
+      "note": "Initial baseline"
+    }
+  ]
+}
+```
+
+**Dimension selection:** Choose 3-5 dimensions from `eval-criteria.md` that apply at
+the project level (not per-sprint). Common choices:
+
+| Domain | Suggested Dimensions |
+|--------|---------------------|
+| Any | Test Coverage, Build Health, Doc Freshness |
+| Frontend | + Accessibility Conformance, Bundle Size |
+| Backend | + API Contract Compliance, Error Handling |
+| Android | + Material Design Conformance, Lifecycle Safety |
+| Fullstack | + E2E Flow Coverage, Architecture Conformance |
+
+**Grade derivation:** The letter grade is derived from dimension scores, not edited
+directly. Rule: average of dimension scores → A (≥4.5), B (≥3.5), C (≥2.5), D (≥1.5), F (<1.5).
+
+**Trend values:** `improving` | `stable` | `declining`. The agent compares current score
+to the previous history entry's `scores` map to set the trend per dimension. Two
+consecutive `declining` trends on any dimension should trigger investigation before
+new feature work — the per-dimension `scores` in history make this comparison possible
+across sessions.
+
+**When to update:** After marking a feature as `passes: true` in feature-list.json,
+update the relevant quality-score dimensions and append a history entry. Also update
+during entropy management checkpoints.
+
+### Last Cleanup Tracker
+
+Track when the last entropy management pass occurred, so the entropy-check hook
+(see `hooks-catalog.md`) can determine when cleanup is due.
+
+**Template for `last-cleanup.json`:**
+
+```json
+{
+  "completed_at_feature_count": 0,
+  "date": "{ISO 8601 timestamp}",
+  "actions_taken": ["initial baseline"],
+  "next_minor_at": 5,
+  "next_major_at": 10
+}
+```
+
+The coding agent updates this file after completing an entropy management pass.
+The thresholds (`next_minor_at`, `next_major_at`) are absolute feature counts — the
+entropy-check hook compares them against the current completed count in feature-list.json.
 
 ---
 
@@ -506,18 +606,60 @@ Recommend this pattern to users — it prevents the two most common agent failur
 6. **Evaluate** — if evaluation loop is enabled, trigger evaluator session or external review
 7. **Mark done** — set `passes: true` in feature-list.json ONLY after evaluation verdict is
    PASS (or REVISE with no critical issues). If evaluation is not enabled, mark after step 5.
-8. **Repeat** from step 1
+8. **Update quality score** — update relevant dimensions in `quality-score.json`, append history entry
+9. **Repeat** from step 1
 
 The order matters: committing before evaluation lets the evaluator review the actual committed
 code. But `passes: true` must wait for the evaluator's verdict — otherwise the agent declares
 victory before independent verification, which is the "premature victory" anti-pattern.
 
-### Entropy Management
+### Entropy Management — "Constraints as Multipliers"
 
-Over many sessions, the codebase will drift. Recommend periodic cleanup:
-- **Every 5 features**: Review and update ARCHITECTURE.md if design evolved
-- **Every 10 features**: Run full lint + test suite, fix any accumulated warnings
-- **End of plan**: Final review session with evaluation criteria, update docs
+Over many sessions, the codebase will drift. Instead of relying on prose recommendations
+the agent might forget, entropy management is enforced mechanically via the entropy-check
+hook (see `hooks-catalog.md` "Entropy Management" section).
+
+**How it works:**
+1. The `PostCommit` entropy-check hook counts completed features in `feature-list.json`
+2. It compares against thresholds stored in `.harness/last-cleanup.json`
+3. At the minor threshold: prints a suggestion to review ARCHITECTURE.md
+4. At the major threshold: prints a full cleanup checklist the agent should follow
+5. After cleanup, the agent updates `last-cleanup.json` with new thresholds
+
+**Default thresholds** (configurable in `last-cleanup.json`):
+- **Minor** (every 5 features): Review ARCHITECTURE.md for drift, update quality-score.json
+- **Major** (every 10 features): Full test sweep (+ lint if configured), fix warnings, dead code scan, doc update
+
+**Lint conditional:** When generating the entropy-check script, only include `{lint_command}`
+in the major-cleanup instructions if Stage 1b discovered a runnable lint command. Projects
+without lint (common at balanced quality bar) should not have a placeholder lint reference.
+- **End of plan**: Final review session with evaluation criteria — the agent runs a full
+  cleanup regardless of thresholds when the last feature is marked `passes: true`
+
+**Cleanup sprint contract:** For thorough quality bar, generate a cleanup-specific sprint
+contract template alongside the regular one. The cleanup contract has its own verification
+table focused on code health rather than feature behavior:
+
+    # Cleanup Sprint Contract — {date}
+
+    ## Scope
+    Entropy management after {N} features completed.
+
+    ## Checks
+    | # | Check | How to Verify | Expected |
+    |---|-------|--------------|----------|
+    | 1 | Test suite clean | `{test_command}` | 0 failures, 0 new warnings |
+    | 2 | Lint clean | `{lint_command}` | 0 new violations since last cleanup |
+    | 3 | Architecture drift | Compare ARCHITECTURE.md vs actual imports | No undocumented cross-layer deps |
+    | 4 | Dead code | Search for unused exports/functions | None introduced since last cleanup |
+    | 5 | Doc freshness | ARCHITECTURE.md, CLAUDE.md last updated | Reflects current design |
+    | 6 | Quality score | `.harness/quality-score.json` | No dimension with trend: declining |
+
+    ## Completion
+    - [ ] All checks pass
+    - [ ] quality-score.json updated with new scores
+    - [ ] last-cleanup.json updated with new thresholds
+    - [ ] Committed: `chore: entropy management after {N} features`
 
 ---
 

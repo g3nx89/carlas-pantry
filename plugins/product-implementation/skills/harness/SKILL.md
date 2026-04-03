@@ -81,6 +81,7 @@ Examine the target project directory:
 | CLI agents | Check for `codex`, `gemini` CLIs (`command -v`) |
 | Codex plugin | Check if `codex-plugin-cc` is installed (enables `/codex:*` commands) |
 | Installed skills | Check what Claude Code skills are already available |
+| Architecture boundaries | Layer structure from plan.md, import patterns, naming conventions |
 
 ### 1c. Interview the User
 
@@ -153,10 +154,12 @@ project — not a generic template with swapped names. See `evaluation-loop.md` 
 
 Convert `tasks.md` → `feature-list.json` using the schema in
 `$CLAUDE_PLUGIN_ROOT/skills/harness/references/feature-list-schema.md`. Also generate
-`progress.md` template and `session-startup.md` checklist.
+`progress.md` template, `session-startup.md` checklist, and `quality-score.json` for
+cross-session health tracking.
 
 Each new session starts with zero memory. Progress files and JSON contracts let the agent
-pick up exactly where the last session left off.
+pick up exactly where the last session left off. The quality score tracks project health
+trends across sessions — declining dimensions get addressed before new features.
 
 ### 2e. Tooling Setup — "Environment Design"
 
@@ -195,6 +198,8 @@ The agent needs to know HOW to work, not just WHAT to build.
 | Eval criteria | `{feature_dir}/.harness/eval-criteria.md` | Gradable dimensions, weights, 3-tier thresholds |
 | Feature list | `{feature_dir}/.harness/feature-list.json` | JSON contract — immutable descriptions, mutable passes |
 | Progress | `{feature_dir}/.harness/progress.md` | Cross-session handoff state |
+| Quality score | `{feature_dir}/.harness/quality-score.json` | Project health dimensions with trend tracking |
+| Last cleanup | `{feature_dir}/.harness/last-cleanup.json` | Entropy management checkpoint tracker |
 | Session startup | `{feature_dir}/.harness/session-startup.md` | Unified new-session checklist (all conditional steps) |
 | Sprint contract | `{feature_dir}/.harness/sprint-contract.md` | What "done" means — verification table + DoD |
 | Review script | `{project}/.claude/scripts/external-review.sh` | Dispatch review to Codex/Gemini (if available) |
@@ -211,9 +216,9 @@ The agent needs to know HOW to work, not just WHAT to build.
 
 | File | ~Lines | Purpose | Read When |
 |------|--------|---------|-----------|
-| `harness-components.md` | 515 | Templates for all 6 categories + project adaptation | Stage 2 — section for the category being configured |
+| `harness-components.md` | 665 | Templates for all 6 categories + quality score + entropy management | Stage 2 — section for the category being configured |
 | `evaluation-loop.md` | 467 | Eval loop: UAT, judging, feedback, stop gate, adaptations | Stage 2c — when configuring interactive evaluation |
 | `feature-list-schema.md` | 108 | JSON schema, tasks.md conversion, examples | Stage 2d — converting the plan to JSON contract |
-| `hooks-catalog.md` | 168 | Hook catalog with use cases and config examples | Stage 2b — choosing which hooks to install |
+| `hooks-catalog.md` | 394 | Hook catalog: essential + architecture guards + entropy + custom | Stage 2b — choosing which hooks to install |
 | `cli-agents.md` | 513 | Codex Plugin, CLI dispatch, review, UAT, stop gate | Stage 2c/2e — when Codex or Gemini is available |
-| `README.md` | 40 | Reference index with deduplication notes | As needed |
+| `README.md` | 48 | Reference index with deduplication notes | As needed |
