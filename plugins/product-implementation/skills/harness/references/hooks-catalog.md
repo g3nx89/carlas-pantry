@@ -48,12 +48,16 @@ because Claude Code has no dedicated commit event.
 ```json
 {
   "matcher": "Bash",
-  "command": ".claude/scripts/verify-tests-on-commit.sh \"$BASH_COMMAND\"",
+  "command": ".claude/scripts/verify-tests-on-commit.sh",
   "description": "Run tests before committing"
 }
 ```
 
-Script should: check if `$BASH_COMMAND` contains `git commit`, exit 0 immediately if not.
+Script receives JSON on stdin with `tool_input.command`. Parse with `jq`:
+```bash
+COMMAND=$(cat | jq -r '.tool_input.command // empty')
+[[ "$COMMAND" == git\ commit* ]] || exit 0
+```
 If it is a commit, run the test suite, report which tests failed with file paths, exit
 non-zero to block the commit.
 
@@ -85,14 +89,14 @@ Uses the same Bash matcher pattern as the test gate.
 ```json
 {
   "matcher": "Bash",
-  "command": ".claude/scripts/check-coverage-on-commit.sh \"$BASH_COMMAND\"",
+  "command": ".claude/scripts/check-coverage-on-commit.sh",
   "description": "Verify test coverage meets minimum threshold"
 }
 ```
 
-Script should: check if `$BASH_COMMAND` contains `git commit`, exit 0 immediately if not.
-If it is a commit, run coverage tool, compare against threshold, print uncovered files on
-failure.
+Script receives JSON on stdin (same pattern as test gate). Parse command, exit 0 if not
+a git commit. If it is a commit, run coverage tool, compare against threshold, print
+uncovered files on failure.
 
 **When to use:** Thorough quality bar only. Can be frustrating during fast iteration.
 
@@ -296,7 +300,7 @@ recommendation, the hook fires at the right moment with actionable instructions.
 ```json
 {
   "matcher": "Bash",
-  "command": ".claude/scripts/entropy-check.sh \"$BASH_COMMAND\"",
+  "command": ".claude/scripts/entropy-check.sh",
   "description": "Check if entropy management cleanup is due"
 }
 ```

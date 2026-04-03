@@ -103,7 +103,7 @@ Add hooks to `.claude/settings.json`. If the file exists, merge — don't overwr
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "command": ".claude/scripts/verify-tests-on-commit.sh \"$BASH_COMMAND\"",
+        "command": ".claude/scripts/verify-tests-on-commit.sh",
         "description": "Run tests before committing"
       }
     ]
