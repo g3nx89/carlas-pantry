@@ -416,7 +416,9 @@ EVIDENCE_DIR="${2:?Provide evidence directory with screenshots/snapshots}"
 FEATURE_DIR="{feature_dir}"
 EVAL_CRITERIA="$FEATURE_DIR/.harness/eval-criteria.md"
 SPRINT_CONTRACT="$FEATURE_DIR/.harness/sprint-contract.md"
-UAT_REPORT="$FEATURE_DIR/.harness/evaluation-report.md"
+REPORT_DIR="$FEATURE_DIR/.harness/eval-reports"
+mkdir -p "$REPORT_DIR"
+UAT_REPORT="$REPORT_DIR/cli-uat-$(date +%Y-%m-%d-%H%M).md"
 TIMEOUT=600  # 10 minutes — UAT is more complex than code review
 
 # Build context from captured evidence
@@ -478,6 +480,8 @@ case "$CLI" in
 esac
 
 echo "UAT evaluation saved to: $UAT_REPORT"
+# Also update latest pointer for easy access
+cp "$UAT_REPORT" "$REPORT_DIR/latest-cli-uat.md" 2>/dev/null || true
 echo "---"
 cat "$UAT_REPORT"
 ```

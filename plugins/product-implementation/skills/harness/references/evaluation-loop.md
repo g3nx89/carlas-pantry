@@ -449,19 +449,79 @@ During Stage 2c, after loading this reference, the model should:
 3. Search the project's docs/ for any testing or quality guidelines
 4. Adapt evaluator procedures to the specific UI flows described in the plan
 
+**Document what you find.** Record discoveries in `analysis.json` under `project_adaptations`
+so they are available to all downstream stages:
+
+```json
+{
+  "project_adaptations": {
+    "idiomatic_test_patterns": [
+      "Tests use vitest with @testing-library/react, co-located as *.test.tsx"
+    ],
+    "framework_specific_tools": [
+      "Playwright already configured in playwright.config.ts with webServer auto-start"
+    ],
+    "existing_quality_standards": [
+      "ESLint with jsx-a11y plugin, coverage threshold 80% in CI"
+    ],
+    "discovered_conventions": [
+      "All API endpoints return { data, error, meta } envelope"
+    ]
+  }
+}
+```
+
+This checklist forces the model to prove it researched the project before generating
+artifacts. If `project_adaptations` is empty, the harness output is likely generic.
+
 The goal: a harness that feels custom-built for this project, not a generic template with
 placeholders swapped. If the model discovers a project-specific pattern (e.g., the project
 uses Storybook for component testing, or has a custom lint rule for accessibility), encode
 it in the harness artifacts.
 
-### Observability for Backend/API Projects
+### Observability Evaluation for Backend/API Projects
 
 For projects without UI, the evaluation loop focuses on API correctness and performance.
-Beyond the basic HTTP checks in Section 2d, the evaluator should also:
-- Read application logs (`docker logs`, log files) for errors or warnings during test
-- Check response times and flag any endpoint >2s (or project-specific SLA)
-- Verify database state after operations (if DB access is available)
-- Check for memory leaks or connection pool exhaustion in long-running tests
+The evaluator needs structured access to system health data — not just HTTP responses.
 
-These checks are project-specific — the harness configurator should discover what
-observability is available and configure the evaluator to use it.
+**Discovery checklist** (run during Stage 1b to populate `analysis.json`):
+
+| Check | How to Detect | Records In |
+|-------|--------------|------------|
+| Application logs | `docker compose logs`, log files in `/var/log/`, stdout capture | `analysis.json → observability.logs` |
+| Response timing | `curl -w '%{time_total}'`, framework-level timing middleware | `analysis.json → observability.timing` |
+| Database access | `docker compose exec db psql`, `sqlite3`, ORM CLI | `analysis.json → observability.db_access` |
+| Metrics endpoint | `/metrics`, `/health`, Prometheus exposition | `analysis.json → observability.metrics_endpoint` |
+| Structured logging | JSON log format, correlation IDs | `analysis.json → observability.structured_logs` |
+
+**Evaluator observability procedure** (add to evaluator prompt for API projects):
+
+```markdown
+## Observability Checks (after API testing)
+
+1. **Logs**: Read application logs for the test period. Flag:
+   - Any ERROR or WARN entries not caused by intentional error-path testing
+   - Unhandled exceptions or stack traces
+   - Slow query warnings (if DB logging enabled)
+   Command: `{log_command}` (e.g., `docker compose logs --since=5m app`)
+
+2. **Response timing**: For each tested endpoint, record response time.
+   Flag any endpoint exceeding {sla_ms}ms (default: 2000ms).
+   Command: `curl -s -o /dev/null -w '%{time_total}' {endpoint}`
+
+3. **Database state**: After write operations, verify data integrity.
+   Check that created/updated/deleted records match expectations.
+   Command: `{db_query_command}` (e.g., `docker compose exec db psql -c "SELECT ..."`)
+
+4. **Health check**: Verify the app is still healthy after all tests.
+   A crashed or degraded app after testing indicates stability issues.
+   Command: `curl -s {health_endpoint}` (e.g., `http://localhost:8000/health`)
+```
+
+**Harness artifacts for observability:**
+- Add an `## Observability` section to `eval-criteria.md` with timing SLAs and log rules
+- Add observability commands to `launch-app.sh` (start log capture alongside app)
+- Include observability checks in the evaluator prompt's testing procedure
+
+The harness configurator should discover what observability is available in the project
+and configure the evaluator to use it — don't assume Docker or any specific stack.

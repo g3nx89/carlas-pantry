@@ -150,7 +150,6 @@ PROTECTED_PATTERNS=(
   "plan.md"
   "design.md"
   "test-plan.md"
-  "feature-list.json"  # descriptions are immutable
 )
 
 for file in "$@"; do
@@ -163,6 +162,14 @@ for file in "$@"; do
       exit 1
     fi
   done
+
+  # feature-list.json: only the "passes" field may change
+  if [[ "$file" == *"feature-list.json" ]]; then
+    echo "WARNING: feature-list.json modified. Only the 'passes' field should change."
+    echo "Do NOT edit descriptions, acceptance_criteria, or dependencies."
+    echo "If you need to change the plan, discuss with the user first."
+    # Warning only — not blocking, because the coding agent must update passes
+  fi
 done
 ```
 
@@ -265,12 +272,11 @@ Assign percentage weights to dimensions. If omitted, all blocking dimensions are
 | **Total** | **100%** | |
 ```
 
-### Evaluator Prompt
-
-For the full evaluator session prompt template, see `evaluation-loop.md` Section 4a. That
-template includes critical rules, tool inventory, calibration examples, and output format.
-Do not write the evaluator prompt from scratch — use the template and fill in project-specific
-details.
+<!-- CONFIGURATOR: Evaluator Prompt -->
+<!-- For the full evaluator session prompt template, see evaluation-loop.md Section 4a.
+That template includes critical rules, tool inventory, calibration examples, and output
+format. Use the template and fill in project-specific details. Write the result to
+evaluator-prompt.md as a separate file, not inside eval-criteria.md. -->
 
 ### Few-Shot Calibration
 
@@ -381,23 +387,28 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
         - Check score trend: if scores flat/declined for 2+ rounds, consider pivoting
 
     ## If external CLI agents are configured:
-    4c. **Check CLI reviews**: Read `.harness/cli-evaluation.md` and `.harness/last-review.md`
-        if they exist. Address any CRITICAL findings before new work.
+    4c. **Check CLI reviews**: Read `.harness/last-review.md` and any `cli-uat-*` files
+        in `.harness/eval-reports/`. Address any CRITICAL findings before new work.
 
     5. **Sprint contract**: Before coding, write a sprint contract:
        - Which feature(s) you'll work on this session
        - Concrete acceptance verification criteria (see sprint contract template)
     6. **Work**: Implement one feature at a time. Test each before moving to the next.
-    7. **Wrap up**: Update `progress.md`, update `feature-list.json` passes, commit work.
+    7. **Commit**: Commit work with descriptive message. Update `progress.md`.
 
     ## If evaluation loop is enabled:
-    8. **Trigger evaluation**: After committing, start a fresh evaluator session using
+    8. **Trigger evaluation**: Start a fresh evaluator session using
        `.harness/evaluator-prompt.md`. The evaluator tests the running app and writes
        a report to `.harness/eval-reports/`.
+    9. **Mark done**: Set `passes: true` in `feature-list.json` ONLY after evaluation
+       verdict is PASS or REVISE (no critical issues). Do NOT mark passes before evaluation.
+
+    ## If evaluation loop is NOT enabled:
+    8b. **Mark done**: Set `passes: true` after tests pass and build succeeds (step 7).
 
     ## If external CLI agents are configured:
-    9. **External review**: Run `.claude/scripts/external-review.sh` and/or
-       `.claude/scripts/uat-dispatch.sh` for independent evaluation.
+    10. **External review**: Run `.claude/scripts/external-review.sh` and/or
+        `.claude/scripts/uat-dispatch.sh` for independent evaluation.
 
 ---
 
@@ -442,8 +453,10 @@ Check these locations for commands (in order):
 The sprint contract is an agreement between coder and evaluator on what "done" looks like.
 It prevents scope drift and gives the evaluator concrete, testable criteria.
 
-**Critical:** Fill ALL placeholders with project-specific content. Do NOT emit template
-instructions, examples, or "How to Use" sections in the output file.
+**Critical:** Fill ALL placeholders with project-specific content. The output file should
+contain ONLY the filled contract — no template instructions, no "How to Use" sections,
+no "Negotiation protocol" text, no examples. Everything below marked `<!-- CONFIGURATOR -->`
+is guidance for YOU (the configurator), not content for the output file.
 
     # Sprint Contract — {date}
 
@@ -474,10 +487,11 @@ instructions, examples, or "How to Use" sections in the output file.
     - Evaluation method: {native evaluator / CLI review / both}
     - Review scope: {changed files / --uncommitted / --base main}
 
-**Negotiation protocol:** Before each sprint, the coder writes this contract. If evaluation
+<!-- CONFIGURATOR: The following is guidance for you, not output content. -->
+<!-- Negotiation protocol: Before each sprint, the coder writes this contract. If evaluation
 loop is enabled, the evaluator reviews it (max 2 rounds). On disagreement after 2 rounds,
-the evaluator's version wins (bias toward rigor). See `evaluation-loop.md` Section 3 for
-the full negotiation protocol.
+the evaluator's version wins (bias toward rigor). See evaluation-loop.md Section 3 for
+the full negotiation protocol. Do NOT include this text in the generated sprint-contract.md. -->
 
 ### Iteration Pattern
 
@@ -488,9 +502,15 @@ Recommend this pattern to users — it prevents the two most common agent failur
 2. **Write tests first** if test-plan exists for this feature
 3. **Implement** until tests pass
 4. **Verify** — run full test suite, check build
-5. **Update** — mark `passes: true` in feature-list.json, update progress.md
-6. **Commit** with descriptive message referencing the feature ID
-7. **Repeat** from step 1
+5. **Commit** with descriptive message referencing the feature ID
+6. **Evaluate** — if evaluation loop is enabled, trigger evaluator session or external review
+7. **Mark done** — set `passes: true` in feature-list.json ONLY after evaluation verdict is
+   PASS (or REVISE with no critical issues). If evaluation is not enabled, mark after step 5.
+8. **Repeat** from step 1
+
+The order matters: committing before evaluation lets the evaluator review the actual committed
+code. But `passes: true` must wait for the evaluator's verdict — otherwise the agent declares
+victory before independent verification, which is the "premature victory" anti-pattern.
 
 ### Entropy Management
 

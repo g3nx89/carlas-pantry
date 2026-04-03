@@ -47,8 +47,10 @@ These come from harness engineering research and are the foundation for every de
 4. **Generator ≠ Evaluator** — The agent building code should not be the sole judge of its
    quality. Set up separate evaluation criteria with concrete, gradable dimensions.
 
-5. **Context Resets Over Compaction** — Each session starts fresh with structured handoff.
-   Progress files and git history bridge the gap between sessions.
+5. **Context Resets Over Compaction** — Default to fresh sessions with structured handoff.
+   Progress files and git history bridge the gap. Note: this is model-dependent — newer
+   models with large context windows may work well with compaction (summarizing in-place).
+   If the model supports long coherent sessions, sprints can span multiple features.
 
 ## Prerequisites
 
