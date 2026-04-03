@@ -100,9 +100,10 @@ Add hooks to `.claude/settings.json`. If the file exists, merge — don't overwr
         "description": "Verify build after code changes"
       }
     ],
-    "PreCommit": [
+    "PreToolUse": [
       {
-        "command": ".claude/scripts/verify-tests.sh",
+        "matcher": "Bash",
+        "command": ".claude/scripts/verify-tests-on-commit.sh \"$BASH_COMMAND\"",
         "description": "Run tests before committing"
       }
     ]
@@ -180,9 +181,9 @@ Based on quality bar preference:
 
 | Quality Bar | Hooks |
 |------------|-------|
-| Fast iteration | PreCommit: tests only |
-| Balanced | PostToolUse(Edit/Write): build verify + import boundaries; PreCommit: tests; PostCommit: entropy check |
-| Thorough | PostToolUse(Edit/Write): build+lint + import boundaries + conventions; PreCommit: tests+coverage; spec protection; PostCommit: entropy check |
+| Fast iteration | PreToolUse(Bash): test gate on commit |
+| Balanced | PostToolUse(Edit/Write): build verify + import boundaries; PreToolUse(Bash): test gate; PostToolUse(Bash): entropy check |
+| Thorough | PostToolUse(Edit/Write): build+lint + import boundaries + conventions; PreToolUse(Bash): tests+coverage; spec protection; PostToolUse(Bash): entropy check |
 
 ---
 
@@ -677,7 +678,7 @@ the agent might forget, entropy management is enforced mechanically via the entr
 hook (see `hooks-catalog.md` "Entropy Management" section).
 
 **How it works:**
-1. The `PostCommit` entropy-check hook counts completed features in `feature-list.json`
+1. The `PostToolUse(Bash)` entropy-check hook counts completed features in `feature-list.json`
 2. It compares against thresholds stored in `.harness/last-cleanup.json`
 3. At the minor threshold: prints a suggestion to review ARCHITECTURE.md
 4. At the major threshold: prints a full cleanup checklist the agent should follow

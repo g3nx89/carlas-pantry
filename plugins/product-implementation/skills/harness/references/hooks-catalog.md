@@ -9,11 +9,16 @@ Claude Code supports these hook events:
 
 | Event | Fires When | Common Use |
 |-------|-----------|------------|
-| `PostToolUse` | After a tool completes | Build verification, lint checks |
-| `PreToolUse` | Before a tool executes | Blocking dangerous operations |
-| `PreCommit` | Before git commit | Test gates, coverage checks |
-| `PostCommit` | After git commit | Notifications, CI triggers |
+| `PreToolUse` | Before a tool executes | Blocking dangerous operations, commit gates |
+| `PostToolUse` | After a tool completes | Build verification, lint checks, post-commit triggers |
 | `UserPromptSubmit` | When user sends a message | Context injection, reminders |
+| `Stop` | When the agent finishes a turn | Final verification, summary generation |
+| `SessionStart` | When a new session begins | Context loading, environment checks |
+| `Notification` | When the agent emits a notification | Alerts, logging |
+
+Note: Claude Code does NOT have `PreCommit` or `PostCommit` events. To gate commits, use
+`PreToolUse` with `matcher: "Bash"` — the script checks if the command is a git commit.
+To react after commits, use `PostToolUse` with `matcher: "Bash"`.
 
 ## Essential Hooks
 
@@ -34,20 +39,23 @@ Script should: run the build command, print clear error + file:line on failure, 
 
 **When to use:** Almost always. Skip only for non-compiled languages with no build step.
 
-### Test Gate (PreCommit)
+### Test Gate (PreToolUse — Bash)
 
 Prevents commits when tests fail. The most important enforcement hook — a commit with
-failing tests poisons every subsequent session.
+failing tests poisons every subsequent session. Uses `PreToolUse` with a Bash matcher
+because Claude Code has no dedicated commit event.
 
 ```json
 {
-  "command": ".claude/scripts/verify-tests.sh",
+  "matcher": "Bash",
+  "command": ".claude/scripts/verify-tests-on-commit.sh \"$BASH_COMMAND\"",
   "description": "Run tests before committing"
 }
 ```
 
-Script should: run the test suite, report which tests failed with file paths, exit non-zero
-to block the commit.
+Script should: check if `$BASH_COMMAND` contains `git commit`, exit 0 immediately if not.
+If it is a commit, run the test suite, report which tests failed with file paths, exit
+non-zero to block the commit.
 
 **When to use:** Always, regardless of quality bar.
 
@@ -69,18 +77,22 @@ is comfortable with the risk.
 
 ## Optional Hooks
 
-### Coverage Check (PreCommit)
+### Coverage Check (PreToolUse — Bash)
 
 Block commits when test coverage drops below a threshold. Useful for thorough quality bar.
+Uses the same Bash matcher pattern as the test gate.
 
 ```json
 {
-  "command": ".claude/scripts/check-coverage.sh",
+  "matcher": "Bash",
+  "command": ".claude/scripts/check-coverage-on-commit.sh \"$BASH_COMMAND\"",
   "description": "Verify test coverage meets minimum threshold"
 }
 ```
 
-Script should: run coverage tool, compare against threshold, print uncovered files on failure.
+Script should: check if `$BASH_COMMAND` contains `git commit`, exit 0 immediately if not.
+If it is a commit, run coverage tool, compare against threshold, print uncovered files on
+failure.
 
 **When to use:** Thorough quality bar only. Can be frustrating during fast iteration.
 
@@ -274,15 +286,17 @@ regex rules — generic rules (covered by standard linters) should not be duplic
 
 ## Entropy Management
 
-### Entropy Check (PostCommit)
+### Entropy Check (PostToolUse — Bash)
 
 Counts completed features and emits a reminder when entropy management is due. This
 mechanizes the cleanup cadence — instead of relying on the agent to remember a prose
-recommendation, the hook fires at the right moment with actionable instructions.
+recommendation, the hook fires at the right moment with actionable instructions. Uses
+`PostToolUse` with a Bash matcher to detect completed commits.
 
 ```json
 {
-  "command": ".claude/scripts/entropy-check.sh",
+  "matcher": "Bash",
+  "command": ".claude/scripts/entropy-check.sh \"$BASH_COMMAND\"",
   "description": "Check if entropy management cleanup is due"
 }
 ```

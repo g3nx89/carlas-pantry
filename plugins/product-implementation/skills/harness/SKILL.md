@@ -2,26 +2,14 @@
 name: harness
 description: >-
   Set up a project's Claude Code harness so it can autonomously implement a development plan
-  across multiple sessions. Takes tasks.md and plan.md (from product-planning or any planning
-  phase) and configures everything the project needs: CLAUDE.md with build commands, hooks in
-  settings.json, feature-list.json for progress tracking, evaluation criteria, session startup
-  checklists, and external CLI review scripts (Codex/Gemini). Use this skill PROACTIVELY
-  whenever the user wants to start implementing a planned feature, configure a project for
-  autonomous coding, set up hooks and progress tracking, prepare a codebase for long-running
-  agent work, bridge the gap between planning and implementation, or set up external reviewers.
-  Trigger phrases include: "set up the harness", "configure for implementation", "prepare for
-  coding", "help me start implementing", "configure the project", "configura il progetto",
-  "configura l'ambiente", "prepara per l'implementazione", "ho un piano pronto", "set up
-  progress tracking", "create feature-list.json", "set up hooks for my project",
-  "configure evaluation criteria", "set up external review with codex/gemini",
-  "set up the evaluation loop", "configure UAT testing", "set up evaluator for my app",
-  "configure interactive testing", "imposta il loop di valutazione",
-  "configura la valutazione esterna". Also trigger when the user mentions having tasks.md
-  or plan.md ready and wanting to start coding, or when they ask about session continuity,
-  cross-session handoffs, feature tracking for implementation, or setting up a separate
-  evaluator agent to test the running application. Do NOT trigger for actual code
-  implementation (writing code, TDD, fixing bugs), creating plans (architecture, task
-  breakdown), or reviewing PRs.
+  across multiple sessions. Takes tasks.md and plan.md (from product-planning) and configures:
+  CLAUDE.md with build commands, hooks in settings.json, feature-list.json for progress
+  tracking, evaluation criteria, session startup checklists, and external CLI review scripts
+  (Codex/Gemini). Use when the user wants to start implementing a planned feature, configure
+  a project for autonomous coding, set up hooks and progress tracking, prepare for long-running
+  agent work, or set up the evaluation loop with external reviewers. Also trigger when the user
+  has tasks.md/plan.md ready and wants to start coding. Do NOT trigger for actual code
+  implementation, creating plans, or reviewing PRs.
 ---
 
 # Harness Configurator
@@ -180,9 +168,22 @@ Recommend MCP servers and Claude Code skills based on project domain, verify bui
 commands work, configure `.claude/settings.json` tool permissions. If CLI agents are
 available, generate `AGENTS.md` (Codex) and/or `GEMINI.md` with project-specific context.
 
+**agnix linter:** If `agnix` is available (`command -v agnix`), generate a `.agnix.toml`
+config at the project root. This enables agnix as a permanent quality gate for all agent
+config files the harness produces. Example:
+
+```toml
+severity = "Warning"
+tools = ["claude-code"]
+
+[rules]
+disabled_rules = ["XP-003"]
+```
+
 The right tools reduce friction dramatically — a Playwright MCP turns browser testing from
 impossible to trivial. External CLI agents turn code review from self-assessment to
-independent evaluation.
+independent evaluation. agnix catches broken hook events, malformed frontmatter, and prompt
+anti-patterns before they silently degrade agent behavior.
 
 ### 2f. Workflow Guide — "Humans Steer, Agents Execute"
 
@@ -194,10 +195,15 @@ The agent needs to know HOW to work, not just WHAT to build.
 ## Stage 3: Verify & Hand Off
 
 1. **Verify files**: Check all generated artifacts exist and are syntactically valid
-2. **Test hooks**: Run each configured hook once to confirm it works
-3. **Present summary**: List everything configured with file paths and brief explanations
-4. **Suggest first sprint**: Recommend which task to start with, based on dependency order
-5. **Demo session startup**: Walk through how a new coding session should begin
+2. **Lint with agnix**: If `agnix` is available (`command -v agnix`), run
+   `agnix --target claude-code --format json {project}` and fix any errors in the generated
+   artifacts (CLAUDE.md, settings.json hooks, SKILL.md files, agent files). Warnings for
+   `.claude/` path references (XP-003) are expected and can be ignored — the harness
+   intentionally configures these paths. Fix all errors before proceeding.
+3. **Test hooks**: Run each configured hook once to confirm it works
+4. **Present summary**: List everything configured with file paths and brief explanations
+5. **Suggest first sprint**: Recommend which task to start with, based on dependency order
+6. **Demo session startup**: Walk through how a new coding session should begin
 
 ## Output Artifacts
 

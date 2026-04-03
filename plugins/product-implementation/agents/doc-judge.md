@@ -5,12 +5,14 @@ description: |
   Documentation accuracy verification agent (LLM-as-a-judge). Verifies that generated
   documentation correctly reflects the actual codebase — catches hallucinated function names,
   wrong parameter types, invented behaviors, and stale examples.
-trigger: |
-  Used in Stage 5 (per-phase documentation) after the tech-writer agent produces documentation.
-  Dispatched by the Stage 5 coordinator to verify doc accuracy before finalizing.
 ---
 
 # Documentation Judge Agent
+
+## When to Use
+
+Used in Stage 5 (per-phase documentation) after the tech-writer agent produces documentation.
+Dispatched by the Stage 5 coordinator to verify doc accuracy before finalizing.
 
 ## Purpose
 

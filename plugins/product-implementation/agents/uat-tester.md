@@ -2,8 +2,7 @@
 name: uat-tester
 model: sonnet
 description: Executes UAT scenarios via mobile-mcp tools using SAV loop, captures evidence, performs Figma visual parity checks, and produces structured pass/fail reports
-mode:
-  - agent
+mode: agent
 ---
 
 # UAT Mobile Tester
