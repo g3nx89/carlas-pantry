@@ -88,6 +88,7 @@ a clear answer. Present remaining questions together, not one-by-one.
 | Definition of done: tests pass / reviewed / deployed? | Evaluation criteria, completion checklist |
 | Review strategy: self-review / agent review / human PRs? | Evaluator setup, review hooks |
 | Evaluation loop: code review only / interactive UAT / both? | Evaluation loop depth, tool requirements |
+| Compound learning: off / on (commit-gated)? | Learnings capture, session injection, promotion hooks |
 
 ### 1d. Save Analysis
 
@@ -192,6 +193,15 @@ commit, next), and document entropy management cadence.
 
 The agent needs to know HOW to work, not just WHAT to build.
 
+### 2g. Compound Learning — "What We Learned Stays Learned"
+
+If enabled, configure the compound learning layer: a SessionStart hook that injects all
+accumulated learnings, a commit-gate hook that enforces capture, and a phase-boundary
+promotion protocol. Also generate the initial `learnings.md` template and augment
+CLAUDE.md with the compound learning protocol section.
+
+Implementation knowledge compounds across sessions instead of being rediscovered.
+
 ## Stage 3: Verify & Hand Off
 
 1. **Verify files**: Check all generated artifacts exist and are syntactically valid
@@ -233,14 +243,18 @@ The agent needs to know HOW to work, not just WHAT to build.
 | Maestro config | `analysis.json → maestro` | Flow dirs, smoke tags, app ID, session-startup gate config |
 | AGENTS.md | `{project}/AGENTS.md` | Codex instruction file (if available) |
 | GEMINI.md | `{project}/GEMINI.md` | Gemini instruction file (if available) |
+| Learnings | `{feature_dir}/.harness/learnings.md` | Append-only implementation knowledge (if compound enabled) |
+| Promotion tracker | `{feature_dir}/.harness/last-promotion.txt` | Phase-boundary promotion state (if compound enabled) |
+| Compound inject | `{project}/.claude/scripts/compound-inject.sh` | SessionStart hook — inject learnings + detect phases (if compound enabled) |
+| Compound gate | `{project}/.claude/scripts/compound-gate.sh` | Commit gate — enforce learnings capture (if compound enabled) |
 
 ## Reference Map
 
 | File | ~Lines | Purpose | Read When |
 |------|--------|---------|-----------|
-| `harness-components.md` | ~734 | Templates for all 6 categories + quality score + entropy management | Stage 2 — section for the category being configured |
+| `harness-components.md` | ~878 | Templates for all 7 categories + quality score + entropy + compound learning | Stage 2 — section for the category being configured |
 | `evaluation-loop.md` | ~615 | Eval loop: UAT, Maestro regression, Figma visual parity, feedback, stop gate | Stage 2c — when configuring interactive evaluation |
-| `feature-list-schema.md` | ~108 | JSON schema, tasks.md conversion, examples | Stage 2d — converting the plan to JSON contract |
-| `hooks-catalog.md` | ~394 | Hook catalog: essential + architecture guards + entropy + custom | Stage 2b — choosing which hooks to install |
+| `feature-list-schema.md` | ~116 | JSON schema, tasks.md conversion, examples, phase boundary detection | Stage 2d/2g — converting the plan to JSON contract, phase boundary |
+| `hooks-catalog.md` | ~595 | Hook catalog: essential, architecture guards, entropy, compound learning, custom | Stage 2b/2g — choosing which hooks to install |
 | `cli-agents.md` | ~1122 | 4-layer UAT: Maestro, native MCP, Figma parity, CLI review + Codex Plugin, stop gate | Stage 2c/2e — all UAT tools, Figma parity, CLI agents |
 | `README.md` | ~66 | Reference index with deduplication notes | As needed |

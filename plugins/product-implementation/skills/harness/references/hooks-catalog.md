@@ -358,6 +358,188 @@ cleanup pass — so the hook tracks absolute progress, not relative intervals.
 blocking commits during active development — the agent reads the output and should
 schedule cleanup as its next action, but isn't forced to stop mid-feature.
 
+## Compound Learning
+
+### Compound Inject (SessionStart)
+
+Injects ALL accumulated implementation learnings into the session context at startup.
+Also detects phase boundaries (all tasks in a phase complete) and signals when learnings
+should be reviewed for promotion to CLAUDE.md "Known Patterns". See
+`harness-components.md` Section 2g for the learnings template, promotion protocol, and
+quality-bar adaptation.
+
+```json
+{
+  "matcher": "",
+  "command": ".claude/scripts/compound-inject.sh",
+  "description": "Inject implementation learnings and detect phase boundaries"
+}
+```
+
+**Script template:**
+
+```bash
+#!/bin/bash
+# .claude/scripts/compound-inject.sh
+# Inject all learnings + detect phase-boundary promotion opportunity
+#
+# NOTE: no set -euo pipefail — this script uses || fallbacks for missing files
+# and must never abort on jq errors. All commands have explicit error handling.
+
+LEARNINGS="{feature_dir}/.harness/learnings.md"
+FEATURE_LIST="{feature_dir}/.harness/feature-list.json"
+LAST_PROMOTION="{feature_dir}/.harness/last-promotion.txt"
+SKIP_FILE="{feature_dir}/.harness/learnings-skip.md"
+
+# Guard: verify placeholders were filled by the configurator
+if [[ "$LEARNINGS" == *"{"* ]]; then
+  echo "ERROR: compound-inject.sh contains unfilled template placeholders. Re-run harness configurator."
+  exit 0
+fi
+
+# --- Clean skip file from previous session ---
+if [ -f "$SKIP_FILE" ]; then
+  rm -f "$SKIP_FILE"
+fi
+
+# --- Inject learnings ---
+if [ -f "$LEARNINGS" ]; then
+  # Count entries by their ### LNNN headers (more reliable than --- separators)
+  # NOTE: grep -c exits 1 when count is 0; use || true (not || echo 0) to avoid
+  # appending a second "0" to stdout which would break numeric tests.
+  ENTRY_COUNT=$(grep -c '^### L[0-9]' "$LEARNINGS" 2>/dev/null || true)
+  ENTRY_COUNT=${ENTRY_COUNT:-0}
+  if [ "$ENTRY_COUNT" -gt 0 ]; then
+    echo "[Compound] $ENTRY_COUNT learnings loaded from previous sessions:"
+    echo ""
+    cat "$LEARNINGS"
+    echo ""
+  fi
+fi
+
+# --- Detect phase boundary ---
+if [ -f "$FEATURE_LIST" ]; then
+  # Get all distinct phases
+  PHASES=$(jq -r '[.features[].phase] | unique | .[]' "$FEATURE_LIST" 2>/dev/null)
+
+  # Check if any phase is fully complete (all tasks pass)
+  COMPLETE_PHASES=""
+  while IFS= read -r phase; do
+    [ -z "$phase" ] && continue
+    TOTAL=$(jq --arg p "$phase" '[.features[] | select(.phase==$p)] | length' "$FEATURE_LIST" 2>/dev/null || echo 0)
+    PASSED=$(jq --arg p "$phase" '[.features[] | select(.phase==$p and .passes==true)] | length' "$FEATURE_LIST" 2>/dev/null || echo 0)
+    if [ "$TOTAL" -gt 0 ] && [ "$TOTAL" -eq "$PASSED" ]; then
+      COMPLETE_PHASES="$COMPLETE_PHASES  - $phase ($TOTAL tasks)
+"
+    fi
+  done <<< "$PHASES"
+
+  if [ -n "$COMPLETE_PHASES" ]; then
+    # Count complete phases (not tasks) to detect NEW phase completions.
+    # Using phase count avoids over-triggering: completing a task within
+    # an already-complete phase won't change this count.
+    COMPLETE_PHASE_COUNT=$(printf '%s' "$COMPLETE_PHASES" | grep -c '^ ' || true)
+    COMPLETE_PHASE_COUNT=${COMPLETE_PHASE_COUNT:-0}
+    LAST_PROMOTED_PHASES=$(cat "$LAST_PROMOTION" 2>/dev/null || echo "0")
+    if [ "$COMPLETE_PHASE_COUNT" != "$LAST_PROMOTED_PHASES" ]; then
+      echo "[Compound] PHASE BOUNDARY — completed phases detected:"
+      printf '%s' "$COMPLETE_PHASES"
+      echo "MANDATORY: Before starting new work, review .harness/learnings.md for promotion:"
+      echo "  1. Read each learning entry"
+      echo "  2. For each: would a future agent on a DIFFERENT feature need this?"
+      echo "     YES → Add to CLAUDE.md '## Known Patterns' section"
+      echo "     NO  → Leave in learnings.md (feature-scoped)"
+      echo "  3. Write complete-phase-count to .harness/last-promotion.txt"
+      echo ""
+    fi
+  fi
+fi
+```
+
+**When to use:** Always when compound learning is enabled. Lightweight (reads 2 files,
+no builds). SessionStart hooks fire once per session — zero per-message overhead.
+
+### Compound Gate (PreToolUse — Bash)
+
+Blocks commits unless the agent has addressed learnings — either by appending a new
+entry to `learnings.md` or creating a skip file with a reason. Follows the same
+composition pattern as the test-gate hook: both match `Bash` and check for `git commit`,
+both must pass independently for the commit to proceed.
+
+```json
+{
+  "matcher": "Bash",
+  "command": ".claude/scripts/compound-gate.sh",
+  "description": "Ensure implementation learnings are captured before commit"
+}
+```
+
+**Script template:**
+
+```bash
+#!/bin/bash
+# .claude/scripts/compound-gate.sh
+# Block commits unless learnings.md was updated or skip reason exists
+#
+# Composition: this hook and test-gate both match Bash/git-commit.
+# Claude Code runs all matching hooks independently — both must exit 0.
+
+LEARNINGS="{feature_dir}/.harness/learnings.md"
+SKIP_FILE="{feature_dir}/.harness/learnings-skip.md"
+
+# Guard: verify placeholders were filled
+if [[ "$LEARNINGS" == *"{"* ]]; then
+  exit 0
+fi
+
+# Read stdin to detect git commit commands (same pattern as test-gate)
+COMMAND=$(cat | jq -r '.tool_input.command // empty')
+[[ "$COMMAND" == git\ commit* ]] || exit 0
+
+# Check 1: learnings.md in staging area?
+# NOTE: avoid grep -c || echo 0 — grep -c exits 1 on zero matches, causing
+# || echo 0 to append a second "0" and break numeric tests. Use grep -q instead.
+LEARNINGS_STAGED=0
+if git diff --cached --name-only 2>/dev/null | grep -q 'learnings\.md'; then
+  LEARNINGS_STAGED=1
+fi
+
+# Check 2: skip file exists with content?
+SKIP_EXISTS=0
+if [ -f "$SKIP_FILE" ] && [ -s "$SKIP_FILE" ]; then
+  SKIP_EXISTS=1
+fi
+
+if [ "$LEARNINGS_STAGED" -eq 0 ] && [ "$SKIP_EXISTS" -eq 0 ]; then
+  echo "COMPOUND GATE: Learnings not addressed"
+  echo ""
+  echo "Before committing, you must either:"
+  echo ""
+  echo "  Option A — Append a learning to $LEARNINGS:"
+  echo "    ---"
+  echo "    ### LNNN — Brief title"
+  echo "    **Session**: $(date +%Y-%m-%d) | **Task**: <current task ID>"
+  echo "    **Type**: Decision | Workaround | Gotcha | Dependency | Finding"
+  echo "    {What you learned and why it matters}"
+  echo "    **Applies when**: {conditions where this is relevant}"
+  echo ""
+  echo "  Option B — Skip with reason (for trivial changes):"
+  echo "    Write a 1-line reason to $SKIP_FILE"
+  echo "    Example: echo 'config-only change, no new insights' > $SKIP_FILE"
+  echo ""
+  echo "Then retry the commit."
+  exit 1
+fi
+```
+
+**When to use:** Balanced and thorough quality bars. For fast iteration, make the gate
+advisory (exit 0 always, print reminder only). The skip mechanism prevents friction on
+trivial commits while ensuring the agent at least considers whether there are learnings.
+
+**Composition with test-gate:** Both hooks match `Bash` and detect `git commit`. Claude
+Code pipes the same stdin JSON to each. If test-gate fails, compound-gate output is also
+visible — the agent fixes both in one retry. No ordering dependency between them.
+
 ## Writing Custom Hooks
 
 ### The Remediation Pattern

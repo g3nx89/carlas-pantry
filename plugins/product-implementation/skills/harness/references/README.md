@@ -2,10 +2,10 @@
 
 | File | Lines | Size | Purpose |
 |------|-------|------|---------|
-| `harness-components.md` | ~734 | 30K | Templates for all 6 harness categories + quality score + entropy management |
+| `harness-components.md` | ~878 | 35K | Templates for all 7 harness categories + quality score + entropy + compound learning |
 | `evaluation-loop.md` | ~615 | 30K | Eval loop: UAT, Maestro regression, Figma visual parity, feedback, stop gate |
-| `feature-list-schema.md` | ~108 | 4K | JSON schema, tasks.md→JSON conversion, immutability rules |
-| `hooks-catalog.md` | ~394 | 14K | Hook catalog: essential, architecture guards, entropy management, custom |
+| `feature-list-schema.md` | ~116 | 4K | JSON schema, tasks.md→JSON conversion, immutability rules, phase boundary detection |
+| `hooks-catalog.md` | ~595 | 21K | Hook catalog: essential, architecture guards, entropy, compound learning, custom |
 | `cli-agents.md` | ~1122 | 44K | 4-layer UAT: Maestro, native MCP, Figma parity, CLI review + Codex Plugin, stop gate |
 
 ## Cross-References
@@ -34,6 +34,9 @@
 - `hooks-catalog.md` "Architecture Guards" references `SKILL.md` Stage 1b for boundary detection
 - `hooks-catalog.md` "Entropy Management" references `harness-components.md` Section 2d for last-cleanup.json
 - Both `harness-components.md` and `hooks-catalog.md` reference `.claude/settings.json` format
+- `harness-components.md` Section 2g references `hooks-catalog.md` "Compound Learning" for hook scripts
+- `harness-components.md` Section 2g references `feature-list-schema.md` for phase-boundary detection
+- `hooks-catalog.md` "Compound Learning" compound-inject references `feature-list-schema.md` phase field
 
 ## Read Order
 
@@ -64,3 +67,6 @@ These artifacts have a SINGLE canonical location:
 - **Maestro flow generation & config** → `cli-agents.md` Section 3e (overview in evaluation-loop.md 2f)
 - **Maestro `analysis.json` schema** → `cli-agents.md` Section 3e (canonical definition)
 - **Tool detection & install prompting** → `cli-agents.md` Section 3a (referenced by harness-components.md 2c)
+- **Compound learning hooks** → `hooks-catalog.md` "Compound Learning" (harness-components.md 2g references, not duplicates)
+- **learnings.md template** → `harness-components.md` Section 2g
+- **Promotion protocol** → `harness-components.md` Section 2g

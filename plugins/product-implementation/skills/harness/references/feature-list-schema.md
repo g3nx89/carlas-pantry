@@ -106,3 +106,11 @@ At session startup, the agent reads feature-list.json and:
 2. Works on that one feature
 3. After verifying all acceptance criteria, sets `passes: true`
 4. Commits the change to feature-list.json along with the implementation
+
+### Phase Boundary Detection
+
+The compound-inject hook (see `hooks-catalog.md` "Compound Learning") uses the `phase`
+field to detect when all tasks in a phase are complete (all `passes: true` within a
+phase group). This triggers a promotion signal — the agent reviews learnings and
+promotes generalizable ones to CLAUDE.md. No schema changes needed — the existing
+`phase` field provides the grouping.

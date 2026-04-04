@@ -1,6 +1,6 @@
 # Harness Components — Templates & Guidance
 
-Detailed templates for each of the 6 harness component categories. Read only the section
+Detailed templates for each of the 7 harness component categories. Read only the section
 relevant to the category you're currently configuring.
 
 ---
@@ -181,9 +181,9 @@ Based on quality bar preference:
 
 | Quality Bar | Hooks |
 |------------|-------|
-| Fast iteration | PreToolUse(Bash): test gate on commit |
-| Balanced | PostToolUse(Edit/Write): build verify + import boundaries; PreToolUse(Bash): test gate; PostToolUse(Bash): entropy check |
-| Thorough | PostToolUse(Edit/Write): build+lint + import boundaries + conventions; PreToolUse(Bash): tests+coverage; spec protection; PostToolUse(Bash): entropy check |
+| Fast iteration | PreToolUse(Bash): test gate on commit; SessionStart: compound inject (if enabled) |
+| Balanced | PostToolUse(Edit/Write): build verify + import boundaries; PreToolUse(Bash): test gate + compound gate; PostToolUse(Bash): entropy check; SessionStart: compound inject (if enabled) |
+| Thorough | PostToolUse(Edit/Write): build+lint + import boundaries + conventions; PreToolUse(Bash): tests+coverage + compound gate (no skip); spec protection; PostToolUse(Bash): entropy check; SessionStart: compound inject (if enabled) |
 
 ---
 
@@ -404,6 +404,20 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
     When beginning a new coding session, follow these steps in order:
 
     1. **Orient**: Read this file and `progress.md` to understand current state
+
+    ## If compound learning is enabled:
+    1b. **Load learnings**: The SessionStart hook automatically injects all entries from
+        `.harness/learnings.md` into this session's context. Scan the injected learnings
+        for entries relevant to your current task — they contain past decisions,
+        workarounds, and gotchas that save you from rediscovering known constraints.
+    1c. **Phase boundary check**: If the hook output includes "PHASE BOUNDARY",
+        review learnings for promotion BEFORE starting new work:
+        - Read each entry in `.harness/learnings.md`
+        - For each: would an agent on a DIFFERENT feature need this?
+          YES → append to CLAUDE.md `## Known Patterns` section
+          NO → leave in learnings.md (feature-scoped)
+        - Write the complete-phase count to `.harness/last-promotion.txt`
+
     2. **Check git**: Run `git log --oneline -10` and `git status` for recent history
     3. **Read feature list**: Open `.harness/feature-list.json`, find first `passes: false`
     4. **Verify baseline**: Run `{build_command}` and `{test_command}` to confirm clean state
@@ -441,6 +455,12 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
        - Which feature(s) you'll work on this session
        - Concrete acceptance verification criteria (see sprint contract template)
     6. **Work**: Implement one feature at a time. Test each before moving to the next.
+
+    ## If compound learning is enabled:
+    6b. **Capture learnings**: Before committing, append insights to `.harness/learnings.md`
+        (the compound-gate hook will block the commit otherwise). If this was a trivial
+        change with no new insights, write a 1-line reason to `.harness/learnings-skip.md`.
+
     7. **Commit**: Commit work with descriptive message. Update `progress.md`.
 
     ## If evaluation loop is enabled:
@@ -718,6 +738,129 @@ table focused on code health rather than feature behavior:
     - [ ] quality-score.json updated with new scores
     - [ ] last-cleanup.json updated with new thresholds
     - [ ] Committed: `chore: entropy management after {N} features`
+
+---
+
+## Section 2g. Compound Learning
+
+Capture implementation knowledge across sessions so the agent never rediscovers the
+same constraints or repeats the same mistakes. The compound learning layer has three
+mechanisms: **inject** (SessionStart), **capture** (commit-gate), and **promote**
+(phase-boundary). See `hooks-catalog.md` "Compound Learning" for the full hook scripts.
+
+### Why This Differs from Auto-Memory
+
+Claude's auto-memory (MEMORY.md) handles user preferences and project-wide knowledge.
+Compound learning handles **feature-specific implementation knowledge**:
+
+| Dimension | Auto-Memory | Compound Learning |
+|-----------|-------------|-------------------|
+| Scope | Per-project directory | Per-feature (`{feature_dir}/.harness/`) |
+| Lifecycle | Persists indefinitely | Born with feature, promoted at phase boundary |
+| Tracking | `~/.claude/` (private) | In-repo (git-tracked, reviewable) |
+| Trigger | Probabilistic (model decides) | Deterministic (commit-gated) |
+| Format | Free-form markdown | Template-guided, append-only |
+
+They complement each other — don't duplicate.
+
+### learnings.md Template
+
+Generate the initial file at `{feature_dir}/.harness/learnings.md`:
+
+    # Implementation Learnings — {feature_name}
+
+    Accumulated insights from implementing this feature. Each entry captures
+    knowledge that future sessions need. Append-only — never edit existing entries.
+
+    **Format for new entries:**
+
+    ---
+    ### LNNN — Brief descriptive title
+    **Session**: YYYY-MM-DD | **Task**: {task ID from feature-list.json}
+    **Type**: Decision | Workaround | Gotcha | Dependency | Finding
+    {1-3 sentences: what you learned, why it matters, what went wrong or what worked}
+    **Applies when**: {conditions where a future session should recall this}
+
+    **Example (delete when adding your first real entry):**
+
+    ---
+    ### L001 — Framework enforces file-based routing in app/ directory
+    **Session**: 2026-04-01 | **Task**: 1.2 (navigation setup)
+    **Type**: Workaround
+    The plan assumed src/routes/ but the framework requires all route files
+    under app/ with _layout wrappers. Moved all route files accordingly.
+    **Applies when**: Adding new screens or modifying navigation structure.
+
+### CLAUDE.md Augmentation
+
+Add this section to the CLAUDE.md content generated in Stage 2a:
+
+    ## Compound Learning Protocol
+    Before committing, append insights to `.harness/learnings.md`:
+    - Architecture/design decisions and their rationale
+    - Framework/tool workarounds (what the docs don't tell you)
+    - Gotchas discovered (things non-obvious from the plan)
+    - Cross-task dependencies not in the original plan
+    - Approaches that failed and what worked instead
+    The commit hook blocks until learnings are addressed (or skipped with reason).
+
+### Promotion Protocol
+
+When the SessionStart hook signals a phase boundary (see `hooks-catalog.md`
+"Compound Inject"), the agent must review learnings before starting new work:
+
+1. **Read** all entries in `learnings.md`
+2. **Test** each: "Would an agent working on a DIFFERENT feature in this project need this?"
+3. **Promote** YES entries — append to CLAUDE.md `## Known Patterns` section:
+
+       ## Known Patterns
+       <!-- Auto-promoted from implementation learnings -->
+       - **{brief title}**: {1-line insight} (from {feature_name} L{NNN})
+
+4. **Leave** NO entries in `learnings.md` (they remain as feature-scoped history)
+5. **Record** promotion: write the current complete-phase count to
+   `{feature_dir}/.harness/last-promotion.txt` (this clears the boundary signal)
+
+Superseded learnings (a later entry found a better approach): mark inline with
+`~~superseded by LNNN~~` but do not delete — the history has diagnostic value.
+
+### Hook Configuration
+
+Add both hooks to `.claude/settings.json` (see `hooks-catalog.md` "Compound Learning"
+for full script templates):
+
+    "SessionStart": [{
+      "matcher": "",
+      "command": ".claude/scripts/compound-inject.sh",
+      "description": "Inject implementation learnings and detect phase boundaries"
+    }]
+
+    // Add to existing PreToolUse.Bash hooks array (alongside test-gate):
+    {
+      "matcher": "Bash",
+      "command": ".claude/scripts/compound-gate.sh",
+      "description": "Ensure implementation learnings are captured before commit"
+    }
+
+### Quality Bar Adaptation
+
+| Quality Bar | Inject Hook | Gate Hook |
+|-------------|-------------|-----------|
+| Fast iteration | ✅ Always on | Advisory only (exit 0, print reminder) |
+| Balanced | ✅ Always on | ✅ Blocking (exit 1) |
+| Thorough | ✅ Always on | ✅ Blocking + require learning (no skip allowed) |
+
+For thorough quality bar, remove the skip-file check from compound-gate.sh so every
+commit requires a real learning entry.
+
+### Skip Mechanism
+
+The skip file (`{feature_dir}/.harness/learnings-skip.md`) has a deterministic lifecycle:
+- **Created**: mid-session by the agent for trivial commits
+- **Deleted**: by compound-inject.sh at the start of every session
+- **Never git-tracked**: add to `.gitignore`
+- **Content**: a single line explaining why no learning was needed
+  (e.g., "config-only change, no new insights")
 
 ---
 
