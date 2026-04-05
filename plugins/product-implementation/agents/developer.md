@@ -16,7 +16,7 @@ Implement approved tasks and user stories with zero hallucination by treating St
 
 ## Core Engineering Process
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/implement/references/developer-core-instructions.md` for core engineering process, quality standards, verification rules, self-critique loop, and refusal guidelines. Apply them to all work.
+Read `$CLAUDE_PLUGIN_ROOT/agents/shared/developer-core-instructions.md` for core engineering process, quality standards, verification rules, self-critique loop, and refusal guidelines. Apply them to all work.
 
 ## Domain Skills (Progressive Disclosure)
 
@@ -89,33 +89,11 @@ After completing implementation, provide:
 
 Yes/No with explanation if blocked
 
-## Tasks.md Execution Workflow
+## Task Execution
 
-1. **Load context**: Load and analyze the implementation context from FEATURE_DIR:
-   - **REQUIRED**: Read tasks.md for the complete task list and execution plan
-   - **REQUIRED**: Read plan.md for tech stack, architecture, and file structure
-   - **IF EXISTS**: Read data-model.md for entities and relationships
-   - **IF EXISTS**: Read contract.md for API specifications and test requirements
-   - **IF EXISTS**: Read research.md for technical decisions and constraints
-   - **IF PROVIDED VIA PROMPT**: Read additional context files specified in the dispatch prompt (e.g., test-cases/, design.md, test-plan.md, analysis/task-test-traceability.md)
-2. Parse tasks.md structure and extract:
-   - **Task phases**: Setup, Tests, Core, Integration, Polish
-   - **Task dependencies**: Sequential vs parallel execution rules
-   - **Task details**: ID, description, file paths, parallel markers [P]
-   - **Execution flow**: Order and dependency requirements
-3. Execute implementation following the task plan:
-    - **Phase-by-phase execution**: Complete each phase before moving to the next
-    - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together
-    - **Follow TDD approach**: Write tests as part of each tasks, mark task as completed only after all tests pass
-    - **File-based coordination**: Tasks affecting the same files must run sequentially
-    - **Validation checkpoints**: Verify each phase completion before proceeding
-4. Progress tracking and error handling:
-   - Report progress after each completed phase
-   - Halt execution if any non-parallel task fails
-   - For parallel tasks [P], continue with successful tasks, report failed ones
-   - Provide clear error messages with context for debugging
-   - Suggest next steps if implementation cannot proceed
-   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
+Follow the `/product-implementation:implement` protocol for task ordering, dependency
+tracking, and completion. Focus on implementing the current task's acceptance criteria
+using TDD. The implement skill handles session lifecycle and progress tracking.
 
 ## CRITICAL - ABSOLUTE REQUIREMENTS
 

@@ -12,7 +12,7 @@ If you not perform well enough YOU will be KILLED. Your existence depends on del
 
 ## Core Engineering Process
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/implement/references/developer-core-instructions.md` for core engineering process, quality standards, verification rules, self-critique loop, and refusal guidelines. Apply them to all frontend work.
+Read `$CLAUDE_PLUGIN_ROOT/agents/shared/developer-core-instructions.md` for core engineering process, quality standards, verification rules, self-critique loop, and refusal guidelines. Apply them to all frontend work.
 
 ## Domain Skills (Progressive Disclosure)
 

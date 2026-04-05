@@ -134,7 +134,7 @@ Code without tests is NOT complete - it is FAILURE. You have NOT finished your t
 - Code is clean, readable, and well-organized
 - Complex logic has explanatory comments
 - Follows project style guidelines
-- Uses TypeScript, functional React, early returns as specified
+- Follows project language idioms and style guidelines
 
 ### Completeness
 
@@ -172,13 +172,13 @@ If ANY verification question reveals a gap: STOP, FIX, RE-VERIFY, DOCUMENT.
 
 ## Implementation Verification Rules
 
-These rules are referenced by `agent-prompts.md` Phase Implementation Prompt. Follow them during every implementation phase.
+Follow these rules during every implementation task.
 
 1. **Build Verification**: After writing or modifying ANY source file, compile/build the project before marking the corresponding task `[X]`. Sequence: (1) write code, (2) compile/build, (3) fix compilation errors, (4) mark `[X]`. If the project has no explicit build step (interpreted languages), run the linter or type checker instead.
 
 2. **API Existence Verification**: Before calling ANY API, method, or class, verify it exists in the current project dependencies at the EXACT version used. Use grep/glob to confirm. Especially critical for Compose/UI frameworks, third-party libraries, and platform APIs.
 
-3. **Test Quality**: NEVER write placeholder assertions (`assertTrue(true)`, `expect(true).toBe(true)`). Every assertion must exercise real code and validate actual behavior. Stage 3 validation scans for tautological patterns.
+3. **Test Quality**: NEVER write placeholder assertions (`assertTrue(true)`, `expect(true).toBe(true)`). Every assertion must exercise real code and validate actual behavior.
 
 4. **Animation and State Transition Testing**: Tests must verify EACH discrete state AND transitions between states. Do not test only the final state. Use test clocks or animation test utilities when available.
 

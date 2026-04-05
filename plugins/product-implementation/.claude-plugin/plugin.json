@@ -1,7 +1,7 @@
 {
   "name": "product-implementation",
-  "version": "5.5.0",
-  "description": "Configure project harnesses for autonomous implementation of development plans. Analyzes plan artifacts, interviews the user, then sets up CLAUDE.md, hooks, progress tracking (feature-list.json), evaluation criteria, TDD enforcement, code review gates, and external CLI review (Codex/Gemini) so Claude Code can execute effectively across multiple sessions.",
+  "version": "6.0.0",
+  "description": "Harness configurator + session protocol for autonomous implementation of development plans. The harness skill sets up the project environment (CLAUDE.md, hooks, feature-list.json, evaluation criteria, CLI review). The implement skill provides the session protocol: task selection, TDD cycle, code review gates, verification, and cross-session handoff.",
   "author": {
     "name": "Alessandro Fato",
     "email": "afato@example.com"

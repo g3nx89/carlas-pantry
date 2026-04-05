@@ -376,6 +376,12 @@ quality-bar adaptation.
 }
 ```
 
+**Generation Guardrails — MUST verify after writing this script:**
+1. **NO `set -euo pipefail`** — this script uses `|| true` / `|| echo` fallbacks; `set -e` would kill the script on expected zero-match greps or missing files
+2. **NO `--jsonargs "$(jq ...)"` in jq calls** — large feature lists exceed `ARG_MAX`; always use single-pass jq with `$var` bindings inside the filter
+3. **Every `grep` must have `|| true`** — grep returns exit 1 on zero matches, which is normal (e.g., no complete phases yet)
+4. **Run the script after generation** (`bash .claude/scripts/compound-inject.sh; echo $?`) — must exit 0
+
 **Script template:**
 
 ```bash

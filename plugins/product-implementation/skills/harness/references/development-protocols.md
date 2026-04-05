@@ -385,6 +385,13 @@ Placeholders filled from `analysis.json`:
 Reads `analysis.json` at session start and injects quality-bar-appropriate context
 into the agent's working memory via `hookSpecificOutput`.
 
+**Generation Guardrails:**
+- This script uses `set -euo pipefail` because it has no grep/optional-file patterns.
+- Do NOT copy `set -euo pipefail` into compound-inject.sh or compound-gate.sh — those
+  scripts use `|| true` fallbacks that are incompatible with `set -e`.
+- Do NOT use `--jsonargs "$(jq ...)"` to pass large JSON as shell arguments — use
+  single-pass jq with internal `$var` bindings.
+
 ```bash
 #!/bin/bash
 # .claude/scripts/inject-protocols.sh

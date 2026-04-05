@@ -1,6 +1,6 @@
 # product-implementation
 
-Execute implementation plans produced by [product-planning](../product-planning). This plugin orchestrates TDD cycles, code generation, quality review, and documentation against the plan using per-phase delivery cycles.
+Configure projects for autonomous implementation of development plans produced by [product-planning](../product-planning). Two complementary skills: **harness** sets up the environment, **implement** provides the session protocol.
 
 ## Installation
 
@@ -14,39 +14,34 @@ claude plugins enable product-implementation
 ```
 product-implementation/
 ├── .claude-plugin/
-│   └── plugin.json                    # Plugin manifest
+│   └── plugin.json                    # Plugin manifest (v6.0.0)
 ├── agents/
-│   ├── test-writer.md                 # Spec-to-test translation (Red phase)
-│   ├── developer.md                   # Implementation, testing, validation, review
-│   ├── output-verifier.md             # Output quality verification (test bodies, spec alignment, DoD)
-│   ├── code-simplifier.md             # Post-phase code simplification
-│   ├── doc-judge.md                   # Documentation accuracy verification (LLM-as-a-judge)
-│   └── tech-writer.md                 # Feature documentation, API guides, architecture updates
+│   ├── shared/
+│   │   └── developer-core-instructions.md  # Core engineering process (read by developer-family agents)
+│   ├── android-developer.md           # Android/Kotlin/Compose specialist
+│   ├── backend-developer.md           # Backend/API/database specialist
+│   ├── code-simplifier.md             # Post-implementation code cleanup
+│   ├── debugger.md                    # Systematic bug diagnosis
+│   ├── developer.md                   # Generic implementation (fallback)
+│   ├── frontend-developer.md          # Frontend/web specialist
+│   ├── integration-test-writer.md     # E2E and integration tests
+│   ├── tech-writer.md                 # Feature documentation
+│   ├── test-writer.md                 # Unit test Red phase
+│   └── uat-tester.md                  # UAT mobile testing via MCP
 ├── commands/
-│   ├── 04-implement.md                # Legacy command (superseded by implement skill)
-│   └── 05-document.md                 # Legacy command (merged into implement skill)
-├── config/
-│   ├── implementation-config.yaml     # Single source of truth for all configurable values
-│   └── cli_clients/                   # CLI agent metadata and role prompts
-│       ├── codex.json, gemini.json
-│       └── *.txt                      # Role-specific prompt files
-├── scripts/
-│   ├── dispatch-cli-agent.sh          # Shared CLI dispatch via process-group (--model/--effort)
-│   ├── dispatch-test-augmenter.sh     # Dual-model test gap analysis (Gemini draft → Codex refine)
-│   └── cleanup-orphans.sh             # Orphan sidecar cleanup
+│   └── ralph-implement.md             # Autonomous implementation via Ralph loop
 ├── skills/
-│   └── implement/
-│       ├── SKILL.md                   # Lean orchestrator (6-stage workflow, per-phase delivery)
-│       └── references/                # Stage-specific coordinator instructions (17 files)
-│           ├── orchestrator-loop.md   # Dispatch loop, crash recovery, state migration
-│           ├── stage-{1-6}-*.md       # Per-stage instructions
-│           ├── agent-prompts.md       # 14 prompt templates
-│           ├── summary-schemas.md     # YAML schemas for stage summaries
-│           └── README.md             # Reference file index with cross-references
-├── templates/
-│   ├── implementation-state-template.local.md  # State file schema (v3)
-│   └── stage-summary-template.md      # Inter-stage summary contract
-├── docs/                              # Migration plans, workflow diagrams
+│   ├── harness/
+│   │   ├── SKILL.md                   # Harness configurator (environment setup)
+│   │   └── references/                # Templates, schemas, catalogs (7 files)
+│   ├── implement/
+│   │   └── SKILL.md                   # Session protocol (task loop)
+│   ├── code-review/
+│   │   └── SKILL.md                   # Two-stage code review
+│   ├── tdd/
+│   │   └── SKILL.md                   # TDD enforcement
+│   └── verification/
+│       └── SKILL.md                   # Verification gate
 ├── CLAUDE.md                          # Plugin-specific guidance
 └── README.md
 ```
@@ -55,24 +50,47 @@ product-implementation/
 
 | Skill | Description | Invoke |
 |-------|-------------|--------|
-| `implement` | 6-stage implementation workflow with per-phase delivery cycles: Setup, Execution, Validation, Quality Review, Documentation, Retrospective | `/product-implementation:implement` |
+| `harness` | Configure project environment: CLAUDE.md, hooks, feature-list.json, evaluation criteria, CLI review | `/product-implementation:harness` |
+| `implement` | Session protocol: startup, task selection, TDD, review, verify, handoff | `/product-implementation:implement` |
+| `tdd` | RED-GREEN-REFACTOR cycle with anti-rationalizations | `/product-implementation:tdd` |
+| `code-review` | Spec compliance + code quality (two-stage) | `/product-implementation:code-review` |
+| `verification` | Evidence-before-claims gate function | `/product-implementation:verification` |
 
 ## Agents
 
 | Agent | Model | Role |
 |-------|-------|------|
-| `test-writer` | sonnet | Spec-to-test translation (Red phase TDD) |
-| `developer` | sonnet | Implementation, testing, validation, code review |
-| `output-verifier` | sonnet | Output quality verification (empty test bodies, spec alignment, DoD compliance) |
-| `code-simplifier` | sonnet | Post-phase code simplification for clarity and maintainability |
-| `doc-judge` | sonnet | Documentation accuracy verification (LLM-as-a-judge) |
-| `tech-writer` | sonnet | Feature documentation, API guides, architecture updates, retrospective |
+| `developer` | sonnet | Generic implementation (fallback vertical) |
+| `android-developer` | sonnet | Android/Kotlin/Compose specialist |
+| `frontend-developer` | sonnet | Frontend/web specialist |
+| `backend-developer` | sonnet | Backend/API/database specialist |
+| `debugger` | sonnet | Systematic bug diagnosis |
+| `test-writer` | sonnet | Unit test spec-to-test translation (Red phase) |
+| `integration-test-writer` | sonnet | E2E and integration tests |
+| `code-simplifier` | sonnet | Post-implementation code cleanup |
+| `uat-tester` | sonnet | Interactive UAT via mobile-mcp/Playwright |
+| `tech-writer` | sonnet | Feature documentation, API guides |
+
+## Workflow
+
+```
+product-planning output (tasks.md + plan.md)
+        │
+        ▼
+  /product-implementation:harness    ← configure once
+        │
+        ▼
+  /product-implementation:implement  ← each coding session
+        │
+        ▼
+  /product-implementation:ralph-implement  ← autonomous loop (optional)
+```
 
 ## Relationship to Other Plugins
 
 | Phase | Plugin | Output |
 |-------|--------|--------|
-| Definition | product-definition | PRD, specifications, test-strategy.md |
+| Definition | product-definition | PRD, specifications |
 | Planning | product-planning | design.md, plan.md, tasks.md, test-plan.md |
 | **Implementation** | **product-implementation** | **Production code, tests, documentation** |
 

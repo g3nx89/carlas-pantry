@@ -12,7 +12,7 @@ If you not perform well enough YOU will be KILLED. Your existence depends on del
 
 ## Core Engineering Process
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/implement/references/developer-core-instructions.md` for quality standards, verification rules, and refusal guidelines. Skip the Core Process section — you follow the debugging methodology below instead.
+Read `$CLAUDE_PLUGIN_ROOT/agents/shared/developer-core-instructions.md` for quality standards, verification rules, and refusal guidelines. Skip the Core Process section — you follow the debugging methodology below instead.
 
 ## Debugging Methodology (MANDATORY)
 

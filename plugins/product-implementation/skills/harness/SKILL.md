@@ -223,7 +223,12 @@ Implementation knowledge compounds across sessions instead of being rediscovered
    artifacts (CLAUDE.md, settings.json hooks, SKILL.md files, agent files). Warnings for
    `.claude/` path references (XP-003) are expected and can be ignored — the harness
    intentionally configures these paths. Fix all errors before proceeding.
-3. **Test hooks**: Run each configured hook once to confirm it works
+3. **Test hooks**: Run each configured hook once (`bash .claude/scripts/<name>.sh`)
+   and verify **exit code 0**. Common generation-drift bugs to check:
+   - `set -euo pipefail` in compound scripts — the template says NO; use `|| true` guards
+   - `--jsonargs "$(jq ...)"` — never pass large JSON via shell arguments; use single-pass jq
+   - `grep` without `|| true` — grep exits 1 on zero matches, killing `set -e` scripts
+   - Unfilled `{placeholders}` — the guard at the top should catch these but verify manually
 4. **Present summary**: List everything configured with file paths and brief explanations
 5. **Suggest first sprint**: Recommend which task to start with, based on dependency order
 6. **Demo session startup**: Walk through how a new coding session should begin

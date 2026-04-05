@@ -1,244 +1,224 @@
 ---
-name: feature-implementation
-description: |
-  This skill should be used when the user asks to "implement the feature", "execute the tasks",
-  "run the implementation plan", "continue implementation", "resume implementation",
-  "execute the plan", or needs to execute tasks defined in tasks.md.
-  Runs implement-android.sh for per-phase implementation with session-isolated Claude sessions.
-version: 4.0.0
-allowed-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
-  - AskUserQuestion
+name: implement
+description: >-
+  Session protocol for implementing tasks within a harness-configured project.
+  Reads .harness/ artifacts, follows TDD cycle, delegates to code-review and
+  verification skills, respects gate enforcement. Use when starting implementation,
+  resuming work in a new session, or when a gate blocks you.
 ---
 
-# Implement Feature Skill
+# Implement — Session Protocol
 
-> **Primary tool:** `$CLAUDE_PLUGIN_ROOT/scripts/implement-android.sh`
+Protocol for working inside a harness-configured project. The harness already set up
+knowledge (CLAUDE.md), enforcement (hooks), progress tracking (feature-list.json),
+and evaluation criteria. This skill tells you how to work within those constraints.
 
-Support layer for the Bash orchestrator that implements features phase-by-phase using session-isolated `claude -p` calls. Each phase gets a fresh context window, eliminating cross-phase context accumulation.
+**Not an orchestrator.** You reason freely. Gates catch mistakes mechanically.
 
-## When Invoked
+---
 
-1. **Locate the feature directory** — find `tasks.md` in the current project. Ask the user if ambiguous.
-2. **Determine the project root** — the git root containing the source code to implement against.
-3. **Ask the user** for execution preferences:
-   - Which phases to run? All, or a range via `--start-from` / `--stop-after`
-   - Figma design handoff? Provide `--figma-url`, `--figma-key`, or `--figma-file`
-   - Pipeline toggles? `--minimal`, `--no-review`, `--no-uat`, etc.
-4. **Construct and run** the script via Bash tool:
+## 1. Session Startup
 
-```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/implement-android.sh" \
-  --feature-dir <FEATURE_DIR> \
-  --project-root <PROJECT_ROOT> \
-  [options...]
-```
+Every session — fresh or resumed — begins here.
 
-5. **Monitor output** — the script prints progress per phase. Report results to user when done.
+### 1a. Find the Feature Directory
 
-## Quick Start Examples
+The feature directory contains `.harness/`, `tasks.md`, and `plan.md`. To find it:
+- Check the project's CLAUDE.md for a `feature_dir` or plan path reference
+- Look for `.harness/` directories: `find . -name analysis.json -path '*/.harness/*' | head -5`
+- If multiple found or none: ask the user
 
-```bash
-# Basic — all phases, auto-detect project type
-./scripts/implement-android.sh \
-  --feature-dir ~/project/docs/specs \
-  --project-root ~/project
+Once found, all `.harness/` paths below are relative to this directory.
 
-# Android project with Figma (paste URL from browser)
-./scripts/implement-android.sh \
-  --feature-dir ~/project/docs/specs \
-  --project-root ~/project \
-  --figma-url 'https://www.figma.com/design/abc123/MyApp'
+### 1b. Load Harness Artifacts
 
-# Single phase, fast
-./scripts/implement-android.sh \
-  --feature-dir ~/project/docs/specs \
-  --project-root ~/project \
-  --start-from B --stop-after B --minimal
+1. **Read analysis.json** — `{feature_dir}/.harness/analysis.json`
+   - Extract: `quality_dimensions.resolved` (tdd_enforcement, review_granularity, test_delta_gate)
+   - Extract: `test_command`, `build_command`, `test_runner`
+2. **Read feature-list.json** — `{feature_dir}/.harness/feature-list.json`
+   - Find current state: how many tasks done, what's next
+3. **Read progress.md** — `{feature_dir}/.harness/progress.md`
+   - Last session's handoff notes, blockers, context
+4. **Check git state** — `git status`, `git log --oneline -5`
+   - If uncommitted changes exist from a previous session: review them, then
+     either commit (if complete) or stash (if partial) before proceeding
+5. **Verify baseline** — run `{build_command}` and `{test_command}`
+   - If either fails: fix before starting new work
+6. **Check eval reports** — if `{feature_dir}/.harness/eval-reports/latest.md` exists
+   with critical issues, address those before new features
+7. **Read learnings** — if `{feature_dir}/.harness/learnings.md` exists (compound
+   learning enabled), read accumulated insights before starting new work
 
-# Dry run — show plan without executing
-./scripts/implement-android.sh \
-  --feature-dir ~/project/docs/specs \
-  --project-root ~/project \
-  --dry-run
-```
+If any `.harness/` file is missing, run `/product-implementation:harness` first.
 
-## Architecture
+---
+
+## 2. Task Selection
+
+Find the next task to implement:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Bash (inter-phase, deterministic)                   │
-│  ─ parse phases from tasks.md                        │
-│  ─ probe MCPs (Codex, Gemini, Figma)                 │
-│  ─ CLI instruction files (AGENTS.md, GEMINI.md)      │
-│  ─ project setup (hooks, CLAUDE.md, settings.json)   │
-│  ─ Figma screenshot export                           │
-├─────────────────────────────────────────────────────┤
-│  FOR EACH PHASE:                                     │
-│  ┌─────────────────────────────────────────────────┐ │
-│  │ claude -p  (fresh context per phase)             │ │
-│  │  Step 1: TDD — test-writer → vertical-agent     │ │
-│  │           → output-verifier → build check        │ │
-│  │  Step 2: Code simplification → build check       │ │
-│  │  Step 3: UAT mobile testing (UI phases only)     │ │
-│  │  Step 4: Quality gate                            │ │
-│  │    4a. Test augmentation (Gemini→Codex)           │ │
-│  │    4b. Native review (3 perspectives)             │ │
-│  │    4c. CLI review (Codex/Gemini)                  │ │
-│  │    4d. Fix Critical/High findings                 │ │
-│  └─────────────────────────────────────────────────┘ │
-│  Build verify → Auto-commit with task changelog      │
-└─────────────────────────────────────────────────────┘
+For each task in feature-list.json where passes == false:
+  If dependencies[] is empty or all tasks in dependencies[] have passes == true:
+    → This is your next task. Stop searching.
 ```
 
-Each `claude -p` call gets `--plugin-dir` so all plugin agents are available as subagent types. Agent `.md` files contain baked-in skill references (dev-skills, meta-skills) loaded via progressive disclosure.
+If `review_granularity == per-task`: also read `.harness/task-state.json`.
+Resume from current state if a task was in-progress (needs-spec-review, etc.).
 
-## Script Options
+**One task at a time.** Complete it fully before starting the next.
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--feature-dir DIR` | *(required)* | Feature spec directory (contains tasks.md, plan.md) |
-| `--project-root DIR` | *(required)* | Project root directory |
-| `--model MODEL` | `claude-sonnet-4-20250514` | Model for implementation sessions |
-| `--vertical-agent TYPE` | *(auto-detected)* | Agent override: `android-developer`, `frontend-developer`, `backend-developer`, `developer` |
-| `--timeout SECS` | `1200` | Timeout per phase session |
-| `--permission-mode MODE` | `plan` | Claude permission mode |
-| `--mcp-config PATH` | — | Additional MCP server config file |
-| `--figma-key KEY` | — | Figma file key (direct) |
-| `--figma-url URL` | — | Figma URL (key extracted automatically, zero cost) |
-| `--figma-file NAME` | — | Figma file name (resolved via MCP, costs 1 haiku call) |
-| `--figma-page NAME` | — | Figma page name for screenshot export |
-| `--start-from PHASE` | — | Start from phase ID (e.g., `B`) |
-| `--stop-after PHASE` | — | Stop after phase ID |
-| `--no-commit` | — | Disable auto-commit per phase |
-| `--no-simplify` | — | Disable code simplification |
-| `--no-uat` | — | Disable UAT mobile testing |
-| `--no-review` | — | Disable multi-model review |
-| `--no-augment` | — | Disable test augmentation |
-| `--no-setup` | — | Skip project setup (hooks, CLAUDE.md, CLI files) |
-| `--minimal` | — | Disable all optional steps (only TDD + build + commit) |
-| `--dry-run` | — | Show plan without executing |
+---
 
-## Vertical Agent Auto-Detection
+## 3. Sprint Contract
 
-The script scans `tasks.md`, `plan.md`, and `design.md` for domain indicators:
+Before coding, write or update `{feature_dir}/.harness/sprint-contract.md`:
 
-| Domain | Indicators | Agent |
-|--------|-----------|-------|
-| Android | `AndroidManifest`, `.kt`, `Kotlin`, `Composable`, `Compose`, `ViewModel`, `gradle` | `android-developer` |
-| Frontend | `.tsx`, `.jsx`, `.vue`, `.svelte`, `React`, `Next.js`, `CSS`, `HTML` | `frontend-developer` |
-| Backend | `endpoint`, `route`, `controller`, `REST`, `GraphQL`, `database`, `schema`, `migration` | `backend-developer` |
-| *(fallback)* | — | `developer` |
+- **Scope**: task ID + description from feature-list.json
+- **Acceptance criteria**: copied verbatim from feature-list.json (immutable)
+- **Verification table**: for each criterion, how to verify it and with what tool
+- **Definition of done**: tests pass, build succeeds, review passed (if applicable)
 
-Override with `--vertical-agent TYPE`.
+This is your agreement with yourself (and the evaluator, if eval loop is enabled)
+on what "done" means. Concrete and testable, not subjective.
 
-## Pre-Phase Setup
+**If eval loop is enabled:** The evaluator reviews your sprint contract before you
+start coding. Write it, then check if the evaluator session produces a
+`contract-review.md`. Iterate max 2 rounds — evaluator version wins on disagreement.
 
-Before the phase loop, the script runs one-time setup (skippable via `--no-setup`):
+---
 
-1. **MCP probing** — Detects Codex CLI, Gemini CLI, Figma MCP availability via `which` and Python JSON parsing
-2. **CLI instruction files** — Creates/updates `AGENTS.md` and `GEMINI.md` at `PROJECT_ROOT` with marker-based idempotent sections (`<!-- pi-codex-begin/end -->`)
-3. **Project setup** — One-time Claude session generating hooks (`protect-specs.sh`, `tdd-reminder.sh`, `safe-bash.sh`), augmenting CLAUDE.md, updating `.claude/settings.json`. Gated by marker file in log dir.
-4. **Figma screenshot export** — Runs `capture-figma-refs.sh` when Figma key is provided
+## 4. Build — TDD Cycle
 
-## Required Input Files
+Invoke `product-implementation:tdd` for the implementation cycle.
 
-| File | Required | Source |
-|------|----------|--------|
-| `tasks.md` | **Yes** | `/product-planning:tasks` |
-| `plan.md` | **Yes** | `/product-planning:plan` |
-| `design.md` | No | `/product-planning:design` |
-| `test-plan.md` | No | `/product-planning:test-plan` |
-| `test-cases/` | No | `/product-planning:test-plan` |
+For each acceptance criterion in the sprint contract:
+1. **RED** — Write a failing test that captures the criterion
+2. **GREEN** — Write minimal code to make it pass
+3. **REFACTOR** — Clean up while keeping tests green
 
-## Agents
+**When `verify-test-delta.sh` blocks your commit:**
+You wrote production code without tests. Go back to RED. Write the missing test,
+watch it fail, then proceed.
 
-All agents are defined in `$CLAUDE_PLUGIN_ROOT/agents/` and available via `--plugin-dir`.
+**When `tdd_enforcement == off`:** TDD is recommended but not gate-enforced.
+When `advisory`: gate warns but allows. When `strict`: gate blocks.
 
-| Agent | Role | Pipeline Step |
-|-------|------|---------------|
-| `test-writer` | Unit test spec-to-test translation (Red phase TDD) | Step 1 |
-| `integration-test-writer` | E2E/integration test specialist | Step 1 |
-| `android-developer` | Android/Kotlin/Compose implementation (vertical) | Step 1 |
-| `frontend-developer` | Frontend/web implementation (vertical) | Step 1 |
-| `backend-developer` | Backend/API/database implementation (vertical) | Step 1 |
-| `developer` | Generic implementation (fallback vertical) | Steps 1, 4 |
-| `debugger` | Systematic bug diagnosis (UNDERSTAND→REPRODUCE→ISOLATE→FIX) | Step 3 |
-| `output-verifier` | Test body quality, spec alignment, DoD compliance | Step 1 |
-| `code-simplifier` | Code clarity and maintainability | Step 2 |
-| `uat-tester` | UAT mobile testing via SAV loop, Figma visual parity | Step 3 |
-| `tech-writer` | Feature documentation, API guides | *(manual)* |
-| `doc-judge` | Documentation accuracy verification (LLM-as-a-judge) | *(manual)* |
+---
 
-Developer-family agents (developer, android-developer, frontend-developer, backend-developer, debugger) read `$CLAUDE_PLUGIN_ROOT/skills/implement/references/developer-core-instructions.md` for shared engineering process and quality standards.
+## 5. Review
 
-## Configuration
+Conditional on `review_granularity` from analysis.json:
 
-| File | Purpose |
-|------|---------|
-| `config/implementation-config.yaml` | User-facing settings (~45 lines): profile, autonomy, project overrides |
-| `config/profile-definitions.yaml` | Internal: profile definitions, domain mapping, vertical agent rules |
-| `config/cli_clients/shared/` | Shared CLI instruction content (written into AGENTS.md/GEMINI.md) |
-| `config/cli_clients/*.json` | Per-CLI-role configuration (model, effort, timeout) |
+| Granularity | When to review | Artifact path |
+|-------------|---------------|---------------|
+| `per-task` | After each task, before marking done | `.harness/reviews/{task_id}/` |
+| `per-phase` | At phase boundary, before starting next phase | `.harness/reviews/phase-{N}/` |
+| `per-sprint` | Before merging to main | Eval loop handles it, or run review before merge |
 
-## Output Artifacts
+**Per-sprint fallback:** If `review_granularity == per-sprint` and eval loop is not
+enabled, run `product-implementation:code-review` once before merging to main.
 
-| Artifact | Location | Description |
-|----------|----------|-------------|
-| Phase commits | git history | One commit per phase with task-based changelog |
-| Review findings | `{FEATURE_DIR}/.review-findings-phase-*.md` | Consolidated findings per phase |
-| UAT evidence | `{FEATURE_DIR}/.uat-evidence/` | Screenshots organized by phase |
-| Session logs | `{FEATURE_DIR}/.implement-logs/` | All prompts, session outputs, review files |
-| AGENTS.md | `{PROJECT_ROOT}/AGENTS.md` | CLI instruction file (Codex) |
-| GEMINI.md | `{PROJECT_ROOT}/GEMINI.md` | CLI instruction file (Gemini) |
-| Hooks | `{PROJECT_ROOT}/.claude/hooks/` | protect-specs.sh, tdd-reminder.sh, safe-bash.sh |
+When review is required, invoke `product-implementation:code-review`.
+It runs two stages: spec compliance first, then code quality.
+Both must produce artifacts with `verdict: "pass"` before proceeding.
 
-## Severity Levels
+**When `gate-commit-on-state.sh` blocks:**
+Task state is `needs-spec-review` or `needs-quality-review`. Complete the
+pending review stage via `product-implementation:code-review`.
 
-| Severity | Description |
-|----------|-------------|
-| **Critical** | Breaks functionality, security vulnerability, data loss risk |
-| **High** | Likely to cause bugs, significant code quality issue |
-| **Medium** | Code smell, maintainability concern, minor pattern violation |
-| **Low** | Style preference, minor optimization opportunity |
+**When `gate-feature-list-on-state.sh` blocks:**
+Review artifacts missing or have `verdict: "fail"`. Produce passing review
+artifacts before marking `passes: true`.
 
-## Troubleshooting
+### Per-task state machine
 
-| Problem | Solution |
-|---------|----------|
-| Script exits with "tasks.md not found" | Ensure `--feature-dir` points to directory containing `tasks.md` |
-| No phases parsed | Check `tasks.md` has `## Phase X: Name` headers |
-| Wrong vertical agent detected | Override with `--vertical-agent android-developer` |
-| Codex/Gemini not detected | Ensure `codex` / `gemini` are in PATH. Script probes via `which`. |
-| Figma MCP not available | Start Figma desktop app + figma-console MCP. Or use `--figma-url` for URL-only key extraction |
-| Phase timeout | Increase with `--timeout 1800` (default: 1200s = 20min) |
-| Build failures loop | Script attempts auto-fix once per build check. If build still fails, phase continues. Check logs. |
-| `--figma-file` resolves wrong key | Use `--figma-url` instead (zero-cost URL parsing, no MCP needed) |
+When `review_granularity == per-task`, update `.harness/task-state.json`:
 
-## Related Scripts
+```
+implementing → needs-spec-review → needs-quality-review → approved
+```
 
-| Script | Purpose |
-|--------|---------|
-| `scripts/implement-android.sh` | Main orchestrator (this skill's primary tool) |
-| `scripts/uat/capture-figma-refs.sh` | Figma REST API screenshot exporter |
-| `scripts/uat/run-uat.sh` | CLI engine dispatch for UAT scenarios |
-| `scripts/dispatch-cli-agent.sh` | CLI agent dispatch with 4-tier output extraction |
-| `scripts/dispatch-test-augmenter.sh` | Dual-model test gap analysis (Gemini→Codex) |
+On rejection at any stage: return to `implementing`, fix issues, re-review.
 
-## Active References
+---
 
-| File | Used By | Content |
-|------|---------|---------|
-| `references/developer-core-instructions.md` | 5 developer-family agents | Shared engineering process, quality standards, verification rules |
+## 6. Verify & Complete
 
-## Legacy LLM Orchestrator
+Before marking any task done, invoke `product-implementation:verification`.
 
-The `references/` directory contains ~23 additional files from the previous LLM-driven orchestrator (v3.6.0). These coordinator instruction files (`stage-*.md`, `orchestrator-loop.md`, `agent-prompts.md`, etc.) are **not used by the script** but are retained for:
+1. Run `{test_command}` — confirm 0 failures
+2. Run `{build_command}` — confirm exit 0
+3. Check each acceptance criterion from sprint-contract.md — line by line
+4. **Capture learnings** — if compound learning is enabled, append any non-obvious
+   insights to `{feature_dir}/.harness/learnings.md` (what surprised you, what broke,
+   what you'd do differently). The commit-gate hook enforces this.
+5. **Only then**: set `passes: true` in feature-list.json
+6. Commit source code, feature-list.json, and learnings.md together
 
-- Historical reference of the patterns the script implements
-- The `ralph-implement` command, which still invokes the old orchestrator workflow
+**Rule:** If you haven't run the verification command in THIS message,
+you cannot claim it passes. Evidence before claims, always.
 
-If fully migrating away from the LLM orchestrator, these files and the `templates/` directory (except `ralph-implement-prompt.md`) can be archived or removed.
+**Dirty-tree policy:** Source code must be committed before writing to
+feature-list.json. The gate excludes `.harness/` from the dirty check.
+
+---
+
+## 7. Phase Boundary
+
+Detect: all tasks in the current phase have `passes: true`.
+
+At a phase boundary:
+1. If `review_granularity == per-phase`: run review for the entire phase
+2. If eval loop is enabled: trigger evaluation session (see eval-criteria.md)
+3. If compound learning is enabled: promote learnings from learnings.md
+4. Update progress.md with phase completion summary
+5. Commit all `.harness/` changes
+
+---
+
+## 8. Session Handoff
+
+When context is getting long, a phase is complete, or you're blocked:
+
+1. Update `{feature_dir}/.harness/progress.md` with:
+   - Last completed task ID
+   - Next task to start
+   - Any blockers or context the next session needs
+2. Commit all `.harness/` changes
+3. Print a handoff summary:
+   ```
+   Session complete.
+   Done: [task IDs completed this session]
+   Next: [next task ID and brief description]
+   Blockers: [any blockers, or "none"]
+   Progress: [N/M tasks complete]
+   ```
+
+The next session starts at Step 1 and picks up from progress.md.
+
+---
+
+## Gate Response Table
+
+When a gate blocks you, read its error message. It tells you exactly what's missing.
+
+| Gate script | What it blocks | Recovery action |
+|-------------|---------------|-----------------|
+| `verify-test-delta.sh` | Commit without matching test changes | Write missing tests → invoke `product-implementation:tdd` |
+| `gate-commit-on-state.sh` | Commit during pending review | Complete review → invoke `product-implementation:code-review` |
+| `gate-feature-list-on-state.sh` | Marking passes:true without evidence | Produce review artifacts → invoke `product-implementation:verification` |
+
+**Do not work around gates.** They exist because evidence is missing. Produce the evidence.
+
+---
+
+## Anti-Patterns
+
+- Skipping session startup → you work on the wrong task or miss failing baseline
+- Marking `passes: true` before verification → gate blocks, you lose time
+- Ignoring gate messages → they tell you exactly what's missing
+- Starting next task before current is approved → dependency chain breaks
+- Editing feature-list.json descriptions → only `passes` is mutable
+- "Close enough" on spec compliance → spec review will reject it
+- Self-approving without running review → gate checks for artifact files
