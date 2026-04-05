@@ -7,6 +7,7 @@
 | `feature-list-schema.md` | ~116 | 4K | JSON schema, tasks.md→JSON conversion, immutability rules, phase boundary detection |
 | `hooks-catalog.md` | ~595 | 21K | Hook catalog: essential, architecture guards, entropy, compound learning, custom |
 | `cli-agents.md` | ~1122 | 44K | 4-layer UAT: Maestro, native MCP, Figma parity, CLI review + Codex Plugin, stop gate |
+| `development-protocols.md` | ~590 | Gate script templates, SessionStart content, task-state schema, quality dimensions | Stage 2b, 2d, 2f |
 
 ## Cross-References
 
@@ -37,6 +38,13 @@
 - `harness-components.md` Section 2g references `hooks-catalog.md` "Compound Learning" for hook scripts
 - `harness-components.md` Section 2g references `feature-list-schema.md` for phase-boundary detection
 - `hooks-catalog.md` "Compound Learning" compound-inject references `feature-list-schema.md` phase field
+- `development-protocols.md` Section 2a references `hooks-catalog.md` "Development Protocol Gates" for hook config
+- `development-protocols.md` Section 2b references `hooks-catalog.md` "State-Aware Commit Gate" for enhanced commit pattern
+- `development-protocols.md` Section 2d references `harness-components.md` Section 2d for session-startup integration
+- `development-protocols.md` Section 3 references `harness-components.md` Section 2d for task-state.json template
+- `harness-components.md` Section 2b references `development-protocols.md` for gate script templates
+- `harness-components.md` Section 2f references `development-protocols.md` Section 3 for state machine modes
+- `hooks-catalog.md` "Development Protocol Gates" references `development-protocols.md` for script templates
 
 ## Read Order
 
@@ -70,3 +78,11 @@ These artifacts have a SINGLE canonical location:
 - **Compound learning hooks** → `hooks-catalog.md` "Compound Learning" (harness-components.md 2g references, not duplicates)
 - **learnings.md template** → `harness-components.md` Section 2g
 - **Promotion protocol** → `harness-components.md` Section 2g
+- **Task state schema** → `development-protocols.md` Section 3a
+- **Gate script templates** → `development-protocols.md` Section 2
+- **SessionStart injection content** → `development-protocols.md` Section 2d
+- **Quality dimension mapping** → `development-protocols.md` Section 1a
+- **Review artifact schema** → `development-protocols.md` Section 3e
+- **Anti-rationalization tables (full)** → Skills: `tdd`, `code-review`, `verification`
+- **Anti-rationalization messages (gate-targeted)** → `development-protocols.md` Section 2 (per script)
+- **Review protocol (behavioral)** → Skill: `code-review`

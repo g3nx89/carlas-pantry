@@ -90,6 +90,19 @@ a clear answer. Present remaining questions together, not one-by-one.
 | Evaluation loop: code review only / interactive UAT / both? | Evaluation loop depth, tool requirements |
 | Compound learning: off / on (commit-gated)? | Learnings capture, session injection, promotion hooks |
 
+**Quality bar resolves to 4 dimensions** (user can override individually):
+
+| Dimension | fast | balanced | thorough |
+|-----------|------|----------|----------|
+| `tdd_enforcement` | off | advisory | strict |
+| `review_granularity` | per-sprint | per-phase | per-task |
+| `test_delta_gate` | off | warning | blocking |
+| `anti_rationalizations` | none | meta-warning | full |
+
+Store resolved dimensions in `analysis.json` under `quality_dimensions`. If the user
+specifies overrides (e.g., "thorough but review only per-sprint"), record them under
+`quality_dimensions.overrides` and compute the resolved values.
+
 ### 1d. Save Analysis
 
 Write `{feature_dir}/.harness/analysis.json` with all findings and preferences.
@@ -247,6 +260,12 @@ Implementation knowledge compounds across sessions instead of being rediscovered
 | Promotion tracker | `{feature_dir}/.harness/last-promotion.txt` | Phase-boundary promotion state (if compound enabled) |
 | Compound inject | `{project}/.claude/scripts/compound-inject.sh` | SessionStart hook — inject learnings + detect phases (if compound enabled) |
 | Compound gate | `{project}/.claude/scripts/compound-gate.sh` | Commit gate — enforce learnings capture (if compound enabled) |
+| Task state | `{feature_dir}/.harness/task-state.json` | Review state machine (if review_granularity == per-task) |
+| Review artifacts | `{feature_dir}/.harness/reviews/` | Spec + quality review JSON per task/phase |
+| Protocol injection | `{project}/.claude/scripts/inject-protocols.sh` | SessionStart behavioral summary |
+| Test delta gate | `{project}/.claude/scripts/verify-test-delta.sh` | Commit gate for test completeness (if test_delta_gate != off) |
+| State-aware commit | `{project}/.claude/scripts/gate-commit-on-state.sh` | Enhanced commit gate with state check (if review_granularity == per-task) |
+| Evidence gate | `{project}/.claude/scripts/gate-feature-list-on-state.sh` | Feature-list edit gate (if review_granularity != per-sprint) |
 
 ## Reference Map
 
@@ -258,3 +277,4 @@ Implementation knowledge compounds across sessions instead of being rediscovered
 | `hooks-catalog.md` | ~595 | Hook catalog: essential, architecture guards, entropy, compound learning, custom | Stage 2b/2g — choosing which hooks to install |
 | `cli-agents.md` | ~1122 | 4-layer UAT: Maestro, native MCP, Figma parity, CLI review + Codex Plugin, stop gate | Stage 2c/2e — all UAT tools, Figma parity, CLI agents |
 | `README.md` | ~66 | Reference index with deduplication notes | As needed |
+| `development-protocols.md` | ~590 | Gate script templates, SessionStart content, task-state schema, quality dimensions | Stage 2b/2d/2f — when generating protocol gates and SessionStart hook |

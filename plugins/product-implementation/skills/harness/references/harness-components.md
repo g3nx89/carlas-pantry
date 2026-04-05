@@ -185,6 +185,22 @@ Based on quality bar preference:
 | Balanced | PostToolUse(Edit/Write): build verify + import boundaries; PreToolUse(Bash): test gate + compound gate; PostToolUse(Bash): entropy check; SessionStart: compound inject (if enabled) |
 | Thorough | PostToolUse(Edit/Write): build+lint + import boundaries + conventions; PreToolUse(Bash): tests+coverage + compound gate (no skip); spec protection; PostToolUse(Bash): entropy check; SessionStart: compound inject (if enabled) |
 
+### Development Protocol Gates
+
+When `quality_dimensions` are configured (balanced or thorough quality bar), generate
+additional enforcement gates. See `development-protocols.md` for full script templates
+and `hooks-catalog.md` "Development Protocol Gates" for hook configurations.
+
+| Gate | Generated When | Script | Blocks |
+|------|---------------|--------|--------|
+| Test Delta | `test_delta_gate` != off | `verify-test-delta.sh` | Commits without tests for new code |
+| State-Aware Commit | `review_granularity` == per-task | `gate-commit-on-state.sh` | Commits during pending review |
+| Evidence | `review_granularity` != per-sprint | `gate-feature-list-on-state.sh` | Marking done without review artifacts |
+| SessionStart Injection | Always | `inject-protocols.sh` | (non-blocking — injects context) |
+
+**Important:** The state-aware commit gate REPLACES the basic test gate (it includes test
+verification plus state checking). Do not generate both — only one commit gate per project.
+
 ---
 
 ## 2c. Evaluation Criteria & Evaluation Loop
@@ -373,6 +389,38 @@ in every evaluation report as reduced coverage.
 
 See `feature-list-schema.md` for the full schema and conversion algorithm.
 
+### Task State Tracking
+
+When `review_granularity` is per-task, generate a state machine file to track review
+status. See `development-protocols.md` Section 3 for the full schema and transitions.
+
+**Template:**
+
+```json
+{
+  "schema_version": 1,
+  "current_task": "task-1.1",
+  "state": "implementing",
+  "history": []
+}
+```
+
+**Rules:**
+- `state` and `current_task` updated by the coding agent (behavioral layer guides when)
+- `history` is append-only
+- task-state.json is a CONVENIENCE TRACKER — gates verify review ARTIFACTS, not this file
+- Only generated when `review_granularity == per-task`
+
+### Review Artifacts
+
+When `review_granularity` is per-phase or per-task, reviews produce JSON artifacts that
+the evidence gate verifies. See `development-protocols.md` Section 3e for the schema.
+
+- Per-task: `.harness/reviews/{task_id}/spec-review.json` and `quality-review.json`
+- Per-phase: `.harness/reviews/phase-{N}/spec-review.json` and `quality-review.json`
+
+The evidence gate checks: both files exist AND both have `verdict: "pass"`.
+
 ### Progress File Template
 
 ```markdown
@@ -419,6 +467,18 @@ See `feature-list-schema.md` for the full schema and conversion algorithm.
         - Write the complete-phase count to `.harness/last-promotion.txt`
 
     2. **Check git**: Run `git log --oneline -10` and `git status` for recent history
+
+    ## If development protocol gates are configured:
+    2b. **Load protocol awareness**: The SessionStart hook automatically injects the
+        development protocol summary. Verify you understand:
+        - Which gates are active (check `.claude/settings.json` hooks)
+        - Current task state (read `.harness/task-state.json` if it exists)
+        - The per-task flow: implement → review → approve → mark done
+        If the plugin is available, invoke the relevant skill before starting work:
+        - `product-implementation:tdd` — before implementing
+        - `product-implementation:code-review` — before/after reviewing
+        - `product-implementation:verification` — before marking complete
+
     3. **Read feature list**: Open `.harness/feature-list.json`, find first `passes: false`
     4. **Verify baseline**: Run `{build_command}` and `{test_command}` to confirm clean state
     4a. **Check quality score**: Read `.harness/quality-score.json`:
@@ -677,15 +737,31 @@ Recommend this pattern to users — it prevents the two most common agent failur
 (context exhaustion from doing too much, and premature victory from skipping verification):
 
 1. **Pick ONE feature** from feature-list.json (first `passes: false`)
-2. **Write tests first** if test-plan exists for this feature
-3. **Implement** until tests pass
-4. **Verify** — run full test suite, check build
-5. **Commit** with descriptive message referencing the feature ID
-6. **Evaluate** — if evaluation loop is enabled, trigger evaluator session or external review
-7. **Mark done** — set `passes: true` in feature-list.json ONLY after evaluation verdict is
-   PASS (or REVISE with no critical issues). If evaluation is not enabled, mark after step 5.
-8. **Update quality score** — update relevant dimensions in `quality-score.json`, append history entry
-9. **Repeat** from step 1
+2. **Update task state** — set `current_task` and `state: implementing` in task-state.json
+   (if state machine is configured)
+3. **Write tests first** — if `tdd_enforcement` >= advisory, follow TDD cycle
+   (RED→GREEN→REFACTOR). Invoke `product-implementation:tdd` if available.
+4. **Implement** until tests pass
+5. **Verify** — run full test suite, check build
+6. **Review** — if `review_granularity` is per-task:
+   a. Update task-state.json → `needs-spec-review`
+   b. Dispatch spec compliance review (subagent or self-review)
+   c. Fix issues if found → re-review until approved
+   d. Update task-state.json → `needs-quality-review`
+   e. Dispatch code quality review
+   f. Fix issues if found → re-review until approved
+   g. Update task-state.json → `approved`
+   h. Review artifacts written to `.harness/reviews/{task_id}/`
+   Invoke `product-implementation:code-review` if available.
+7. **Commit** with descriptive message referencing the feature ID
+8. **Evaluate** — if evaluation loop is enabled, trigger evaluator session or external review
+9. **Mark done** — set `passes: true` in feature-list.json ONLY after:
+   - Review artifacts exist with `verdict: "pass"` (per-task or per-phase)
+   - Evaluation verdict is PASS or REVISE (if eval loop enabled)
+   - Source code committed (git clean excluding `.harness/`)
+10. **Update metadata + commit** — update `quality-score.json`, then commit harness state:
+    `git add .harness/ && git commit -m "chore: update harness metadata for {feature_id}"`
+11. **Repeat** from step 1
 
 The order matters: committing before evaluation lets the evaluator review the actual committed
 code. But `passes: true` must wait for the evaluator's verdict — otherwise the agent declares

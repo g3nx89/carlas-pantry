@@ -540,6 +540,101 @@ trivial commits while ensuring the agent at least considers whether there are le
 Code pipes the same stdin JSON to each. If test-gate fails, compound-gate output is also
 visible — the agent fixes both in one retry. No ordering dependency between them.
 
+## Development Protocol Gates
+
+Hooks that enforce TDD discipline and code review workflow. Generated based on the `quality_dimensions` in `analysis.json`. See `development-protocols.md` for full script templates.
+
+### Test Delta Gate (PreToolUse — Bash)
+
+Checks that commits include test files when production files are modified. Advisory for
+balanced, blocking for thorough.
+
+```json
+{
+  "matcher": "Bash",
+  "command": ".claude/scripts/verify-test-delta.sh",
+  "description": "Check test completeness before committing"
+}
+```
+
+Script receives JSON on stdin (same pattern as test gate). Classify staged files as
+production vs test using patterns from `analysis.json`. If production > 0 and test == 0,
+warn or block based on `test_delta_gate` setting. Passes without warning for `refactor:`
+commits when `tdd_enforcement != strict`.
+
+**When to use:** Balanced (advisory) and thorough (blocking). Not generated for fast.
+
+**Anti-rationalizations in error:** "Too simple to test", "I'll test after", "Already
+tested manually"
+
+**Skill pointer:** "Invoke product-implementation:tdd for the TDD protocol."
+
+### State-Aware Commit Gate (PreToolUse — Bash)
+
+Enhanced commit gate that also checks task-state.json. Extends the existing test gate
+with state machine verification.
+
+```json
+{
+  "matcher": "Bash",
+  "command": ".claude/scripts/gate-commit-on-state.sh",
+  "description": "Run tests and verify review state before committing"
+}
+```
+
+Same stdin parsing as test gate. After test verification, read task-state.json and verify
+state is "implementing" or "approved". Block if needs-spec-review or needs-quality-review.
+
+**When to use:** Per-task review granularity only. REPLACES the basic test gate — do not
+generate both.
+
+**Anti-rationalizations in error:** "Code is simple, doesn't need review", "I already
+self-reviewed", "Review will slow me down"
+
+**Skill pointer:** "Invoke product-implementation:code-review for the review protocol."
+
+### Evidence Gate (PreToolUse — Edit|Write)
+
+Blocks feature-list.json edits unless review artifacts exist with verdict "pass" and
+source code is committed.
+
+```json
+{
+  "matcher": "Edit|Write",
+  "command": ".claude/scripts/gate-feature-list-on-state.sh",
+  "description": "Verify review approval before marking tasks complete"
+}
+```
+
+Script parses `tool_input.file_path` from stdin. Exits 0 if not targeting
+feature-list.json. Checks review artifacts and clean source tree (excluding .harness/).
+
+**When to use:** Balanced (per-phase) and thorough (per-task). Not generated for fast.
+
+**Anti-rationalizations in error:** "Should work now", "I'm confident", "Just this last
+one"
+
+**Skill pointer:** "Invoke product-implementation:verification for the verification
+protocol."
+
+### SessionStart Protocol Injection (SessionStart)
+
+Injects development protocol summary at session start. Content calibrated to quality_bar.
+
+```json
+{
+  "matcher": "startup|clear|compact|resume",
+  "command": ".claude/scripts/inject-protocols.sh",
+  "description": "Inject development protocol awareness"
+}
+```
+
+Script reads analysis.json, builds content based on quality_dimensions, outputs JSON with
+hookSpecificOutput.additionalContext. Content varies by quality bar (fast: ~10 lines,
+balanced: ~25, thorough: ~35).
+
+**When to use:** Always generated (content varies by quality bar).
+
 ## Writing Custom Hooks
 
 ### The Remediation Pattern

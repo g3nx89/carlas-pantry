@@ -29,6 +29,10 @@ profiles:
       stage5_docs: false
       stage6_retro: false
       app_launch_gate: true
+      tdd_enforcement: "off"
+      review_granularity: "per-sprint"
+      test_delta_gate: "off"
+      anti_rationalizations: "none"
     cli_features: []
 
   standard:
@@ -53,6 +57,10 @@ profiles:
       stage5_docs: true
       stage6_retro: true
       app_launch_gate: true
+      tdd_enforcement: "advisory"
+      review_granularity: "per-phase"
+      test_delta_gate: "warning"
+      anti_rationalizations: "meta-warning"
     cli_features:
       - "test_augmenter_secondary"
       - "spec_validator"
@@ -80,6 +88,10 @@ profiles:
       stage5_docs: true
       stage6_retro: true
       app_launch_gate: true
+      tdd_enforcement: "strict"
+      review_granularity: "per-task"
+      test_delta_gate: "blocking"
+      anti_rationalizations: "full"
     cli_features:
       - "test_augmenter_secondary"
       - "spec_validator"

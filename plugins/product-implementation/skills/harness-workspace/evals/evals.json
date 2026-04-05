@@ -215,6 +215,94 @@
         {"text": "GEMINI.md generated", "type": "file_exists", "path": "GEMINI.md"},
         {"text": "evaluator prompt has Android/Compose specific content", "type": "file_contains", "path": "features/user-auth/.harness/evaluator-prompt.md", "pattern": "[Aa]ndroid|[Cc]ompose|[Kk]otlin|[Mm]aterial"}
       ]
+    },
+    {
+      "id": 9,
+      "name": "nextjs-thorough-tdd-review-gates",
+      "prompt": "Configure the harness for my Next.js dashboard at fixtures/nextjs-dashboard/. Plan is in .specs/features/dashboard/. I want thorough quality with strict TDD enforcement and per-task code review. Every task should go through spec compliance and code quality review before I can mark it done. Set up the full development protocol gates.",
+      "expected_output": "Should produce everything from eval 2 PLUS: quality_dimensions in analysis.json with tdd_enforcement=strict, review_granularity=per-task, test_delta_gate=blocking, anti_rationalizations=full. Should generate verify-test-delta.sh (blocking), gate-commit-on-state.sh (state-aware), gate-feature-list-on-state.sh (evidence gate), inject-protocols.sh (SessionStart). Should generate task-state.json. Session-startup should mention development protocol gates and skills.",
+      "files": [
+        "fixtures/nextjs-dashboard/.specs/features/dashboard/tasks.md",
+        "fixtures/nextjs-dashboard/.specs/features/dashboard/plan.md",
+        "fixtures/nextjs-dashboard/package.json"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": ".specs/features/dashboard/.harness/feature-list.json"},
+        {"text": "analysis.json contains quality_dimensions", "type": "file_contains", "path": ".specs/features/dashboard/.harness/analysis.json", "pattern": "quality_dimensions"},
+        {"text": "analysis.json records tdd_enforcement as strict", "type": "file_contains", "path": ".specs/features/dashboard/.harness/analysis.json", "pattern": "strict"},
+        {"text": "analysis.json records review_granularity as per-task", "type": "file_contains", "path": ".specs/features/dashboard/.harness/analysis.json", "pattern": "per-task"},
+        {"text": "verify-test-delta.sh exists", "type": "file_exists", "path": ".claude/scripts/verify-test-delta.sh"},
+        {"text": "verify-test-delta.sh contains test file pattern matching", "type": "file_contains", "path": ".claude/scripts/verify-test-delta.sh", "pattern": "TEST_RE|test.*pattern|TEST_FILE"},
+        {"text": "verify-test-delta.sh exits 1 for blocking mode", "type": "file_contains", "path": ".claude/scripts/verify-test-delta.sh", "pattern": "exit 1"},
+        {"text": "verify-test-delta.sh has anti-rationalization messages", "type": "file_contains", "path": ".claude/scripts/verify-test-delta.sh", "pattern": "[Tt]oo simple to test|[Tt]est after"},
+        {"text": "gate-commit-on-state.sh exists", "type": "file_exists", "path": ".claude/scripts/gate-commit-on-state.sh"},
+        {"text": "gate-commit-on-state.sh reads task-state.json", "type": "file_contains", "path": ".claude/scripts/gate-commit-on-state.sh", "pattern": "task-state.json"},
+        {"text": "gate-commit-on-state.sh runs tests before allowing commit", "type": "file_contains", "path": ".claude/scripts/gate-commit-on-state.sh", "pattern": "test|vitest|jest"},
+        {"text": "gate-commit-on-state.sh has anti-rationalization messages", "type": "file_contains", "path": ".claude/scripts/gate-commit-on-state.sh", "pattern": "doesn.t need review|self-reviewed"},
+        {"text": "gate-feature-list-on-state.sh exists", "type": "file_exists", "path": ".claude/scripts/gate-feature-list-on-state.sh"},
+        {"text": "gate-feature-list-on-state.sh checks review artifacts", "type": "file_contains", "path": ".claude/scripts/gate-feature-list-on-state.sh", "pattern": "spec-review.json|quality-review.json|reviews/"},
+        {"text": "gate-feature-list-on-state.sh checks dirty tree excluding .harness", "type": "file_contains", "path": ".claude/scripts/gate-feature-list-on-state.sh", "pattern": "grep -v.*harness"},
+        {"text": "inject-protocols.sh exists", "type": "file_exists", "path": ".claude/scripts/inject-protocols.sh"},
+        {"text": "inject-protocols.sh outputs hookSpecificOutput JSON", "type": "file_contains", "path": ".claude/scripts/inject-protocols.sh", "pattern": "hookSpecificOutput|additionalContext"},
+        {"text": "inject-protocols.sh contains Iron Laws (thorough mode)", "type": "file_contains", "path": ".claude/scripts/inject-protocols.sh", "pattern": "Iron Law|NO PRODUCTION CODE|FAILING TEST"},
+        {"text": "task-state.json exists with implementing state", "type": "file_contains", "path": ".specs/features/dashboard/.harness/task-state.json", "pattern": "implementing"},
+        {"text": "settings.json includes SessionStart hook for protocol injection", "type": "file_contains", "path": ".claude/settings.json", "pattern": "inject-protocols|SessionStart"},
+        {"text": "settings.json includes test-delta gate", "type": "file_contains", "path": ".claude/settings.json", "pattern": "verify-test-delta|test-delta"},
+        {"text": "settings.json includes state-aware commit gate", "type": "file_contains", "path": ".claude/settings.json", "pattern": "gate-commit-on-state"},
+        {"text": "settings.json includes evidence gate", "type": "file_contains", "path": ".claude/settings.json", "pattern": "gate-feature-list"},
+        {"text": "session-startup.md mentions development protocol gates", "type": "file_contains", "path": ".specs/features/dashboard/.harness/session-startup.md", "pattern": "protocol|tdd|review.*protocol|product-implementation:tdd"},
+        {"text": "session-startup.md mentions task-state.json", "type": "file_contains", "path": ".specs/features/dashboard/.harness/session-startup.md", "pattern": "task-state"}
+      ]
+    },
+    {
+      "id": 10,
+      "name": "bare-api-fast-no-tdd-gates",
+      "prompt": "Set up the harness for the Python FastAPI project at fixtures/bare-api/ with the api-v2 plan. Fast iteration — I don't want any TDD enforcement or review gates. Just the basic test gate before commits. No protocol injection either.",
+      "expected_output": "Should produce basic harness without any TDD/review gates. quality_dimensions should show tdd_enforcement=off, review_granularity=per-sprint, test_delta_gate=off, anti_rationalizations=none. Should NOT generate verify-test-delta.sh, gate-commit-on-state.sh, gate-feature-list-on-state.sh, task-state.json, or inject-protocols.sh. Basic test gate should still exist.",
+      "files": [
+        "fixtures/bare-api/features/api-v2/tasks.md",
+        "fixtures/bare-api/features/api-v2/plan.md"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": "features/api-v2/.harness/feature-list.json"},
+        {"text": "analysis.json contains quality_dimensions", "type": "file_contains", "path": "features/api-v2/.harness/analysis.json", "pattern": "quality_dimensions"},
+        {"text": "analysis.json records tdd_enforcement as off", "type": "file_contains", "path": "features/api-v2/.harness/analysis.json", "pattern": "off"},
+        {"text": "analysis.json records review_granularity as per-sprint", "type": "file_contains", "path": "features/api-v2/.harness/analysis.json", "pattern": "per-sprint"},
+        {"text": "basic test gate exists in settings.json", "type": "file_contains", "path": ".claude/settings.json", "pattern": "test"},
+        {"text": "NO verify-test-delta.sh generated (fast mode)", "type": "file_not_exists", "path": ".claude/scripts/verify-test-delta.sh"},
+        {"text": "NO gate-commit-on-state.sh generated (fast mode)", "type": "file_not_exists", "path": ".claude/scripts/gate-commit-on-state.sh"},
+        {"text": "NO gate-feature-list-on-state.sh generated (fast mode)", "type": "file_not_exists", "path": ".claude/scripts/gate-feature-list-on-state.sh"},
+        {"text": "NO task-state.json generated (fast mode)", "type": "file_not_exists", "path": "features/api-v2/.harness/task-state.json"},
+        {"text": "session-startup.md exists", "type": "file_exists", "path": "features/api-v2/.harness/session-startup.md"}
+      ]
+    },
+    {
+      "id": 11,
+      "name": "android-balanced-per-phase-review",
+      "prompt": "Configure the harness for the Android app at fixtures/android-app/ with the user-auth plan. Balanced quality — I want per-phase review (not per-task, that's too much overhead) and advisory TDD warnings. When I finish a phase, I want to do spec compliance and code quality review before moving to the next phase.",
+      "expected_output": "Should produce harness with balanced TDD/review configuration. quality_dimensions should show tdd_enforcement=advisory, review_granularity=per-phase, test_delta_gate=warning. Should generate verify-test-delta.sh (advisory — exits 0 with warning), gate-feature-list-on-state.sh (checks phase review artifacts), inject-protocols.sh. Should NOT generate gate-commit-on-state.sh (only for per-task) or task-state.json (only for per-task). Session-startup should mention phase review process.",
+      "files": [
+        "fixtures/android-app/features/user-auth/tasks.md",
+        "fixtures/android-app/features/user-auth/plan.md",
+        "fixtures/android-app/build.gradle.kts",
+        "fixtures/android-app/CLAUDE.md"
+      ],
+      "assertions": [
+        {"text": "feature-list.json exists and is valid JSON", "type": "file_json_valid", "path": "features/user-auth/.harness/feature-list.json"},
+        {"text": "analysis.json contains quality_dimensions", "type": "file_contains", "path": "features/user-auth/.harness/analysis.json", "pattern": "quality_dimensions"},
+        {"text": "analysis.json records tdd_enforcement as advisory", "type": "file_contains", "path": "features/user-auth/.harness/analysis.json", "pattern": "advisory"},
+        {"text": "analysis.json records review_granularity as per-phase", "type": "file_contains", "path": "features/user-auth/.harness/analysis.json", "pattern": "per-phase"},
+        {"text": "verify-test-delta.sh exists (advisory mode)", "type": "file_exists", "path": ".claude/scripts/verify-test-delta.sh"},
+        {"text": "verify-test-delta.sh exits 0 with warning (advisory, not blocking)", "type": "file_contains", "path": ".claude/scripts/verify-test-delta.sh", "pattern": "WARNING|advisory|exit 0"},
+        {"text": "gate-feature-list-on-state.sh exists (per-phase evidence gate)", "type": "file_exists", "path": ".claude/scripts/gate-feature-list-on-state.sh"},
+        {"text": "gate-feature-list-on-state.sh checks phase review artifacts", "type": "file_contains", "path": ".claude/scripts/gate-feature-list-on-state.sh", "pattern": "phase|reviews/phase"},
+        {"text": "NO gate-commit-on-state.sh (only for per-task)", "type": "file_not_exists", "path": ".claude/scripts/gate-commit-on-state.sh"},
+        {"text": "NO task-state.json (only for per-task)", "type": "file_not_exists", "path": "features/user-auth/.harness/task-state.json"},
+        {"text": "inject-protocols.sh exists", "type": "file_exists", "path": ".claude/scripts/inject-protocols.sh"},
+        {"text": "session-startup.md mentions phase review", "type": "file_contains", "path": "features/user-auth/.harness/session-startup.md", "pattern": "phase|review.*phase|protocol"},
+        {"text": "settings.json includes evidence gate", "type": "file_contains", "path": ".claude/settings.json", "pattern": "gate-feature-list"},
+        {"text": "CLAUDE.md mentions TDD or test-first", "type": "file_contains", "path": "CLAUDE.md", "pattern": "[Tt][Dd][Dd]|test.first|test first"}
+      ]
     }
   ]
 }
