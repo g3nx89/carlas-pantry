@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Use when implementing any feature or bugfix inside the harness. Write the test first, watch it fail, write minimal code to pass. Invoke when a harness gate blocks you or when starting any implementation task.
+description: Use when implementing any feature or bugfix inside the harness. Write the test first, watch it fail, write minimal code to pass. Invoke when a harness gate blocks you or when starting any implementation task. If `.harness/analysis.json` defines a `tdd_composition` block, this skill ALSO enforces per-commit file-composition rules (chore-stub, RED, GREEN) — read the "Commit Chain Composition" section below BEFORE staging files for any TDD commit.
 ---
 
 # Test-Driven Development (TDD)
@@ -33,6 +33,164 @@ Extract these values and use them throughout this skill:
 **If `.harness/analysis.json` does not exist:** Ask the user for these four values before proceeding. Do not guess.
 
 Replace `{TEST_COMMAND}` in all examples below with the actual value from `test_command`.
+
+## Commit Chain Composition
+
+If `.harness/analysis.json` contains a `tdd_composition` block, it defines
+per-commit file-composition rules that MUST be satisfied in addition to the
+Red-Green-Refactor discipline below. A project harness gate (named in
+`tdd_composition.history_gate_script`) typically enforces these rules at
+commit time and will block violations.
+
+**Why this exists.** Some projects enforce strict commit-chain discipline:
+each commit in a RED → GREEN chain touches a specific subset of files, and
+violations are rejected by a mechanical gate or a review pass. The purpose
+is to make the TDD sequence auditable in git history — the chore-stub
+introduces the API, the RED commit proves the test is actually red (not a
+compile error), the GREEN commit introduces the fix. Mixing file
+categories across commits makes the chain unverifiable.
+
+**If `tdd_composition` is absent or `enabled: false`:** ignore this
+section. The generic Red-Green-Refactor discipline below is sufficient.
+
+### Before composing any TDD commit
+
+1. **Classify the intended commit.** Match it to one of the chains defined
+   in `tdd_composition.commit_chains`:
+
+   - **`two_commit`** — use when your RED test compiles against APIs that
+     already exist (you're fixing wrong behavior in an existing class, not
+     introducing a new class). The chain is:
+     ```
+     test(<module>): RED — <failing scenario>
+     fix(<module>): GREEN — <what the fix does>
+     ```
+
+   - **`three_commit`** — use when your RED test references a production
+     class, interface, or method that does NOT yet exist. The test cannot
+     compile without a stub. The chain is:
+     ```
+     chore(<module>): stub <api> for upcoming RED test
+     test(<module>): RED — <failing scenario>
+     fix(<module>): GREEN — <what the fix does>
+     ```
+
+2. **Identify which step you're about to compose** (index 0, 1, or 2).
+
+3. **Stage ONLY files that match the step's `allowed_paths` glob.** Any
+   other file belongs to a different step of the chain.
+
+4. **Verify body constraints.** If the step has `body_constraints` (typical
+   for chore-stub steps), every added method body must match one of the
+   constraint patterns — usually `TODO()` / `error(` / `throw
+   NotImplementedError`. The chore-stub commit must NOT pass the RED test
+   on its own; if it does, you're smuggling production code.
+
+5. **Confirm the order.** The gate enforces that commits arrive in the
+   order defined by the chain. Reordering or interleaving with unrelated
+   commits breaks the chain.
+
+### Common composition mistakes
+
+The following all trigger history-gate blocks:
+
+- **Harness state in a chore-stub or RED commit.** Sprint contracts,
+  feature-list toggles, progress logs, and learnings entries are harness
+  state. They belong exclusively in the GREEN step (the catch-all), not
+  bundled with the stub or the test. The chore/RED steps must remain
+  pure per their `allowed_paths`.
+- **Test files in a chore-stub commit.** The stub is main-source only.
+  Tests arrive in the next step.
+- **Production code in a RED commit.** The test-only RED commit is the
+  permanent proof that the test was actually red against a pre-fix state.
+  Mixing prod code into it invalidates that proof.
+- **Chore-stub commit with real behavior.** If any added method has a
+  non-stub body, the chain is smuggling production code past the RED
+  commit. The body-constraint check exists to catch this.
+- **Skipping the chore step when the test compiles anyway.** If the test
+  can compile against existing APIs, prefer the `two_commit` chain —
+  adding an unnecessary chore commit is noise, and the gate will accept
+  it but reviewers will flag it.
+
+### Reading the config
+
+Example `tdd_composition` block (projects adapt values to their
+conventions):
+
+```json
+{
+  "tdd_composition": {
+    "enabled": true,
+    "history_gate_script": "verify-tdd-history.sh",
+    "commit_chains": {
+      "two_commit": {
+        "when": "The RED test compiles against existing APIs",
+        "sequence": [
+          {
+            "subject_prefix": ["test(", "RED "],
+            "allowed_paths": [
+              "**/src/test/**",
+              "**/src/androidTest/**",
+              "**/src/testFixtures/**"
+            ]
+          },
+          {
+            "subject_prefix": ["fix(", "GREEN "],
+            "allowed_paths": ["*"]
+          }
+        ]
+      },
+      "three_commit": {
+        "when": "The RED test references a production class or interface that does not yet exist",
+        "sequence": [
+          {
+            "subject_regex": "^chore\\([a-z:,-]+\\): stub .* for (upcoming )?(test\\(|RED )",
+            "allowed_paths": ["**/src/main/**/*.kt"],
+            "body_constraints": [
+              "TODO()",
+              "error(",
+              "throw NotImplementedError"
+            ]
+          },
+          {
+            "subject_prefix": ["test(", "RED "],
+            "allowed_paths": [
+              "**/src/test/**",
+              "**/src/androidTest/**",
+              "**/src/testFixtures/**"
+            ]
+          },
+          {
+            "subject_prefix": ["fix(", "GREEN "],
+            "allowed_paths": ["*"]
+          }
+        ]
+      }
+    },
+    "bypass_file": ".harness/tdd-bypass-next-commit",
+    "bypass_keywords": ["[hotfix-skip-tdd]"],
+    "harness_dir": ".harness"
+  }
+}
+```
+
+### Bypass
+
+If `tdd_composition.bypass_file` is set, the harness typically allows a
+one-shot bypass by writing one of `tdd_composition.bypass_keywords` to
+that file before committing:
+
+```bash
+echo "[hotfix-skip-tdd] <one-line reason>" > "$(cat .harness/analysis.json | jq -r '.tdd_composition.bypass_file')"
+git commit ...
+```
+
+Use bypass ONLY for genuine production emergencies where writing a test
+first is impossible (external API change, test infrastructure itself is
+broken, crashlytics-level incident). Every bypass is logged and reviewed
+at the next phase boundary. `[refactor]`, `[chore]`, `[docs]` are NOT
+sanctioned bypass keywords — those either don't trigger the gate
+(doc-only, non-source) or should go through the proper chain.
 
 ## The Iron Law
 
